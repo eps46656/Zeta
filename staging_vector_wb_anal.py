@@ -4,8 +4,8 @@ import dataclasses
 import math
 import random
 
+import beartype
 import numpy as np
-from typeguard import typechecked
 
 
 @dataclasses.dataclass
@@ -15,7 +15,7 @@ class Seg:
     size: int
 
 
-def CompressSegs(segs: list[Seg]):
+def compress_segs(segs: list[Seg]):
     ret: list[Seg] = list()
 
     for seg in segs:
@@ -39,7 +39,7 @@ def CompressSegs(segs: list[Seg]):
     return ret
 
 
-def GetRandomSegs(origin_size: int, max_dat_seg_size: int):
+def get_rand_segs(origin_size: int, max_dat_seg_size: int):
     # [1, origin_size]
 
     pivots = random.sample(range(1, origin_size),
@@ -67,10 +67,10 @@ def GetRandomSegs(origin_size: int, max_dat_seg_size: int):
 
     ret = [segs[idx] for idx in idxes]
 
-    return CompressSegs(ret)
+    return compress_segs(ret)
 
 
-def CheckSegs(origin_size: int, segs: list[Seg]):
+def check_segs(origin_size: int, segs: list[Seg]):
     assert 0 <= origin_size
 
     prv_is_ref = False
@@ -94,8 +94,8 @@ def CheckSegs(origin_size: int, segs: list[Seg]):
         prv_ref_end = seg.beg + seg.size
 
 
-@typechecked
-def Solve3(arr: list[int],
+@beartype.beartype
+def solve3(arr: list[int],
            brr: list[int],
            cost_coeff_inc: int,
            cost_coeff_dec: int):
@@ -143,8 +143,8 @@ dp[i] = min(
 '''
 
 
-@typechecked
-def Solve2(arr: list[int],
+@beartype.beartype
+def solve2(arr: list[int],
            brr: list[int],
            cost_coeff_inc: int,
            cost_coeff_dec: int,
@@ -180,8 +180,8 @@ def Solve2(arr: list[int],
     return int(dp[N])
 
 
-@typechecked
-def Solve1(arr: list[int],
+@beartype.beartype
+def solve1(arr: list[int],
            brr: list[int],
            cost_coeff_inc: int,
            cost_coeff_dec: int):
@@ -215,8 +215,8 @@ def Solve1(arr: list[int],
         cur_crr = 0
 
 
-@typechecked
-def CalculateBestWBCost(
+@beartype.beartype
+def cal_best_wb_cost(
         origin_size: int,
         segs: list[Seg],
         cost_coeff_insert: int,
@@ -225,7 +225,7 @@ def CalculateBestWBCost(
         cost_coeff_write: int,
         max_scan_size: int):
 
-    CheckSegs(origin_size, segs)
+    check_segs(origin_size, segs)
 
     stage_size = 0
 
@@ -255,7 +255,7 @@ def CalculateBestWBCost(
 
     arr: list[int] = [a - b for a, b in zip(origin_arr, stage_arr)]
 
-    return Solve2(arr, brr, cost_coeff_insert, cost_coeff_erase, max_scan_size) + cost_coeff_write * acc_data_size
+    return solve2(arr, brr, cost_coeff_insert, cost_coeff_erase, max_scan_size) + cost_coeff_write * acc_data_size
 
 
 def main1():
@@ -272,7 +272,7 @@ def main1():
         Seg(False, 0, 128),
     ]
 
-    cost = CalculateBestWBCost(
+    cost = cal_best_wb_cost(
         1024 + 2048,
         segs,
         cost_coeff_insert,
@@ -293,9 +293,9 @@ def main2():
     origin_size = 1024 * 16
     max_dat_seg_size = 7
 
-    segs = GetRandomSegs(origin_size, max_dat_seg_size)
+    segs = get_rand_segs(origin_size, max_dat_seg_size)
 
-    best_cost = CalculateBestWBCost(
+    best_cost = cal_best_wb_cost(
         origin_size,
         segs,
         cost_coeff_read,
@@ -307,7 +307,7 @@ def main2():
 
     print(f"{best_cost=}")
 
-    better_cost = CalculateBestWBCost(
+    better_cost = cal_best_wb_cost(
         origin_size,
         segs,
         cost_coeff_read,

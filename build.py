@@ -1,204 +1,209 @@
+from __future__ import annotations
+
 import argparse
 import dataclasses
 import os
-import pathlib
 import sys
 
-import termcolor
+import beartype
 
-import Zeta
-import ZetaExe
-from Builder import Builder
-from utils import ArchEnum, EnvEnum, SysEnum, Target, VendorEnum
+from . import building_utils, utils
+from .zeta import core as zeta_core
+from .zeta import core_test as zeta_core_test
 
-FILE = pathlib.Path(__file__).absolute()
-DIR = FILE.parents[0]
+FILE = utils.to_canon_path(__file__, solve_symlink=False)
+DIR = FILE.parent
 
-zeta_develop_dir = DIR
-zeta_dir = zeta_develop_dir / "Zeta"
-zeta_exe_dir = zeta_develop_dir / "ZetaExe"
+zeta_dev_dir = DIR
 
-target = None
+zeta_dir = zeta_dev_dir / "zeta"
 
-if os.name == "nt":
-    target = Target(
-        arch=ArchEnum.INTEL64,
-        vendor=VendorEnum.PC,
-        sys=SysEnum.WINDOWS,
-        env=EnvEnum.MSVC,
-    )
-elif os.name == "posix":
-    target = Target(
-        arch=ArchEnum.INTEL64,
-        vendor=VendorEnum.PC,
-        sys=SysEnum.LINUX,
-        env=EnvEnum.ELF,
-    )
-else:
-    assert False, "Unsupported system."
+zeta_core_dir = zeta_dir / "core"
+zeta_core_test_dir = zeta_dir / "core_test"
 
-zeta_debug_config = Zeta.Config(
+zeta_out_dir = zeta_dev_dir / "build"
+
+match os.name:
+    case "nt":
+        target = utils.Target(
+            arch=utils.ArchEnum.INTEL64,
+            vendor=utils.VendorEnum.PC,
+            sys=utils.SysEnum.WINDOWS,
+            env=utils.EnvEnum.MSVC,
+        )
+    case "posix":
+        target = utils.Target(
+            arch=utils.ArchEnum.INTEL64,
+            vendor=utils.VendorEnum.PC,
+            sys=utils.SysEnum.LINUX,
+            env=utils.EnvEnum.ELF,
+        )
+
+    case _:
+        raise NotImplementedError()
+
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+
+zeta_core_debug_config = zeta_core.Config(
     name="debug",
 
     verbose=True,
 
-    build_dir=zeta_develop_dir / "ZetaDebugBuild",
+    out_dir=zeta_out_dir / "core" / "debug",
 
     target=target,
 
     c_standard="c2x",
     cpp_standard="c++17",
 
-    c_include_dirs=[],
-    cpp_include_dirs=[],
+    c_include_dirs=[zeta_dev_dir],
+    cpp_include_dirs=[zeta_dev_dir],
 
     enable_debug=True,
-    enable_asan=True,
+    enable_asan=False,
 
-    opt_type=0,
+    opt_type="0",
     link_time_opt=False,
 )
 
-zeta_exe_debug_config = ZetaExe.Config(
+zeta_core_test_debug_config = zeta_core_test.Config(
     name="debug",
 
     verbose=True,
 
-    build_dir=zeta_develop_dir / "ZetaExeDebugBuild",
-
-    zeta_dir=zeta_develop_dir / "Zeta",
-    zeta_build_dir=zeta_debug_config.build_dir,
+    out_dir=zeta_out_dir / "core_test" / "debug",
 
     target=target,
 
     c_standard="c2x",
     cpp_standard="c++17",
 
-    c_include_dirs=[zeta_dir],
-    cpp_include_dirs=[zeta_dir],
+    c_include_dirs=[zeta_dev_dir],
+    cpp_include_dirs=[zeta_dev_dir],
 
     enable_debug=True,
-    enable_asan=True,
+    enable_asan=False,
 
-    opt_type=0,
+    opt_type="0",
     link_time_opt=False,
 )
 
-zeta_release_config = Zeta.Config(
+zeta_core_release_config = zeta_core.Config(
     name="release",
 
     verbose=True,
 
-    build_dir=zeta_develop_dir / "ZetaReleaseBuild",
+    out_dir=zeta_out_dir / "core" / "release",
 
     target=target,
 
     c_standard="c2x",
     cpp_standard="c++17",
 
-    c_include_dirs=[],
-    cpp_include_dirs=[],
+    c_include_dirs=[zeta_dev_dir],
+    cpp_include_dirs=[zeta_dev_dir],
 
     enable_debug=False,
     enable_asan=False,
 
-    opt_type=3,
+    opt_type="3",
     link_time_opt=True,
 )
 
-zeta_exe_release_config = ZetaExe.Config(
+zeta_core_test_release_config = zeta_core_test.Config(
     name="release",
 
     verbose=True,
 
-    build_dir=zeta_develop_dir / "ZetaExeReleaseBuild",
-
-    zeta_dir=zeta_develop_dir / "Zeta",
-    zeta_build_dir=zeta_release_config.build_dir,
+    out_dir=zeta_out_dir / "core_test" / "release",
 
     target=target,
 
     c_standard="c2x",
     cpp_standard="c++17",
 
-    c_include_dirs=[zeta_dir],
-    cpp_include_dirs=[zeta_dir],
+    c_include_dirs=[zeta_dev_dir],
+    cpp_include_dirs=[zeta_dev_dir],
 
     enable_debug=False,
     enable_asan=False,
 
-    opt_type=3,
+    opt_type="3",
     link_time_opt=True,
 )
 
-zeta_raw_config = Zeta.Config(
+zeta_core_raw_config = zeta_core.Config(
     name="raw",
 
     verbose=True,
 
-    build_dir=zeta_develop_dir / "ZetaRawBuild",
+    out_dir=zeta_out_dir / "core" / "raw",
 
     target=target,
 
     c_standard="c2x",
     cpp_standard="c++17",
 
-    c_include_dirs=[],
-    cpp_include_dirs=[],
+    c_include_dirs=[zeta_dev_dir],
+    cpp_include_dirs=[zeta_dev_dir],
 
     enable_debug=True,
     enable_asan=False,
 
-    opt_type=0,
+    opt_type="0",
     link_time_opt=False,
 )
 
-zeta_exe_raw_config = ZetaExe.Config(
+zeta_core_test_raw_config = zeta_core_test.Config(
     name="raw",
 
     verbose=True,
 
-    build_dir=zeta_develop_dir / "ZetaExeRawBuild",
-
-    zeta_dir=zeta_develop_dir / "Zeta",
-    zeta_build_dir=zeta_raw_config.build_dir,
+    out_dir=zeta_out_dir / "core_test" / "raw",
 
     target=target,
 
     c_standard="c2x",
     cpp_standard="c++17",
 
-    c_include_dirs=[zeta_dir],
-    cpp_include_dirs=[zeta_dir],
+    c_include_dirs=[zeta_dev_dir],
+    cpp_include_dirs=[zeta_dev_dir],
 
     enable_debug=True,
     enable_asan=False,
 
-    opt_type=0,
+    opt_type="0",
     link_time_opt=False,
 )
 
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
+
+@beartype.beartype
 @dataclasses.dataclass
 class ConfigSet:
-    zeta_config: Zeta.Config
-    zeta_exe_config: ZetaExe.Config
+    zeta_core_config: zeta_core.Config
+    zeta_core_test_config: zeta_core_test.Config
 
 
 configs = {
     "debug": ConfigSet(
-        zeta_config=zeta_debug_config,
-        zeta_exe_config=zeta_exe_debug_config,
+        zeta_core_config=zeta_core_debug_config,
+        zeta_core_test_config=zeta_core_test_debug_config,
     ),
 
     "release": ConfigSet(
-        zeta_config=zeta_release_config,
-        zeta_exe_config=zeta_exe_release_config,
+        zeta_core_config=zeta_core_release_config,
+        zeta_core_test_config=zeta_core_test_release_config,
     ),
 
     "raw": ConfigSet(
-        zeta_config=zeta_raw_config,
-        zeta_exe_config=zeta_exe_raw_config,
+        zeta_core_config=zeta_core_raw_config,
+        zeta_core_test_config=zeta_core_test_raw_config,
     ),
 }
 
@@ -217,35 +222,32 @@ def main():
                         choices=list(configs.keys()),
                         required=True)
 
-    parser.add_argument("--run_target",
-                        dest="run_target",
+    parser.add_argument("--run",
+                        dest="run",
                         action="store_true")
 
     parser.add_argument("--rebuild",
                         dest="rebuild",
                         action="store_true")
 
+    print(f"{sys.argv[1:]}")
+
     args = parser.parse_args(sys.argv[1:])
 
-    print(f"args = {args}")
+    print(f"args: {args}")
 
     config = configs[args.config]
 
-    builder = Builder()
+    builder = building_utils.Builder()
 
-    Zeta.AddDeps(builder, config.zeta_config)
-    ZetaExe.AddDeps(builder, config.zeta_exe_config)
+    zeta_core.add_deps(builder, config.zeta_core_config)
+    zeta_core_test.add_deps(builder, config.zeta_core_test_config)
 
-    for unit in builder.GetUnits():
-        builder.Add(unit, [FILE], None)
-
-    builder.Add(FILE, None, None)
-
-    builder.Check()
+    builder.add_build_node(FILE, None, None)
 
     target_replace_table = {
-        "?zeta_build_dir": str(config.zeta_config.build_dir),
-        "?zeta_exe_build_dir": str(config.zeta_exe_config.build_dir),
+        "{zeta_core_out_dir}": str(config.zeta_core_config.out_dir),
+        "{zeta_core_test_out_dir}": str(config.zeta_core_test_config.out_dir),
     }
 
     target = args.target
@@ -253,29 +255,34 @@ def main():
     for k, l in target_replace_table.items():
         target = target.replace(k, l)
 
-    target = pathlib.Path(target)
+    target = utils.to_pathlib_path(target)
 
-    is_success, units = builder.Build(target, args.rebuild)
+    build_result = builder.build(target, args.rebuild)
 
-    status = "success" if is_success else "failed"
+    total_build_state_str = "success" if build_result.is_success else "failed"
 
-    print(termcolor.colored(status, "yellow"))
+    print(utils.Color.yellow(total_build_state_str))
 
-    for unit_state, units in units.items():
-        print(termcolor.colored(f"{unit_state} build units:", "yellow"))
+    for unit_build_state, units in [
+        ("skipped_units", build_result.skipped_units),
+        ("finished_units", build_result.finished_units),
+        ("failed_units", build_result.failed_units),
+        ("unready_units", build_result.unready_units),
+    ]:
+        print(f"{utils.Color.yellow(f'{unit_build_state} build units')}:")
 
         for i in sorted(units):
             print(f"\t{i}")
 
-    print(termcolor.colored(f"target: ", "yellow") + f"{target}")
+    print(f"{utils.Color.yellow('target:')} {target}", sep="")
 
-    print(termcolor.colored(status, "yellow"))
+    print(utils.Color.yellow(total_build_state_str))
 
-    if not is_success:
+    if not build_result.is_success:
         return
 
-    if args.run_target:
-        print(termcolor.colored(f"Running: ", "yellow") + f"{target}")
+    if args.run:
+        print(f"{utils.Color.yellow(f'Running:')} {target}")
         os.system(str(target))
 
 
