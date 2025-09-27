@@ -262,7 +262,7 @@ class LLVMCompiler:
         c_compile_args = [
             *compile_args,
 
-            f"-std={self.standard[utils.Language.C]}",
+            "--std", self.standard[utils.Language.C],
 
             *(f"--include-directory={include_dir.as_posix()}"
               for include_dir in self.c_include_dirs),
@@ -281,6 +281,10 @@ class LLVMCompiler:
 
             *(f"--include-directory={include_dir}"
               for include_dir in self.cpp_include_dirs),
+
+            "-Wold-style-cast",
+            "-Wconversion",
+            "-Wsign-conversion",
 
             # "-fno-exceptions",
             # "-fno-rtti",
@@ -358,7 +362,7 @@ class LLVMCompiler:
     ) -> list[str]:
         return [
             *self.compile_args[lang.base],
-            "-x", get_clang_lang(lang),
+            "--language", get_clang_lang(lang),
         ]
 
     def get_including_pairs(
@@ -384,11 +388,11 @@ class LLVMCompiler:
             [
                 *self.compile_args[lang.base],
                 f"-fsyntax-only",
-                f"-x", get_clang_lang(lang),
+                "--language", get_clang_lang(lang),
             ],
         )
 
-    def get_include_files(
+    def get_including_files_(
         self,
         src: utils.PathLike,
         lang: utils.Language,
@@ -398,9 +402,43 @@ class LLVMCompiler:
             [
                 *self.compile_args[lang.base],
                 f"-fsyntax-only",
-                f"-x", get_clang_lang(lang),
+                "--language", get_clang_lang(lang),
             ],
         )
+
+    def get_including_files(
+        self,
+        src: utils.PathLike,
+        lang: utils.Language,
+        cache_file: typing.Optional[utils.PathLike] = None,
+    ) -> set[pathlib.Path]:
+        if cache_file is None:
+            use_cache = False
+        else:
+            cache_file = utils.to_pathlib_path(cache_file)
+
+            use_cache = cache_file.is_file() and \
+                1e-3 <= cache_file.stat().st_mtime - src.stat().st_mtime
+
+        if use_cache:
+            return {
+                utils.to_canon_path(val, solve_symlink=True)
+                for val in utils.read_json(cache_file)
+            }
+
+        if lang == utils.Language.C_CPP_HEADER:
+            include_files = set(sorted(set.union(
+                self.get_including_files_(src, utils.Language.C_HEADER),
+                self.get_including_files_(src, utils.Language.CPP_HEADER),
+            )))
+        else:
+            include_files = self.get_including_files_(src, lang)
+
+        if cache_file is not None:
+            utils.write_json(
+                cache_file, [val.as_posix() for val in include_files])
+
+        return include_files
 
     def compile_to_obj(
         self,
@@ -416,9 +454,9 @@ class LLVMCompiler:
         self.run_command_(
             self.executables["clang"],
             "--compile",
-            "-o", dst,
+            "--output", dst,
             *self.compile_args[lang.base],
-            "-x", get_clang_lang(lang),
+            "--language", get_clang_lang(lang),
             src,
         )
 
@@ -437,9 +475,9 @@ class LLVMCompiler:
             self.executables["clang"],
             "-emit-llvm",
             "--compile",
-            "-o", dst,
+            "--output", dst,
             *self.compile_args[lang.base],
-            "-x", get_clang_lang(lang),
+            "--language", get_clang_lang(lang),
             src,
         )
 
@@ -455,7 +493,7 @@ class LLVMCompiler:
 
         self.run_command_(
             self.executables["llvm-link"],
-            "-o", dst,
+            "--output", dst,
             *(src for src in srcs if src is not None),
         )
 
@@ -469,7 +507,7 @@ class LLVMCompiler:
 
         self.run_command_(
             self.executables["clang"],
-            "-o", dst,
+            "--output", dst,
             self.to_exe_args,
             *(src for src in srcs if src is not None),
         )

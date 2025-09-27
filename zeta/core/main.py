@@ -63,37 +63,31 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     # --------------------------------------------------------------------------
 
+    C_HEADER = utils.Language.C_HEADER
+    C_SOURCE = utils.Language.C_SOURCE
+    C = utils.Language.C
+
+    CPP_HEADER = utils.Language.CPP_HEADER
+    CPP_SOURCE = utils.Language.CPP_SOURCE
+    CPP = utils.Language.CPP
+
+    C_CPP_HEADER = utils.Language.C_CPP_HEADER
+
+    # --------------------------------------------------------------------------
+
     builder.add_sym("zeta_core_dir", DIR)
     builder.add_sym("zeta_core_out_dir", out_dir)
 
     # --------------------------------------------------------------------------
 
     @beartype.beartype
-    def add_c_cpp_file(file: pathlib.Path, lang: utils.Language):
+    def add_c_cpp(file: pathlib.Path, lang: utils.Language):
         def get_deps() -> set[pathlib.Path]:
-            cache_file = out_dir / f"{file.name}.file_including_paris.json"
             base_dir = DIR.parent
+            cache_file = out_dir / f"{file.name}.file_including_files.json"
 
-            if not cache_file.is_file() or 1e-3 <= file.stat().st_mtime - cache_file.stat().st_mtime:
-                if lang == utils.Language.C_CPP_HEADER:
-                    include_files = set.union(
-                        compiler.get_include_files(
-                            file, utils.Language.C_HEADER),
-                        compiler.get_include_files(
-                            file, utils.Language.CPP_HEADER),
-                    )
-
-                    include_files = set(sorted(include_files))
-                else:
-                    include_files = compiler.get_include_files(file, lang)
-
-                utils.write_json(
-                    cache_file, [val.as_posix() for val in include_files])
-            else:
-                include_files = {
-                    utils.to_canon_path(val, solve_symlink=True)
-                    for val in utils.read_json(cache_file)
-                }
+            include_files = compiler.get_including_files(
+                file, lang, cache_file)
 
             return {
                 FILE,
@@ -103,60 +97,77 @@ def add_deps(builder: building_utils.Builder, config: Config):
         builder.add_build_node(file, get_deps, None)
 
     @beartype.beartype
-    def add_h_src_bc(name: str, lang: utils.Language):
-        h_file = DIR / f"{name}.h"
-
-        match lang:
-            case utils.Language.C:
-                src_file = DIR / f"{name}.c"
-            case utils.Language.CPP:
-                src_file = DIR / f"{name}.cpp"
-            case _:
-                raise NotImplementedError()
-
-        bc_file = out_dir / f"{name}.bc"
-
-        add_c_cpp_file(h_file, utils.Language.C_CPP_HEADER)
-        add_c_cpp_file(src_file, lang.source)
-
-        builder.add_build_node(
-            bc_file,
-            lambda: {FILE, src_file},
-            lambda: compiler.compile_to_bc(
-                bc_file, src_file, lang.source),
-        )
-
-    @beartype.beartype
-    def add_hpp_cpp_bc(name: str):
-        hpp_file = DIR / f"{name}.hpp"
+    def add_cpp_bc(name: str):
         cpp_file = DIR / f"{name}.cpp"
         bc_file = out_dir / f"{name}.bc"
 
-        add_c_cpp_file(hpp_file, utils.Language.C_CPP_HEADER)
-        add_c_cpp_file(cpp_file, utils.Language.CPP_SOURCE)
+        add_c_cpp(cpp_file, CPP_SOURCE)
 
         builder.add_build_node(
             bc_file,
             lambda: {FILE, cpp_file},
-            lambda: compiler.compile_to_bc(
-                bc_file, cpp_file, utils.Language.CPP_SOURCE),
+            lambda: compiler.compile_to_bc(bc_file, cpp_file, CPP_SOURCE),
         )
 
     # --------------------------------------------------------------------------
 
     builder.add_build_node(FILE, None, None)
 
-    add_c_cpp_file(DIR / "bin_tree_node_temp.hpp", utils.Language.CPP_HEADER)
-    add_c_cpp_file(DIR / "bin_tree.hpp", utils.Language.CPP_HEADER)
+    add_c_cpp(DIR / "allocator.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "allocator.ipp", CPP_HEADER)
 
-    add_c_cpp_file(DIR / "define.h", utils.Language.CPP_HEADER)
+    add_c_cpp(DIR / "bin_tree_node_tpl.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "bin_tree_node_tpl.ipp", CPP_HEADER)
 
-    add_c_cpp_file(DIR / "integer.hpp", utils.Language.CPP_HEADER)
+    add_c_cpp(DIR / "bin_tree.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "bin_tree.ipp", CPP_HEADER)
 
-    add_h_src_bc("mem_check_utils", utils.Language.CPP)
+    add_c_cpp(DIR / "circular_array.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "circular_array.ipp", CPP_HEADER)
 
-    add_c_cpp_file(DIR / "ptr_utils.hpp", utils.Language.CPP_HEADER)
+    add_c_cpp(DIR / "datetime.hpp", CPP_HEADER)
+    add_cpp_bc("datetime")
 
-    add_c_cpp_file(DIR / "rbtree.hpp", utils.Language.CPP_HEADER)
+    add_c_cpp(DIR / "debug_deque.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "debug_deque.ipp", CPP_HEADER)
 
-    add_hpp_cpp_bc("utils")
+    add_c_cpp(DIR / "debug_utils.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "debug_utils.ipp", CPP_HEADER)
+
+    add_c_cpp(DIR / "define.hpp", CPP_HEADER)
+
+    add_c_cpp(DIR / "integral.hpp", CPP_HEADER)
+
+    add_c_cpp(DIR / "mem_check_utils.hpp", CPP_HEADER)
+    add_cpp_bc("mem_check_utils")
+
+    add_c_cpp(DIR / "multi_level_table.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "multi_level_table.ipp", CPP_HEADER)
+
+    add_c_cpp(DIR / "multi_level_ptr_data_table.xmacro.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "multi_level_ptr_data_table.xmacro.cpp", CPP_HEADER)
+
+    add_c_cpp(DIR / "multi_level_ptr_table.hpp", CPP_HEADER)
+    add_cpp_bc("multi_level_ptr_table")
+
+    add_c_cpp(DIR / "multi_level_data_table.hpp", CPP_HEADER)
+    add_cpp_bc("multi_level_data_table")
+
+    add_c_cpp(DIR / "ptr_utils.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "ptr_utils.ipp", CPP_HEADER)
+
+    add_c_cpp(DIR / "rbtree.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "rbtree.ipp", CPP_HEADER)
+
+    add_c_cpp(DIR / "seq_cntr.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "seq_cntr.ipp", CPP_HEADER)
+
+    add_c_cpp(DIR / "type_list.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "type_traits.hpp", CPP_HEADER)
+
+    add_c_cpp(DIR / "utils.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "utils.ipp", CPP_HEADER)
+
+    add_cpp_bc("utils")
+
+    add_c_cpp(DIR / "tuple.hpp", CPP_HEADER)

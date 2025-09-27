@@ -1,128 +1,288 @@
-
-
 #pragma once
 
 #include <zeta/core/utils.hpp>
 
-namespace zeta::core::seq_cntr {
+#define ZETA_Core_SeqCntr_AllocaCursor_(tmp_seq_cntr, seq_cntr)     \
+    ({                                                              \
+        void const* tmp_seq_cntr{ seq_cntr };                       \
+        ZETA_Core_DebugAssert(tmp_seq_cntr != nullptr);             \
+                                                                    \
+        __builtin_alloca_with_align(                                \
+            static_cast<::zeta::core::SeqCntr const*>(tmp_seq_cntr) \
+                ->cursor_size,                                      \
+            __CHAR_BIT__ * alignof(max_align_t));                   \
+    })
 
-struct SeqCntr;
+#define ZETA_Core_SeqCntr_AllocaCursor(seq_cntr) \
+    ZETA_Core_SeqCntr_AllocaCursor_(ZETA_Core_TmpName, seq_cntr)
 
-bool IsReferable(size_t idx, size_t cnt, size_t size);
-
-bool IsDereferable(size_t idx, size_t cnt, size_t size);
-
-bool IsInsertable(size_t idx, size_t cnt, size_t size, size_t capacity);
-
-bool IsErasable(size_t idx, size_t cnt, size_t size);
-
-// -----------------------------------------------------------------------------
+namespace zeta::core {
 
 struct SeqCntr {
-    virtual void Deinit() = 0;
+    using FnReader = FunctionRef<void(void const*, size_t, size_t)>;
+
+    using FnWriter = FunctionRef<void(void*, size_t, size_t)>;
+
+    using FnReaderWriter = FunctionRef<void(void*, size_t, size_t)>;
+
+    struct VTable {
+        void (*Deinit)(void* cntr);
+
+        // ---------------------------------------------------------------------
+
+        size_t (*GetSize)(void const* cntr);
+
+        size_t (*GetCapacity)(void const* cntr);
+
+        // ---------------------------------------------------------------------
+
+        void (*GetLBCursor)(void const* cntr, void* dst_cursor);
+
+        void (*GetRBCursor)(void const* cntr, void* dst_cursor);
+
+        // ---------------------------------------------------------------------
+
+        void* (*PeekL)(void* cntr, void* dst_cursor, void* dst_elem);
+
+        void const* (*ConstPeekL)(void const* cntr, void* dst_cursor,
+                                  void* dst_elem);
+
+        void* (*PeekR)(void* cntr, void* dst_cursor, void* dst_elem);
+
+        void const* (*ConstPeekR)(void const* cntr, void* dst_cursor,
+                                  void* dst_elem);
+
+        void* (*Access)(void* cntr, size_t idx, void* dst_cursor,
+                        void* dst_elem);
+
+        void const* (*ConstAccess)(void const* cntr, size_t idx,
+                                   void* dst_cursor, void* dst_elem);
+
+        void* (*Refer)(void* cntr, void const* pos_cursor);
+
+        void const* (*ConstRefer)(void const* cntr, void const* pos_cursor);
+
+        // ---------------------------------------------------------------------
+
+        void (*FnRead)(void const* cntr, void const* pos_cursor, size_t cnt,
+                       FnReader reader, void* dst_cursor);
+
+        void (*FnWrite)(void* cntr, void* pos_cursor, size_t cnt,
+                        FnWriter writer, void* dst_cursor);
+
+        void (*FnReadWrite)(void* cntr, void const* pos_cursor, size_t cnt,
+                            FnReaderWriter reader_writer, void* dst_cursor);
+
+        // ---------------------------------------------------------------------
+
+        void (*MemRead)(void const* cntr, void const* pos_cursor, size_t cnt,
+                        void* dst, size_t dst_stride, void* dst_cursor);
+
+        void (*MemWrite)(void* cntr, void* pos_cursor, size_t cnt,
+                         void const* src, size_t src_stride, void* dst_cursor);
+
+        // ---------------------------------------------------------------------
+
+        void* (*FnPushL)(void* cntr, size_t cnt, FnWriter const& writer,
+                         void* dst_cursor);
+
+        void* (*FnPushR)(void* cntr, size_t cnt, FnWriter const& writer,
+                         void* dst_cursor);
+
+        void* (*FnInsert)(void* cntr, void* pos_cursor, size_t cnt,
+                          FnWriter const& writer, void* dst_cursor);
+
+        // ---------------------------------------------------------------------
+
+        void* (*MemPushL)(void* cntr, size_t cnt, void const* src,
+                          size_t src_stride, void* dst_cursor);
+
+        void* (*MemPushR)(void* cntr, size_t cnt, void const* src,
+                          size_t src_stride, void* dst_cursor);
+
+        void* (*MemInsert)(void* cntr, void* pos_cursor, size_t cnt,
+                           void const* src, size_t src_stride,
+                           void* dst_cursor);
+
+        // ---------------------------------------------------------------------
+
+        void (*PopL)(void* cntr, size_t cnt);
+
+        void (*PopR)(void* cntr, size_t cnt);
+
+        void (*Erase)(void* cntr, void* pos_cursor, size_t cnt);
+
+        void (*EraseAll)(void* cntr);
+
+        // ---------------------------------------------------------------------
+
+        void (*CopyCursor)(void const* cntr, void* dst_cursor,
+                           void const* src_cursor);
+
+        bool (*AreEqualCursor)(void const* cntr, void const* cursor_a,
+                               void const* cursor_b);
+
+        int (*CompareCursor)(void const* cntr, void const* cursor_a,
+                             void const* cursor_b);
+
+        size_t (*GetCursorDist)(void const* cntr, void const* cursor_a,
+                                void const* cursor_b);
+
+        size_t (*GetCursorIdx)(void const* cntr, void const* cursor);
+
+        void (*CursorStepL)(void const* cntr, void* cursor);
+
+        void (*CursorStepR)(void const* cntr, void* cursor);
+
+        void (*CursorAdvanceL)(void const* cntr, void* cursor, size_t step);
+
+        void (*CursorAdvanceR)(void const* cntr, void* cursor, size_t step);
+    };
 
     // -------------------------------------------------------------------------
 
-    virtual size_t GetCursorSize() const = 0;
+    void* inst;
+    void const* inst_const;
 
-    virtual size_t GetWidth() const = 0;
+    size_t cursor_size;
 
-    virtual size_t GetSize() const = 0;
+    size_t width;
+    size_t capacity;
 
-    virtual size_t GetCapacity() const = 0;
-
-    // -------------------------------------------------------------------------
-
-    virtual void GetLBCursor(void* dst_cursor) const = 0;
-
-    virtual void GetRBCursor(void* dst_cursor) const = 0;
+    VTable const* vtable;
 
     // -------------------------------------------------------------------------
 
-    virtual void* PeekL(void* dst_cursor, void* dst_elem) = 0;
+    static bool IsReferable(size_t idx, size_t cnt, size_t size);
 
-    virtual void const* PeekL(void* dst_cursor, void* dst_elem) const = 0;
+    static bool IsDereferable(size_t idx, size_t cnt, size_t size);
 
-    virtual void* PeekR(void* dst_cursor, void* dst_elem) = 0;
+    static bool IsInsertable(size_t idx, size_t cnt, size_t size,
+                             size_t capacity);
 
-    virtual void const* PeekR(void* dst_cursor, void* dst_elem) const = 0;
-
-    virtual void* Access(size_t idx, void* dst_cursor, void* dst_elem) = 0;
-
-    virtual void const* Access(size_t idx, void* dst_cursor,
-                               void* dst_elem) const = 0;
-
-    virtual void* Refer(void const* pos_cursor) = 0;
-
-    virtual void const* Refer(void const* pos_cursor) const = 0;
+    static bool IsErasable(size_t idx, size_t cnt, size_t size);
 
     // -------------------------------------------------------------------------
 
-    virtual void Read(void const* pos_cursor, size_t cnt, void* dst,
-                      size_t dst_stride, void* dst_cursor) const = 0;
-
-    virtual void Write(void* pos_cursor, size_t cnt, void const* src,
-                       size_t src_stride, void* dst_cursor) = 0;
+    template <typename ImplCntr>
+    static VTable const& MakeVTable();
 
     // -------------------------------------------------------------------------
 
-    virtual void* PushL(size_t cnt, void const* src, size_t src_stride,
-                        void* dst_cursor) = 0;
+    static void CheckCntr(void* cntr);
 
-    virtual void* PushR(size_t cnt, void const* src, size_t src_stride,
-                        void* dst_cursor) = 0;
-
-    virtual void* Insert(void const* pos_cursor, size_t cnt, void const* src,
-                         size_t src_stride, void* dst_cursor) = 0;
+    static void CheckCntr(void const* cntr);
 
     // -------------------------------------------------------------------------
 
-    virtual void PopL(size_t cnt) = 0;
-
-    virtual void PopR(size_t cnt) = 0;
-
-    virtual void Erase(void* pos_cursor, size_t cnt) = 0;
-
-    virtual void EraseAll() = 0;
+    static void Deinit(void* cntr);
 
     // -------------------------------------------------------------------------
 
-    virtual bool Cursor_AreEqual(void const* cursor_a,
-                                 void const* cursor_b) const = 0;
+    static size_t GetSize(void const* cntr);
 
-    virtual int Cursor_Compare(void const* cursor_a,
-                               void const* cursor_b) const = 0;
+    static size_t GetCapacity(void const* cntr);
 
-    virtual size_t Cursor_GetDist(void const* cursor_a,
-                                  void const* cursor_b) const = 0;
+    // -------------------------------------------------------------------------
 
-    virtual size_t Cursor_GetIdx(void const* cursor) const = 0;
+    static void GetLBCursor(void const* cntr, void* dst_cursor);
 
-    virtual void Cursor_StepL(void* cursor) const = 0;
+    static void GetRBCursor(void const* cntr, void* dst_cursor);
 
-    virtual void Cursor_StepR(void* cursor) const = 0;
+    // -------------------------------------------------------------------------
 
-    virtual void Cursor_AdvanceL(void* cursor, size_t step) const = 0;
+    static void* PeekL(void* cntr, void* dst_cursor, void* dst_elem);
 
-    virtual void Cursor_AdvanceR(void* cursor, size_t step) const = 0;
+    static void const* ConstPeekL(void const* cntr, void* dst_cursor,
+                                  void* dst_elem);
+
+    static void* PeekR(void* cntr, void* dst_cursor, void* dst_elem);
+
+    static void const* ConstPeekR(void const* cntr, void* dst_cursor,
+                                  void* dst_elem);
+
+    static void* Access(void* cntr, size_t idx, void* dst_cursor,
+                        void* dst_elem);
+
+    static void const* ConstAccess(void const* cntr, size_t idx, void* dst_cur,
+                                   void* dst_elem);
+
+    static void* Refer(void* cntr, void const* pos_cursor);
+
+    static void const* ConstRefer(void const* cntr, void const* pos_cursor);
+
+    // -------------------------------------------------------------------------
+
+    static void FnRead(void const* cntr, void const* pos_cursor, size_t cnt,
+                       FnReader reader, void* dst_cursor);
+
+    static void FnWrite(void* cntr, void* pos_cursor, size_t cnt,
+                        FnWriter writer, void* dst_cursor);
+
+    static void FnReadWrite(void* cntr, void const* pos_cursor, size_t cnt,
+                            FnReaderWriter reader_writer, void* dst_cursor);
+
+    // -------------------------------------------------------------------------
+
+    static void MemRead(void const* cntr, void const* pos_cursor, size_t cnt,
+                        void* dst, size_t dst_stride, void* dst_cursor);
+
+    static void MemWrite(void* cntr, void* pos_cursor, size_t cnt,
+                         void const* src, size_t src_stride, void* dst_cursor);
+
+    // -------------------------------------------------------------------------
+
+    static void* FnPushL(void* cntr, size_t cnt, FnWriter const& writer,
+                         void* dst_cursor);
+
+    static void* FnPushR(void* cntr, size_t cnt, FnWriter const& writer,
+                         void* dst_cursor);
+
+    static void* FnInsert(void* cntr, void* pos_cursor, size_t cnt,
+                          FnWriter const& writer, void* dst_cursor);
+
+    // -------------------------------------------------------------------------
+
+    static void* MemPushL(void* cntr, size_t cnt, void const* src,
+                          size_t src_stride, void* dst_cursor);
+
+    static void* MemPushR(void* cntr, size_t cnt, void const* src,
+                          size_t src_stride, void* dst_cursor);
+
+    static void* MemInsert(void* cntr, void* pos_cursor, size_t cnt,
+                           void const* src, size_t src_stride,
+                           void* dst_cursor);
+
+    // -------------------------------------------------------------------------
+
+    static void PopL(void* cntr, size_t cnt);
+
+    static void PopR(void* cntr, size_t cnt);
+
+    static void Erase(void* cntr, void* pos_cursor, size_t cnt);
+
+    static void EraseAll(void* cntr);
+
+    // -------------------------------------------------------------------------
+
+    static bool AreEqualCursor(void const* cntr, void const* cursor_a,
+                               void const* cursor_b);
+
+    static int CompareCursor(void const* cntr, void const* cursor_a,
+                             void const* cursor_b);
+
+    static size_t GetCursorDist(void const* cntr, void const* cursor_a,
+                                void const* cursor_b);
+
+    static size_t GetCursorIdx(void const* cntr, void const* cursor);
+
+    static void CursorStepL(void const* cntr, void* cursor);
+
+    static void CursorStepR(void const* cntr, void* cursor);
+
+    static void CursorAdvanceL(void const* cntr, void* cursor, size_t step);
+
+    static void CursorAdvanceR(void const* cntr, void* cursor, size_t step);
 };
 
-// -----------------------------------------------------------------------------
-
-inline bool IsReferable(size_t idx, size_t cnt, size_t size) {
-    return idx + 1 < size + 2 && cnt <= size - idx + 1;
-}
-
-inline bool IsDereferable(size_t idx, size_t cnt, size_t size) {
-    return idx < size && cnt <= size - idx;
-}
-
-inline bool IsInsertable(size_t idx, size_t cnt, size_t size, size_t capacity) {
-    return idx <= size && size <= capacity && cnt <= capacity - size;
-}
-
-inline bool IsErasable(size_t idx, size_t cnt, size_t size) {
-    return idx <= size && cnt <= size - idx;
-}
-
-}  // namespace zeta::core::seq_cntr
+}  // namespace zeta::core

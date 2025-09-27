@@ -148,6 +148,7 @@ def read_json(path: PathLike) -> typing.Any:
 def write_json(path: PathLike, data: typing.Any) -> None:
     with create_file(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
+        f.write("\n")
 
     print(f"Write json to \"{path.as_posix()}\".")
 

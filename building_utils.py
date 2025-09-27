@@ -112,7 +112,7 @@ class Builder:
     ):
         path = utils.to_canon_path(path, solve_symlink=True)
 
-        assert path not in self.build_nodes
+        assert path not in self.build_nodes, f"{path.as_posix()}"
 
         self.build_nodes[path] = BuildNode(
             path=path,

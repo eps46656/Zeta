@@ -1,8 +1,8 @@
 #pragma once
 
-#include <zeta/core/define.h>
-
 #include <random>
+#include <zeta/core/define.hpp>
+#include <zeta/core/integral.hpp>
 
 namespace zeta::core_test {
 
@@ -15,27 +15,12 @@ inline void SetRandomSeed(unsigned random_seed) {
     GetRandomEngine().seed(random_seed);
 }
 
-template <typename Int>
-constexpr bool IsInteger() {
-    return std::is_same<Int, char>() ||                //
-           std::is_same<Int, unsigned char>() ||       //
-           std::is_same<Int, signed char>() ||         //
-           std::is_same<Int, unsigned short>() ||      //
-           std::is_same<Int, signed short>() ||        //
-           std::is_same<Int, unsigned>() ||            //
-           std::is_same<Int, signed>() ||              //
-           std::is_same<Int, unsigned long>() ||       //
-           std::is_same<Int, signed long>() ||         //
-           std::is_same<Int, unsigned long long>() ||  //
-           std::is_same<Int, signed long long>();      //
-}
-
 template <typename RetInt, typename RangeInt>
 RetInt GetRandomInt(RangeInt lb, RangeInt rb) {
     static std::uniform_int_distribution<unsigned long long> ll_generator;
 
-    ZETA_Core_StaticAssert(IsInteger<RetInt>());
-    ZETA_Core_StaticAssert(IsInteger<RangeInt>());
+    ZETA_Core_StaticAssert(core::IsIntegral<RetInt>);
+    ZETA_Core_StaticAssert(core::IsIntegral<RangeInt>);
 
     return static_cast<RetInt>(
         lb + static_cast<RangeInt>(ll_generator(GetRandomEngine()) %

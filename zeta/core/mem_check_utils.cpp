@@ -1,47 +1,77 @@
-#include <zeta/core/mem_check_utils.h>
-
-#include <zeta/core/integer.hpp>
+#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/integral.hpp>
+#include <zeta/core/mem_check_utils.hpp>
 #include <zeta/core/utils.hpp>
 
 namespace zeta::core {
 
 MemRecorder* MemRecorder::Create() { return new MemRecorder{}; }
 
-void MemRecorder::Destroy(MemRecorder* mem_recorder) { delete mem_recorder; }
+void MemRecorder::Destroy(void* mem_recorder_) {
+    auto mem_recorder{ static_cast<MemRecorder const*>(mem_recorder_) };
+    ZETA_Core_DebugAssert(mem_recorder != nullptr);
 
-size_t MemRecorder::GetSize() const { return this->records.size(); }
-
-size_t MemRecorder::GetRecordSize(void const* ptr) const {
-    auto iter{ this->records.find(ptr) };
-    return iter == this->records.end() ? ZETA_Core_size_max : iter->second;
+    delete mem_recorder;
 }
 
-bool MemRecorder::IsRecorded(void const* ptr) const {
-    return this->records.find(ptr) != this->records.end();
+size_t MemRecorder::GetSize(void const* mem_recorder_) {
+    auto mem_recorder{ static_cast<MemRecorder const*>(mem_recorder_) };
+    ZETA_Core_DebugAssert(mem_recorder != nullptr);
+
+    return mem_recorder->records.size();
 }
 
-void MemRecorder::Record(void const* ptr, size_t size) {
-    auto iter{ this->records.lower_bound(ptr) };
+size_t MemRecorder::GetRecordSize(void const* mem_recorder_, void const* ptr) {
+    auto mem_recorder{ static_cast<MemRecorder const*>(mem_recorder_) };
+    ZETA_Core_DebugAssert(mem_recorder != nullptr);
 
-    if (iter != this->records.end()) {
+    auto iter{ mem_recorder->records.find(ptr) };
+
+    return iter == mem_recorder->records.end() ? ZETA_Core_size_max
+                                               : iter->second;
+}
+
+bool MemRecorder::IsRecorded(void const* mem_recorder_, void const* ptr) {
+    auto mem_recorder{ static_cast<MemRecorder const*>(mem_recorder_) };
+    ZETA_Core_DebugAssert(mem_recorder != nullptr);
+
+    return mem_recorder->records.find(ptr) != mem_recorder->records.end();
+}
+
+void MemRecorder::Record(void* mem_recorder_, void const* ptr, size_t size) {
+    auto mem_recorder{ static_cast<MemRecorder*>(mem_recorder_) };
+    ZETA_Core_DebugAssert(mem_recorder != nullptr);
+
+    auto iter{ mem_recorder->records.lower_bound(ptr) };
+
+    if (iter != mem_recorder->records.end()) {
         ZETA_Core_DebugAssert(iter->first != ptr);
-        ZETA_Core_DebugAssert((unsigned char const*)ptr + size <= iter->first);
+        ZETA_Core_DebugAssert(static_cast<char const*>(ptr) + size <=
+                              iter->first);
     }
 
-    if (iter != this->records.begin()) {
+    if (iter != mem_recorder->records.begin()) {
         --iter;
         ZETA_Core_DebugAssert(
-            (unsigned char const*)iter->first + iter->second <= ptr);
+            static_cast<char const*>(iter->first) + iter->second <= ptr);
     }
 
-    this->records.insert({ ptr, size });
+    mem_recorder->records.insert({ ptr, size });
 }
 
-bool MemRecorder::Unrecord(void const* ptr) {
-    return this->records.erase(ptr) != 0;
+bool MemRecorder::Unrecord(void* mem_recorder_, void const* ptr) {
+    auto mem_recorder{ static_cast<MemRecorder*>(mem_recorder_) };
+    ZETA_Core_DebugAssert(mem_recorder != nullptr);
+
+    return mem_recorder->records.erase(ptr) != 0;
 }
 
-void MemRecorder::Clear() { this->records.clear(); }
+void MemRecorder::Clear(void* mem_recorder_) {
+    auto mem_recorder{ static_cast<MemRecorder*>(mem_recorder_) };
+    ZETA_Core_DebugAssert(mem_recorder != nullptr);
+
+    mem_recorder->records.clear();
+}
 
 void MemRecorder::MatchRecords(MemRecorder const* src_mem_recorder,
                                MemRecorder const* dst_mem_recorder) {

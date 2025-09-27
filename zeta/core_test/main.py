@@ -57,6 +57,20 @@ def add_deps(builder: building_utils.Builder, config: Config):
         link_time_opt=config.link_time_opt,
     ))
 
+    # --------------------------------------------------------------------------
+
+    C_HEADER = utils.Language.C_HEADER
+    C_SOURCE = utils.Language.C_SOURCE
+    C = utils.Language.C
+
+    CPP_HEADER = utils.Language.CPP_HEADER
+    CPP_SOURCE = utils.Language.CPP_SOURCE
+    CPP = utils.Language.CPP
+
+    C_CPP_HEADER = utils.Language.C_CPP_HEADER
+
+    # --------------------------------------------------------------------------
+
     zeta_core_dir = builder.syms["zeta_core_dir"]
     zeta_core_out_dir = builder.syms["zeta_core_out_dir"]
 
@@ -68,31 +82,13 @@ def add_deps(builder: building_utils.Builder, config: Config):
     # --------------------------------------------------------------------------
 
     @beartype.beartype
-    def add_c_cpp_file(file: pathlib.Path, lang: utils.Language):
+    def add_c_cpp(file: pathlib.Path, lang: utils.Language):
         def get_deps() -> set[pathlib.Path]:
-            cache_file = out_dir / f"{file.name}.file_including_paris.json"
             base_dir = DIR.parent
+            cache_file = out_dir / f"{file.name}.file_including_files.json"
 
-            if not cache_file.is_file() or 1e-3 <= file.stat().st_mtime - cache_file.stat().st_mtime:
-                if lang == utils.Language.C_CPP_HEADER:
-                    include_files = set.union(
-                        compiler.get_include_files(
-                            file, utils.Language.C_HEADER),
-                        compiler.get_include_files(
-                            file, utils.Language.CPP_HEADER),
-                    )
-
-                    include_files = set(sorted(include_files))
-                else:
-                    include_files = compiler.get_include_files(file, lang)
-
-                utils.write_json(
-                    cache_file, [val.as_posix() for val in include_files])
-            else:
-                include_files = {
-                    utils.to_canon_path(val, solve_symlink=True)
-                    for val in utils.read_json(cache_file)
-                }
+            include_files = compiler.get_including_files(
+                file, lang, cache_file)
 
             return {
                 FILE,
@@ -135,14 +131,26 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
         bc_file = out_dir / f"{name}.bc"
 
-        add_c_cpp_file(h_file, utils.Language.C_CPP_HEADER)
-        add_c_cpp_file(src_file, lang.source)
+        add_c_cpp(h_file, C_CPP_HEADER)
+        add_c_cpp(src_file, lang.source)
 
         builder.add_build_node(
             bc_file,
             lambda: {FILE, src_file},
-            lambda: compiler.compile_to_bc(
-                bc_file, src_file, lang.source),
+            lambda: compiler.compile_to_bc(bc_file, src_file, lang.source),
+        )
+
+    @beartype.beartype
+    def add_cpp_bc(name: str):
+        cpp_file = DIR / f"{name}.cpp"
+        bc_file = out_dir / f"{name}.bc"
+
+        add_c_cpp(cpp_file, CPP_SOURCE)
+
+        builder.add_build_node(
+            bc_file,
+            lambda: {FILE, cpp_file},
+            lambda: compiler.compile_to_bc(bc_file, cpp_file, CPP_SOURCE),
         )
 
     def add_src_files_exe(
@@ -161,7 +169,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         src_bc_file = out_dir / f"{name}.bc"
         exe_file = out_dir / f"{name}.exe"
 
-        add_c_cpp_file(src_file, lang.source)
+        add_c_cpp(src_file, lang.source)
 
         add_src_to_bc(src_bc_file, src_file, lang.source)
 
@@ -171,53 +179,60 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     builder.add_build_node(FILE, None, None)
 
-    add_c_cpp_file(DIR / "assoc_cntr_utils.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "buffer.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "cache_manager_utils.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "cpp_std_allocator.h", utils.Language.C_CPP_HEADER)
+    add_c_cpp(DIR / "assoc_cntr_utils.h", C_CPP_HEADER)
+    add_c_cpp(DIR / "buffer.h", C_CPP_HEADER)
+    add_c_cpp(DIR / "cache_manager_utils.h", C_CPP_HEADER)
+    add_c_cpp(DIR / "cpp_std_allocator.h", C_CPP_HEADER)
 
     builder.add_build_node(DIR / "cor.s", None, None)
 
-    add_c_cpp_file(DIR / "cascade_alloc_utils.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "cmp_utils.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "caching_array_utils.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "circular_array_utils.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "debug_deque_utils.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "debug_hash_table_utils.h",
-                   utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "dynamic_hash_table_utils.h",
-                   utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "dynamic_search_table.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "dynamic_vector_utils.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "hash_utils.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "key_value_pair.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "lru_cache_manager_utils.h",
-                   utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "hash.h", utils.Language.C_CPP_HEADER)
+    add_c_cpp(DIR / "cascade_alloc_utils.h", C_CPP_HEADER)
+    add_c_cpp(DIR / "cmp_utils.h", C_CPP_HEADER)
+    add_c_cpp(DIR / "caching_array_utils.h", C_CPP_HEADER)
 
-    add_h_src_bc("multi_level_circular_array_utils", utils.Language.CPP)
+    add_c_cpp(DIR / "circular_array_utils.hpp", C_CPP_HEADER)
 
-    add_c_cpp_file(DIR / "naive_search_table.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "pair.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "pod_value.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "random.hpp", utils.Language.CPP_HEADER)
-    add_c_cpp_file(DIR / "ptr_iter.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "staging_vector_utils.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "static_search_table.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "std_allocator.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "test_head.h", utils.Language.C_CPP_HEADER)
+    add_c_cpp(DIR / "debug_deque_utils.hpp", C_CPP_HEADER)
 
-    add_h_src_bc("test_1", utils.Language.C)
-    add_h_src_bc("test_binheap", utils.Language.CPP)
+    add_c_cpp(DIR / "debug_hash_table.h", C_CPP_HEADER)
+    add_c_cpp(DIR / "dynamic_hash_table.h", C_CPP_HEADER)
+    add_c_cpp(DIR / "dynamic_search_table.h", C_CPP_HEADER)
+    add_c_cpp(DIR / "dynamic_vector_utils.h", C_CPP_HEADER)
 
-    add_c_cpp_file(DIR / "seg_vector_utils.h", utils.Language.C_CPP_HEADER)
-    add_c_cpp_file(DIR / "seq_cntr_utils.h", utils.Language.C_CPP_HEADER)
+    add_c_cpp(DIR / "hash_utils.hpp", C_CPP_HEADER)
+
+    add_c_cpp(DIR / "key_value_pair.h", C_CPP_HEADER)
+    add_c_cpp(DIR / "lru_cache_manager_utils.h", C_CPP_HEADER)
+    add_c_cpp(DIR / "hash.h", C_CPP_HEADER)
+
+    add_h_src_bc("multi_level_circular_array_utils", CPP)
+
+    add_c_cpp(DIR / "naive_search_table.h", C_CPP_HEADER)
+
+    add_c_cpp(DIR / "pod_value.hpp", C_CPP_HEADER)
+
+    add_c_cpp(DIR / "random.hpp", CPP_HEADER)
+
+    add_c_cpp(DIR / "ptr_iter.hpp", C_CPP_HEADER)
+    add_c_cpp(DIR / "ptr_iter.ipp", C_CPP_HEADER)
+
+    add_c_cpp(DIR / "staging_vector_utils.h", C_CPP_HEADER)
+    add_c_cpp(DIR / "static_search_table.h", C_CPP_HEADER)
+    add_c_cpp(DIR / "std_allocator.hpp", C_CPP_HEADER)
+    add_c_cpp(DIR / "test_head.h", C_CPP_HEADER)
+
+    add_h_src_bc("test_1", C)
+    add_h_src_bc("test_binheap", CPP)
+
+    add_c_cpp(DIR / "seg_vector_utils.h", C_CPP_HEADER)
+
+    add_c_cpp(DIR / "seq_cntr_utils.hpp", C_CPP_HEADER)
 
     # --------------------------------------------------------------------------
 
     add_src_files_exe(
         "test_2",
-        utils.Language.C,
+        C,
         {
             zeta_core_out_dir / "debug_str_pipe.bc",
             zeta_core_out_dir / "debugger.bc",
@@ -229,29 +244,27 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_3",
-        utils.Language.C,
+        C,
         set(),
     )
 
     add_src_files_exe(
         "test_4",
-        utils.Language.C,
+        C,
         set(),
     )
 
     add_src_files_exe(
         "test_datetime",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "datetime.bc",
-            zeta_core_out_dir / "debug_str_pipe.bc",
-            zeta_core_out_dir / "debugger.bc",
         },
     )
 
     add_src_files_exe(
         "test_dht",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "allocator.bc",
             zeta_core_out_dir / "assoc_cntr.bc",
@@ -273,7 +286,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_utf8",
-        utils.Language.C,
+        C,
         {
             zeta_core_out_dir / "debugger.bc",
             zeta_core_out_dir / "debug_str_pipe.bc",
@@ -286,7 +299,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_utf16",
-        utils.Language.C,
+        C,
         {
             zeta_core_out_dir / "debugger.bc",
             zeta_core_out_dir / "debug_str_pipe.bc",
@@ -299,7 +312,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_search_table",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "debug_str_pipe.bc",
             zeta_core_out_dir / "debugger.bc",
@@ -309,7 +322,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_segvec",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "seg_vector.bc",
             zeta_core_out_dir / "circular_array.bc",
@@ -321,7 +334,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_segvec2",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "circular_array.bc",
             zeta_core_out_dir / "debug_deque.bc",
@@ -333,7 +346,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_segvec_speed",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "seg_vector.bc",
             zeta_core_out_dir / "circular_array.bc",
@@ -345,7 +358,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_segvec_speed2",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "seg_vector.bc",
             zeta_core_out_dir / "circular_array.bc",
@@ -356,7 +369,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_seqcntr",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "circular_array.bc",
             zeta_core_out_dir / "debug_deque.bc",
@@ -368,33 +381,22 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_stagevec",
-        utils.Language.CPP,
+        CPP,
         {
-            zeta_core_out_dir / "algorithm.bc",
-            zeta_core_out_dir / "allocator.bc",
-            zeta_core_out_dir / "assoc_cntr.bc",
-            zeta_core_out_dir / "bin_tree_node.bc",
-            zeta_core_out_dir / "cascade_allocator.bc",
-            zeta_core_out_dir / "circular_array.bc",
-            zeta_core_out_dir / "debug_deque.bc",
-            zeta_core_out_dir / "debug_hash_table.bc",
-            zeta_core_out_dir / "debug_str_pipe.bc",
-            zeta_core_out_dir / "debugger.bc",
-            zeta_core_out_dir / "dynamic_hash_table.bc",
+            # zeta_core_out_dir / "cascade_allocator.bc",
+            # zeta_core_out_dir / "debug_hash_table.bc",
+            # zeta_core_out_dir / "dynamic_hash_table.bc",
             # zeta_out_dir / "dynamic_vector.bc",
-            zeta_core_out_dir / "generic_hash_table.bc",
-            zeta_core_out_dir / "io.bc",
-            zeta_core_out_dir / "llist_node.bc",
-            zeta_core_out_dir / "logger.bc",
-            zeta_core_out_dir / "mem_check_utils.bc",
-            zeta_core_out_dir / "memory.bc",
-            zeta_core_out_dir / "multi_level_circular_array.bc",
-            zeta_core_out_dir / "multi_level_ptr_table.bc",
-            zeta_core_out_dir / "pool_allocator.bc",
-            zeta_core_out_dir / "seg_utils.bc",
-            zeta_core_out_dir / "seg_vector.bc",
-            zeta_core_out_dir / "seq_cntr.bc",
-            zeta_core_out_dir / "staging_vector.bc",
+            # zeta_core_out_dir / "generic_hash_table.bc",
+            # zeta_core_out_dir / "logger.bc",
+            # zeta_core_out_dir / "memory.bc",
+            # zeta_core_out_dir / "multi_level_circular_array.bc",
+            # zeta_core_out_dir / "multi_level_ptr_table.bc",
+            # zeta_core_out_dir / "pool_allocator.bc",
+            # zeta_core_out_dir / "seg_utils.bc",
+            # zeta_core_out_dir / "seg_vector.bc",
+            # zeta_core_out_dir / "seq_cntr.bc",
+            # zeta_core_out_dir / "staging_vector.bc",
             zeta_core_out_dir / "utils.bc",
             out_dir / "timer.bc",
         },
@@ -402,7 +404,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_stagevec_speed",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "algorithm.bc",
             zeta_core_out_dir / "allocator.bc",
@@ -436,7 +438,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_kmp",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "debug_str_pipe.bc",
             zeta_core_out_dir / "debugger.bc",
@@ -445,7 +447,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_lrucm",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "allocator.bc",
             zeta_core_out_dir / "assoc_cntr.bc",
@@ -471,7 +473,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_seg_tree",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "debug_str_pipe.bc",
             zeta_core_out_dir / "debugger.bc",
@@ -483,7 +485,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_sort",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "algorithm.bc",
             zeta_core_out_dir / "allocator.bc",
@@ -501,7 +503,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_slaballoc",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "allocator.bc",
             zeta_core_out_dir / "debug_hash_table.bc",
@@ -513,7 +515,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_lin_space_allocator",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "allocator.bc",
             zeta_core_out_dir / "bin_tree_node.bc",
@@ -529,7 +531,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_mlv",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "allocator.bc",
             zeta_core_out_dir / "debug_hash_table.bc",
@@ -540,14 +542,8 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_mlt",
-        utils.Language.CPP,
+        CPP,
         {
-            zeta_core_out_dir / "allocator.bc",
-            zeta_core_out_dir / "debug_str_pipe.bc",
-            zeta_core_out_dir / "debugger.bc",
-            zeta_core_out_dir / "io.bc",
-            zeta_core_out_dir / "llist_node.bc",
-            zeta_core_out_dir / "logger.bc",
             zeta_core_out_dir / "mem_check_utils.bc",
             zeta_core_out_dir / "multi_level_data_table.bc",
             zeta_core_out_dir / "multi_level_ptr_table.bc",
@@ -558,7 +554,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_pipe",
-        utils.Language.C,
+        C,
         {
             zeta_core_out_dir / "debug_str_pipe.bc",
             zeta_core_out_dir / "debugger.bc",
@@ -570,7 +566,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_qsort",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "algorithm.bc",
             zeta_core_out_dir / "debugger.bc",
@@ -582,7 +578,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_scheduler",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "allocator.bc",
             zeta_core_out_dir / "debug_hash_table.bc",
@@ -600,7 +596,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_cascade_alloc",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "allocator.bc",
             zeta_core_out_dir / "cascade_allocator.bc",
@@ -616,7 +612,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_cntrbt",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_out_dir / "mem_check_utils.bc",
             zeta_core_out_dir / "utils.bc",
@@ -629,7 +625,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_exception",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_flow_s,
             zeta_core_out_dir / "allocator.bc",
@@ -647,7 +643,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_src_files_exe(
         "test_flow",
-        utils.Language.CPP,
+        CPP,
         {
             zeta_core_flow_s,
             zeta_core_out_dir / "debug_str_pipe.bc",
@@ -657,9 +653,19 @@ def add_deps(builder: building_utils.Builder, config: Config):
         }
     )
 
+    add_src_files_exe(
+        "test_tuple",
+        CPP,
+        {
+            zeta_core_out_dir / "utils.bc",
+            out_dir / "timer.bc",
+        },
+    )
+
     builder.add_build_node(DIR / "cpuid.s", lambda: {FILE}, None)
 
-    add_h_src_bc("timer", utils.Language.CPP)
+    builder.add_build_node(DIR / "timer.hpp", lambda: {FILE}, None)
+    add_cpp_bc("timer")
 
     builder.add_build_node(
         DIR / "buffered_allocator.h",

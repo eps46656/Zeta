@@ -1,5 +1,6 @@
-#include <zeta/core/integer.hpp>
-#include <zeta/core/utils.hpp>
+#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/integral.hpp>
+#include <zeta/core/utils.ipp>
 
 namespace zeta::core {
 
@@ -24,7 +25,7 @@ unsigned long long ULLHash(unsigned long long x, unsigned long long salt) {
 }
 
 unsigned long long SLLHash(long long x, unsigned long long salt) {
-    return ULLHash(x, salt);
+    return ULLHash(static_cast<unsigned long long>(x), salt);
 }
 
 #if ZETA_Core_ullong_width == 32
@@ -37,17 +38,19 @@ unsigned long long SLLHash(long long x, unsigned long long salt) {
 #error "Unsupported architecture."
 #endif
 
-unsigned long long random_seed_{ ZETA_Core_PtrToAddr(&random_seed_) - 1 };
+static unsigned long long random_seed_{ ZETA_Core_PtrToAddr(&random_seed_) -
+                                        1 };
 
 unsigned long long GetRandom() {
-    random_seed_ =
-        ((random_seed_ + __builtin_readcyclecounter()) * LCG_MUL + LCG_INC);
+    unsigned long long time{ __builtin_readcyclecounter() };
 
-    return ULLHash(random_seed_, __builtin_readcyclecounter());
+    random_seed_ = ((random_seed_ + time) * LCG_MUL + LCG_INC);
+
+    return ULLHash(random_seed_, time);
 }
 
-unsigned long long SimpleRandomRotate(unsigned long long* x) {
-    return ULLHash(*x = (*x * LCG_MUL + LCG_INC), 0);
+unsigned long long SimpleRandomRotate(unsigned long long* random_seed) {
+    return ULLHash(*random_seed = (*random_seed * LCG_MUL + LCG_INC), 0);
 }
 
 // -----------------------------------------------------------------------------

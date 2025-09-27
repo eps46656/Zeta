@@ -56,13 +56,13 @@ zeta_core_debug_config = zeta_core.Config(
     target=target,
 
     c_standard="c2x",
-    cpp_standard="c++17",
+    cpp_standard="c++20",
 
     c_include_dirs=[zeta_dev_dir],
     cpp_include_dirs=[zeta_dev_dir],
 
     enable_debug=True,
-    enable_asan=False,
+    enable_asan=True,
 
     opt_type="0",
     link_time_opt=False,
@@ -78,13 +78,13 @@ zeta_core_test_debug_config = zeta_core_test.Config(
     target=target,
 
     c_standard="c2x",
-    cpp_standard="c++17",
+    cpp_standard="c++20",
 
     c_include_dirs=[zeta_dev_dir],
     cpp_include_dirs=[zeta_dev_dir],
 
     enable_debug=True,
-    enable_asan=False,
+    enable_asan=True,
 
     opt_type="0",
     link_time_opt=False,
@@ -100,7 +100,7 @@ zeta_core_release_config = zeta_core.Config(
     target=target,
 
     c_standard="c2x",
-    cpp_standard="c++17",
+    cpp_standard="c++20",
 
     c_include_dirs=[zeta_dev_dir],
     cpp_include_dirs=[zeta_dev_dir],
@@ -122,7 +122,7 @@ zeta_core_test_release_config = zeta_core_test.Config(
     target=target,
 
     c_standard="c2x",
-    cpp_standard="c++17",
+    cpp_standard="c++20",
 
     c_include_dirs=[zeta_dev_dir],
     cpp_include_dirs=[zeta_dev_dir],
@@ -144,7 +144,7 @@ zeta_core_raw_config = zeta_core.Config(
     target=target,
 
     c_standard="c2x",
-    cpp_standard="c++17",
+    cpp_standard="c++20",
 
     c_include_dirs=[zeta_dev_dir],
     cpp_include_dirs=[zeta_dev_dir],
@@ -166,7 +166,7 @@ zeta_core_test_raw_config = zeta_core_test.Config(
     target=target,
 
     c_standard="c2x",
-    cpp_standard="c++17",
+    cpp_standard="c++20",
 
     c_include_dirs=[zeta_dev_dir],
     cpp_include_dirs=[zeta_dev_dir],

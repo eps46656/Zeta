@@ -1,0 +1,9 @@
+---
+BasedOnStyle: Google
+AccessModifierOffset: -4
+AllowShortBlocksOnASingleLine: Always
+AllowShortCaseLabelsOnASingleLine: true
+Cpp11BracedListStyle: false
+DerivePointerAlignment: false
+IndentWidth: 4
+TabWidth: 4
