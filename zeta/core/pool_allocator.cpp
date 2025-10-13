@@ -1,7 +1,15 @@
+#include <zeta/core/allocator.ipp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/pool_allocator.hpp>
 
 namespace zeta::core {
+
+allocator::AllocatorVTable const PoolAllocator::allocator_vtable{
+    .Allocate = &PoolAllocator::Allocate,
+    .Deallocate = &PoolAllocator::Deallocate,
+};
+
+// -----------------------------------------------------------------------------
 
 void PoolAllocator::Init(void* pa_) {
     auto* pa{ static_cast<PoolAllocator*>(pa_) };
@@ -43,15 +51,25 @@ void PoolAllocator::Deallocate(void* pa_, void* ptr) {
     pa->n = static_cast<void*>(n);
 }
 
-Allocator PoolAllocator::ToAllocator(void* pa_) {
+allocator::AllocatorRef PoolAllocator::GetAllocatorRef(void* pa_) {
     auto* pa{ static_cast<PoolAllocator*>(pa_) };
     ZETA_Core_DebugAssert(pa != nullptr);
 
     return {
         .inst = pa,
-        .inst_const = pa,
         .align = alignof(void*),
-        .vtable = &Allocator::MakeVTable<PoolAllocator>(),
+        .vtable = &allocator_vtable,
+    };
+}
+
+allocator::ConstAllocatorRef PoolAllocator::GetAllocatorRef(void const* pa_) {
+    auto* pa{ static_cast<PoolAllocator const*>(pa_) };
+    ZETA_Core_DebugAssert(pa != nullptr);
+
+    return {
+        .inst = pa,
+        .align = alignof(void*),
+        .vtable = &allocator_vtable,
     };
 }
 

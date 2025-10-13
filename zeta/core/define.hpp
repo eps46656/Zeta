@@ -2,6 +2,8 @@
 
 #define ZETA_Core_Unused(x) (void)(x)
 
+#define ZETA_Core_Identity(...) __VA_ARGS__
+
 // -----------------------------------------------------------------------------
 
 #define ZETA_Core_ForEach_GetFirst(x, ...) x
@@ -83,3 +85,61 @@
     (reinterpret_cast<struct_type*>(                                   \
         const_cast<char*>(reinterpret_cast<char const*>(member_ptr)) - \
         offsetof(struct_type, member_name)))
+
+// -----------------------------------------------------------------------------
+
+#define ZETA_Core_ConstexprAndIfElse(static_cond, dynamic_cond, if_block, \
+                                     else_block)                          \
+    if constexpr (!static_cast<bool>(static_cond)) {                      \
+        else_block                                                        \
+    } else if (dynamic_cond) {                                            \
+        if_block                                                          \
+    } else {                                                              \
+        else_block                                                        \
+    }
+
+#define ZETA_Core_ConstexprAndIf(static_cond, dynamic_cond, if_block) \
+    ZETA_Core_ConstexprAndIfElse(static_cond, dynamic_cond, if_block, {})
+
+#define ZETA_Core_ConstexprOrIfElse(static_cond, dynamic_cond, if_block, \
+                                    else_block)                          \
+    if constexpr (static_cast<bool>(static_cond)) {                      \
+        if_block                                                         \
+    } else if (dynamic_cond) {                                           \
+        if_block                                                         \
+    } else {                                                             \
+        else_block                                                       \
+    }
+
+#define ZETA_Core_ConstexprOrIf(static_cond, dynamic_cond, if_block) \
+    ZETA_Core_ConstexprOrIfElse(static_cond, dynamic_cond, if_block, {})
+
+// -----------------------------------------------------------------------------
+
+#define ZETA_Core_BreakableIf_(tmp, cond) \
+    for (bool tmp{ static_cast<bool>(cond) }; tmp; tmp = false)
+
+#define ZETA_Core_BreakableIf(cond) \
+    ZETA_Core_BreakableIf_(ZETA_Core_TmpName, (cond))
+
+#define ZETA_Core_Breakable ZETA_Core_BreakableIf(true)
+
+#define ZETA_Core_ConstexprThreeWay_(tmp_ret, constexpr_cond, result_a, \
+                                     result_b)                          \
+    ({                                                                  \
+        zeta::core::Conditional<constexpr_cond, decltype(result_a),     \
+                                decltype(result_b)>                     \
+            tmp_ret;                                                    \
+                                                                        \
+        if constexpr (constexpr_cond) {                                 \
+            tmp_ret = (result_a);                                       \
+        } else {                                                        \
+            tmp_ret = (result_b);                                       \
+        }                                                               \
+                                                                        \
+        tmp_ret;                                                        \
+    })
+
+#define ZETA_Core_ConstexprThreeWay(constexpr_cond, result_a, result_b)       \
+    ZETA_Core_ConstexprThreeWay_(ZETA_Core_TmpName, constexpr_cond, result_a, \
+                                 result_b)

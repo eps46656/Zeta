@@ -11,17 +11,11 @@ struct DebugDeque {
         size_t idx;
     };
 
-    // -------------------------------------------------------------------------
-
-    std::deque<void*>* deque;
-
-    size_t width;
-
-    // -------------------------------------------------------------------------
-
     template <bool EnWrite, typename ReaderWriter>
-    static void CoreReadWrite(void* dd, void const* pos_cursor, size_t cnt,
-                              ReaderWriter&& reader_writer, void* dst_cursor);
+    static void ReadWrite_(void* dd, void const* pos_cursor, size_t cnt,
+                           ReaderWriter&& reader_writer, void* dst_cursor);
+
+    static seq_cntr::SeqCntrVTable const seq_cntr_vtable;
 
     // -------------------------------------------------------------------------
 
@@ -29,19 +23,13 @@ struct DebugDeque {
 
     static void Deinit(void* dd);
 
-    // -------------------------------------------------------------------------
-
     static size_t GetSize(void const* dd);
 
     static size_t GetCapacity(void const* dd);
 
-    // -------------------------------------------------------------------------
-
     static void GetLBCursor(void const* dd, void* dst_cursor);
 
     static void GetRBCursor(void const* dd, void* dst_cursor);
-
-    // -------------------------------------------------------------------------
 
     static void* PeekL(void* dd, void* dst_cursor, void* dst_elem);
 
@@ -62,8 +50,6 @@ struct DebugDeque {
 
     static void const* ConstRefer(void const* dd, void const* pos_cursor);
 
-    // -------------------------------------------------------------------------
-
     template <typename Reader>
     static void TplRead(void const* dd, void const* pos_cursor, size_t cnt,
                         Reader&& reader, void* dst_cursor);
@@ -76,27 +62,21 @@ struct DebugDeque {
     static void TplReadWrite(void* dd, void const* pos_cursor, size_t cnt,
                              ReaderWriter&& reader_writer, void* dst_cursor);
 
-    // -------------------------------------------------------------------------
-
     static void FnRead(void const* dd, void const* pos_cursor, size_t cnt,
-                       SeqCntr::FnReader reader, void* dst_cursor);
+                       seq_cntr::FnReader reader, void* dst_cursor);
 
     static void FnWrite(void* dd, void* pos_cursor, size_t cnt,
-                        SeqCntr::FnWriter writer, void* dst_cursor);
+                        seq_cntr::FnWriter writer, void* dst_cursor);
 
-    static void FnReadWrite(void* dd, void const* pos_cursor, size_t cnt,
-                            SeqCntr::FnReaderWriter reader_writer,
+    static void FnReadWrite(void* dd, void* pos_cursor, size_t cnt,
+                            seq_cntr::FnReaderWriter reader_writer,
                             void* dst_cursor);
-
-    // -------------------------------------------------------------------------
 
     static void MemRead(void const* dd, void const* pos_cursor, size_t cnt,
                         void* dst, size_t dst_stride, void* dst_cursor);
 
     static void MemWrite(void* dd, void* pos_cursor, size_t cnt,
                          void const* src, size_t src_stride, void* dst_cursor);
-
-    // -------------------------------------------------------------------------
 
     template <typename Writer>
     static void* TplPushL(void* dd, size_t cnt, Writer&& writer,
@@ -110,18 +90,14 @@ struct DebugDeque {
     static void* TplInsert(void* dd, void* pos_cursor, size_t cnt,
                            Writer&& writer, void* dst_cursor);
 
-    // -------------------------------------------------------------------------
-
-    static void* FnPushL(void* dd, size_t cnt, SeqCntr::FnWriter writer,
+    static void* FnPushL(void* dd, size_t cnt, seq_cntr::FnWriter writer,
                          void* dst_cursor);
 
-    static void* FnPushR(void* dd, size_t cnt, SeqCntr::FnWriter writer,
+    static void* FnPushR(void* dd, size_t cnt, seq_cntr::FnWriter writer,
                          void* dst_cursor);
 
     static void* FnInsert(void* dd, void* pos_cursor, size_t cnt,
-                          SeqCntr::FnWriter writer, void* dst_cursor);
-
-    // -------------------------------------------------------------------------
+                          seq_cntr::FnWriter writer, void* dst_cursor);
 
     static void* MemPushL(void* dd, size_t cnt, void const* src,
                           size_t src_stride, void* dst_cursor);
@@ -133,8 +109,6 @@ struct DebugDeque {
                            void const* src, size_t src_stride,
                            void* dst_cursor);
 
-    // -------------------------------------------------------------------------
-
     static void PopL(void* dd, size_t cnt);
 
     static void PopR(void* dd, size_t cnt);
@@ -142,8 +116,6 @@ struct DebugDeque {
     static void Erase(void* dd, void* pos_cursor, size_t cnt);
 
     static void EraseAll(void* dd);
-
-    // -------------------------------------------------------------------------
 
     static void CopyCursor(void const* dd, void* dst_cursor,
                            void const* src_cursor);
@@ -167,17 +139,19 @@ struct DebugDeque {
 
     static void CursorAdvanceR(void const* dd, void* cursor, size_t step);
 
+    static bool CheckCntr(void const* dd);
+
+    static bool CheckCursor(void const* dd, void const* cursor);
+
+    static seq_cntr::SeqCntrRef GetSeqCntrRef(void* dd);
+
+    static seq_cntr::ConstSeqCntrRef GetSeqCntrRef(void const* dd);
+
     // -------------------------------------------------------------------------
 
-    static void CheckCntr(void const* dd);
+    std::deque<void*>* deque;
 
-    static void CheckCursor(void const* dd, void const* cursor);
-
-    // -------------------------------------------------------------------------
-
-    static SeqCntr ToSeqCntr(void* dd);
-
-    static SeqCntr ToSeqCntr(void const* dd);
+    unsigned short width;
 };
 
 }  // namespace zeta::core

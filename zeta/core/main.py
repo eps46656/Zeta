@@ -63,25 +63,13 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     # --------------------------------------------------------------------------
 
-    C_HEADER = utils.Language.C_HEADER
-    C_SOURCE = utils.Language.C_SOURCE
-    C = utils.Language.C
-
-    CPP_HEADER = utils.Language.CPP_HEADER
-    CPP_SOURCE = utils.Language.CPP_SOURCE
-    CPP = utils.Language.CPP
-
-    C_CPP_HEADER = utils.Language.C_CPP_HEADER
-
-    # --------------------------------------------------------------------------
-
     builder.add_sym("zeta_core_dir", DIR)
     builder.add_sym("zeta_core_out_dir", out_dir)
 
     # --------------------------------------------------------------------------
 
     @beartype.beartype
-    def add_c_cpp(file: pathlib.Path, lang: utils.Language):
+    def add_c_cpp_file(file: pathlib.Path, lang: utils.Language):
         def get_deps() -> set[pathlib.Path]:
             base_dir = DIR.parent
             cache_file = out_dir / f"{file.name}.file_including_files.json"
@@ -97,77 +85,82 @@ def add_deps(builder: building_utils.Builder, config: Config):
         builder.add_build_node(file, get_deps, None)
 
     @beartype.beartype
-    def add_cpp_bc(name: str):
-        cpp_file = DIR / f"{name}.cpp"
-        bc_file = out_dir / f"{name}.bc"
+    def add_c_cpp_module(module: str):
+        h_file = DIR / f"{module}.h"
+        hpp_file = DIR / f"{module}.hpp"
+        ipp_file = DIR / f"{module}.ipp"
+        c_file = DIR / f"{module}.c"
+        cpp_file = DIR / f"{module}.cpp"
+        bc_file = out_dir / f"{module}.bc"
 
-        add_c_cpp(cpp_file, CPP_SOURCE)
+        assert not c_file.exists() or not cpp_file.exists()
 
-        builder.add_build_node(
-            bc_file,
-            lambda: {FILE, cpp_file},
-            lambda: compiler.compile_to_bc(bc_file, cpp_file, CPP_SOURCE),
-        )
+        if h_file.exists():
+            add_c_cpp_file(h_file, utils.Language.C_HEADER)
+
+        if hpp_file.exists():
+            add_c_cpp_file(hpp_file, utils.Language.CPP_HEADER)
+
+        if ipp_file.exists():
+            add_c_cpp_file(ipp_file, utils.Language.CPP_HEADER)
+
+        if c_file.exists():
+            add_c_cpp_file(c_file, utils.Language.C_SOURCE)
+
+            builder.add_build_node(
+                bc_file,
+                lambda: {FILE, c_file},
+                lambda: compiler.compile_to_bc(
+                    bc_file, c_file, utils.Language.CPP_SOURCE),
+            )
+
+        if cpp_file.exists():
+            add_c_cpp_file(cpp_file, utils.Language.CPP_SOURCE)
+
+            builder.add_build_node(
+                bc_file,
+                lambda: {FILE, cpp_file},
+                lambda: compiler.compile_to_bc(
+                    bc_file, cpp_file, utils.Language.CPP_SOURCE),
+            )
 
     # --------------------------------------------------------------------------
 
     builder.add_build_node(FILE, None, None)
 
-    add_c_cpp(DIR / "allocator.hpp", CPP_HEADER)
-    add_c_cpp(DIR / "allocator.ipp", CPP_HEADER)
-
-    add_c_cpp(DIR / "bin_tree_node_tpl.hpp", CPP_HEADER)
-    add_c_cpp(DIR / "bin_tree_node_tpl.ipp", CPP_HEADER)
-
-    add_c_cpp(DIR / "bin_tree.hpp", CPP_HEADER)
-    add_c_cpp(DIR / "bin_tree.ipp", CPP_HEADER)
-
-    add_c_cpp(DIR / "circular_array.hpp", CPP_HEADER)
-    add_c_cpp(DIR / "circular_array.ipp", CPP_HEADER)
-
-    add_c_cpp(DIR / "datetime.hpp", CPP_HEADER)
-    add_cpp_bc("datetime")
-
-    add_c_cpp(DIR / "debug_deque.hpp", CPP_HEADER)
-    add_c_cpp(DIR / "debug_deque.ipp", CPP_HEADER)
-
-    add_c_cpp(DIR / "debug_utils.hpp", CPP_HEADER)
-    add_c_cpp(DIR / "debug_utils.ipp", CPP_HEADER)
-
-    add_c_cpp(DIR / "define.hpp", CPP_HEADER)
-
-    add_c_cpp(DIR / "integral.hpp", CPP_HEADER)
-
-    add_c_cpp(DIR / "mem_check_utils.hpp", CPP_HEADER)
-    add_cpp_bc("mem_check_utils")
-
-    add_c_cpp(DIR / "multi_level_table.hpp", CPP_HEADER)
-    add_c_cpp(DIR / "multi_level_table.ipp", CPP_HEADER)
-
-    add_c_cpp(DIR / "multi_level_ptr_data_table.xmacro.hpp", CPP_HEADER)
-    add_c_cpp(DIR / "multi_level_ptr_data_table.xmacro.cpp", CPP_HEADER)
-
-    add_c_cpp(DIR / "multi_level_ptr_table.hpp", CPP_HEADER)
-    add_cpp_bc("multi_level_ptr_table")
-
-    add_c_cpp(DIR / "multi_level_data_table.hpp", CPP_HEADER)
-    add_cpp_bc("multi_level_data_table")
-
-    add_c_cpp(DIR / "ptr_utils.hpp", CPP_HEADER)
-    add_c_cpp(DIR / "ptr_utils.ipp", CPP_HEADER)
-
-    add_c_cpp(DIR / "rbtree.hpp", CPP_HEADER)
-    add_c_cpp(DIR / "rbtree.ipp", CPP_HEADER)
-
-    add_c_cpp(DIR / "seq_cntr.hpp", CPP_HEADER)
-    add_c_cpp(DIR / "seq_cntr.ipp", CPP_HEADER)
-
-    add_c_cpp(DIR / "type_list.hpp", CPP_HEADER)
-    add_c_cpp(DIR / "type_traits.hpp", CPP_HEADER)
-
-    add_c_cpp(DIR / "utils.hpp", CPP_HEADER)
-    add_c_cpp(DIR / "utils.ipp", CPP_HEADER)
-
-    add_cpp_bc("utils")
-
-    add_c_cpp(DIR / "tuple.hpp", CPP_HEADER)
+    add_c_cpp_module("allocator")
+    add_c_cpp_module("assoc_cntr")
+    add_c_cpp_module("bin_tree_node_tpl")
+    add_c_cpp_module("bin_tree")
+    add_c_cpp_module("cascade_allocator")
+    add_c_cpp_module("circular_array")
+    add_c_cpp_module("compare")
+    add_c_cpp_module("datetime")
+    add_c_cpp_module("debug_deque")
+    add_c_cpp_module("debug_hash_table")
+    add_c_cpp_module("debug_utils")
+    add_c_cpp_module("define")
+    add_c_cpp_module("dynamic_hash_table")
+    add_c_cpp_module("function_ref")
+    add_c_cpp_module("generic_hash_table")
+    add_c_cpp_module("integral")
+    add_c_cpp_module("llist_node_tpl")
+    add_c_cpp_module("llist")
+    add_c_cpp_module("mem_check_utils")
+    add_c_cpp_module("multi_level_table.mpp")
+    add_c_cpp_module("multi_level_data_table")
+    add_c_cpp_module("multi_level_ptr_table")
+    add_c_cpp_module("pool_allocator")
+    add_c_cpp_module("ptr_utils")
+    add_c_cpp_module("rbtree")
+    add_c_cpp_module("seg_staging_vector")
+    add_c_cpp_module("seg_utils")
+    add_c_cpp_module("seg_vector")
+    add_c_cpp_module("seg_vector.mpp")
+    add_c_cpp_module("seq_cntr")
+    add_c_cpp_module("tuple")
+    add_c_cpp_module("type_list")
+    add_c_cpp_module("type_traits")
+    add_c_cpp_module("hash")
+    add_c_cpp_module("utils")
+    add_c_cpp_module("value_wrapper")

@@ -1,6 +1,9 @@
 #pragma once
 
+#include <zeta/core/compare.hpp>
 #include <zeta/core/define.hpp>
+#include <zeta/core/function_ref.hpp>
+#include <zeta/core/hash.hpp>
 #include <zeta/core/type_traits.hpp>
 
 #define ZETA_Core_AreOverlapped(a_beg, a_end, b_beg, b_end) \
@@ -12,7 +15,15 @@ template <typename T>
 T Declval() {};
 
 // -----------------------------------------------------------------------------
+
 struct Monostate {};
+
+// -----------------------------------------------------------------------------
+
+template <typename T, size_t N>
+struct Array {
+    T elems[N];
+};
 
 // -----------------------------------------------------------------------------
 
@@ -22,12 +33,88 @@ struct Pair {
     Second second;
 };
 
+template <typename First, typename Second>
+struct hash::HashCore<Pair<First, Second>> {
+    unsigned long long operator()(Pair<First, Second> const& x,
+                                  unsigned long long salt) const;
+};
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+struct compare::CompareCore<Pair<XFirst, XSecond>, Pair<YFirst, YSecond>> {
+    int operator()(Pair<XFirst, XSecond> const& x,
+                   Pair<YFirst, YSecond> const& y) const;
+};
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool operator==(Pair<XFirst, XSecond> const& x, Pair<YFirst, YSecond> const& y);
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool operator!=(Pair<XFirst, XSecond> const& x, Pair<YFirst, YSecond> const& y);
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool operator<(Pair<XFirst, XSecond> const& x, Pair<YFirst, YSecond> const& y);
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool operator<=(Pair<XFirst, XSecond> const& x, Pair<YFirst, YSecond> const& y);
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool operator>(Pair<XFirst, XSecond> const& x, Pair<YFirst, YSecond> const& y);
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool operator>=(Pair<XFirst, XSecond> const& x, Pair<YFirst, YSecond> const& y);
+
+// -----------------------------------------------------------------------------
+
 template <typename First, typename Second, typename Third>
 struct Triplet {
     First first;
     Second second;
     Third third;
 };
+
+template <typename First, typename Second, typename Third>
+struct hash::HashCore<Triplet<First, Second, Third>> {
+    unsigned long long operator()(Triplet<First, Second, Third> const& x,
+                                  unsigned long long salt) const;
+};
+
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+struct compare::CompareCore<Triplet<XFirst, XSecond, XThird>,
+                            Triplet<YFirst, YSecond, YThird>> {
+    int operator()(Triplet<XFirst, XSecond, XThird> const& x,
+                   Triplet<YFirst, YSecond, YThird> const& y) const;
+};
+
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool operator==(Triplet<XFirst, XSecond, XThird> const& x,
+                Triplet<YFirst, YSecond, YThird> const& y);
+
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool operator!=(Triplet<XFirst, XSecond, XThird> const& x,
+                Triplet<YFirst, YSecond, YThird> const& y);
+
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool operator<(Triplet<XFirst, XSecond, XThird> const& a,
+               Triplet<YFirst, YSecond, YThird> const& b);
+
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool operator<=(Triplet<XFirst, XSecond, XThird> const& x,
+                Triplet<YFirst, YSecond, YThird> const& y);
+
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool operator>(Triplet<XFirst, XSecond, XThird> const& x,
+               Triplet<YFirst, YSecond, YThird> const& y);
+
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool operator>=(Triplet<XFirst, XSecond, XThird> const& a,
+                Triplet<YFirst, YSecond, YThird> const& b);
 
 // -----------------------------------------------------------------------------
 
@@ -47,6 +134,20 @@ void Swap(X&& x, Y&& y);
 
 // -----------------------------------------------------------------------------
 
+template <typename Operation, typename T0, typename... Ts>
+decltype(auto) MakeLeftAssocOperation(Operation const& opr, T0&& x0,
+                                      Ts&&... xs);
+
+template <typename Operation, typename T0, typename... Ts>
+decltype(auto) MakeRightAssocOperation(Operation const& opr, T0&& x0,
+                                       Ts&&... xs);
+
+template <typename Operation, typename T0, typename... Ts>
+decltype(auto) MakeTreeAssocOperation(Operation const& opr, T0&& x0,
+                                      Ts&&... xs);
+
+// -----------------------------------------------------------------------------
+
 template <typename T0, typename... Ts>
 decltype(auto) Min(T0&& x0, Ts&&... xs);
 
@@ -55,87 +156,13 @@ decltype(auto) Max(T0&& x0, Ts&&... xs);
 
 // -----------------------------------------------------------------------------
 
-template <typename X, typename Y>
-int ThreeWayCompare(X const& x, Y const& y);
-
-template <typename X, typename Y>
-struct ThreeWayCompareCore {
-    int operator()(X const& x, Y const& y) const;
-};
+template <typename T0, typename... Ts>
+decltype(auto) Sum(T0&& x0, Ts&&... xs);
 
 // -----------------------------------------------------------------------------
 
 template <typename Node, typename GetLinkFunc>
 Pair<Node*, size_t> GetMostLink(Node* n, GetLinkFunc const& get_link);
-
-// -----------------------------------------------------------------------------
-
-template <typename Ret, typename Context, typename... Args>
-struct ContextualFunction {
-    ZETA_Core_StaticAssert(IsSame<Context, void> ||
-                           !IsSame<Context, void const>);
-
-    Context* context;
-    Ret (*callable)(Context* context, Args... args);
-
-    template <typename Callable>
-    static ContextualFunction FromCallable(Callable& callable);
-
-    template <typename... InvokeArgs>
-    Ret operator()(InvokeArgs&&... invoke_args) const;
-};
-
-// -----------------------------------------------------------------------------
-
-struct FunctionRefKind {
-    static constexpr char Func{ 1 };
-    static constexpr char ContextualFunc{ 2 };
-    static constexpr char ConstContextualFunc{ 3 };
-};
-
-template <typename Sig>
-struct FunctionRef;
-
-template <typename Ret, typename... Args>
-struct FunctionRef<Ret(Args...)> {
-    union {
-        struct {
-            Ret (*ptr)(Args... args);
-        } func;
-
-        struct {
-            void* context;
-            Ret (*ptr)(void* context, Args... args);
-        } contextual_func;
-
-        struct {
-            void const* context;
-            Ret (*ptr)(void const* context, Args... args);
-        } const_contextual_func;
-    };
-
-    char kind;
-
-    // -------------------------------------------------------------------------
-
-    FunctionRef() = default;
-
-    FunctionRef(FunctionRef const&) = default;
-
-    FunctionRef(FunctionRef&&) = default;
-
-    FunctionRef(Ret (*func)(Args... args));
-
-    FunctionRef(void* context,
-                Ret (*contextual_func)(void* context, Args... args));
-
-    template <typename Callable>
-    FunctionRef(Callable& callable);
-
-    // -------------------------------------------------------------------------
-
-    Ret operator()(Args... args) const;
-};
 
 // -----------------------------------------------------------------------------
 
@@ -191,21 +218,28 @@ Iterator SeqRotate(Iterator beg, Iterator mid, Iterator end);
 
 // -----------------------------------------------------------------------------
 
-constexpr unsigned long long UnsafeUIntCeilDiv(unsigned x, unsigned y);
+template <typename UnsignedIntegral>
+constexpr UnsignedIntegral UIntCeilDiv(unsigned x, unsigned y);
 
 // -----------------------------------------------------------------------------
 
-constexpr unsigned long long UIntAlignDown(unsigned long long val,
-                                           unsigned long long mod);
+template <typename UnsignedIntegral>
+constexpr UnsignedIntegral UIntAlignDown(UnsignedIntegral val,
+                                         UnsignedIntegral mod);
 
-constexpr unsigned long long UIntAlignUp(unsigned long long val,
-                                         unsigned long long mod);
+template <typename UnsignedIntegral>
+constexpr UnsignedIntegral UIntAlignUp(UnsignedIntegral val,
+                                       UnsignedIntegral mod);
 
 // -----------------------------------------------------------------------------
 
-constexpr int FloorLog2(unsigned long long x);
+constexpr unsigned FloorLog2(unsigned long long x);
 
-constexpr int CeilLog2(unsigned long long x);
+constexpr unsigned CeilLog2(unsigned long long x);
+
+constexpr unsigned FloorLog(unsigned long long x, unsigned base);
+
+constexpr unsigned CeilLog(unsigned long long x, unsigned base);
 
 // -----------------------------------------------------------------------------
 
@@ -228,5 +262,11 @@ int Choose2(bool cond0, bool cond1, unsigned long long* random_seed);
 
 int Choose3(bool cond0, bool cond1, bool cond2,
             unsigned long long* random_seed);
+
+// -----------------------------------------------------------------------------
+
+unsigned long long GCD(unsigned long long x, unsigned long long y);
+
+unsigned long long LCM(unsigned long long x, unsigned long long y);
 
 }  // namespace zeta::core

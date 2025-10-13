@@ -3,147 +3,224 @@
 #include <zeta/core/assoc_cntr.hpp>
 #include <zeta/core/debug_utils.ipp>
 
-namespace zeta::core::assoc_cntr {
-
 #pragma push_macro("Call_")
 #pragma push_macro("ConstCall_")
 
-#define Call_(func, ...)                                \
-    auto cntr{ static_cast<Cntr*>(cntr_) };             \
-    CheckCntr(cntr);                                    \
-    return cntr->vtable->func(cntr->inst, __VA_ARGS__); \
+#define Call_(func, ...)                                                    \
+    ZETA_Core_StaticAssert(!IsConst::value);                                \
+                                                                            \
+    auto assoc_cntr_ref{ static_cast<AssocCntrRefTpl*>(assoc_cntr_ref_) };  \
+    ZETA_Core_DebugAssert(CheckCntr(assoc_cntr_ref));                       \
+                                                                            \
+    return assoc_cntr_ref->vtable->func(assoc_cntr_ref->inst, __VA_ARGS__); \
     ZETA_Core_StaticAssert(true);
 
-#define ConstCall_(func, ...)                                 \
-    auto cntr{ static_cast<Cntr const*>(cntr_) };             \
-    CheckCntr(cntr);                                          \
-    return cntr->vtable->func(cntr->inst_const, __VA_ARGS__); \
+#define ConstCall_(func, ...)                                               \
+    auto assoc_cntr_ref{ static_cast<AssocCntrRefTpl const*>(               \
+        assoc_cntr_ref_) };                                                 \
+                                                                            \
+    ZETA_Core_DebugAssert(CheckCntr(assoc_cntr_ref));                       \
+                                                                            \
+    return assoc_cntr_ref->vtable->func(assoc_cntr_ref->inst, __VA_ARGS__); \
     ZETA_Core_StaticAssert(true);
 
+namespace zeta::core::assoc_cntr {
+
+template <typename IsConst>
+template <typename _>
+EnableIf<!IsConst::value, void, _> AssocCntrRefTpl<IsConst>::Deinit(
+    void* assoc_cntr_ref_) {
+    Call_(Deinit);
+}
+
 // -----------------------------------------------------------------------------
 
-inline void Deinit(void* cntr_) { Call_(Deinit); }
+template <typename IsConst>
+size_t AssocCntrRefTpl<IsConst>::GetSize(void const* assoc_cntr_ref_) {
+    ConstCall_(GetSize);
+}
 
 // -----------------------------------------------------------------------------
 
-inline size_t GetSize(void const* cntr_) { ConstCall_(GetSize); }
-
-// -----------------------------------------------------------------------------
-
-inline void GetLBCursor(void const* cntr_, void* dst_cursor) {
+template <typename IsConst>
+void AssocCntrRefTpl<IsConst>::GetLBCursor(void const* assoc_cntr_ref_,
+                                           void* dst_cursor) {
     ConstCall_(GetLBCursor, dst_cursor);
 }
 
-inline void GetRBCursor(void const* cntr_, void* dst_cursor) {
+template <typename IsConst>
+void AssocCntrRefTpl<IsConst>::GetRBCursor(void const* assoc_cntr_ref_,
+                                           void* dst_cursor) {
     ConstCall_(GetRBCursor, dst_cursor);
 }
 
 // -----------------------------------------------------------------------------
 
-inline void* PeekL(void* cntr_, void* dst_cursor, void* dst_elem) {
+template <typename IsConst>
+template <typename _>
+EnableIf<!IsConst::value, void*, _> AssocCntrRefTpl<IsConst>::PeekL(
+    void* assoc_cntr_ref_, void* dst_cursor, void* dst_elem) {
     Call_(PeekL, dst_cursor, dst_elem);
 }
 
-inline void const* ConstPeekL(void const* cntr_, void* dst_cursor,
-                              void* dst_elem) {
+template <typename IsConst>
+void const* AssocCntrRefTpl<IsConst>::ConstPeekL(void const* assoc_cntr_ref_,
+                                                 void* dst_cursor,
+                                                 void* dst_elem) {
     ConstCall_(ConstPeekL, dst_cursor, dst_elem);
 }
 
-inline void* PeekR(void* cntr_, void* dst_cursor, void* dst_elem) {
+template <typename IsConst>
+template <typename _>
+EnableIf<!IsConst::value, void*, _> AssocCntrRefTpl<IsConst>::PeekR(
+    void* assoc_cntr_ref_, void* dst_cursor, void* dst_elem) {
     Call_(PeekR, dst_cursor, dst_elem);
 }
 
-inline void const* ConstPeekR(void const* cntr_, void* dst_cursor,
-                              void* dst_elem) {
+template <typename IsConst>
+void const* AssocCntrRefTpl<IsConst>::ConstPeekR(void const* assoc_cntr_ref_,
+                                                 void* dst_cursor,
+                                                 void* dst_elem) {
     ConstCall_(ConstPeekR, dst_cursor, dst_elem);
 }
 
-inline void* Refer(void* cntr_, void const* pos_cursor) {
+template <typename IsConst>
+template <typename _>
+EnableIf<!IsConst::value, void*, _> AssocCntrRefTpl<IsConst>::Refer(
+    void* assoc_cntr_ref_, void const* pos_cursor) {
     Call_(Refer, pos_cursor);
 }
 
-inline void const* ConstRefer(void const* cntr_, void const* pos_cursor) {
+template <typename IsConst>
+void const* AssocCntrRefTpl<IsConst>::ConstRefer(void const* assoc_cntr_ref_,
+                                                 void const* pos_cursor) {
     ConstCall_(ConstRefer, pos_cursor);
 }
 
 // -----------------------------------------------------------------------------
 
-inline void* Find(void* cntr_, void const* key, ContextualHash const& key_hash,
-                  ContextualCompare const& key_elem_compare, void* dst_cursor) {
+template <typename IsConst>
+template <typename _>
+EnableIf<!IsConst::value, void*, _> AssocCntrRefTpl<IsConst>::Find(
+    void* assoc_cntr_ref_, void const* key, FnHash const& key_hash,
+    FnCompare const& key_elem_compare, void* dst_cursor) {
     Call_(Find, key, key_hash, key_elem_compare, dst_cursor);
 }
 
-inline void const* ConstFind(void const* cntr_, void const* key,
-                             ContextualHash const& key_hash,
-                             ContextualCompare const& key_elem_compare,
-                             void* dst_cursor) {
+template <typename IsConst>
+void const* AssocCntrRefTpl<IsConst>::ConstFind(
+    void const* assoc_cntr_ref_, void const* key, FnHash const& key_hash,
+    FnCompare const& key_elem_compare, void* dst_cursor) {
     ConstCall_(ConstFind, key, key_hash, key_elem_compare, dst_cursor);
 }
 
-inline void* Insert(void* cntr_, void* elem, void* dst_cursor) {
+template <typename IsConst>
+template <typename _>
+EnableIf<!IsConst::value, void*, _> AssocCntrRefTpl<IsConst>::Insert(
+    void* assoc_cntr_ref_, void const* elem, void* dst_cursor) {
     Call_(Insert, elem, dst_cursor);
 }
 
-inline void Erase(void* cntr_, void* pos_cursor) { Call_(Erase, pos_cursor); }
+template <typename IsConst>
+template <typename _>
+EnableIf<!IsConst::value, void, _> AssocCntrRefTpl<IsConst>::Erase(
+    void* assoc_cntr_ref_, void* pos_cursor) {
+    Call_(Erase, pos_cursor);
+}
 
-inline void EraseAll(void* cntr_) { Call_(EraseAll); }
+template <typename IsConst>
+template <typename _>
+EnableIf<!IsConst::value, void, _> AssocCntrRefTpl<IsConst>::EraseAll(
+    void* assoc_cntr_ref_) {
+    Call_(EraseAll);
+}
 
 // -----------------------------------------------------------------------------
 
-inline bool AreEqualCursor(void const* cntr_, void const* cursor_a,
-                           void const* cursor_b) {
+template <typename IsConst>
+template <typename OtherIsConst, typename>
+AssocCntrRefTpl<IsConst>::AssocCntrRefTpl(
+    AssocCntrRefTpl<OtherIsConst> const& other_assoc_cntr_ref)
+    : inst{ other_assoc_cntr_ref.inst },
+      cursor_size{ other_assoc_cntr_ref.cursor_size },
+      width{ other_assoc_cntr_ref.width },
+      capacity{ other_assoc_cntr_ref.capacity },
+      vtable{ other_assoc_cntr_ref.vtable } {}
+
+// -----------------------------------------------------------------------------
+
+template <typename IsConst>
+void AssocCntrRefTpl<IsConst>::CopyCursor(void const* assoc_cntr_ref_,
+                                          void const* cursor,
+                                          void* dst_cursor) {
+    ConstCall_(CopyCursor, cursor, dst_cursor);
+}
+
+template <typename IsConst>
+bool AssocCntrRefTpl<IsConst>::AreEqualCursor(void const* assoc_cntr_ref_,
+                                              void const* cursor_a,
+                                              void const* cursor_b) {
     ConstCall_(AreEqualCursor, cursor_a, cursor_b);
 }
 
-inline int CompareCursor(void const* cntr_, void const* cursor_a,
-                         void const* cursor_b) {
+template <typename IsConst>
+int AssocCntrRefTpl<IsConst>::CompareCursor(void const* assoc_cntr_ref_,
+                                            void const* cursor_a,
+                                            void const* cursor_b) {
     ConstCall_(CompareCursor, cursor_a, cursor_b);
 }
 
-inline size_t GetCursorDist(void const* cntr_, void const* cursor_a,
-                            void const* cursor_b) {
+template <typename IsConst>
+size_t AssocCntrRefTpl<IsConst>::GetCursorDist(void const* assoc_cntr_ref_,
+                                               void const* cursor_a,
+                                               void const* cursor_b) {
     ConstCall_(GetCursorDist, cursor_a, cursor_b);
 }
 
-inline size_t GetCursorIdx(void const* cntr_, void const* cursor) {
+template <typename IsConst>
+size_t AssocCntrRefTpl<IsConst>::GetCursorIdx(void const* assoc_cntr_ref_,
+                                              void const* cursor) {
     ConstCall_(GetCursorIdx, cursor);
 }
 
-inline void CursorStepL(void const* cntr_, void* cursor) {
+template <typename IsConst>
+void AssocCntrRefTpl<IsConst>::CursorStepL(void const* assoc_cntr_ref_,
+                                           void* cursor) {
     ConstCall_(CursorStepL, cursor);
 }
 
-inline void CursorStepR(void const* cntr_, void* cursor) {
+template <typename IsConst>
+void AssocCntrRefTpl<IsConst>::CursorStepR(void const* assoc_cntr_ref_,
+                                           void* cursor) {
     ConstCall_(CursorStepR, cursor);
 }
 
-inline void CursorAdvanceL(void const* cntr_, void* cursor, size_t step) {
+template <typename IsConst>
+void AssocCntrRefTpl<IsConst>::CursorAdvanceL(void const* assoc_cntr_ref_,
+                                              void* cursor, size_t step) {
     ConstCall_(CursorAdvanceL, cursor, step);
 }
 
-inline void CursorAdvanceR(void const* cntr_, void* cursor, size_t step) {
+template <typename IsConst>
+void AssocCntrRefTpl<IsConst>::CursorAdvanceR(void const* assoc_cntr_ref_,
+                                              void* cursor, size_t step) {
     ConstCall_(CursorAdvanceR, cursor, step);
 }
 
 // -----------------------------------------------------------------------------
 
-inline void CheckCntr(void* cntr_) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
-    CheckCntr(cntr);
+template <typename IsConst>
+bool AssocCntrRefTpl<IsConst>::CheckCntr(void const* assoc_cntr_ref_) {
+    auto assoc_cntr_ref{ static_cast<AssocCntrRef const*>(assoc_cntr_ref_) };
 
-    ZETA_Core_DebugAssert(cntr->inst != nullptr);
+    if (!(assoc_cntr_ref != nullptr)) { return false; }
+    if (!(assoc_cntr_ref->inst != nullptr)) { return false; }
+    if (!(assoc_cntr_ref->vtable != nullptr)) { return false; }
+
+    return true;
 }
 
-inline void CheckCntr(void const* cntr_) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
-    ZETA_Core_DebugAssert(cntr != nullptr);
-
-    ZETA_Core_DebugAssert(cntr->inst_const != nullptr);
-
-    ZETA_Core_DebugAssert(cntr->vtable != nullptr);
-}
+}  // namespace zeta::core::assoc_cntr
 
 #pragma pop_macro("Call_")
 #pragma pop_macro("ConstCall_")
-
-}  // namespace zeta::core::assoc_cntr

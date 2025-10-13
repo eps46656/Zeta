@@ -206,7 +206,7 @@ void main1() {
     root = nullptr;
 
     for (int i{ 0 }; i < 1024; ++i) {
-        Insert(zeta::core_test::GetRandomInt<size_t, size_t>(0, vec.size()),
+        Insert(zeta::core_test::GetRandomInt<size_t>(0, vec.size()),
                zeta::core_test::GetRandomInt<size_t>(0, 16));
 
         Sanitize();
@@ -218,7 +218,7 @@ void main1() {
         for (int i{ 0 },
              end{ zeta::core_test::GetRandomInt<int>(1024, 1024 + 4096) };
              i < end; ++i) {
-            Insert(zeta::core_test::GetRandomInt<size_t, size_t>(0, vec.size()),
+            Insert(zeta::core_test::GetRandomInt<size_t>(0, vec.size()),
                    zeta::core_test::GetRandomInt<size_t>(0, 16));
 
             Sanitize();
@@ -228,16 +228,15 @@ void main1() {
                              vec.size(), zeta::core_test::GetRandomInt<size_t>(
                                              1024, 1024 + 4096))) };
              i < end; ++i) {
-            Erase(zeta::core_test::GetRandomInt<size_t, size_t>(
-                      0, vec.size() - 1) %
+            Erase(zeta::core_test::GetRandomInt<size_t>(0, vec.size() - 1) %
                   vec.size());
             Sanitize();
         }
 
         for (int i{ 0 }, end{ static_cast<int>(vec.size()) * 2 }; i < end;
              ++i) {
-            size_t idx{ zeta::core_test::GetRandomInt<size_t, size_t>(
-                0, size_sum * 2) };
+            size_t idx{ zeta::core_test::GetRandomInt<size_t>(0,
+                                                              size_sum * 2) };
             Access(idx);
         }
     }

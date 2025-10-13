@@ -1,9 +1,9 @@
 #pragma once
 
-#pragma push_macro("DATA")
+#pragma push_macro("EnData")
 
-#define DATA 0
+#define EnData 0
 
-#include <zeta/core/multi_level_ptr_data_table.xmacro.hpp>
+#include <zeta/core/multi_level_table.mpp.hpp>
 
-#pragma pop_macro("DATA")
+#pragma pop_macro("EnData")

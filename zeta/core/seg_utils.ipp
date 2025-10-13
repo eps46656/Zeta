@@ -21,14 +21,15 @@ void SegShoveL(CircularArray* l_ca, CircularArray* r_ca, size_t rl_cnt,
 
     size_t l_size{ l_ca->size };
 
-    CircularArray::TplPushR(l_ca, shove_cnt, [](void*) {});
+    CircularArray::TplPushR(
+        l_ca, shove_cnt, [](void*, size_t, size_t) {}, nullptr);
 
     if (0 < cnt_a) {
         CircularArray::AssignFromCircularArray(l_ca, l_size, r_ca, 0, cnt_a);
     }
 
     if (0 < cnt_b) {
-        CircularArray::IdxWrite(l_ca, l_size + cnt_a, cnt_b, writer);
+        CircularArray::IdxTplWrite(l_ca, l_size + cnt_a, cnt_b, writer);
     }
 
     if (0 < cnt_c) {
@@ -39,7 +40,8 @@ void SegShoveL(CircularArray* l_ca, CircularArray* r_ca, size_t rl_cnt,
     CircularArray::PopL(r_ca, cnt_a + cnt_c);
 
     if (0 < ins_cnt - cnt_b) {
-        CircularArray::IdxInsert(r_ca, rl_cnt - cnt_a, ins_cnt - cnt_b, writer);
+        CircularArray::IdxTplInsert(r_ca, rl_cnt - cnt_a, ins_cnt - cnt_b,
+                                    writer);
     }
 }
 
@@ -60,7 +62,8 @@ void SegShoveR(CircularArray* l_ca, CircularArray* r_ca, size_t lr_cnt,
 
     size_t l_size{ l_ca->size };
 
-    CircularArray::TplPushL(r_ca, shove_cnt, [](void*, size_t, size_t) {});
+    CircularArray::TplPushL(
+        r_ca, shove_cnt, [](void*, size_t, size_t) {}, nullptr);
 
     if (0 < cnt_c) {
         CircularArray::AssignFromCircularArray(r_ca, 0, l_ca,
@@ -75,11 +78,11 @@ void SegShoveR(CircularArray* l_ca, CircularArray* r_ca, size_t lr_cnt,
     CircularArray::PopR(l_ca, cnt_c + cnt_a);
 
     if (0 < ins_cnt - cnt_b) {
-        CircularArray::IdxInsert(l_ca, l_size - lr_cnt, ins_cnt - cnt_b,
-                                 writer);
+        CircularArray::IdxTplInsert(l_ca, l_size - lr_cnt, ins_cnt - cnt_b,
+                                    writer);
     }
 
-    if (0 < cnt_b) { CircularArray::IdxWrite(r_ca, cnt_c, cnt_b, writer); }
+    if (0 < cnt_b) { CircularArray::IdxTplWrite(r_ca, cnt_c, cnt_b, writer); }
 }
 
 }  // namespace zeta::core::seg_utils

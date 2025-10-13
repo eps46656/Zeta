@@ -5,7 +5,7 @@
 namespace zeta::core::bin_tree {
 
 template <typename BinTreeNodeOperator, typename BinTreeNode>
-void CheckBinTreeNodeOperator(BinTreeNodeOperator const& btn_opr);
+bool CheckBinTreeNodeOperator(BinTreeNodeOperator const& btn_opr);
 
 // -----------------------------------------------------------------------------
 
@@ -93,6 +93,8 @@ Pair<BinTreeNode*, size_t> AdvanceR(BinTreeNodeOperator const& btn_opr,
 template <typename BinTreeNodeOperator, typename BinTreeNode>
 Pair<size_t, size_t> GetLRAccSize(BinTreeNodeOperator const& btn_opr,
                                   BinTreeNode* n);
+
+// -----------------------------------------------------------------------------
 
 template <typename BinTreeNodeOperator, typename BinTreeNode>
 void Sanitize(BinTreeNodeOperator const& btn_opr, BinTreeNode* n);

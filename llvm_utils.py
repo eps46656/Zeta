@@ -207,7 +207,7 @@ class LLVMCompiler:
 
         self.clang_triple = get_clang_triple(self.target)
 
-        self.error_limit = 8
+        self.error_limit = 24
 
         # ----------------------------------------------------------------------
 

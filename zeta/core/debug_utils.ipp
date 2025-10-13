@@ -25,21 +25,21 @@ std::string GetTypeStr() {
 }
 
 template <typename T>
-struct PrintVarCore {
-    ZETA_Core_StaticAssert(IsIntegral<T> || IsPointer<T>);
-
+struct PrintVarCore<T, EnableIf<(IsIntegral<T> || IsPointer<T>), void>> {
     static constexpr auto PreProcess_(T const& value) {
         if constexpr (IsPointer<T>) {
             return reinterpret_cast<uintptr_t>(value);
-        } else {
-            return value;
+        } else if constexpr (IsUnsignedIntegral<T>) {
+            return static_cast<unsigned long long>(value);
+        } else if constexpr (IsSignedIntegral<T>) {
+            return static_cast<long long>(value);
         }
     }
 
     std::ostream& operator()(std::ostream& os, T const& value) const {
-        if constexpr (IsSame<T, bool>) {
+        if constexpr (IsAnyOf<T, bool>) {
             os << Format(std::right, dec_width) << (value ? "true" : "false");
-        } else if constexpr (IsIntegral<T>) {
+        } else {
             auto proc_value{ PreProcess_(value) };
 
             os << Format(std::right, dec_width) << std::dec << proc_value << 'd'
@@ -47,7 +47,7 @@ struct PrintVarCore {
                << std::uppercase << proc_value << 'h';
         }
 
-        if constexpr (IsSame<T, char*> || IsSame<T, char const*>) {
+        if constexpr (IsAnyOf<T, char*, char const*>) {
             os << space_str << "\"" << value << "\"";
         }
 
@@ -86,6 +86,14 @@ struct PrintVarCore<char const[N]> {
         return os;
     }
 };
+
+// -----------------------------------------------------------------------------
+
+template <typename T>
+PrintVarCore<T> const& GetPrintVarCore() {
+    static PrintVarCore<T> const print_var_core;
+    return print_var_core;
+}
 
 // -----------------------------------------------------------------------------
 

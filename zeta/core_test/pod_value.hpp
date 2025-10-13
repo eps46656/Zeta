@@ -1,8 +1,9 @@
 #pragma once
 
 #include <iostream>
+#include <zeta/core/compare.ipp>
+#include <zeta/core/hash.hpp>
 #include <zeta/core/utils.ipp>
-#include <zeta/core_test/hash_utils.hpp>
 #include <zeta/core_test/random.hpp>
 
 namespace zeta::core_test {
@@ -24,16 +25,24 @@ inline std::ostream& operator<<(std::ostream& os, PODValue const& val) {
     return os;
 }
 
+}  // namespace zeta::core_test
+
+namespace zeta::core {
+
 template <>
-struct HashCore<PODValue> {
-    unsigned long long operator()(PODValue const& x,
+struct hash::HashCore<core_test::PODValue> {
+    unsigned long long operator()(core_test::PODValue const& x,
                                   unsigned long long salt) const {
-        return core::MemHash(x.data, PODValue::width, salt);
+        return core::MemHash(x.data, core_test::PODValue::width, salt);
     }
 };
 
+}  // namespace zeta::core
+
+namespace zeta::core_test {
+
 template <>
-struct GetRandomCore<PODValue> {
+struct RandomCore<PODValue> {
     PODValue operator()() const {
         PODValue ret;
 
@@ -47,42 +56,42 @@ struct GetRandomCore<PODValue> {
 
 }  // namespace zeta::core_test
 
-namespace zeta::core {
+namespace zeta::core::compare {
 
 template <>
-struct ThreeWayCompareCore<core_test::PODValue, core_test::PODValue> {
+struct CompareCore<core_test::PODValue, core_test::PODValue> {
     int operator()(core_test::PODValue const& x,
                    core_test::PODValue const& y) const {
         return core::MemCompare(x.data, y.data, core_test::PODValue::width);
     }
 };
 
-}  // namespace zeta::core
+}  // namespace zeta::core::compare
 
 namespace zeta::core_test {
 
 inline bool operator==(PODValue const& x, PODValue const& y) {
-    return zeta::core::ThreeWayCompare(x, y) == 0;
+    return core::compare::Compare(x, y) == 0;
 }
 
 inline bool operator!=(PODValue const& x, PODValue const& y) {
-    return !(x == y);
+    return core::compare::Compare(x, y) != 0;
 }
 
 inline bool operator<(PODValue const& x, PODValue const& y) {
-    return zeta::core::ThreeWayCompare(x, y) < 0;
+    return core::compare::Compare(x, y) < 0;
 }
 
 inline bool operator<=(PODValue const& x, PODValue const& y) {
-    return zeta::core::ThreeWayCompare(x, y) <= 0;
+    return core::compare::Compare(x, y) <= 0;
 }
 
 inline bool operator>(PODValue const& x, PODValue const& y) {
-    return zeta::core::ThreeWayCompare(x, y) > 0;
+    return core::compare::Compare(x, y) > 0;
 }
 
 inline bool operator>=(PODValue const& x, PODValue const& y) {
-    return zeta::core::ThreeWayCompare(x, y) >= 0;
+    return core::compare::Compare(x, y) >= 0;
 }
 
 }  // namespace zeta::core_test

@@ -8,11 +8,10 @@
 namespace zeta::core {
 
 template <bool EnWrite, typename ReaderWriter>
-void DebugDeque::CoreReadWrite(void* dd_, void const* pos_cursor_, size_t cnt,
-                               ReaderWriter&& reader_writer,
-                               void* dst_cursor_) {
+void DebugDeque::ReadWrite_(void* dd_, void const* pos_cursor_, size_t cnt,
+                            ReaderWriter&& reader_writer, void* dst_cursor_) {
     auto dd{ static_cast<DebugDeque*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto deque{ dd->deque };
 
@@ -25,7 +24,7 @@ void DebugDeque::CoreReadWrite(void* dd_, void const* pos_cursor_, size_t cnt,
 
     auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
 
-    ZETA_Core_DebugAssert(SeqCntr::IsReferable(beg, cnt, deque->size()));
+    ZETA_Core_DebugAssert(seq_cntr::IsReferable(beg, cnt, deque->size()));
 
     if (dst_cursor != nullptr) {
         dst_cursor->dd = dd;
@@ -33,9 +32,60 @@ void DebugDeque::CoreReadWrite(void* dd_, void const* pos_cursor_, size_t cnt,
     }
 
     for (size_t idx{ beg }, end{ beg + cnt }; idx < end; ++idx) {
-        reader_writer((*deque)[idx], width, 1);
+        reader_writer(static_cast<Conditional<EnWrite, void*, void const*>>(
+                          (*deque)[idx]),
+                      width, 1);
     }
 }
+
+seq_cntr::SeqCntrVTable const DebugDeque::seq_cntr_vtable{
+    .Deinit = &DebugDeque::Deinit,
+
+    .GetSize = &DebugDeque::GetSize,
+    .GetCapacity = &DebugDeque::GetCapacity,
+
+    .GetLBCursor = &DebugDeque::GetLBCursor,
+    .GetRBCursor = &DebugDeque::GetRBCursor,
+
+    .PeekL = &DebugDeque::PeekL,
+    .ConstPeekL = &DebugDeque::ConstPeekL,
+    .PeekR = &DebugDeque::PeekR,
+    .ConstPeekR = &DebugDeque::ConstPeekR,
+    .Access = &DebugDeque::Access,
+    .ConstAccess = &DebugDeque::ConstAccess,
+    .Refer = &DebugDeque::Refer,
+    .ConstRefer = &DebugDeque::ConstRefer,
+
+    .FnRead = &DebugDeque::FnRead,
+    .FnWrite = &DebugDeque::FnWrite,
+    .FnReadWrite = &DebugDeque::FnReadWrite,
+
+    .MemRead = &DebugDeque::MemRead,
+    .MemWrite = &DebugDeque::MemWrite,
+
+    .FnPushL = &DebugDeque::FnPushL,
+    .FnPushR = &DebugDeque::FnPushR,
+    .FnInsert = &DebugDeque::FnInsert,
+
+    .MemPushL = &DebugDeque::MemPushL,
+    .MemPushR = &DebugDeque::MemPushR,
+    .MemInsert = &DebugDeque::MemInsert,
+
+    .PopL = &DebugDeque::PopL,
+    .PopR = &DebugDeque::PopR,
+    .Erase = &DebugDeque::Erase,
+    .EraseAll = &DebugDeque::EraseAll,
+
+    .CopyCursor = &DebugDeque::CopyCursor,
+    .AreEqualCursor = &DebugDeque::AreEqualCursor,
+    .CompareCursor = &DebugDeque::CompareCursor,
+    .GetCursorDist = &DebugDeque::GetCursorDist,
+    .GetCursorIdx = &DebugDeque::GetCursorIdx,
+    .CursorStepL = &DebugDeque::CursorStepL,
+    .CursorStepR = &DebugDeque::CursorStepR,
+    .CursorAdvanceL = &DebugDeque::CursorAdvanceL,
+    .CursorAdvanceR = &DebugDeque::CursorAdvanceR,
+};
 
 // -----------------------------------------------------------------------------
 
@@ -49,28 +99,28 @@ inline void DebugDeque::Init(void* dd_) {
 
 inline void DebugDeque::Deinit(void* dd_) {
     auto dd{ static_cast<DebugDeque*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     delete dd->deque;
 }
 
 inline size_t DebugDeque::GetSize(void const* dd_) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     return dd->deque->size();
 }
 
 inline size_t DebugDeque::GetCapacity(void const* dd_) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     return dd->deque->max_size();
 }
 
 inline void DebugDeque::GetLBCursor(void const* dd_, void* dst_cursor_) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
 
@@ -80,7 +130,7 @@ inline void DebugDeque::GetLBCursor(void const* dd_, void* dst_cursor_) {
 
 inline void DebugDeque::GetRBCursor(void const* dd_, void* dst_cursor_) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto deque{ dd->deque };
 
@@ -92,7 +142,7 @@ inline void DebugDeque::GetRBCursor(void const* dd_, void* dst_cursor_) {
 
 inline void* DebugDeque::PeekL(void* dd_, void* dst_cursor_, void* dst_elem) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto deque{ dd->deque };
     size_t width{ dd->width };
@@ -120,7 +170,7 @@ inline void const* DebugDeque::ConstPeekL(void const* dd, void* dst_cursor,
 
 inline void* DebugDeque::PeekR(void* dd_, void* dst_cursor_, void* dst_elem) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto deque{ dd->deque };
     size_t width{ dd->width };
@@ -149,12 +199,12 @@ inline void const* DebugDeque::ConstPeekR(void const* dd, void* dst_cursor,
 inline void* DebugDeque::Access(void* dd_, size_t idx, void* dst_cursor_,
                                 void* dst_elem) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto deque{ dd->deque };
     size_t width{ dd->width };
 
-    ZETA_Core_DebugAssert(SeqCntr::IsReferable(idx, 1, deque->size()));
+    ZETA_Core_DebugAssert(seq_cntr::IsReferable(idx, 1, deque->size()));
 
     auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
 
@@ -163,7 +213,7 @@ inline void* DebugDeque::Access(void* dd_, size_t idx, void* dst_cursor_,
         dst_cursor->idx = idx;
     }
 
-    if (!SeqCntr::IsDereferable(idx, 1, deque->size())) { return nullptr; }
+    if (!seq_cntr::IsDereferable(idx, 1, deque->size())) { return nullptr; }
 
     void* elem{ (*deque)[idx] };
 
@@ -179,7 +229,7 @@ inline void const* DebugDeque::ConstAccess(void const* dd, size_t idx,
 
 inline void* DebugDeque::Refer(void* dd_, void const* pos_cursor_) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto deque{ dd->deque };
 
@@ -188,10 +238,10 @@ inline void* DebugDeque::Refer(void* dd_, void const* pos_cursor_) {
 
     size_t idx{ pos_cursor->idx };
 
-    ZETA_Core_DebugAssert(SeqCntr::IsReferable(idx, 1, deque->size()));
+    ZETA_Core_DebugAssert(seq_cntr::IsReferable(idx, 1, deque->size()));
 
-    return SeqCntr::IsDereferable(idx, 1, deque->size()) ? (*deque)[idx]
-                                                         : nullptr;
+    return seq_cntr::IsDereferable(idx, 1, deque->size()) ? (*deque)[idx]
+                                                          : nullptr;
 }
 
 inline void const* DebugDeque::ConstRefer(void const* dd,
@@ -204,38 +254,37 @@ inline void const* DebugDeque::ConstRefer(void const* dd,
 template <typename Reader>
 void DebugDeque::TplRead(void const* dd, void const* pos_cursor, size_t cnt,
                          Reader&& reader, void* dst_cursor) {
-    CoreReadWrite<false>(const_cast<void*>(dd), pos_cursor, cnt, reader,
-                         dst_cursor);
+    ReadWrite_<false>(const_cast<void*>(dd), pos_cursor, cnt, reader,
+                      dst_cursor);
 }
 
 template <typename Writer>
 void DebugDeque::TplWrite(void* dd, void const* pos_cursor, size_t cnt,
                           Writer&& writer, void* dst_cursor) {
-    CoreReadWrite<true>(dd, pos_cursor, cnt, writer, dst_cursor);
+    ReadWrite_<true>(dd, pos_cursor, cnt, writer, dst_cursor);
 }
 
 template <typename ReaderWriter>
 void DebugDeque::TplReadWrite(void* dd, void const* pos_cursor, size_t cnt,
                               ReaderWriter&& reader_writer, void* dst_cursor) {
-    CoreReadWrite<true>(dd, pos_cursor, cnt, reader_writer, dst_cursor);
+    ReadWrite_<true>(dd, pos_cursor, cnt, reader_writer, dst_cursor);
 }
 
 // -----------------------------------------------------------------------------
 
 inline void DebugDeque::FnRead(void const* dd, void const* pos_cursor,
-                               size_t cnt, SeqCntr::FnReader reader,
+                               size_t cnt, seq_cntr::FnReader reader,
                                void* dst_cursor) {
     TplRead(dd, pos_cursor, cnt, reader, dst_cursor);
 }
 
 inline void DebugDeque::FnWrite(void* dd, void* pos_cursor, size_t cnt,
-                                SeqCntr::FnWriter writer, void* dst_cursor) {
+                                seq_cntr::FnWriter writer, void* dst_cursor) {
     TplWrite(dd, pos_cursor, cnt, writer, dst_cursor);
 }
 
-inline void DebugDeque::FnReadWrite(void* dd, void const* pos_cursor,
-                                    size_t cnt,
-                                    SeqCntr::FnReaderWriter reader_writer,
+inline void DebugDeque::FnReadWrite(void* dd, void* pos_cursor, size_t cnt,
+                                    seq_cntr::FnReaderWriter reader_writer,
                                     void* dst_cursor) {
     TplReadWrite(dd, pos_cursor, cnt, reader_writer, dst_cursor);
 }
@@ -246,7 +295,7 @@ inline void DebugDeque::MemRead(void const* dd_, void const* pos_cursor,
                                 size_t cnt, void* dst, size_t dst_stride,
                                 void* dst_cursor) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     size_t width{ dd->width };
 
@@ -263,7 +312,7 @@ inline void DebugDeque::MemWrite(void* dd_, void* pos_cursor, size_t cnt,
                                  void const* src, size_t src_stride,
                                  void* dst_cursor) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     size_t width{ dd->width };
 
@@ -284,7 +333,7 @@ template <typename Writer>
 void* DebugDeque::TplPushL(void* dd_, size_t cnt, Writer&& writer,
                            void* dst_cursor_) {
     auto dd{ static_cast<DebugDeque*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto deque{ dd->deque };
     size_t width{ dd->width };
@@ -311,7 +360,7 @@ template <typename Writer>
 void* DebugDeque::TplPushR(void* dd_, size_t cnt, Writer&& writer,
                            void* dst_cursor_) {
     auto dd{ static_cast<DebugDeque*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto deque{ dd->deque };
     size_t width{ dd->width };
@@ -340,7 +389,7 @@ template <typename Writer>
 void* DebugDeque::TplInsert(void* dd_, void* pos_cursor_, size_t cnt,
                             Writer&& writer, void* dst_cursor_) {
     auto dd{ static_cast<DebugDeque*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto deque{ dd->deque };
     size_t width{ dd->width };
@@ -353,7 +402,7 @@ void* DebugDeque::TplInsert(void* dd_, void* pos_cursor_, size_t cnt,
     size_t idx{ pos_cursor->idx };
 
     ZETA_Core_DebugAssert(
-        SeqCntr::IsInsertable(idx, cnt, deque->size(), deque->max_size()));
+        seq_cntr::IsInsertable(idx, cnt, deque->size(), deque->max_size()));
 
     deque->insert(deque->begin() + static_cast<long long>(idx), cnt, nullptr);
 
@@ -373,18 +422,18 @@ void* DebugDeque::TplInsert(void* dd_, void* pos_cursor_, size_t cnt,
 
 // -----------------------------------------------------------------------------
 
-inline void* DebugDeque::FnPushL(void* dd, size_t cnt, SeqCntr::FnWriter writer,
-                                 void* dst_cursor) {
+inline void* DebugDeque::FnPushL(void* dd, size_t cnt,
+                                 seq_cntr::FnWriter writer, void* dst_cursor) {
     return TplPushL(dd, cnt, writer, dst_cursor);
 }
 
-inline void* DebugDeque::FnPushR(void* dd, size_t cnt, SeqCntr::FnWriter writer,
-                                 void* dst_cursor) {
+inline void* DebugDeque::FnPushR(void* dd, size_t cnt,
+                                 seq_cntr::FnWriter writer, void* dst_cursor) {
     return TplPushR(dd, cnt, writer, dst_cursor);
 }
 
 inline void* DebugDeque::FnInsert(void* dd, void* pos_cursor, size_t cnt,
-                                  SeqCntr::FnWriter writer, void* dst_cursor) {
+                                  seq_cntr::FnWriter writer, void* dst_cursor) {
     return TplInsert(dd, pos_cursor, cnt, writer, dst_cursor);
 }
 
@@ -393,12 +442,12 @@ inline void* DebugDeque::FnInsert(void* dd, void* pos_cursor, size_t cnt,
 inline void* DebugDeque::MemPushL(void* dd_, size_t cnt, void const* src,
                                   size_t src_stride, void* dst_cursor) {
     auto dd{ static_cast<DebugDeque*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     size_t width{ dd->width };
 
     if (src == nullptr) {
-        return TplPushL(dd_, cnt, [=](void*, size_t, size_t) {}, dst_cursor);
+        return TplPushL(dd_, cnt, [](void*, size_t, size_t) {}, dst_cursor);
     }
 
     return TplPushL(
@@ -413,12 +462,12 @@ inline void* DebugDeque::MemPushL(void* dd_, size_t cnt, void const* src,
 inline void* DebugDeque::MemPushR(void* dd_, size_t cnt, void const* src,
                                   size_t src_stride, void* dst_cursor) {
     auto dd{ static_cast<DebugDeque*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     size_t width{ dd->width };
 
     if (src == nullptr) {
-        return TplPushR(dd, cnt, [=](void*, size_t, size_t) {}, dst_cursor);
+        return TplPushR(dd, cnt, [](void*, size_t, size_t) {}, dst_cursor);
     }
 
     return TplPushR(
@@ -434,13 +483,13 @@ inline void* DebugDeque::MemInsert(void* dd_, void* pos_cursor, size_t cnt,
                                    void const* src, size_t src_stride,
                                    void* dst_cursor) {
     auto dd{ static_cast<DebugDeque*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     size_t width{ dd->width };
 
     if (src == nullptr) {
         return TplInsert(
-            dd, pos_cursor, cnt, [=](void*, size_t, size_t) {}, dst_cursor);
+            dd, pos_cursor, cnt, [](void*, size_t, size_t) {}, dst_cursor);
     }
 
     return TplInsert(
@@ -454,7 +503,7 @@ inline void* DebugDeque::MemInsert(void* dd_, void* pos_cursor, size_t cnt,
 
 inline void DebugDeque::PopL(void* dd_, size_t cnt) {
     auto dd{ static_cast<DebugDeque*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto deque{ dd->deque };
 
@@ -468,7 +517,7 @@ inline void DebugDeque::PopL(void* dd_, size_t cnt) {
 
 inline void DebugDeque::PopR(void* dd_, size_t cnt) {
     auto dd{ static_cast<DebugDeque*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto deque{ dd->deque };
 
@@ -482,7 +531,7 @@ inline void DebugDeque::PopR(void* dd_, size_t cnt) {
 
 inline void DebugDeque::Erase(void* dd_, void* pos_cursor_, size_t cnt) {
     auto dd{ static_cast<DebugDeque*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto deque{ dd->deque };
 
@@ -491,7 +540,7 @@ inline void DebugDeque::Erase(void* dd_, void* pos_cursor_, size_t cnt) {
 
     size_t beg{ pos_cursor->idx };
 
-    ZETA_Core_DebugAssert(SeqCntr::IsReferable(beg, cnt, deque->size()));
+    ZETA_Core_DebugAssert(seq_cntr::IsReferable(beg, cnt, deque->size()));
 
     size_t end{ beg + cnt };
 
@@ -505,7 +554,7 @@ inline void DebugDeque::Erase(void* dd_, void* pos_cursor_, size_t cnt) {
 
 inline void DebugDeque::EraseAll(void* dd_) {
     auto dd{ static_cast<DebugDeque*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto deque{ dd->deque };
 
@@ -519,7 +568,7 @@ inline void DebugDeque::EraseAll(void* dd_) {
 inline void DebugDeque::CopyCursor(void const* dd_, void* dst_cursor_,
                                    void const* src_cursor_) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
 
@@ -537,8 +586,8 @@ inline bool DebugDeque::AreEqualCursor(void const* dd, void const* cursor_a,
 
 inline int DebugDeque::CompareCursor(void const* dd, void const* cursor_a,
                                      void const* cursor_b) {
-    return ThreeWayCompare(GetCursorIdx(dd, cursor_a) + 1,
-                           GetCursorIdx(dd, cursor_b) + 1);
+    return compare::Compare(GetCursorIdx(dd, cursor_a) + 1,
+                            GetCursorIdx(dd, cursor_b) + 1);
 }
 
 inline size_t DebugDeque::GetCursorDist(void const* dd, void const* cursor_a,
@@ -548,7 +597,7 @@ inline size_t DebugDeque::GetCursorDist(void const* dd, void const* cursor_a,
 
 inline size_t DebugDeque::GetCursorIdx(void const* dd_, void const* cursor_) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto cursor{ static_cast<Cursor const*>(cursor_) };
 
@@ -566,7 +615,7 @@ inline void DebugDeque::CursorStepR(void const* dd, void* cursor) {
 inline void DebugDeque::CursorAdvanceL(void const* dd_, void* cursor_,
                                        size_t step) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto cursor{ static_cast<Cursor*>(cursor_) };
     CheckCursor(dd, cursor);
@@ -579,7 +628,7 @@ inline void DebugDeque::CursorAdvanceL(void const* dd_, void* cursor_,
 inline void DebugDeque::CursorAdvanceR(void const* dd_, void* cursor_,
                                        size_t step) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     auto deque{ dd->deque };
 
@@ -593,55 +642,60 @@ inline void DebugDeque::CursorAdvanceR(void const* dd_, void* cursor_,
 
 // -----------------------------------------------------------------------------
 
-inline void DebugDeque::CheckCntr(void const* dd_) {
+inline bool DebugDeque::CheckCntr(void const* dd_) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    ZETA_Core_DebugAssert(dd != nullptr);
+    if (!(dd != nullptr)) { return false; }
 
-    ZETA_Core_DebugAssert(dd->deque != nullptr);
+    if (!(dd->deque != nullptr)) { return false; }
+    if (!(0 < dd->width)) { return false; }
+
+    return true;
 }
 
-inline void DebugDeque::CheckCursor(void const* dd_, void const* cursor_) {
+inline bool DebugDeque::CheckCursor(void const* dd_, void const* cursor_) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    CheckCntr(dd);
+    if (!(CheckCntr(dd))) { return false; }
 
     auto deque{ dd->deque };
 
     auto cursor{ static_cast<Cursor const*>(cursor_) };
 
-    ZETA_Core_DebugAssert(SeqCntr::IsReferable(cursor->idx, 1, deque->size()));
+    if (!(seq_cntr::IsReferable(cursor->idx, 1, deque->size()))) {
+        return false;
+    }
+
+    return true;
 }
 
 // -----------------------------------------------------------------------------
 
-inline SeqCntr DebugDeque::ToSeqCntr(void* dd_) {
+inline seq_cntr::SeqCntrRef DebugDeque::GetSeqCntrRef(void* dd_) {
     auto dd{ static_cast<DebugDeque*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     return {
         .inst = dd,
-        .inst_const = dd,
 
         .cursor_size = sizeof(Cursor),
         .width = dd->width,
         .capacity = ZETA_Core_max_capacity,
 
-        .vtable = &SeqCntr::MakeVTable<DebugDeque>(),
+        .vtable = &seq_cntr_vtable,
     };
 }
 
-inline SeqCntr DebugDeque::ToSeqCntr(void const* dd_) {
+inline seq_cntr::ConstSeqCntrRef DebugDeque::GetSeqCntrRef(void const* dd_) {
     auto dd{ static_cast<DebugDeque const*>(dd_) };
-    CheckCntr(dd);
+    ZETA_Core_DebugAssert(CheckCntr(dd));
 
     return {
-        .inst = nullptr,
-        .inst_const = dd,
+        .inst = dd,
 
         .cursor_size = sizeof(Cursor),
         .width = dd->width,
         .capacity = ZETA_Core_max_capacity,
 
-        .vtable = &SeqCntr::MakeVTable<DebugDeque>(),
+        .vtable = &seq_cntr_vtable,
     };
 }
 

@@ -1,45 +1,67 @@
 #pragma once
 
 #include <zeta/core/define.hpp>
+#include <zeta/core/type_traits.hpp>
+#include <zeta/core/value_wrapper.hpp>
 
-namespace zeta::core {
+namespace zeta::core::allocator {
 
-struct Allocator {
-    struct VTable {
-        void* (*Allocate)(void* allocator, size_t size);
+template <typename AllocatorImpl>
+bool CheckAllocator(AllocatorImpl const* allocator_impl);
 
-        void (*Deallocate)(void* allocator, void* ptr);
-    };
+// -----------------------------------------------------------------------------
 
-    void* inst;
-    void const* inst_const;
+struct AllocatorVTable {
+    void* (*Allocate)(void* allocator_inst, size_t size);
 
-    size_t align;
-
-    VTable const* vtable;
-
-    // -------------------------------------------------------------------------
-
-    static size_t GetAlign(void const* allocator);
-
-    static void* Allocate(void* allocator, size_t size);
-
-    static void Deallocate(void* allocator, void* ptr);
+    void (*Deallocate)(void* allocator_inst, void* ptr);
 
     template <typename AllocatorImpl>
-    static void* SafeAllocate(AllocatorImpl* allocator_impl, size_t align,
-                              size_t size);
-
-    // -------------------------------------------------------------------------
-
-    template <typename AllocatorImpl>
-    static VTable const& MakeVTable();
-
-    // -------------------------------------------------------------------------
-
-    static void CheckAllocator(void* allocator);
-
-    static void CheckAllocator(void const* allocator);
+    static AllocatorVTable const& Make();
 };
 
-}  // namespace zeta::core
+// -----------------------------------------------------------------------------
+
+template <typename IsConst>
+struct AllocatorRefTpl {
+    ZETA_Core_StaticAssert(value_wrapper::IsStaticValueWrapper<IsConst>);
+    ZETA_Core_StaticAssert(IsAnyOf<decltype(IsConst::value), bool const>);
+
+    Conditional<IsConst::value, void const*, void*> inst;
+
+    unsigned short align;
+
+    AllocatorVTable const* vtable;
+
+    // -------------------------------------------------------------------------
+
+    static size_t GetAlign(void const* allocator_ref);
+
+    template <typename _ = void>
+    static EnableIf<!IsConst::value, void*, _> Allocate(void* allocator_ref,
+                                                        size_t size);
+
+    template <typename _ = void>
+    static EnableIf<!IsConst::value, void, _> Deallocate(void* allocator_ref,
+                                                         void* ptr);
+
+    // -------------------------------------------------------------------------
+
+    static bool CheckAllocator(void const* allocator_ref);
+};
+
+using AllocatorRef = AllocatorRefTpl<value_wrapper::StaticValueWrapper<false>>;
+
+using ConstAllocatorRef =
+    AllocatorRefTpl<value_wrapper::StaticValueWrapper<true>>;
+
+// -----------------------------------------------------------------------------
+
+template <typename AllocatorImpl>
+void* SafeAllocate(AllocatorImpl* allocator_impl, size_t align, size_t size);
+
+// -----------------------------------------------------------------------------
+
+extern AllocatorRef weak_lifo_allocator;
+
+}  // namespace zeta::core::allocator

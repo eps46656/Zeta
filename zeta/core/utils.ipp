@@ -6,14 +6,132 @@
 
 namespace zeta::core {
 
+template <typename First, typename Second>
+unsigned long long hash::HashCore<Pair<First, Second>>::operator()(
+    Pair<First, Second> const& x, unsigned long long salt) const {
+    unsigned long long h1{ hash::Hash(x.first, salt) };
+    unsigned long long h2{ hash::Hash(x.second, h1) };
+    return hash::Hash(h2, salt);
+}
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+int compare::CompareCore<Pair<XFirst, XSecond>, Pair<YFirst, YSecond>>::
+operator()(Pair<XFirst, XSecond> const& x,
+           Pair<YFirst, YSecond> const& y) const {
+    int cmp{ compare::Compare(x.first, y.first) };
+    if (cmp != 0) { return cmp; }
+    return Compare(x.second, y.second);
+}
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool operator==(Pair<XFirst, XSecond> const& x,
+                Pair<YFirst, YSecond> const& y) {
+    return compare::Compare(x, y) == 0;
+}
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool operator!=(Pair<XFirst, XSecond> const& x,
+                Pair<YFirst, YSecond> const& y) {
+    return compare::Compare(x, y) != 0;
+}
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool operator<(Pair<XFirst, XSecond> const& x, Pair<YFirst, YSecond> const& y) {
+    return compare::Compare(x, y) < 0;
+}
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool operator<=(Pair<XFirst, XSecond> const& x,
+                Pair<YFirst, YSecond> const& y) {
+    return compare::Compare(x, y) <= 0;
+}
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool operator>(Pair<XFirst, XSecond> const& x, Pair<YFirst, YSecond> const& y) {
+    return compare::Compare(x, y) > 0;
+}
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool operator>=(Pair<XFirst, XSecond> const& x,
+                Pair<YFirst, YSecond> const& y) {
+    return compare::Compare(x, y) >= 0;
+}
+
+// -----------------------------------------------------------------------------
+
+template <typename First, typename Second, typename Third>
+unsigned long long hash::HashCore<Triplet<First, Second, Third>>::operator()(
+    Triplet<First, Second, Third> const& x, unsigned long long salt) const {
+    unsigned long long h1{ hash::Hash(x.first, salt) };
+    unsigned long long h2{ hash::Hash(x.second, h1) };
+    unsigned long long h3{ hash::Hash(x.third, h2) };
+    return hash::Hash(h3, salt);
+}
+
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+int compare::CompareCore<Triplet<XFirst, XSecond, XThird>,
+                         Triplet<YFirst, YSecond, YThird>>::
+operator()(Triplet<XFirst, XSecond, XThird> const& x,
+           Triplet<YFirst, YSecond, YThird> const& y) const {
+    int cmp{ compare::Compare(x.first, y.first) };
+    if (cmp != 0) { return cmp; }
+    cmp = compare::Compare(x.second, y.second);
+    if (cmp != 0) { return cmp; }
+    return Compare(x.third, y.third);
+}
+
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool operator==(Triplet<XFirst, XSecond, XThird> const& x,
+                Triplet<YFirst, YSecond, YThird> const& y) {
+    return compare::Compare(x, y) == 0;
+}
+
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool operator!=(Triplet<XFirst, XSecond, XThird> const& x,
+                Triplet<YFirst, YSecond, YThird> const& y) {
+    return compare::Compare(x, y) != 0;
+}
+
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool operator<(Triplet<XFirst, XSecond, XThird> const& x,
+               Triplet<YFirst, YSecond, YThird> const& y) {
+    return compare::Compare(x, y) < 0;
+}
+
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool operator<=(Triplet<XFirst, XSecond, XThird> const& x,
+                Triplet<YFirst, YSecond, YThird> const& y) {
+    return compare::Compare(x, y) <= 0;
+}
+
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool operator>(Triplet<XFirst, XSecond, XThird> const& x,
+               Triplet<YFirst, YSecond, YThird> const& y) {
+    return compare::Compare(x, y) > 0;
+}
+
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool operator>=(Triplet<XFirst, XSecond, XThird> const& x,
+                Triplet<YFirst, YSecond, YThird> const& y) {
+    return compare::Compare(x, y) >= 0;
+}
+
+// -----------------------------------------------------------------------------
+
 namespace detail {
 
 template <size_t N>
 struct GetNth_ {
     template <typename Arg0, typename Arg1, typename Arg2, typename Arg3,
               typename... Args>
-    static decltype(auto) Get(Arg0&& arg0, Arg1&& arg1, Arg2&& arg2,
-                              Arg3&& arg3, Args&&... args) {
+    static decltype(auto) Get(Arg0&&, Arg1&&, Arg2&&, Arg3&&, Args&&... args) {
         return GetNth_<N - 4>::Get(Forward<Args>(args)...);
     }
 };
@@ -83,27 +201,93 @@ void Swap(X&& x, Y&& y) {
 
 namespace detail {
 
-template <typename X, typename Y>
-decltype(auto) Min2_(X&& x, Y&& y) {
-    return x < y ? Forward<X>(x) : Forward<Y>(y);
+template <typename Operation, typename T0>
+decltype(auto) MakeLeftAssocOperation_(Operation const&, T0&& x0) {
+    return Forward<T0>(x0);
 }
 
+template <typename Operation, typename T0, typename T1, typename... Ts>
+decltype(auto) MakeLeftAssocOperation_(Operation const& opr, T0&& x0, T1&& x1,
+                                       Ts&&... xs) {
+    return MakeLeftAssocOperation_(opr(Forward<T0>(x0), Forward<T1>(x1)),
+                                   Forward<Ts>(xs)...);
+}
+
+}  // namespace detail
+
+template <typename Operation, typename T0, typename... Ts>
+decltype(auto) MakeLeftAssocOperation(Operation const& opr, T0&& x0,
+                                      Ts&&... xs) {
+    return detail::MakeLeftAssocOperation_(opr, Forward<T0>(x0),
+                                           Forward<Ts>(xs)...);
+}
+
+// -----------------------------------------------------------------------------
+
+namespace detail {
+
+template <typename Operation, typename T0>
+decltype(auto) MakeRightAssocOperation_(Operation const&, T0&& x0) {
+    return Forward<T0>(x0);
+}
+
+template <typename Operation, typename T0, typename T1, typename... Ts>
+decltype(auto) MakeRightAssocOperation_(Operation const& opr, T0&& x0, T1&& x1,
+                                        Ts&&... xs) {
+    return opr(Forward<T0>(x0), MakeRightAssocOperation_(opr, Forward<T1>(x1),
+                                                         Forward<Ts>(xs)...));
+}
+
+}  // namespace detail
+
+template <typename Operation, typename T0, typename... Ts>
+decltype(auto) MakeRightAssocOperation(Operation const& opr, T0&& x0,
+                                       Ts&&... xs) {
+    return detail::MakeRightAssocOperation_(opr, Forward<T0>(x0),
+                                            Forward<Ts>(xs)...);
+}
+
+// -----------------------------------------------------------------------------
+
+namespace detail {
+
 template <size_t Beg, size_t End>
-struct Min_ {
-    template <typename... Args>
-    static decltype(auto) Get(Args&&... args) {
+struct MakeTreeAssocOperator_ {
+    template <typename Operation, typename... Ts>
+    static decltype(auto) F(Operation const& opr, Ts&&... xs) {
         constexpr size_t Mid{ (Beg + End) / 2 };
 
-        return Min2_(Min_<Beg, Mid>::Get(Forward<Args>(args)...),
-                     Min_<Mid, End>::Get(Forward<Args>(args)...));
+        return opr(
+            MakeTreeAssocOperator_<Beg, Mid>::F(opr, Forward<Ts>(xs)...),
+            MakeTreeAssocOperator_<Mid, End>::F(opr, Forward<Ts>(xs)...));
     }
 };
 
 template <size_t Beg>
-struct Min_<Beg, Beg + 1> {
-    template <typename... Args>
-    static decltype(auto) Get(Args&&... args) {
-        return GetNth<Beg>(Forward<Args>(args)...);
+struct MakeTreeAssocOperator_<Beg, Beg + 1> {
+    template <typename Operation, typename... Ts>
+    static decltype(auto) F(Operation const&, Ts&&... xs) {
+        return GetNth<Beg>(Forward<Ts>(xs)...);
+    }
+};
+
+}  // namespace detail
+
+template <typename Operation, typename T0, typename... Ts>
+decltype(auto) MakeTreeAssocOperation(Operation const& opr, T0&& x0,
+                                      Ts&&... xs) {
+    return detail::MakeTreeAssocOperator_<0, 1 + sizeof...(xs)>::F(
+        opr, Forward<T0>(x0), Forward<Ts>(xs)...);
+}
+
+// -----------------------------------------------------------------------------
+
+namespace detail {
+
+struct MinOperation_ {
+    template <typename X, typename Y>
+    decltype(auto) operator()(X&& x, Y&& y) const {
+        return y < x ? Forward<Y>(y) : Forward<X>(x);
     }
 };
 
@@ -111,34 +295,18 @@ struct Min_<Beg, Beg + 1> {
 
 template <typename T0, typename... Ts>
 decltype(auto) Min(T0&& x0, Ts&&... xs) {
-    return detail::Min_<0, 1 + sizeof...(Ts)>::Get(Forward<T0>(x0),
-                                                   Forward<Ts>(xs)...);
+    return MakeTreeAssocOperation(detail::MinOperation_{}, Forward<T0>(x0),
+                                  Forward<Ts>(xs)...);
 }
 
 // -----------------------------------------------------------------------------
 
 namespace detail {
 
-template <typename T>
-decltype(auto) Max2_(T&& x, T&& y) {
-    return x < y ? Forward<T>(y) : Forward<T>(x);
-}
-
-template <size_t Beg, size_t End>
-struct Max_ {
-    template <typename... Args>
-    static decltype(auto) Get(Args&&... args) {
-        constexpr size_t Mid{ (Beg + End) / 2 };
-        return Max2_(Max_<Beg, Mid>::Get(Forward<Args>(args)...),
-                     Max_<Mid, End>::Get(Forward<Args>(args)...));
-    }
-};
-
-template <size_t Beg>
-struct Max_<Beg, Beg + 1> {
-    template <typename... Args>
-    static decltype(auto) Get(Args&&... args) {
-        return GetNth<Beg>(Forward<Args>(args)...);
+struct MaxOperation_ {
+    template <typename X, typename Y>
+    decltype(auto) operator()(X&& x, Y&& y) const {
+        return x < y ? Forward<Y>(y) : Forward<X>(x);
     }
 };
 
@@ -146,23 +314,27 @@ struct Max_<Beg, Beg + 1> {
 
 template <typename T0, typename... Ts>
 decltype(auto) Max(T0&& x0, Ts&&... xs) {
-    return detail::Max_<0, 1 + sizeof...(Ts)>::Get(Forward<T0>(x0),
-                                                   Forward<Ts>(xs)...);
+    return MakeTreeAssocOperation(detail::MaxOperation_{}, Forward<T0>(x0),
+                                  Forward<Ts>(xs)...);
 }
 
 // -----------------------------------------------------------------------------
 
-template <typename X, typename Y>
-int ThreeWayCompare(X const& x, Y const& y) {
-    return ThreeWayCompareCore<RemoveCVRef<X>, RemoveCVRef<Y>>{}(x, y);
-}
+namespace detail {
 
-template <typename X, typename Y>
-int ThreeWayCompareCore<X, Y>::operator()(X const& x, Y const& y) const {
-    ZETA_Core_StaticAssert(IsIntegral<X> || IsPointer<X>);
-    ZETA_Core_StaticAssert(IsIntegral<Y> || IsPointer<Y>);
+struct SumOperation_ {
+    template <typename X, typename Y>
+    decltype(auto) operator()(X&& x, Y&& y) const {
+        return Forward<X>(x) + Forward<Y>(y);
+    }
+};
 
-    return (y < x) - (x < y);
+}  // namespace detail
+
+template <typename T0, typename... Ts>
+decltype(auto) Sum(T0&& x0, Ts&&... xs) {
+    return MakeTreeAssocOperation(detail::SumOperation_{}, Forward<T0>(x0),
+                                  Forward<Ts>(xs)...);
 }
 
 // -----------------------------------------------------------------------------
@@ -176,93 +348,6 @@ Pair<Node*, size_t> GetMostLink(Node* n, GetLinkFunc const& get_link) {
         if (n_nxt == nullptr) { return { n, i }; }
         n = n_nxt;
     }
-}
-
-// -----------------------------------------------------------------------------
-
-template <typename Ret, typename Context, typename... Args>
-template <typename Callable>
-ContextualFunction<Ret, Context, Args...>
-ContextualFunction<Ret, Context, Args...>::FromCallable(Callable& callable) {
-    return {
-        &callable,
-        [](Context context, Args... args) -> Ret {
-            return static_cast<Ret>(
-                (*static_cast<Callable*>(context))(Forward<Args>(args)...));
-        },
-    };
-}
-
-template <typename Ret, typename Context, typename... Args>
-template <typename... InvokeArgs>
-Ret ContextualFunction<Ret, Context, Args...>::operator()(
-    InvokeArgs&&... invoke_args) const {
-    ZETA_Core_DebugAssert(this->callable != nullptr);
-    return this->callable(this->context, Forward<InvokeArgs>(invoke_args)...);
-}
-
-// -----------------------------------------------------------------------------
-
-template <typename Ret, typename... Args>
-FunctionRef<Ret(Args...)>::FunctionRef(Ret (*func)(Args... args))
-    : func{ func }, kind{ FunctionRefKind::Func } {}
-
-template <typename Ret, typename... Args>
-FunctionRef<Ret(Args...)>::FunctionRef(void* context,
-                                       Ret (*contextual_func_)(void* context,
-                                                               Args... args))
-    : contextual_func{ context, contextual_func_ },
-      kind{ FunctionRefKind::ContextualFunc } {}
-
-template <typename Ret, typename... Args>
-template <typename Callable>
-FunctionRef<Ret(Args...)>::FunctionRef(Callable& callable) {
-    if constexpr (IsConst<Callable>) {
-        this->const_contextual_func = {
-
-            .context = &callable,
-            .ptr = [](void const* context, Args... args) -> Ret {
-                return static_cast<Ret>(
-                    (*static_cast<Callable*>(context))(Forward<Args>(args)...));
-            },
-        };
-    } else {
-        this->contextual_func = {
-
-            .context = &callable,
-            .ptr = [](void* context, Args... args) -> Ret {
-                return static_cast<Ret>(
-                    (*static_cast<Callable*>(context))(Forward<Args>(args)...));
-            },
-        };
-    }
-}
-
-template <typename Ret, typename... Args>
-Ret FunctionRef<Ret(Args...)>::operator()(Args... args) const {
-    ZETA_Core_DebugAssert(this->kind == FunctionRefKind::Func ||
-                          this->kind == FunctionRefKind::ContextualFunc ||
-                          this->kind == FunctionRefKind::ConstContextualFunc);
-
-    switch (this->kind) {
-        case FunctionRefKind::Func:
-            ZETA_Core_DebugAssert(this->func.ptr != nullptr);
-            return this->func.ptr(Forward<Args>(args)...);
-
-        case FunctionRefKind::ContextualFunc:
-            ZETA_Core_DebugAssert(this->contextual_func.ptr != nullptr);
-
-            return this->contextual_func.ptr(this->contextual_func.context,
-                                             Forward<Args>(args)...);
-
-        case FunctionRefKind::ConstContextualFunc:
-            ZETA_Core_DebugAssert(this->const_contextual_func.ptr != nullptr);
-
-            return this->const_contextual_func.ptr(
-                this->const_contextual_func.context, Forward<Args>(args)...);
-    }
-
-    __builtin_unreachable();
 }
 
 // -----------------------------------------------------------------------------
@@ -614,34 +699,104 @@ Iterator SeqRotate(Iterator beg, Iterator mid, Iterator end) {
 
 // -----------------------------------------------------------------------------
 
-constexpr unsigned long long UIntCeilDiv(unsigned x, unsigned y) {
+template <typename UnsignedIntegral>
+constexpr UnsignedIntegral UIntCeilDiv(UnsignedIntegral x, UnsignedIntegral y) {
+    ZETA_Core_StaticAssert(IsUnsignedIntegral<UnsignedIntegral>);
+
     ZETA_Core_DebugAssert(0 < y);
+
     return x == 0 ? 0 : (x - 1) / y + 1;
 }
 
 // -----------------------------------------------------------------------------
 
-inline constexpr unsigned long long UIntAlignDown(unsigned long long val,
-                                                  unsigned long long align) {
+template <typename UnsignedIntegral>
+constexpr UnsignedIntegral UIntAlignDown(UnsignedIntegral val,
+                                         UnsignedIntegral align) {
+    ZETA_Core_StaticAssert(IsUnsignedIntegral<UnsignedIntegral>);
+
     ZETA_Core_DebugAssert(0 < align);
+
     return val - val % align;
 }
 
-inline constexpr unsigned long long UIntAlignUp(unsigned long long val,
-                                                unsigned long long align) {
+template <typename UnsignedIntegral>
+constexpr UnsignedIntegral UIntAlignUp(UnsignedIntegral val,
+                                       UnsignedIntegral align) {
+    ZETA_Core_StaticAssert(IsUnsignedIntegral<UnsignedIntegral>);
+
     ZETA_Core_DebugAssert(0 < align);
+
     return val == 0 ? 0 : val - 1 - (val - 1) % align + align;
 }
 
 // -----------------------------------------------------------------------------
 
-inline constexpr int FloorLog2(unsigned long long x) {
-    ZETA_Core_DebugAssert(0 < x);
-    return ZETA_Core_ullong_width - 1 - __builtin_clzll(x);
+inline constexpr unsigned long long Power(unsigned long long base,
+                                          unsigned exp) {
+    if (base == 0) { return 0; }
+
+    if (__builtin_popcountll(base) == 1) {
+        return 1ULL << (static_cast<unsigned>(__builtin_ctzll(base)) * exp);
+    }
+
+    unsigned long long ret{ 1 };
+
+    for (; 0 < exp; exp /= 2) {
+        if (exp % 2 != 0) { ret *= base; }
+        base *= base;
+    }
+
+    return ret;
 }
 
-inline constexpr int CeilLog2(unsigned long long x) {
-    return x <= 1 ? 0 : ZETA_Core_ullong_width - __builtin_clzll(x - 1);
+// -----------------------------------------------------------------------------
+
+inline constexpr unsigned FloorLog2(unsigned long long x) {
+    ZETA_Core_DebugAssert(0 < x);
+    return ZETA_Core_ullong_width - 1 -
+           static_cast<unsigned>(__builtin_clzll(x));
+}
+
+inline constexpr unsigned CeilLog2(unsigned long long x) {
+    return x <= 1 ? 0
+                  : ZETA_Core_ullong_width -
+                        static_cast<unsigned>(__builtin_clzll(x - 1));
+}
+
+inline constexpr unsigned FloorLog(unsigned long long x, unsigned base) {
+    ZETA_Core_DebugAssert(1 < base);
+
+    if (base == 2) { return FloorLog2(x); }
+
+    unsigned ceil_log2_base{ CeilLog2(base) };
+
+    unsigned ret{ 0 };
+
+    for (;;) {
+        unsigned cur_ret{ FloorLog2(x) / ceil_log2_base };
+
+        ret += cur_ret;
+
+        if (cur_ret <= 1) {
+            if (cur_ret == 1) { x /= base; }
+            break;
+        }
+
+        x /= Power(base, cur_ret);
+    }
+
+    for (; base <= x; x /= base) { ++ret; }
+
+    return ret;
+}
+
+inline constexpr unsigned CeilLog(unsigned long long x, unsigned base) {
+    ZETA_Core_DebugAssert(1 < base);
+
+    if (base == 2) { return CeilLog2(x); }
+
+    return x <= 1 ? 0 : FloorLog(x - 1, base) + 1;
 }
 
 // -----------------------------------------------------------------------------
@@ -666,6 +821,22 @@ inline constexpr int FindNextOne(unsigned long long val, int pos) {
     val &= ~0ULL << (pos + 1);
 
     return val == 0 ? -1 : __builtin_ctzll(val);
+}
+
+// -----------------------------------------------------------------------------
+
+inline unsigned long long GCD(unsigned long long x, unsigned long long y) {
+    if (x == 0) { return Max(1ULL, y); }
+
+    for (;;) {
+        if ((y %= x) == 0) { return x; }
+        if ((x %= y) == 0) { return y; }
+    }
+}
+
+inline unsigned long long LCM(unsigned long long x, unsigned long long y) {
+    unsigned long long gcd{ GCD(x, y) };
+    return x / gcd * y;
 }
 
 }  // namespace zeta::core

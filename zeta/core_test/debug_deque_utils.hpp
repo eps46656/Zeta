@@ -7,6 +7,7 @@
 
 namespace zeta::core_test::debug_deque_utils {
 
+using SeqCntrRef = core::seq_cntr::SeqCntrRef;
 using DebugDeque = core::DebugDeque;
 
 struct Pack {
@@ -14,14 +15,14 @@ struct Pack {
 };
 
 template <typename Elem>
-core::SeqCntr Create();
+SeqCntrRef Create();
 
-void Destroy(core::SeqCntr seq_cntr);
+void Destroy(SeqCntrRef seq_cntr_ref);
 
-void Sanitize(core::SeqCntr seq_cntr);
+void Sanitize(SeqCntrRef seq_cntr_ref);
 
 template <typename Elem>
-core::SeqCntr Create() {
+SeqCntrRef Create() {
     Pack* pack{ new Pack{} };
 
     pack->debug_deque.width = sizeof(Elem);
@@ -30,35 +31,28 @@ core::SeqCntr Create() {
 
     ZETA_Core_PrintVar(pack->debug_deque.deque);
 
-    seq_cntr_utils::AddSanitizeFunc(&core::SeqCntr::MakeVTable<DebugDeque>(),
-                                    Sanitize);
+    SeqCntrRef seq_cntr_ref{ DebugDeque::GetSeqCntrRef(&pack->debug_deque) };
 
-    seq_cntr_utils::AddDestroyFunc(&core::SeqCntr::MakeVTable<DebugDeque>(),
-                                   Destroy);
+    seq_cntr_utils::AddSanitizeFunc(&pack->debug_deque, Sanitize);
 
-    return DebugDeque::ToSeqCntr(&pack->debug_deque);
+    seq_cntr_utils::AddDestroyFunc(&pack->debug_deque, Destroy);
+
+    return seq_cntr_ref;
 }
 
-inline void Destroy(core::SeqCntr seq_cntr) {
-    ZETA_Core_DebugAssert(seq_cntr.vtable ==
-                          &core::SeqCntr::MakeVTable<DebugDeque>());
-    if (seq_cntr.inst == NULL) { return; }
+inline void Destroy(SeqCntrRef seq_cntr_ref) {
+    if (seq_cntr_ref.inst == nullptr) { return; }
 
-    ZETA_Core_DebugAssert(seq_cntr.vtable ==
-                          &core::SeqCntr::MakeVTable<DebugDeque>());
-    if (seq_cntr.inst == NULL) { return; }
+    Pack* pack{ ZETA_Core_MemberToStruct(Pack, debug_deque,
+                                         seq_cntr_ref.inst) };
 
-    Pack* pack{ ZETA_Core_MemberToStruct(Pack, debug_deque, seq_cntr.inst) };
-
-    DebugDeque::Deinit(seq_cntr.inst);
+    DebugDeque::Deinit(seq_cntr_ref.inst);
 
     delete pack;
 }
 
-inline void Sanitize(core::SeqCntr seq_cntr) {
-    ZETA_Core_DebugAssert(seq_cntr.vtable ==
-                          &core::SeqCntr::MakeVTable<DebugDeque>());
-    if (seq_cntr.inst == NULL) { return; }
+inline void Sanitize(SeqCntrRef seq_cntr_ref) {
+    if (seq_cntr_ref.inst == nullptr) { return; }
 }
 
 }  // namespace zeta::core_test::debug_deque_utils

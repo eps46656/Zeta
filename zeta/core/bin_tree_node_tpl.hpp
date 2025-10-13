@@ -7,15 +7,19 @@
 
 namespace zeta::core {
 
-template <typename LinkType, bool EnPColor, bool EnLColor, bool EnRColor,
-          bool EnAccSize>
+template <typename LinkType, typename EnPColor, typename EnLColor,
+          typename EnRColor, typename EnAccSize>
 struct BinTreeNodeTpl;
 
 // -----------------------------------------------------------------------------
 
-template <typename LinkType, bool EnPColor, bool EnLColor, bool EnRColor,
-          bool EnAccSize>
+template <typename LinkType, typename EnPColor, typename EnLColor,
+          typename EnRColor, typename EnAccSize>
 struct BinTreeNodeTpl {
+    ZETA_Core_StaticAssert(
+        IsAnyOf<EnAccSize, value_wrapper::StaticValueWrapper<true>,
+                value_wrapper::StaticValueWrapper<false>>);
+
     ptr_utils::AugPtrTpl<LinkType, EnPColor> p;
     ptr_utils::AugPtrTpl<LinkType, EnLColor> l;
     ptr_utils::AugPtrTpl<LinkType, EnRColor> r;
@@ -24,7 +28,7 @@ struct BinTreeNodeTpl {
         ptr_utils::AugPtrTpl<LinkType, EnPColor>::EnRelLink
     };
 
-    Conditional<EnAccSize, size_t, Monostate> acc_size;
+    Conditional<EnAccSize::value, size_t, Monostate> acc_size;
 
     void Init();
 
@@ -48,8 +52,11 @@ struct BinTreeNodeTpl {
     void SetLColor(int color);
     void SetRColor(int color);
 
-    EnableIf<EnAccSize, size_t> GetAccSize() const;
-    EnableIf<EnAccSize, void> SetAccSize(size_t acc_size);
+    template <typename _ = void>
+    EnableIf<EnAccSize::value, size_t, _> GetAccSize() const;
+
+    template <typename _ = void>
+    EnableIf<EnAccSize::value, void, _> SetAccSize(size_t acc_size);
 }
 #if ZETA_Core_ullong_width == 32
 __attribute__((aligned(4)));

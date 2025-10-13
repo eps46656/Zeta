@@ -1,6 +1,6 @@
 #pragma once
 
-#include <zeta/core/bin_tree.hpp>
+#include <zeta/core/bin_tree.ipp>
 #include <zeta/core/rbtree.hpp>
 
 namespace zeta::core::rbtree {
@@ -12,10 +12,10 @@ void CheckRBTreeNodeOperator(RBTreeNodeOperator const& rbtn_opr) {
 
     RBTreeNode* n{ nullptr };
 
-    ZETA_Core_StaticAssert(IsSame<decltype(rbtn_opr.GetColor(n)), int>);
+    ZETA_Core_StaticAssert(IsAnyOf<decltype(rbtn_opr.GetColor(n)), int>);
 
     ZETA_Core_StaticAssert(
-        IsSame<decltype((rbtn_opr.SetColor(n, size_t{ 0 }), 0)), int>);
+        IsAnyOf<decltype((rbtn_opr.SetColor(n, size_t{ 0 }), 0)), int>);
 }
 
 // -----------------------------------------------------------------------------

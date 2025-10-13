@@ -5,5 +5,8 @@ AllowShortBlocksOnASingleLine: Always
 AllowShortCaseLabelsOnASingleLine: true
 Cpp11BracedListStyle: false
 DerivePointerAlignment: false
+IndentCaseLabels: false
 IndentWidth: 4
 TabWidth: 4
+Macros:
+  - FORMATTING

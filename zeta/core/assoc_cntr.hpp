@@ -1,41 +1,33 @@
 #pragma once
 
 #include <zeta/core/utils.hpp>
+#include <zeta/core/value_wrapper.hpp>
 
-namespace zeta::core::assoc_cntr {
-
-#define ZETA_Core_AssocCntr_AllocaCursor(tmp_cntr, cntr)             \
-    ({                                                               \
-        void const* tmp_cntr{ cntr };                                \
-        ZETA_Core_DebugAssert(tmp_cntr != nullptr);                  \
-                                                                     \
-        __builtin_alloca_with_align(                                 \
-            static_cast<::zeta::core::assoc_cntr::Cntr const*>(cntr) \
-                ->cursor_size,                                       \
-            __CHAR_BIT__ * alignof(max_align_t));                    \
+#define ZETA_Core_AssocCntr_AllocaCursor_(tmp_cntr, cntr)                 \
+    ({                                                                    \
+        auto tmp_cntr{ cntr };                                            \
+        ZETA_Core_DebugAssert(tmp_cntr != nullptr);                       \
+                                                                          \
+        __builtin_alloca_with_align(tmp_cntr->cursor_size,                \
+                                    __CHAR_BIT__ * alignof(max_align_t)); \
     })
 
 #define ZETA_Core_AssocCntr_AllocaCursor(cntr) \
-    ZETA_Core_AssocCntr_AllocaCursor(ZETA_Core_TmpName, cntr)
+    ZETA_Core_AssocCntr_AllocaCursor_(ZETA_Core_TmpName, cntr)
 
-struct Cntr;
-struct VTable;
+namespace zeta::core::assoc_cntr {
 
-struct Cntr {
-    void* inst;
-    void const* inst_const;
-
-    size_t cursor_size;
-
-    size_t width;
-    size_t capacity;
-
-    VTable const* vtable;
-};
+using FnHash = FunctionRef<unsigned long long(void const*, unsigned long long)>;
+using FnCompare = FunctionRef<int(void const*, void const*)>;
 
 // -----------------------------------------------------------------------------
 
-struct VTable {
+template <typename AssocCntr>
+bool CheckAssocCntr();
+
+// -----------------------------------------------------------------------------
+
+struct AssocCntrVTable {
     void (*Deinit)(void* cntr);
 
     // -------------------------------------------------------------------------
@@ -68,15 +60,15 @@ struct VTable {
 
     // -------------------------------------------------------------------------
 
-    void* (*Find)(void* cntr, void const* key, ContextualHash const& key_hash,
-                  ContextualCompare const& key_elem_compare, void* dst_cursor);
+    void* (*Find)(void* cntr, void const* key, FnHash const& key_hash,
+                  FnCompare const& key_elem_compare, void* dst_cursor);
 
     void const* (*ConstFind)(void const* cntr, void const* key,
-                             ContextualHash const& key_hash,
-                             ContextualCompare const& key_elem_compare,
+                             FnHash const& key_hash,
+                             FnCompare const& key_elem_compare,
                              void* dst_cursor);
 
-    void* (*Insert)(void* cntr, void* elem, void* dst_cursor);
+    void* (*Insert)(void* cntr, void const* elem, void* dst_cursor);
 
     void (*Erase)(void* cntr, void* pos_cursor);
 
@@ -84,8 +76,7 @@ struct VTable {
 
     // -------------------------------------------------------------------------
 
-    void (*CopyCursor)(void const* cntr, void* dst_cursor,
-                       void const* src_cursor);
+    void (*CopyCursor)(void const* cntr, void const* cursor, void* dst_cursor);
 
     bool (*AreEqualCursor)(void const* cntr, void const* cursor_a,
                            void const* cursor_b);
@@ -105,78 +96,136 @@ struct VTable {
     void (*CursorAdvanceL)(void const* cntr, void* cursor, size_t step);
 
     void (*CursorAdvanceR)(void const* cntr, void* cursor, size_t step);
+
+    // -------------------------------------------------------------------------
+
+    template <typename AssocCntrImpl>
+    static AssocCntrVTable const& Make();
 };
 
 // -----------------------------------------------------------------------------
 
-void Deinit(void* cntr);
+template <typename IsConst>
+struct AssocCntrRefTpl {
+    ZETA_Core_StaticAssert(value_wrapper::IsStaticValueWrapper<IsConst>);
+    ZETA_Core_StaticAssert(IsAnyOf<decltype(IsConst::value), bool const>);
 
-// -----------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
-size_t GetSize(void const* cntr);
+    void* inst;
 
-size_t GetCapacity(void const* cntr);
+    unsigned short cursor_size;
 
-// -----------------------------------------------------------------------------
+    size_t width;
+    size_t capacity;
 
-void GetLBCursor(void const* cntr, void* dst_cursor);
+    AssocCntrVTable const* vtable;
 
-void GetRBCursor(void const* cntr, void* dst_cursor);
+    // -------------------------------------------------------------------------
 
-// -----------------------------------------------------------------------------
+    AssocCntrRefTpl() = default;
 
-void* PeekL(void* cntr, void* dst_cursor, void* dst_elem);
+    template <typename OtherIsConst,
+              typename = EnableIf<IsConst::value || !OtherIsConst::value, void>>
+    AssocCntrRefTpl(AssocCntrRefTpl<OtherIsConst> const& other_assoc_cntr_ref);
 
-void const* ConstPeekL(void const* cntr, void* dst_cursor, void* dst_elem);
+    // -------------------------------------------------------------------------
 
-void* PeekR(void* cntr, void* dst_cursor, void* dst_elem);
+    template <typename _ = void>
+    EnableIf<!IsConst::value, void, _> Deinit(void* cntr);
 
-void const* ConstPeekR(void const* cntr, void* dst_cursor, void* dst_elem);
+    // -------------------------------------------------------------------------
 
-void* Refer(void* cntr, void const* pos_cursor);
+    static size_t GetSize(void const* cntr);
 
-void const* ConstRefer(void const* cntr, void const* pos_cursor);
+    static size_t GetCapacity(void const* cntr);
 
-// -----------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
-void* Find(void* cntr, void const* key, ContextualHash const& key_hash,
-           ContextualCompare const& key_elem_compare, void* dst_cursor);
+    static void GetLBCursor(void const* cntr, void* dst_cursor);
 
-void const* ConstFind(void const* cntr, void const* key,
-                      ContextualHash const& key_hash,
-                      ContextualCompare const& key_elem_compare,
-                      void* dst_cursor);
+    static void GetRBCursor(void const* cntr, void* dst_cursor);
 
-void* Insert(void* cntr, void* elem, void* dst_cursor);
+    // -------------------------------------------------------------------------
 
-void Erase(void* cntr, void* pos_cursor);
+    template <typename _ = void>
+    static EnableIf<!IsConst::value, void*, _> PeekL(void* cntr,
+                                                     void* dst_cursor,
+                                                     void* dst_elem);
 
-void EraseAll(void* cntr);
+    static void const* ConstPeekL(void const* cntr, void* dst_cursor,
+                                  void* dst_elem);
 
-// -----------------------------------------------------------------------------
+    template <typename _ = void>
+    static EnableIf<!IsConst::value, void*, _> PeekR(void* cntr,
+                                                     void* dst_cursor,
+                                                     void* dst_elem);
 
-bool AreEqualCursor(void const* cntr, void const* cursor_a,
-                    void const* cursor_b);
+    static void const* ConstPeekR(void const* cntr, void* dst_cursor,
+                                  void* dst_elem);
 
-int CompareCursor(void const* cntr, void const* cursor_a, void const* cursor_b);
+    template <typename _ = void>
+    static EnableIf<!IsConst::value, void*, _> Refer(void* cntr,
+                                                     void const* pos_cursor);
 
-size_t GetCursorDist(void const* cntr, void const* cursor_a,
-                     void const* cursor_b);
+    static void const* ConstRefer(void const* cntr, void const* pos_cursor);
 
-size_t GetCursorIdx(void const* cntr, void const* cursor);
+    // -------------------------------------------------------------------------
 
-void CursorStepL(void const* cntr, void* cursor);
+    template <typename _ = void>
+    static EnableIf<!IsConst::value, void*, _> Find(
+        void* cntr, void const* key, FnHash const& key_hash,
+        FnCompare const& key_elem_compare, void* dst_cursor);
 
-void CursorStepR(void const* cntr, void* cursor);
+    static void const* ConstFind(void const* cntr, void const* key,
+                                 FnHash const& key_hash,
+                                 FnCompare const& key_elem_compare,
+                                 void* dst_cursor);
 
-void CursorAdvanceL(void const* cntr, void* cursor, size_t step);
+    template <typename _ = void>
+    static EnableIf<!IsConst::value, void*, _> Insert(void* cntr,
+                                                      void const* elem,
+                                                      void* dst_cursor);
 
-void CursorAdvanceR(void const* cntr, void* cursor, size_t step);
+    template <typename _ = void>
+    static EnableIf<!IsConst::value, void, _> Erase(void* cntr,
+                                                    void* pos_cursor);
 
-// -----------------------------------------------------------------------------
+    template <typename _ = void>
+    static EnableIf<!IsConst::value, void, _> EraseAll(void* cntr);
 
-void CheckCntr(void* cntr);
+    // -------------------------------------------------------------------------
 
-void CheckCntr(void const* cntr);
+    static void CopyCursor(void const* cntr, void const* cursor,
+                           void* dst_cursor);
+
+    static bool AreEqualCursor(void const* cntr, void const* cursor_a,
+                               void const* cursor_b);
+
+    static int CompareCursor(void const* cntr, void const* cursor_a,
+                             void const* cursor_b);
+
+    static size_t GetCursorDist(void const* cntr, void const* cursor_a,
+                                void const* cursor_b);
+
+    static size_t GetCursorIdx(void const* cntr, void const* cursor);
+
+    static void CursorStepL(void const* cntr, void* cursor);
+
+    static void CursorStepR(void const* cntr, void* cursor);
+
+    static void CursorAdvanceL(void const* cntr, void* cursor, size_t step);
+
+    static void CursorAdvanceR(void const* cntr, void* cursor, size_t step);
+
+    // -------------------------------------------------------------------------
+
+    static bool CheckCntr(void const* cntr);
+};
+
+using AssocCntrRef = AssocCntrRefTpl<value_wrapper::StaticValueWrapper<false>>;
+
+using ConstAssocCntrRef =
+    AssocCntrRefTpl<value_wrapper::StaticValueWrapper<true>>;
 
 }  // namespace zeta::core::assoc_cntr

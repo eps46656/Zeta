@@ -1,6 +1,6 @@
 #pragma once
 
-#include <unordered_map>
+#include <vector>
 #include <zeta/core/allocator.ipp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/mem_check_utils.hpp>
@@ -25,14 +25,14 @@ struct StdAllocator {
 
     static void Deallocate(void* std_allocator, void* ptr);
 
-    static core::Allocator ToAllocator(void* std_allocatar);
+    static core::allocator::AllocatorRef GetAllocatorRef(void* std_allocatar);
 
     static void Check(void const* std_allocator);
 };
 
 // -----------------------------------------------------------------------------
 
-StdAllocator::StdAllocator() {
+inline StdAllocator::StdAllocator() {
 #if ZETA_Core_EnableDebug
     this->mem_recorder = core::MemRecorder::Create();
 #else
@@ -40,20 +40,20 @@ StdAllocator::StdAllocator() {
 #endif
 }
 
-StdAllocator::~StdAllocator() {
+inline StdAllocator::~StdAllocator() {
 #if ZETA_Core_EnableDebug
     core::MemRecorder::Destroy(this->mem_recorder);
 #endif
 }
 
-size_t StdAllocator::GetAlign(void const* std_allocator_) {
+inline size_t StdAllocator::GetAlign(void const* std_allocator_) {
     auto std_allocator{ static_cast<StdAllocator const*>(std_allocator_) };
     Check(std_allocator);
 
     return alignof(max_align_t);
 }
 
-void* StdAllocator::Allocate(void* std_allocator_, size_t size) {
+inline void* StdAllocator::Allocate(void* std_allocator_, size_t size) {
     auto std_allocator{ static_cast<StdAllocator*>(std_allocator_) };
     Check(std_allocator);
 
@@ -69,7 +69,7 @@ void* StdAllocator::Allocate(void* std_allocator_, size_t size) {
     return ptr;
 }
 
-void StdAllocator::Deallocate(void* std_allocator_, void* ptr) {
+inline void StdAllocator::Deallocate(void* std_allocator_, void* ptr) {
     auto std_allocator{ static_cast<StdAllocator*>(std_allocator_) };
     Check(std_allocator);
 
@@ -83,21 +83,19 @@ void StdAllocator::Deallocate(void* std_allocator_, void* ptr) {
     std::free(ptr);
 }
 
-core::Allocator StdAllocator::ToAllocator(void* std_allocator_) {
+inline core::allocator::AllocatorRef StdAllocator::GetAllocatorRef(
+    void* std_allocator_) {
     auto std_allocator{ static_cast<StdAllocator*>(std_allocator_) };
     Check(std_allocator);
 
     return {
         .inst = std_allocator,
-        .inst_const = std_allocator,
-
         .align = alignof(max_align_t),
-
-        .vtable = &core::Allocator::MakeVTable<StdAllocator>(),
+        .vtable = &core::allocator::AllocatorVTable::Make<StdAllocator>(),
     };
 }
 
-void StdAllocator::Check(void const* std_allocator_) {
+inline void StdAllocator::Check(void const* std_allocator_) {
     auto std_allocator{ static_cast<StdAllocator const*>(std_allocator_) };
     ZETA_Core_DebugAssert(std_allocator != nullptr);
 }

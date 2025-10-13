@@ -38,11 +38,11 @@ unsigned long long SLLHash(long long x, unsigned long long salt) {
 #error "Unsupported architecture."
 #endif
 
-static unsigned long long random_seed_{ ZETA_Core_PtrToAddr(&random_seed_) -
-                                        1 };
+static unsigned long long random_seed_{ 0x114514 };
 
 unsigned long long GetRandom() {
-    unsigned long long time{ __builtin_readcyclecounter() };
+    // unsigned long long time{ __builtin_readcyclecounter() };
+    unsigned long long time{ 0 };
 
     random_seed_ = ((random_seed_ + time) * LCG_MUL + LCG_INC);
 

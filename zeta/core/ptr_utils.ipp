@@ -12,22 +12,32 @@ inline void* GetPtr(void* const& color_ptr, size_t align) {
     return __builtin_align_down(color_ptr, align);
 }
 
-inline void SetPtr(void*& color_ptr, size_t align, void* ptr) {
-    ZETA_Core_DebugAssert(__builtin_is_aligned(ptr, align));
-
-    color_ptr = static_cast<char*>(ptr) + GetColor(color_ptr, align);
-}
-
 inline int GetColor(void* const& color_ptr, size_t align) {
     return static_cast<int>(static_cast<char*>(color_ptr) -
                             static_cast<char*>(GetPtr(color_ptr, align)));
+}
+
+inline void SetPtr(void*& color_ptr, size_t align, void* ptr) {
+    ZETA_Core_DebugAssert(__builtin_is_aligned(ptr, align));
+
+    int color{ GetColor(color_ptr, align) };
+
+    color_ptr = static_cast<char*>(ptr) + color;
+
+    ZETA_Core_DebugAssert(GetPtr(color_ptr, align) == ptr);
+    ZETA_Core_DebugAssert(GetColor(color_ptr, align) == color);
 }
 
 inline void SetColor(void*& color_ptr, size_t align, int color) {
     ZETA_Core_DebugAssert(0 <= color &&
                           static_cast<unsigned long long>(color) < align);
 
-    color_ptr = static_cast<char*>(GetPtr(color_ptr, align)) + color;
+    void* ptr{ GetPtr(color_ptr, align) };
+
+    color_ptr = static_cast<char*>(ptr) + color;
+
+    ZETA_Core_DebugAssert(GetPtr(color_ptr, align) == ptr);
+    ZETA_Core_DebugAssert(GetColor(color_ptr, align) == color);
 }
 
 inline void SetPtrColor(void*& color_ptr, size_t align, void* ptr, int color) {
@@ -37,6 +47,9 @@ inline void SetPtrColor(void*& color_ptr, size_t align, void* ptr, int color) {
                           static_cast<unsigned long long>(color) < align);
 
     color_ptr = static_cast<char*>(ptr) + color;
+
+    ZETA_Core_DebugAssert(GetPtr(color_ptr, align) == ptr);
+    ZETA_Core_DebugAssert(GetColor(color_ptr, align) == color);
 }
 
 }  // namespace color_ptr
@@ -53,7 +66,7 @@ void* GetPtr(SignedIntegral& rel_ptr, void const* base) {
 }
 
 template <typename SignedIntegral>
-void* SetPtr(SignedIntegral const& rel_ptr, void const* base, void* ptr) {
+void SetPtr(SignedIntegral const& rel_ptr, void const* base, void* ptr) {
     ZETA_Core_StaticAssert(IsSignedIntegral<SignedIntegral>);
 
     ptrdiff_t diff{ static_cast<char*>(ptr) - static_cast<char const*>(base) };
@@ -62,6 +75,8 @@ void* SetPtr(SignedIntegral const& rel_ptr, void const* base, void* ptr) {
                           diff <= range_max<SignedIntegral>());
 
     rel_ptr = static_cast<SignedIntegral>(diff);
+
+    ZETA_Core_DebugAssert(GetPtr(rel_ptr, base) == ptr);
 }
 
 }  // namespace rel_ptr
@@ -79,13 +94,6 @@ void* GetPtr(SignedIntegral& rel_color_ptr, size_t align, void const* base) {
 }
 
 template <typename SignedIntegral>
-void SetPtr(SignedIntegral& rel_color_ptr, size_t align, void const* base,
-            void* ptr) {
-    SetPtrColor(rel_color_ptr, align, base, ptr,
-                GetColor(rel_color_ptr, align, base));
-}
-
-template <typename SignedIntegral>
 int GetColor(SignedIntegral const& rel_color_ptr, size_t align,
              void const* base) {
     ZETA_Core_StaticAssert(IsSignedIntegral<SignedIntegral>);
@@ -95,6 +103,13 @@ int GetColor(SignedIntegral const& rel_color_ptr, size_t align,
     return static_cast<int>(
         static_cast<char*>(ptr) -
         static_cast<char*>(__builtin_align_down(ptr, align)));
+}
+
+template <typename SignedIntegral>
+void SetPtr(SignedIntegral& rel_color_ptr, size_t align, void const* base,
+            void* ptr) {
+    SetPtrColor(rel_color_ptr, align, base, ptr,
+                GetColor(rel_color_ptr, align, base));
 }
 
 template <typename SignedIntegral>
@@ -121,35 +136,37 @@ void SetPtrColor(SignedIntegral& rel_color_ptr, size_t align, void const* base,
                           diff <= range_max<SignedIntegral>());
 
     rel_color_ptr = static_cast<SignedIntegral>(diff);
+
+    ZETA_Core_DebugAssert(GetPtr(rel_color_ptr, align, base) == ptr);
+    ZETA_Core_DebugAssert(GetColor(rel_color_ptr, align, base) == color);
 }
 
 }  // namespace rel_color_ptr
 
 // -----------------------------------------------------------------------------
 
-template <typename LinkType, bool EnColor>
-void* AugPtrTpl<LinkType, EnColor>::GetPtr() const {
-    ZETA_Core_StaticAssert(!EnRelLink);
-    ZETA_Core_StaticAssert(!EnColor);
-
+template <typename LinkType, typename EnColor>
+template <typename _>
+auto AugPtrTpl<LinkType, EnColor>::GetPtr() const
+    -> EnableIf<!EnRelLink && !EnColor::value, void*, _> {
     return this->link;
 }
 
-template <typename LinkType, bool EnColor>
-void* AugPtrTpl<LinkType, EnColor>::GetPtr(size_t align) const {
-    ZETA_Core_StaticAssert(!EnRelLink);
-
-    if constexpr (EnColor) {
+template <typename LinkType, typename EnColor>
+template <typename _>
+auto AugPtrTpl<LinkType, EnColor>::GetPtr(size_t align) const
+    -> EnableIf<!EnRelLink, void*, _> {
+    if constexpr (EnColor::value) {
         return color_ptr::GetPtr(this->link, align);
     } else {
         return this->GetPtr();
     }
 }
 
-template <typename LinkType, bool EnColor>
-void* AugPtrTpl<LinkType, EnColor>::GetPtr(void const* base) const {
-    ZETA_Core_StaticAssert(!EnColor);
-
+template <typename LinkType, typename EnColor>
+template <typename _>
+auto AugPtrTpl<LinkType, EnColor>::GetPtr(void const* base) const
+    -> EnableIf<!EnColor::value, void*, _> {
     if constexpr (EnRelLink) {
         return rel_ptr::GetPtr(this->link, base);
     } else {
@@ -157,31 +174,30 @@ void* AugPtrTpl<LinkType, EnColor>::GetPtr(void const* base) const {
     }
 }
 
-template <typename LinkType, bool EnColor>
+template <typename LinkType, typename EnColor>
 void* AugPtrTpl<LinkType, EnColor>::GetPtr(size_t align,
                                            void const* base) const {
     if constexpr (!EnRelLink) {
         return this->GetPtr(align);
-    } else if constexpr (!EnColor) {
+    } else if constexpr (!EnColor::value) {
         return this->GetPtr(base);
     } else {
         return rel_color_ptr::GetPtr(&this->link, align, base);
     }
 }
 
-template <typename LinkType, bool EnColor>
-int AugPtrTpl<LinkType, EnColor>::GetColor(size_t align) const {
-    ZETA_Core_StaticAssert(!EnRelLink);
-    ZETA_Core_StaticAssert(EnColor);
-
+template <typename LinkType, typename EnColor>
+template <typename _>
+auto AugPtrTpl<LinkType, EnColor>::GetColor(size_t align) const
+    -> EnableIf<!EnRelLink && EnColor::value, int, _> {
     return color_ptr::GetColor(this->link, align);
 }
 
-template <typename LinkType, bool EnColor>
-int AugPtrTpl<LinkType, EnColor>::GetColor(size_t align,
-                                           void const* base) const {
-    ZETA_Core_StaticAssert(EnColor);
-
+template <typename LinkType, typename EnColor>
+template <typename _>
+auto AugPtrTpl<LinkType, EnColor>::GetColor(size_t align,
+                                            void const* base) const
+    -> EnableIf<EnColor::value, int, _> {
     if constexpr (EnRelLink) {
         return rel_color_ptr::GetColor(this->link, align, base);
     } else {
@@ -189,29 +205,28 @@ int AugPtrTpl<LinkType, EnColor>::GetColor(size_t align,
     }
 }
 
-template <typename LinkType, bool EnColor>
-void AugPtrTpl<LinkType, EnColor>::SetPtr(void* ptr) {
-    ZETA_Core_StaticAssert(!EnRelLink);
-    ZETA_Core_StaticAssert(!EnColor);
-
+template <typename LinkType, typename EnColor>
+template <typename _>
+auto AugPtrTpl<LinkType, EnColor>::SetPtr(void* ptr)
+    -> EnableIf<!EnRelLink && !EnColor::value, void, _> {
     this->link = ptr;
 }
 
-template <typename LinkType, bool EnColor>
-void AugPtrTpl<LinkType, EnColor>::SetPtr(size_t align, void* ptr) {
-    ZETA_Core_StaticAssert(!EnRelLink);
-
-    if constexpr (EnColor) {
+template <typename LinkType, typename EnColor>
+template <typename _>
+auto AugPtrTpl<LinkType, EnColor>::SetPtr(size_t align, void* ptr)
+    -> EnableIf<!EnRelLink, void, _> {
+    if constexpr (EnColor::value) {
         color_ptr::SetPtr(this->link, align, ptr);
     } else {
         this->SetPtr(ptr);
     }
 }
 
-template <typename LinkType, bool EnColor>
-void AugPtrTpl<LinkType, EnColor>::SetPtr(void const* base, void* ptr) {
-    ZETA_Core_StaticAssert(!EnColor);
-
+template <typename LinkType, typename EnColor>
+template <typename _>
+auto AugPtrTpl<LinkType, EnColor>::SetPtr(void const* base, void* ptr)
+    -> EnableIf<!EnColor::value, void, _> {
     if constexpr (EnRelLink) {
         rel_ptr::SetPtr(this->link, base, ptr);
     } else {
@@ -219,31 +234,30 @@ void AugPtrTpl<LinkType, EnColor>::SetPtr(void const* base, void* ptr) {
     }
 }
 
-template <typename LinkType, bool EnColor>
+template <typename LinkType, typename EnColor>
 void AugPtrTpl<LinkType, EnColor>::SetPtr(size_t align, void const* base,
                                           void* ptr) {
     if constexpr (!EnRelLink) {
         this->SetPtr(align, ptr);
-    } else if constexpr (!EnColor) {
+    } else if constexpr (!EnColor::value) {
         this->SetPtr(base, ptr);
     } else {
         rel_color_ptr::SetPtr(&this->link, align, base, ptr);
     }
 }
 
-template <typename LinkType, bool EnColor>
-void AugPtrTpl<LinkType, EnColor>::SetColor(size_t align, int color) {
-    ZETA_Core_StaticAssert(!EnRelLink);
-    ZETA_Core_StaticAssert(EnColor);
-
+template <typename LinkType, typename EnColor>
+template <typename _>
+auto AugPtrTpl<LinkType, EnColor>::SetColor(size_t align, int color)
+    -> EnableIf<!EnRelLink && EnColor::value, void, _> {
     color_ptr::SetColor(this->link, align, color);
 }
 
-template <typename LinkType, bool EnColor>
-void AugPtrTpl<LinkType, EnColor>::SetColor(size_t align, void const* base,
-                                            int color) {
-    ZETA_Core_StaticAssert(EnColor);
-
+template <typename LinkType, typename EnColor>
+template <typename _>
+auto AugPtrTpl<LinkType, EnColor>::SetColor(size_t align, void const* base,
+                                            int color)
+    -> EnableIf<EnColor::value, void, _> {
     if constexpr (EnRelLink) {
         rel_color_ptr::SetColor(this->link, align, base, color);
     } else {
@@ -251,20 +265,19 @@ void AugPtrTpl<LinkType, EnColor>::SetColor(size_t align, void const* base,
     }
 }
 
-template <typename LinkType, bool EnColor>
-void AugPtrTpl<LinkType, EnColor>::SetPtrColor(size_t align, void* ptr,
-                                               int color) {
-    ZETA_Core_StaticAssert(!EnRelLink);
-    ZETA_Core_StaticAssert(EnColor);
-
+template <typename LinkType, typename EnColor>
+template <typename _>
+auto AugPtrTpl<LinkType, EnColor>::SetPtrColor(size_t align, void* ptr,
+                                               int color)
+    -> EnableIf<!EnRelLink && EnColor::value, void, _> {
     color_ptr::SetPtrColor(this->link, align, ptr, color);
 }
 
-template <typename LinkType, bool EnColor>
-void AugPtrTpl<LinkType, EnColor>::SetPtrColor(size_t align, void const* base,
-                                               void* ptr, int color) {
-    ZETA_Core_StaticAssert(EnColor);
-
+template <typename LinkType, typename EnColor>
+template <typename _>
+auto AugPtrTpl<LinkType, EnColor>::SetPtrColor(size_t align, void const* base,
+                                               void* ptr, int color)
+    -> EnableIf<EnColor::value, void, _> {
     if constexpr (EnRelLink) {
         rel_color_ptr::SetPtrColor(this->link, align, base, ptr, color);
     } else {

@@ -9,26 +9,25 @@
 
 namespace zeta::core_test::seq_cntr_utils {
 
-using SeqCntr = core::SeqCntr;
-using VTable = SeqCntr::VTable;
+using SeqCntr = core::seq_cntr::SeqCntrRef;
+using VTable = core::seq_cntr::SeqCntrVTable;
 
 template <typename Elem>
 size_t GetRandomStride() {
-    return sizeof(Elem) + alignof(Elem) * GetRandomInt<size_t, size_t>(1, 4);
+    return sizeof(Elem) + alignof(Elem) * GetRandomInt<size_t>(1, 4);
 }
 
 // -----------------------------------------------------------------------------
 
 inline auto& GetDestroyFuncs() {
-    static std::unordered_map<VTable const*, void (*)(SeqCntr cntr)> instance;
+    static std::unordered_map<void const*, void (*)(SeqCntr cntr)> instance;
     return instance;
 }
 
-inline void AddDestroyFunc(VTable const* vtable,
-                           void (*Destroy)(SeqCntr cntr)) {
+inline void AddDestroyFunc(void const* inst, void (*Destroy)(SeqCntr cntr)) {
     auto& map{ GetDestroyFuncs() };
 
-    auto iter{ map.insert({ vtable, Destroy }).first };
+    auto iter{ map.insert({ inst, Destroy }).first };
 
     ZETA_Core_DebugAssert(iter->second == Destroy);
 }
@@ -36,7 +35,7 @@ inline void AddDestroyFunc(VTable const* vtable,
 inline void Destroy(SeqCntr cntr) {
     auto& map{ GetDestroyFuncs() };
 
-    auto iter{ map.find(cntr.vtable) };
+    auto iter{ map.find(cntr.inst) };
 
     ZETA_Core_DebugAssert(iter != map.end());
     ZETA_Core_DebugAssert(iter->second != nullptr);
@@ -47,15 +46,14 @@ inline void Destroy(SeqCntr cntr) {
 // -----------------------------------------------------------------------------
 
 inline auto& GetSanitizeFuncs() {
-    static std::unordered_map<VTable const*, void (*)(SeqCntr cntr)> instance;
+    static std::unordered_map<void const*, void (*)(SeqCntr cntr)> instance;
     return instance;
 }
 
-inline void AddSanitizeFunc(VTable const* vtable,
-                            void (*Sanitize)(SeqCntr cntr)) {
+inline void AddSanitizeFunc(void const* inst, void (*Sanitize)(SeqCntr cntr)) {
     auto& map{ GetSanitizeFuncs() };
 
-    auto iter{ map.insert({ vtable, Sanitize }).first };
+    auto iter{ map.insert({ inst, Sanitize }).first };
 
     ZETA_Core_DebugAssert(iter->second == Sanitize);
 }
@@ -65,7 +63,7 @@ inline void Sanitize(SeqCntr cntr) {
 
     auto& map{ GetSanitizeFuncs() };
 
-    auto iter{ map.find(cntr.vtable) };
+    auto iter{ map.find(cntr.inst) };
 
     ZETA_Core_DebugAssert(iter != map.end());
     ZETA_Core_DebugAssert(iter->second != nullptr);
@@ -229,7 +227,7 @@ inline void PopR(SeqCntr cntr, size_t cnt) {
 }
 
 inline void FnInsert(SeqCntr cntr, size_t idx, size_t cnt,
-                     SeqCntr::FnWriter writer) {
+                     zeta::core::seq_cntr::FnWriter writer) {
     void* pos_cursor{ ZETA_Core_SeqCntr_AllocaCursor(&cntr) };
 
     SeqCntr::Access(&cntr, idx, pos_cursor, nullptr);
@@ -266,34 +264,74 @@ inline void MemInsert(SeqCntr cntr, size_t idx, size_t cnt, void const* src,
 
     SeqCntr::Access(&cntr, idx, pos_cursor, nullptr);
 
+    ZETA_Core_PrintCurPos;
+
     Sanitize(cntr);
+
+    ZETA_Core_PrintCurPos;
 
     ZETA_Core_DebugAssert(SeqCntr::GetCursorIdx(&cntr, pos_cursor) == idx);
 
+    ZETA_Core_PrintCurPos;
+
     Sanitize(cntr);
+
+    ZETA_Core_PrintCurPos;
 
     void* dst_cursor{ GetRandomInt<int>(0, 1) == 0
                           ? pos_cursor
                           : ZETA_Core_SeqCntr_AllocaCursor(&cntr) };
 
+    ZETA_Core_PrintCurPos;
+
+    size_t old_size{ SeqCntr::GetSize(&cntr) };
+
     SeqCntr::MemInsert(&cntr, pos_cursor, cnt, src, src_stride, dst_cursor);
+
+    size_t new_size{ SeqCntr::GetSize(&cntr) };
+
+    ZETA_Core_PrintCurPos;
 
     Sanitize(cntr);
 
+    ZETA_Core_DebugAssert(old_size + cnt == new_size);
+
+    ZETA_Core_PrintCurPos;
+
     if (dst_cursor != pos_cursor) {
+        ZETA_Core_PrintCurPos;
+
         ZETA_Core_DebugAssert(SeqCntr::GetCursorIdx(&cntr, pos_cursor) == idx);
 
+        ZETA_Core_PrintCurPos;
+
         Sanitize(cntr);
+
+        ZETA_Core_PrintCurPos;
     }
+
+    ZETA_Core_PrintCurPos;
 
     ZETA_Core_DebugAssert(SeqCntr::GetCursorIdx(&cntr, dst_cursor) ==
                           idx + cnt);
 
+    ZETA_Core_PrintCurPos;
+
     Sanitize(cntr);
+
+    ZETA_Core_PrintCurPos;
 
     void* buffer{ std::malloc(src_stride * cnt) };
 
+    ZETA_Core_PrintCurPos;
+
     Read(cntr, idx, cnt, buffer, src_stride);
+
+    ZETA_Core_PrintCurPos;
+
+    Sanitize(cntr);
+
+    ZETA_Core_PrintCurPos;
 
     ZETA_Core_DebugAssert(core::ElemCompare(src, buffer, cntr.width, src_stride,
                                             src_stride, cnt) == 0);
@@ -373,11 +411,8 @@ inline void CheckCursor(SeqCntr cntr, size_t max_op_size) {
     void* cursor_c{ ZETA_Core_SeqCntr_AllocaCursor(&cntr) };
 
     for (size_t i{ 0 }; i < max_op_size; ++i) {
-        size_t idx_a{ GetRandomInt<size_t, long long>(
-            -1, static_cast<long long>(size)) };
-
-        size_t idx_b{ GetRandomInt<size_t, long long>(
-            -1, static_cast<long long>(size)) };
+        size_t idx_a{ static_cast<size_t>(GetRandomInt<long long>(-1, size)) };
+        size_t idx_b{ static_cast<size_t>(GetRandomInt<long long>(-1, size)) };
 
         SeqCntr::Access(&cntr, idx_a, cursor_a, nullptr);
         SeqCntr::Access(&cntr, idx_b, cursor_b, nullptr);
@@ -391,7 +426,7 @@ inline void CheckCursor(SeqCntr cntr, size_t max_op_size) {
 
         ZETA_Core_DebugAssert(
             SeqCntr::CompareCursor(&cntr, cursor_a, cursor_b) ==
-            core::ThreeWayCompare(idx_a + 1, idx_b + 1));
+            core::compare::Compare(idx_a + 1, idx_b + 1));
 
         ZETA_Core_DebugAssert(
             SeqCntr::GetCursorDist(&cntr, cursor_a, cursor_b) == idx_b - idx_a);
@@ -444,8 +479,8 @@ void SyncRandomRead(std::vector<SeqCntr> const& cntrs, size_t max_op_size) {
 
     size_t size{ SyncGetSize(cntrs) };
 
-    size_t idx{ GetRandomInt<size_t, size_t>(0, size) };
-    size_t cnt{ GetRandomInt<size_t, size_t>(0, std::min(max_op_size, size)) };
+    size_t idx{ GetRandomInt<size_t>(0, size) };
+    size_t cnt{ GetRandomInt<size_t>(0, std::min(max_op_size, size)) };
 
     Elem* buffer_a{ static_cast<Elem*>(std::malloc(stride * cnt)) };
     Elem* buffer_b{ static_cast<Elem*>(std::malloc(stride * cnt)) };
@@ -475,8 +510,8 @@ void SyncRandomWrite(std::vector<SeqCntr> const& cntrs, size_t max_op_size) {
 
     size_t size{ SyncGetSize(cntrs) };
 
-    size_t idx{ GetRandomInt<size_t, size_t>(0, size) };
-    size_t cnt{ GetRandomInt<size_t, size_t>(0, std::min(max_op_size, size)) };
+    size_t idx{ GetRandomInt<size_t>(0, size) };
+    size_t cnt{ GetRandomInt<size_t>(0, std::min(max_op_size, size)) };
 
     Elem* buffer_a{ static_cast<Elem*>(std::malloc(stride * cnt)) };
     Elem* buffer_b{ static_cast<Elem*>(std::malloc(stride * cnt)) };
@@ -503,7 +538,7 @@ template <typename Elem>
 void SyncRandomPushL(std::vector<SeqCntr> const& cntrs, size_t max_op_size) {
     size_t stride{ GetRandomStride<Elem>() };
 
-    size_t cnt{ GetRandomInt<size_t, size_t>(0, max_op_size) };
+    size_t cnt{ GetRandomInt<size_t>(0, max_op_size) };
 
     Elem* buffer_a{ static_cast<Elem*>(std::malloc(stride * cnt)) };
     Elem* buffer_b{ static_cast<Elem*>(std::malloc(stride * cnt)) };
@@ -530,7 +565,7 @@ template <typename Elem>
 void SyncRandomPushR(std::vector<SeqCntr> const& cntrs, size_t max_op_size) {
     size_t stride{ GetRandomStride<Elem>() };
 
-    size_t cnt{ GetRandomInt<size_t, size_t>(0, max_op_size) };
+    size_t cnt{ GetRandomInt<size_t>(0, max_op_size) };
 
     Elem* buffer_a{ static_cast<Elem*>(std::malloc(stride * cnt)) };
     Elem* buffer_b{ static_cast<Elem*>(std::malloc(stride * cnt)) };
@@ -557,7 +592,7 @@ inline void SyncRandomPopL(std::vector<SeqCntr> const& cntrs,
                            size_t max_op_size) {
     size_t size{ SyncGetSize(cntrs) };
 
-    size_t cnt{ GetRandomInt<size_t, size_t>(0, std::min(max_op_size, size)) };
+    size_t cnt{ GetRandomInt<size_t>(0, std::min(max_op_size, size)) };
 
     for (auto cntr : cntrs) { PopL(cntr, cnt); }
 }
@@ -566,7 +601,7 @@ inline void SyncRandomPopR(std::vector<SeqCntr> const& cntrs,
                            size_t max_op_size) {
     size_t size{ SyncGetSize(cntrs) };
 
-    size_t cnt{ GetRandomInt<size_t, size_t>(0, std::min(max_op_size, size)) };
+    size_t cnt{ GetRandomInt<size_t>(0, std::min(max_op_size, size)) };
 
     for (auto cntr : cntrs) { PopR(cntr, cnt); }
 }
@@ -577,8 +612,8 @@ void SyncRandomInsert(std::vector<SeqCntr> const& cntrs, size_t max_op_size) {
 
     size_t size{ SyncGetSize(cntrs) };
 
-    size_t idx{ GetRandomInt<size_t, size_t>(0, size) };
-    size_t cnt{ GetRandomInt<size_t, size_t>(0, max_op_size) };
+    size_t idx{ GetRandomInt<size_t>(0, size) };
+    size_t cnt{ GetRandomInt<size_t>(0, max_op_size) };
 
     Elem* buffer_a{ static_cast<Elem*>(std::malloc(stride * cnt)) };
     Elem* buffer_b{ static_cast<Elem*>(std::malloc(stride * cnt)) };
@@ -590,7 +625,7 @@ void SyncRandomInsert(std::vector<SeqCntr> const& cntrs, size_t max_op_size) {
     std::memcpy(buffer_b, buffer_a, stride * cnt);
 
     for (auto cntr : cntrs) {
-        Insert(cntr, idx, cnt, buffer_b, stride);
+        MemInsert(cntr, idx, cnt, buffer_b, stride);
 
         ZETA_Core_DebugAssert(core::ElemCompare(buffer_a, buffer_b,
                                                 sizeof(Elem), stride, stride,
@@ -605,8 +640,8 @@ inline void SyncRandomErase(std::vector<SeqCntr> const& cntrs,
                             size_t max_op_size) {
     size_t size{ SyncGetSize(cntrs) };
 
-    size_t idx{ GetRandomInt<size_t, size_t>(0, size) };
-    size_t cnt{ GetRandomInt<size_t, size_t>(0, std::min(max_op_size, size)) };
+    size_t idx{ GetRandomInt<size_t>(0, size) };
+    size_t cnt{ GetRandomInt<size_t>(0, std::min(max_op_size, size)) };
 
     for (auto cntr : cntrs) { Erase(cntr, idx, cnt); }
 }
@@ -789,46 +824,46 @@ void DoRandomOperations(std::vector<SeqCntr> cntrs,
     ZETA_Core_DebugAssert(!ops.empty());
 
     for (size_t iter_i{ 0 }; iter_i < iter_cnt; ++iter_i) {
-        switch (ops[GetRandomInt<size_t, size_t>(0, ops.size() - 1)]) {
-            case OpEnum::READ:
-                ZETA_Core_PrintVar("READ");
-                SyncRandomRead<Elem>(cntrs, read_max_op_size);
-                break;
+        switch (ops[GetRandomInt<size_t>(0, ops.size() - 1)]) {
+        case OpEnum::READ:
+            ZETA_Core_PrintVar("READ");
+            SyncRandomRead<Elem>(cntrs, read_max_op_size);
+            break;
 
-            case OpEnum::WRITE:
-                ZETA_Core_PrintVar("WRITE");
-                SyncRandomWrite<Elem>(cntrs, write_max_op_size);
-                break;
+        case OpEnum::WRITE:
+            ZETA_Core_PrintVar("WRITE");
+            SyncRandomWrite<Elem>(cntrs, write_max_op_size);
+            break;
 
-            case OpEnum::PUSH_L:
-                ZETA_Core_PrintVar("PUSH_L");
-                SyncRandomPushL<Elem>(cntrs, push_l_max_op_size);
-                break;
+        case OpEnum::PUSH_L:
+            ZETA_Core_PrintVar("PUSH_L");
+            SyncRandomPushL<Elem>(cntrs, push_l_max_op_size);
+            break;
 
-            case OpEnum::PUSH_R:
-                ZETA_Core_PrintVar("PUSH_R");
-                SyncRandomPushR<Elem>(cntrs, push_r_max_op_size);
-                break;
+        case OpEnum::PUSH_R:
+            ZETA_Core_PrintVar("PUSH_R");
+            SyncRandomPushR<Elem>(cntrs, push_r_max_op_size);
+            break;
 
-            case OpEnum::POP_L:
-                ZETA_Core_PrintVar("POP_L");
-                SyncRandomPopL(cntrs, pop_l_max_op_size);
-                break;
+        case OpEnum::POP_L:
+            ZETA_Core_PrintVar("POP_L");
+            SyncRandomPopL(cntrs, pop_l_max_op_size);
+            break;
 
-            case OpEnum::POP_R:
-                ZETA_Core_PrintVar("POP_R");
-                SyncRandomPopR(cntrs, pop_r_max_op_size);
-                break;
+        case OpEnum::POP_R:
+            ZETA_Core_PrintVar("POP_R");
+            SyncRandomPopR(cntrs, pop_r_max_op_size);
+            break;
 
-            case OpEnum::INSERT:
-                ZETA_Core_PrintVar("INSERT");
-                SyncRandomInsert<Elem>(cntrs, insert_max_op_size);
-                break;
+        case OpEnum::INSERT:
+            ZETA_Core_PrintVar("INSERT");
+            SyncRandomInsert<Elem>(cntrs, insert_max_op_size);
+            break;
 
-            case OpEnum::ERASE:
-                ZETA_Core_PrintVar("ERASE");
-                SyncRandomErase(cntrs, erase_max_op_size);
-                break;
+        case OpEnum::ERASE:
+            ZETA_Core_PrintVar("ERASE");
+            SyncRandomErase(cntrs, erase_max_op_size);
+            break;
         }
 
         for (auto cntr : cntrs) { CheckCursor(cntr, 16); }
