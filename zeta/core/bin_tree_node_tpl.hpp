@@ -3,7 +3,9 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/ptr_utils.hpp>
+#include <zeta/core/type_traits.hpp>
 #include <zeta/core/utils.hpp>
+#include <zeta/core/value_wrapper.hpp>
 
 namespace zeta::core {
 
@@ -40,23 +42,23 @@ struct BinTreeNodeTpl {
     BinTreeNodeTpl const* GetLPtr() const;
     BinTreeNodeTpl const* GetRPtr() const;
 
-    int GetPColor() const;
-    int GetLColor() const;
-    int GetRColor() const;
+    unsigned GetPColor() const;
+    unsigned GetLColor() const;
+    unsigned GetRColor() const;
 
     void SetPPtr(BinTreeNodeTpl* m);
     void SetLPtr(BinTreeNodeTpl* m);
     void SetRPtr(BinTreeNodeTpl* m);
 
-    void SetPColor(int color);
-    void SetLColor(int color);
-    void SetRColor(int color);
+    void SetPColor(unsigned color);
+    void SetLColor(unsigned color);
+    void SetRColor(unsigned color);
 
-    template <typename _ = void>
-    EnableIf<EnAccSize::value, size_t, _> GetAccSize() const;
+    template <typename _ = void, typename = EnableIf<EnAccSize::value, _>>
+    size_t GetAccSize() const;
 
-    template <typename _ = void>
-    EnableIf<EnAccSize::value, void, _> SetAccSize(size_t acc_size);
+    template <typename _ = void, typename = EnableIf<EnAccSize::value, _>>
+    void SetAccSize(size_t acc_size);
 }
 #if ZETA_Core_ullong_width == 32
 __attribute__((aligned(4)));

@@ -3,6 +3,7 @@
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/bin_tree_node_tpl.hpp>
 #include <zeta/core/debug_utils.hpp>
+#include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/mem_check_utils.hpp>
 #include <zeta/core/multi_level_ptr_table.hpp>
@@ -108,8 +109,8 @@ struct GenericHashTable {
         void SetL(TreeNode* n, TreeNode* m) const;
         void SetR(TreeNode* n, TreeNode* m) const;
 
-        int GetColor(TreeNode* n) const;
-        void SetColor(TreeNode* n, int color) const;
+        unsigned int GetColor(TreeNode* n) const;
+        void SetColor(TreeNode* n, unsigned int color) const;
     } tn_opr;
 
     struct SanitizeTreeRet {
@@ -203,7 +204,7 @@ struct GenericHashTable {
 
     static void ExtractAll(void* ght);
 
-    static bool RunPending(void* lrucm, size_t quata);
+    static bool RunPending(void* ght, size_t quata);
 
     static unsigned long long GetEffFactor(void const* ght);
 

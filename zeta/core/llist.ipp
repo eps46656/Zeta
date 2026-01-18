@@ -8,7 +8,7 @@
 namespace zeta::core::llist {
 
 template <typename LListNodeOperator, typename LListNode>
-void CheckLListNodeOperator(LListNodeOperator const& lln_opr) {
+void CheckContract(LListNodeOperator const& lln_opr) {
     LListNode* n{ nullptr };
 
     ZETA_Core_StaticAssert(IsAnyOf<decltype(lln_opr.GetL(n)), LListNode*>);
@@ -22,7 +22,7 @@ void CheckLListNodeOperator(LListNodeOperator const& lln_opr) {
 
 template <typename LListNodeOperator, typename LListNode>
 size_t Count(LListNodeOperator const& lln_opr, LListNode* n) {
-    CheckLListNodeOperator<LListNodeOperator, LListNode>(lln_opr);
+    CheckContract<LListNodeOperator, LListNode>(lln_opr);
 
     if (n == nullptr) { return 0; }
 
@@ -35,7 +35,7 @@ size_t Count(LListNodeOperator const& lln_opr, LListNode* n) {
 
 template <typename LListNodeOperator, typename LListNode>
 void InsertL(LListNodeOperator const& lln_opr, LListNode* n, LListNode* m) {
-    CheckLListNodeOperator<LListNodeOperator, LListNode>(lln_opr);
+    CheckContract<LListNodeOperator, LListNode>(lln_opr);
 
     ZETA_Core_DebugAssert(n != nullptr);
     ZETA_Core_DebugAssert(m != nullptr);
@@ -55,7 +55,7 @@ void InsertL(LListNodeOperator const& lln_opr, LListNode* n, LListNode* m) {
 
 template <typename LListNodeOperator, typename LListNode>
 void InsertR(LListNodeOperator const& lln_opr, LListNode* n, LListNode* m) {
-    CheckLListNodeOperator<LListNodeOperator, LListNode>(lln_opr);
+    CheckContract<LListNodeOperator, LListNode>(lln_opr);
 
     ZETA_Core_DebugAssert(n != nullptr);
     ZETA_Core_DebugAssert(m != nullptr);
@@ -75,7 +75,7 @@ void InsertR(LListNodeOperator const& lln_opr, LListNode* n, LListNode* m) {
 
 template <typename LListNodeOperator, typename LListNode>
 void Extract(LListNodeOperator const& lln_opr, LListNode* n) {
-    CheckLListNodeOperator<LListNodeOperator, LListNode>(lln_opr);
+    CheckContract<LListNodeOperator, LListNode>(lln_opr);
 
     ZETA_Core_DebugAssert(n != nullptr);
 
@@ -92,7 +92,7 @@ void Extract(LListNodeOperator const& lln_opr, LListNode* n) {
 template <typename LListNodeOperator, typename LListNode>
 void InsertSegL(LListNodeOperator const& lln_opr, LListNode* n,
                 LListNode* m_beg, LListNode* m_end) {
-    CheckLListNodeOperator<LListNodeOperator, LListNode>(lln_opr);
+    CheckContract<LListNodeOperator, LListNode>(lln_opr);
 
     ZETA_Core_DebugAssert(n != nullptr);
     ZETA_Core_DebugAssert(m_beg != nullptr);

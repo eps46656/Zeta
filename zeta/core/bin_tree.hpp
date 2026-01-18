@@ -1,11 +1,12 @@
 #pragma once
 
+#include <zeta/core/define.hpp>
 #include <zeta/core/utils.hpp>
 
 namespace zeta::core::bin_tree {
 
 template <typename BinTreeNodeOperator, typename BinTreeNode>
-bool CheckBinTreeNodeOperator(BinTreeNodeOperator const& btn_opr);
+void CheckBinTreeNode(BinTreeNodeOperator const& btn_opr);
 
 // -----------------------------------------------------------------------------
 
@@ -94,7 +95,7 @@ template <typename BinTreeNodeOperator, typename BinTreeNode>
 Pair<size_t, size_t> GetLRAccSize(BinTreeNodeOperator const& btn_opr,
                                   BinTreeNode* n);
 
-// -----------------------------------------------------------------------------
+// -------------------------------------------------------------------------
 
 template <typename BinTreeNodeOperator, typename BinTreeNode>
 void Sanitize(BinTreeNodeOperator const& btn_opr, BinTreeNode* n);

@@ -2,6 +2,8 @@
 
 #include <unordered_set>
 #include <zeta/core/assoc_cntr.hpp>
+#include <zeta/core/define.hpp>
+#include <zeta/core/utils.hpp>
 
 namespace zeta::core {
 
@@ -12,7 +14,57 @@ struct DebugHashTable;
 
 template <typename ElemHash, typename ElemCompare>
 struct DebugHashTable {
-    static assoc_cntr::AssocCntrVTable const assoc_cntr_vtable;
+    static constexpr assoc_cntr::AssocCntrAbilityFlagType
+        static_enabled_ability_flag{ assoc_cntr::AssocCntrAbilityFlagBuilder{
+            .GetLBCursor = false,
+            .GetRBCursor = true,
+
+            .PeekL = true,
+            .PeekR = false,
+
+            .CompareCursor = false,
+            .GetCursorDist = false,
+            .GetCursorIdx = false,
+            .CursorStepL = true,
+            .CursorStepR = true,
+            .CursorAdvanceL = false,
+            .CursorAdvanceR = false,
+        }() };
+
+    static constexpr assoc_cntr::AssocCntrAbilityFlagType
+        static_disabled_ability_flag{ assoc_cntr::AssocCntrAbilityFlagBuilder{
+            .GetLBCursor = true,
+            .GetRBCursor = false,
+
+            .PeekL = false,
+            .PeekR = true,
+
+            .CompareCursor = true,
+            .GetCursorDist = true,
+            .GetCursorIdx = true,
+            .CursorStepL = false,
+            .CursorStepR = false,
+            .CursorAdvanceL = true,
+            .CursorAdvanceR = true,
+        }() };
+
+    static constexpr assoc_cntr::AssocCntrAbilityFlagType dynamic_ability_flag{
+        assoc_cntr::AssocCntrAbilityFlagBuilder{
+            .GetLBCursor = false,
+            .GetRBCursor = false,
+
+            .PeekL = false,
+            .PeekR = false,
+
+            .CompareCursor = false,
+            .GetCursorDist = false,
+            .GetCursorIdx = false,
+            .CursorStepL = false,
+            .CursorStepR = false,
+            .CursorAdvanceL = false,
+            .CursorAdvanceR = false,
+        }()
+    };
 
     static constexpr bool elem_tag{ false };
     static constexpr bool key_tag{ true };
@@ -57,7 +109,13 @@ struct DebugHashTable {
 
     static void Deinit(void* debug_ht);
 
-    // -------------------------------------------------------------------------
+    static assoc_cntr::AssocCntrAbilityFlagType GetDynamicEnabledAbilityFlag(
+        void const* debug_ht);
+
+    static assoc_cntr::AssocCntrAbilityFlagType GetDynamicDisabledAbilityFlag(
+        void const* debug_ht);
+
+    static size_t GetCursorSize(void const* debug_ht);
 
     static size_t GetWidth(void const* debug_ht);
 
@@ -65,11 +123,7 @@ struct DebugHashTable {
 
     static size_t GetCapacity(void const* debug_ht);
 
-    // -------------------------------------------------------------------------
-
     static void GetRBCursor(void const* debug_ht, void* dst_cursor);
-
-    // -------------------------------------------------------------------------
 
     static void* PeekL(void* debug_ht, void* dst_cursor, void* dst_elem);
 
@@ -92,21 +146,19 @@ struct DebugHashTable {
                                     KeyElemCompare const& key_elem_compare,
                                     void* dst_cursor);
 
-    static void* Find(void* debug_ht, void const* key, FnHash const& key_hash,
-                      FnCompare const& key_elem_compare, void* dst_cursor);
+    static void* FnFind(void* debug_ht, void const* key, FnHash const& key_hash,
+                        FnCompare const& key_elem_compare, void* dst_cursor);
 
-    static void const* ConstFind(void const* debug_ht, void const* key,
-                                 FnHash const& key_hash,
-                                 FnCompare const& key_elem_compare,
-                                 void* dst_cursor);
+    static void const* ConstFnFind(void const* debug_ht, void const* key,
+                                   FnHash const& key_hash,
+                                   FnCompare const& key_elem_compare,
+                                   void* dst_cursor);
 
-    static void* Insert(void* debug_ht, void const* key, void* dst_cursor);
+    static void* Insert(void* debug_ht, void const* elem, void* dst_cursor);
 
     static void Erase(void* debug_ht, void* pos_cursor);
 
     static void EraseAll(void* debug_ht);
-
-    // -------------------------------------------------------------------------
 
     static void CopyCursor(void const* debug_ht, void const* cursor,
                            void* dst_cursor);
@@ -117,14 +169,6 @@ struct DebugHashTable {
     static void CursorStepL(void const* debug_ht, void* cursor);
 
     static void CursorStepR(void const* debug_ht, void* cursor);
-
-    // -------------------------------------------------------------------------
-
-    static assoc_cntr::AssocCntrRef GetAsscocCntrRef(void* debug_ht);
-
-    static assoc_cntr::ConstAssocCntrRef GetAsscocCntrRef(void const* debug_ht);
-
-    // -------------------------------------------------------------------------
 
     static bool CheckCntr(void const* debug_ht);
 

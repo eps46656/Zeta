@@ -1,6 +1,7 @@
 #pragma once
 
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils.hpp>
+#include <zeta/core/define.hpp>
 #include <zeta/core/type_traits.hpp>
 #include <zeta/core/value_wrapper.hpp>
 
@@ -19,7 +20,7 @@ T const& DynamicValueWrapper<T>::operator()() const {
 // -----------------------------------------------------------------------------
 
 template <bool V, typename TX, typename TY>
-decltype(auto) Conditional(StaticValueWrapper<V> const& cond, TX&& x, TY&& y) {
+decltype(auto) Conditional(StaticValueWrapper<V> const&, TX&& x, TY&& y) {
     if constexpr (V) {
         return x;
     } else {
@@ -71,8 +72,7 @@ struct Merge_ {
 
 template <typename T0, typename... Ts>
 decltype(auto) Merge(T0 const& x0, Ts const&... xs) {
-    return MakeTreeAssocOperation(detail::Merge_{}, Forward<T0>(x0),
-                                  Forward<Ts>(xs)...);
+    return TreeReduce(detail::Merge_{}, Forward<T0>(x0), Forward<Ts>(xs)...);
 }
 
 }  // namespace zeta::core::value_wrapper

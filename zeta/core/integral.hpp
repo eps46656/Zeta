@@ -16,6 +16,12 @@
 #define ZETA_Core_ubit128_width (128)
 #define ZETA_Core_size_width (__SIZE_WIDTH__)
 
+#define ZETA_Core_UBitInt_min(N) static_cast<unsigned _BitInt(N)>(0)
+#define ZETA_Core_UBitInt_max(N) static_cast<unsigned _BitInt(N)>(-1)
+#define ZETA_Core_SBitInt_min(N) (-ZETA_Core_SBitInt_max(N))
+#define ZETA_Core_SBitInt_max(N) \
+    static_cast<signed _BitInt(N)>(ZETA_Core_UBitInt_max(N) / 2)
+
 #define ZETA_Core_uchar_min (static_cast<unsigned char>(0))
 #define ZETA_Core_uchar_max (static_cast<unsigned char>(-1))
 #define ZETA_Core_schar_min (-ZETA_Core_schar_max)
@@ -51,31 +57,30 @@
 #define ZETA_Core_sllong_max \
     (static_cast<signed long long>(ZETA_Core_ullong_max / 2))
 
-#define ZETA_Core_ubit8_min (static_cast<ubit8_t>(0))
-#define ZETA_Core_ubit8_max (static_cast<ubit8_t>(-1))
-#define ZETA_Core_sbit8_min (-ZETA_Core_sbit8_max)
-#define ZETA_Core_sbit8_max (static_cast<sbit8_t>(ZETA_Core_ubit8_max / 2))
+#define ZETA_Core_ubit8_min ZETA_Core_UBitInt_min(8)
+#define ZETA_Core_ubit8_max ZETA_Core_UBitInt_max(8)
+#define ZETA_Core_sbit8_min ZETA_Core_SBitInt_min(8)
+#define ZETA_Core_sbit8_max ZETA_Core_SBitInt_max(8)
 
-#define ZETA_Core_ubit16_min (static_cast<ubit16_t>(0))
-#define ZETA_Core_ubit16_max (static_cast<ubit16_t>(-1))
-#define ZETA_Core_sbit16_min (-ZETA_Core_sbit16_max)
-#define ZETA_Core_sbit16_max (static_cast<sbit16_t>(ZETA_Core_ubit16_max / 2))
+#define ZETA_Core_ubit16_min ZETA_Core_UBitInt_min(16)
+#define ZETA_Core_ubit16_max ZETA_Core_UBitInt_max(16)
+#define ZETA_Core_sbit16_min ZETA_Core_SBitInt_min(16)
+#define ZETA_Core_sbit16_max ZETA_Core_SBitInt_max(16)
 
-#define ZETA_Core_ubit32_min (static_cast<ubit32_t>(0))
-#define ZETA_Core_ubit32_max (static_cast<ubit32_t>(-1))
-#define ZETA_Core_sbit32_min (-ZETA_Core_sbit32_max)
-#define ZETA_Core_sbit32_max (static_cast<sbit32_t>(ZETA_Core_ubit32_max / 2))
+#define ZETA_Core_ubit32_min ZETA_Core_UBitInt_min(32)
+#define ZETA_Core_ubit32_max ZETA_Core_UBitInt_max(32)
+#define ZETA_Core_sbit32_min ZETA_Core_SBitInt_min(32)
+#define ZETA_Core_sbit32_max ZETA_Core_SBitInt_max(32)
 
-#define ZETA_Core_ubit64_min (static_cast<ubit64_t>(0))
-#define ZETA_Core_ubit64_max (static_cast<ubit64_t>(-1))
-#define ZETA_Core_sbit64_min (-ZETA_Core_sbit64_max)
-#define ZETA_Core_sbit64_max (static_cast<sbit64_t>(ZETA_Core_ubit64_max / 2))
+#define ZETA_Core_ubit64_min ZETA_Core_UBitInt_min(64)
+#define ZETA_Core_ubit64_max ZETA_Core_UBitInt_max(64)
+#define ZETA_Core_sbit64_min ZETA_Core_SBitInt_min(64)
+#define ZETA_Core_sbit64_max ZETA_Core_SBitInt_max(64)
 
-#define ZETA_Core_ubit128_min (static_cast<ubit128_t>(0))
-#define ZETA_Core_ubit128_max (static_cast<ubit128_t>(-1))
-#define ZETA_Core_sbit128_min (-ZETA_Core_sbit128_max)
-#define ZETA_Core_sbit128_max \
-    (static_cast<sbit128_t>(ZETA_Core_ubit128_max / 2))
+#define ZETA_Core_ubit128_min ZETA_Core_UBitInt_min(128)
+#define ZETA_Core_ubit128_max ZETA_Core_UBitInt_max(128)
+#define ZETA_Core_sbit128_min ZETA_Core_SBitInt_min(128)
+#define ZETA_Core_sbit128_max ZETA_Core_SBitInt_max(128)
 
 #define ZETA_Core_u8_min (static_cast<u8_t>(0))
 #define ZETA_Core_u8_max (static_cast<u8_t>(-1))
@@ -130,8 +135,6 @@ using sbit64_t = signed _BitInt(64);
 
 using ubit128_t = unsigned _BitInt(128);
 using sbit128_t = signed _BitInt(128);
-
-using size_t = __SIZE_TYPE__;
 
 #if defined(__UINT8_TYPE__)
 using u8_t = __UINT8_TYPE__;
@@ -200,90 +203,42 @@ using udllong_t = unsigned _BitInt(ZETA_Core_ullong_width * 2);
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-template <typename T>
-constexpr bool IsUnsignedIntegral{
-    (!ZETA_Core_CharIsSigned && IsAnyOf<T, char>) ||  //
-    IsAnyOf<T,                                        //
-            unsigned char,                            //
-            unsigned short,                           //
-            unsigned,                                 //
-            unsigned long,                            //
-            unsigned long long,                       //
-            ubit8_t,                                  //
-            ubit16_t,                                 //
-            ubit32_t,                                 //
-            ubit64_t,                                 //
-            ubit128_t,                                //
-            u8_t,                                     //
-            u16_t,                                    //
-            u32_t,                                    //
-            u64_t,                                    //
-            u128_t,                                   //
-            size_t,                                   //
-            udllong_t>                                //
-};
-
-template <typename T>
-constexpr bool IsSignedIntegral{ (ZETA_Core_CharIsSigned &&
-                                  IsAnyOf<T, char>) ||      //
-                                 IsAnyOf<T,                 //
-                                         signed char,       //
-                                         signed short,      //
-                                         signed,            //
-                                         signed long,       //
-                                         signed long long,  //
-                                         sbit8_t,           //
-                                         sbit16_t,          //
-                                         sbit32_t,          //
-                                         sbit64_t,          //
-                                         sbit128_t,         //
-                                         s8_t,              //
-                                         s16_t,             //
-                                         s32_t,             //
-                                         s64_t,             //
-                                         s128_t,            //
-                                         sdllong_t> };
-
-template <typename T>
-constexpr bool IsIntegral{ IsAnyOf<T, bool> || IsUnsignedIntegral<T> ||
-                           IsSignedIntegral<T> };
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-
 namespace detail {
 
 template <typename Integral>
 struct WidthOf_;
 
-#pragma push_macro("F_")
+#pragma push_macro("F")
 
-#define F_(type, val)                      \
-    template <>                            \
-    struct WidthOf_<type> {                \
-        static constexpr int value{ val }; \
-    };                                     \
-                                           \
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
+
+#define F(type, val)                            \
+    template <>                                 \
+    struct WidthOf_<type> {                     \
+        static constexpr unsigned value{ val }; \
+    };                                          \
+                                                \
     ZETA_Core_StaticAssert(true)
 
-F_(unsigned char, ZETA_Core_uchar_width);
-F_(unsigned short, ZETA_Core_ushrt_width);
-F_(unsigned int, ZETA_Core_uint_width);
-F_(unsigned long, ZETA_Core_ulong_width);
-F_(unsigned long long, ZETA_Core_ullong_width);
-F_(ubit8_t, ZETA_Core_ubit8_width);
-F_(ubit16_t, ZETA_Core_ubit16_width);
-F_(ubit32_t, ZETA_Core_ubit32_width);
-F_(ubit64_t, ZETA_Core_ubit64_width);
-F_(ubit128_t, ZETA_Core_ubit128_width);
+// NOLINTEND(cppcoreguidelines-macro-usage)
 
-#pragma pop_macro("F_")
+F(unsigned char, ZETA_Core_uchar_width);
+F(unsigned short, ZETA_Core_ushrt_width);
+F(unsigned int, ZETA_Core_uint_width);
+F(unsigned long, ZETA_Core_ulong_width);
+F(unsigned long long, ZETA_Core_ullong_width);
+
+#pragma pop_macro("F")
+
+template <size_t N>
+struct WidthOf_<unsigned _BitInt(N)> {
+    static constexpr unsigned value{ static_cast<int>(N) };
+};
 
 }  // namespace detail
 
 template <typename Integral>
-constexpr int WidthOf{ detail::WidthOf_<Integral>::value };
+constexpr unsigned WidthOf{ detail::WidthOf_<Integral>::value };
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -297,9 +252,11 @@ struct RangeMinOf_;
 template <typename Integral>
 struct RangeMaxOf_;
 
-#pragma push_macro("F_")
+#pragma push_macro("F")
 
-#define F_(type, min_val, max_val)              \
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
+
+#define F(type, min_val, max_val)               \
     template <>                                 \
     struct RangeMinOf_<type> {                  \
         static constexpr type value{ min_val }; \
@@ -312,38 +269,45 @@ struct RangeMaxOf_;
                                                 \
     ZETA_Core_StaticAssert(true)
 
-F_(char, ZETA_Core_char_min, ZETA_Core_char_max);
-F_(unsigned char, ZETA_Core_uchar_min, ZETA_Core_uchar_max);
-F_(signed char, ZETA_Core_schar_min, ZETA_Core_schar_max);
+// NOLINTEND(cppcoreguidelines-macro-usage)
 
-F_(unsigned short, ZETA_Core_ushrt_min, ZETA_Core_ushrt_max);
-F_(signed short, ZETA_Core_sshrt_min, ZETA_Core_sshrt_max);
+F(char, ZETA_Core_char_min, ZETA_Core_char_max);
+F(unsigned char, ZETA_Core_uchar_min, ZETA_Core_uchar_max);
+F(signed char, ZETA_Core_schar_min, ZETA_Core_schar_max);
 
-F_(unsigned, ZETA_Core_uint_min, ZETA_Core_uint_max);
-F_(signed, ZETA_Core_sint_min, ZETA_Core_sint_max);
+F(unsigned short, ZETA_Core_ushrt_min, ZETA_Core_ushrt_max);
+F(signed short, ZETA_Core_sshrt_min, ZETA_Core_sshrt_max);
 
-F_(unsigned long, ZETA_Core_ulong_min, ZETA_Core_ulong_max);
-F_(signed long, ZETA_Core_slong_min, ZETA_Core_slong_max);
+F(unsigned, ZETA_Core_uint_min, ZETA_Core_uint_max);
+F(signed, ZETA_Core_sint_min, ZETA_Core_sint_max);
 
-F_(unsigned long long, ZETA_Core_ullong_min, ZETA_Core_ullong_max);
-F_(signed long long, ZETA_Core_sllong_min, ZETA_Core_sllong_max);
+F(unsigned long, ZETA_Core_ulong_min, ZETA_Core_ulong_max);
+F(signed long, ZETA_Core_slong_min, ZETA_Core_slong_max);
 
-F_(ubit8_t, ZETA_Core_ubit8_min, ZETA_Core_ubit8_max);
-F_(sbit8_t, ZETA_Core_sbit8_min, ZETA_Core_sbit8_max);
+F(unsigned long long, ZETA_Core_ullong_min, ZETA_Core_ullong_max);
+F(signed long long, ZETA_Core_sllong_min, ZETA_Core_sllong_max);
 
-F_(ubit16_t, ZETA_Core_ubit16_min, ZETA_Core_ubit16_max);
-F_(sbit16_t, ZETA_Core_sbit16_min, ZETA_Core_sbit16_max);
+#pragma pop_macro("F")
 
-F_(ubit32_t, ZETA_Core_ubit32_min, ZETA_Core_ubit32_max);
-F_(sbit32_t, ZETA_Core_sbit32_min, ZETA_Core_sbit32_max);
+template <size_t N>
+struct RangeMinOf_<unsigned _BitInt(N)> {
+    static constexpr unsigned _BitInt(N) value{ ZETA_Core_UBitInt_min(N) };
+};
 
-F_(ubit64_t, ZETA_Core_ubit64_min, ZETA_Core_ubit64_max);
-F_(sbit64_t, ZETA_Core_sbit64_min, ZETA_Core_sbit64_max);
+template <size_t N>
+struct RangeMaxOf_<unsigned _BitInt(N)> {
+    static constexpr unsigned _BitInt(N) value{ ZETA_Core_UBitInt_max(N) };
+};
 
-F_(ubit128_t, ZETA_Core_ubit128_min, ZETA_Core_ubit128_max);
-F_(sbit128_t, ZETA_Core_sbit128_min, ZETA_Core_sbit128_max);
+template <size_t N>
+struct RangeMinOf_<signed _BitInt(N)> {
+    static constexpr signed _BitInt(N) value{ ZETA_Core_SBitInt_min(N) };
+};
 
-#pragma pop_macro("F_")
+template <size_t N>
+struct RangeMaxOf_<signed _BitInt(N)> {
+    static constexpr signed _BitInt(N) value{ ZETA_Core_SBitInt_max(N) };
+};
 
 }  // namespace detail
 
@@ -363,9 +327,21 @@ struct MakeUnsignedIntegral_;
 template <typename Integral>
 struct MakeSignedIntegral_;
 
-#pragma push_macro("F_")
+template <>
+struct MakeUnsignedIntegral_<char> {
+    using type = Conditional<ZETA_Core_CharIsSigned, unsigned char, char>;
+};
 
-#define F_(unsigned_integral, signed_integral)        \
+template <>
+struct MakeSignedIntegral_<char> {
+    using type = Conditional<ZETA_Core_CharIsSigned, char, signed char>;
+};
+
+#pragma push_macro("F")
+
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
+
+#define F(unsigned_integral, signed_integral)         \
     template <>                                       \
     struct MakeUnsignedIntegral_<unsigned_integral> { \
         using type = unsigned_integral;               \
@@ -388,26 +364,35 @@ struct MakeSignedIntegral_;
                                                       \
     ZETA_Core_StaticAssert(true)
 
-template <>
-struct MakeUnsignedIntegral_<char> {
-    using type = Conditional<ZETA_Core_CharIsSigned, unsigned char, char>;
+// NOLINTEND(cppcoreguidelines-macro-usage)
+
+F(unsigned char, signed char);
+F(unsigned short, signed short);
+F(unsigned, signed);
+F(unsigned long, signed long);
+F(unsigned long long, signed long long);
+
+#pragma pop_macro("F")
+
+template <size_t N>
+struct MakeUnsignedIntegral_<unsigned _BitInt(N)> {
+    using type = unsigned _BitInt(N);
 };
 
-template <>
-struct MakeSignedIntegral_<char> {
-    using type = Conditional<ZETA_Core_CharIsSigned, char, unsigned char>;
+template <size_t N>
+struct MakeUnsignedIntegral_<signed _BitInt(N)> {
+    using type = unsigned _BitInt(N);
 };
 
-F_(unsigned char, signed char);
-F_(unsigned short, signed short);
-F_(unsigned, signed);
-F_(unsigned long, signed long);
-F_(unsigned long long, signed long long);
-F_(ubit8_t, sbit8_t);
-F_(ubit16_t, sbit16_t);
-F_(ubit32_t, sbit32_t);
-F_(ubit64_t, sbit64_t);
-F_(ubit128_t, sbit128_t);
+template <size_t N>
+struct MakeSignedIntegral_<unsigned _BitInt(N)> {
+    using type = signed _BitInt(N);
+};
+
+template <size_t N>
+struct MakeSignedIntegral_<signed _BitInt(N)> {
+    using type = signed _BitInt(N);
+};
 
 }  // namespace detail
 

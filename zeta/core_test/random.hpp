@@ -1,9 +1,11 @@
 #pragma once
 
 #include <random>
+#include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/type_traits.hpp>
 
 namespace zeta::core_test {
 
@@ -25,9 +27,17 @@ RetInt GetRandomInt(LBInt lb, RBInt rb) {
     ZETA_Core_DebugAssert(core::MathCompare(core::RangeMinOf<RetInt>, lb) <= 0);
     ZETA_Core_DebugAssert(core::MathCompare(rb, core::RangeMaxOf<RetInt>) <= 0);
 
-    std::uniform_int_distribution<core::Conditional<
-        core::IsSignedIntegral<RetInt>, signed long long, unsigned long long>>
-        generator{ static_cast<RetInt>(lb), static_cast<RetInt>(rb) };
+    RetInt ret_lb{ static_cast<RetInt>(lb) };
+    RetInt ret_rb{ static_cast<RetInt>(rb) };
+
+    ZETA_Core_DebugAssert(ret_lb <= ret_rb);
+
+    using GenInt = core::Conditional<core::IsSignedIntegral<RetInt>,
+                                     signed long long, unsigned long long>;
+
+    std::uniform_int_distribution<GenInt> generator{
+        static_cast<GenInt>(ret_lb), static_cast<GenInt>(ret_rb)
+    };
 
     return static_cast<RetInt>(generator(GetRandomEngine()));
 }

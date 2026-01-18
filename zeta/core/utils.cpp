@@ -8,13 +8,13 @@ unsigned long long ULLHash(unsigned long long x, unsigned long long salt) {
     x ^= salt;
 
 #if ZETA_Core_ullong_width == 32
-    x = (x ^ (x >> 16)) * 0x45d9f3bULL;
-    x = (x ^ (x >> 16)) * 0x45d9f3bULL;
-    x = x ^ (x >> 16);
+    x = (x ^ (x >> 16U)) * 0x45d9f3bULL;
+    x = (x ^ (x >> 16U)) * 0x45d9f3bULL;
+    x = x ^ (x >> 16U);
 #elif ZETA_Core_ullong_width == 64
-    x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
-    x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
-    x = x ^ (x >> 31);
+    x = (x ^ (x >> 30U)) * 0xbf58476d1ce4e5b9ULL;
+    x = (x ^ (x >> 27U)) * 0x94d049bb133111ebULL;
+    x = x ^ (x >> 31U);
 #else
 #error "Unsupported architecture."
 #endif
@@ -59,9 +59,9 @@ int Choose2(bool cond0, bool cond1, unsigned long long* random_seed) {
     ZETA_Core_DebugAssert(cond0 || cond1);
 
     switch (static_cast<int>(cond1) * 2 + static_cast<int>(cond0)) {
-        case 0b01: return 0;
-        case 0b10: return 1;
-        default: return static_cast<int>(SimpleRandomRotate(random_seed) % 2);
+    case 0b01: return 0;
+    case 0b10: return 1;
+    default: return static_cast<int>(SimpleRandomRotate(random_seed) % 2);
     }
 }
 
@@ -71,16 +71,15 @@ int Choose3(bool cond0, bool cond1, bool cond2,
 
     switch (static_cast<int>(cond2) * 4 + static_cast<int>(cond1) * 2 +
             static_cast<int>(cond0)) {
-        case 0b001: return 0;
-        case 0b010: return 1;
-        case 0b100: return 2;
-        case 0b011:
-            return static_cast<int>(SimpleRandomRotate(random_seed) % 2);
-        case 0b101:
-            return static_cast<int>(SimpleRandomRotate(random_seed) % 2) * 2;
-        case 0b110:
-            return static_cast<int>(SimpleRandomRotate(random_seed) % 2) + 1;
-        default: return static_cast<int>(SimpleRandomRotate(random_seed) % 3);
+    case 0b001: return 0;
+    case 0b010: return 1;
+    case 0b100: return 2;
+    case 0b011: return static_cast<int>(SimpleRandomRotate(random_seed) % 2);
+    case 0b101:
+        return static_cast<int>(SimpleRandomRotate(random_seed) % 2) * 2;
+    case 0b110:
+        return static_cast<int>(SimpleRandomRotate(random_seed) % 2) + 1;
+    default: return static_cast<int>(SimpleRandomRotate(random_seed) % 3);
     }
 }
 

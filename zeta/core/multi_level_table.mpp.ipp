@@ -3,69 +3,81 @@
 #endif
 
 #include <zeta/core/allocator.ipp>
+#include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
+#include <zeta/core/integral.hpp>
+#include <zeta/core/mem_check_utils.hpp>
 #include <zeta/core/multi_level_table.mpp.hpp>
+#include <zeta/core/utils.hpp>
+
+#pragma push_macro("NameSpace")
+#pragma push_macro("TplParamList")
+#pragma push_macro("TplArgList")
 
 #if EnData
 
-#define Cntr MultiLevelDataTable
-#define TplList NavNodeAllocator, DataNodeAllocator
-#define TypenameTplList typename NavNodeAllocator, typename DataNodeAllocator
+#define NameSpace multi_level_data_table
+#define TplParamList                                              \
+    typename NavNodeAllocatorOperator, typename NavNodeAllocator, \
+        typename DataNodeAllocatorOperator, typename DataNodeAllocator
+#define TplArgList                                                         \
+    NavNodeAllocatorOperator, NavNodeAllocator, DataNodeAllocatorOperator, \
+        DataNodeAllocator
 
 #else
 
-#define Cntr MultiLevelPtrTable
-#define TplList NavNodeAllocator
-#define TypenameTplList typename NavNodeAllocator
+#define NameSpace multi_level_ptr_table
+#define TplParamList \
+    typename NavNodeAllocatorOperator, typename NavNodeAllocator
+#define TplArgList NavNodeAllocatorOperator, NavNodeAllocator
 
 #endif
 
-namespace zeta::core {
+namespace zeta::core::NameSpace {
 
-template <TypenameTplList>
-constexpr bool Cntr<TplList>::TestActiveMap_(unsigned long long active_map,
-                                             unsigned idx) {
+namespace ops {
+
+constexpr bool TestActiveMap_(unsigned long long active_map, unsigned idx) {
     return (active_map & (1ULL << (idx))) != 0;
 }
 
-template <TypenameTplList>
-void* Cntr<TplList>::AllocateNavNode_(size_t branch_num,
-                                      NavNodeAllocator* nav_node_allocator) {
-    auto nav_node{ static_cast<NavNode*>(
-        allocator::SafeAllocate(nav_node_allocator, alignof(NavNode),
-                                offsetof(NavNode, ptrs[branch_num]))) };
+template <typename NavNodeAllocatorOperator, typename NavNodeAllocator>
+void* AllocateNavNode_(size_t branch_num,
+                       NavNodeAllocatorOperator const& nav_node_alctr_opr,
+                       NavNodeAllocator* nav_node_alctr) {
+    auto* nav_node{ static_cast<NavNode*>(allocator::SafeAllocate(
+        nav_node_alctr_opr, nav_node_alctr, alignof(NavNode),
+        offsetof(NavNode, ptrs[branch_num]))) };
 
     nav_node->active_map = 0;
 
     return &nav_node->active_map;
 }
 
-template <TypenameTplList>
-void Cntr<TplList>::DeallocateNavNode_(NavNodeAllocator* nav_node_allocator,
-                                       void* node) {
-    NavNodeAllocator::Deallocate(
-        nav_node_allocator,
-        ZETA_Core_MemberToStruct(NavNode, active_map, node));
+template <typename NavNodeAllocatorOperator, typename NavNodeAllocator>
+void DeallocateNavNode_(NavNodeAllocatorOperator const& nav_node_alctr_opr,
+                        NavNodeAllocator* node_alctr, void* node) {
+    nav_node_alctr_opr.Deallocate(
+        node_alctr, ZETA_Core_MemberToStruct(NavNode, active_map, node));
 }
 
 // -----------------------------------------------------------------------------
 
 #if EnData
 
-template <TypenameTplList>
-size_t Cntr<TplList>::CalcDataNodeSize_(size_t stride, size_t branch_num) {
+inline size_t CalcDataNodeSize_(size_t stride, size_t branch_num) {
     return UIntAlignUp(stride * branch_num + sizeof(unsigned long long),
                        alignof(unsigned long long));
 }
 
-template <TypenameTplList>
-void* Cntr<TplList>::AllocateDataNode_(size_t stride, size_t branch_num,
-                                       DataNodeAllocator* data_node_allocator) {
+template <typename DataNodeAllocatorOperator, typename DataNodeAllocator>
+void* AllocateDataNode_(size_t stride, size_t branch_num,
+                        DataNodeAllocator* data_node_alctr) {
     size_t data_node_size{ CalcDataNodeSize_(stride, branch_num) };
 
     void* data_node{ static_cast<char*>(allocator::SafeAllocate(
-                         data_node_allocator, alignof(unsigned long long),
+                         data_node_alctr, alignof(unsigned long long),
                          data_node_size)) +
                      (data_node_size - sizeof(unsigned long long)) };
 
@@ -74,12 +86,11 @@ void* Cntr<TplList>::AllocateDataNode_(size_t stride, size_t branch_num,
     return data_node;
 }
 
-template <TypenameTplList>
-void Cntr<TplList>::DeallocateDataNode_(size_t stride, size_t branch_num,
-                                        DataNodeAllocator* data_node_allocator,
-                                        void* node) {
+template <typename DataNodeAllocatorOperator, typename DataNodeAllocator>
+void DeallocateDataNode_(size_t stride, size_t branch_num,
+                         DataNodeAllocator* data_node_alctr, void* node) {
     DataNodeAllocator::Deallocate(
-        data_node_allocator,
+        data_node_alctr,
         static_cast<char*>(node) - (CalcDataNodeSize_(stride, branch_num) -
                                     sizeof(unsigned long long)));
 }
@@ -88,9 +99,8 @@ void Cntr<TplList>::DeallocateDataNode_(size_t stride, size_t branch_num,
 
 // -----------------------------------------------------------------------------
 
-template <TypenameTplList>
-void Cntr<TplList>::Init(void* cntr_) {
-    auto* cntr{ static_cast<Cntr*>(cntr_) };
+template <TplParamList>
+void Init(Cntr<TplArgList>* cntr) {
     ZETA_Core_DebugAssert(cntr != nullptr);
 
     unsigned level{ cntr->level };
@@ -114,33 +124,27 @@ void Cntr<TplList>::Init(void* cntr_) {
 
     cntr->root = nullptr;
 
-    ZETA_Core_DebugAssert(cntr->nav_node_allocator.vtable != nullptr);
-    ZETA_Core_DebugAssert(cntr->nav_node_allocator.align % alignof(NavNode) ==
-                          0);
+    allocator::CheckContract(*cntr->nav_node_alctr_opr, cntr->nav_node_alctr);
 
 #if EnData
-    ZETA_Core_DebugAssert(cntr->data_node_allocator.vtable != nullptr);
-    ZETA_Core_DebugAssert(
-        cntr->data_node_allocator.align % alignof(unsigned long long) == 0);
+    allocator::CheckContract(*cntr->data_node_alctr_opr, cntr->data_node_alctr);
 #endif
 }
 
-template <TypenameTplList>
-void Cntr<TplList>::Deinit(void* cntr) {
+template <TplParamList>
+void Deinit(Cntr<TplArgList>* cntr) {
     EraseAll(cntr);
 }
 
-template <TypenameTplList>
-size_t Cntr<TplList>::GetSize(void* cntr_) {
-    auto* cntr{ static_cast<Cntr*>(cntr_) };
+template <TplParamList>
+size_t GetSize(Cntr<TplArgList>* cntr) {
     ZETA_Core_WhenEnableDebug(Check(cntr));
 
     return cntr->size;
 }
 
-template <TypenameTplList>
-size_t Cntr<TplList>::GetCapacity(void* cntr_) {
-    auto* cntr{ static_cast<Cntr*>(cntr_) };
+template <TplParamList>
+size_t GetCapacity(Cntr<TplArgList>* cntr) {
     ZETA_Core_WhenEnableDebug(Check(cntr));
 
     size_t ret{ 1 };
@@ -157,9 +161,8 @@ size_t Cntr<TplList>::GetCapacity(void* cntr_) {
     return ret;
 }
 
-template <TypenameTplList>
-void* Cntr<TplList>::Access(void* cntr_, size_t* idxes) {
-    auto* cntr{ static_cast<Cntr*>(cntr_) };
+template <TplParamList>
+void* Access(Cntr<TplArgList>* cntr, size_t* idxes) {
     ZETA_Core_WhenEnableDebug(CheckIdxes(cntr, idxes));
 
     unsigned level{ cntr->level };
@@ -199,9 +202,8 @@ void* Cntr<TplList>::Access(void* cntr_, size_t* idxes) {
 #endif
 }
 
-template <TypenameTplList>
-void* Cntr<TplList>::FindFirst(void* cntr_, size_t* dst_idxes) {
-    auto* cntr{ static_cast<Cntr*>(cntr_) };
+template <TplParamList>
+void* FindFirst(Cntr<TplArgList>* cntr, size_t* dst_idxes) {
     ZETA_Core_WhenEnableDebug(Check(cntr));
 
     unsigned level{ cntr->level };
@@ -223,9 +225,8 @@ void* Cntr<TplList>::FindFirst(void* cntr_, size_t* dst_idxes) {
     return ret;
 }
 
-template <TypenameTplList>
-void* Cntr<TplList>::FindLast(void* cntr_, size_t* dst_idxes) {
-    auto* cntr{ static_cast<Cntr*>(cntr_) };
+template <TplParamList>
+void* FindLast(Cntr<TplArgList>* cntr, size_t* dst_idxes) {
     ZETA_Core_WhenEnableDebug(Check(cntr));
 
     unsigned level{ cntr->level };
@@ -248,9 +249,8 @@ void* Cntr<TplList>::FindLast(void* cntr_, size_t* dst_idxes) {
     return ret;
 }
 
-template <TypenameTplList>
-void* Cntr<TplList>::FindPrev(void* cntr_, size_t* idxes, bool included) {
-    auto* cntr{ static_cast<Cntr*>(cntr_) };
+template <TplParamList>
+void* FindPrev(Cntr<TplArgList>* cntr, size_t* idxes, bool included) {
     ZETA_Core_WhenEnableDebug(CheckIdxes(cntr, idxes));
 
     unsigned level{ cntr->level };
@@ -353,9 +353,8 @@ L1:
 #endif
 }
 
-template <TypenameTplList>
-void* Cntr<TplList>::FindNext(void* cntr_, size_t* idxes, bool included) {
-    auto* cntr{ static_cast<Cntr*>(cntr_) };
+template <TplParamList>
+void* FindNext(Cntr<TplArgList>* cntr, size_t* idxes, bool included) {
     ZETA_Core_WhenEnableDebug(CheckIdxes(cntr, idxes));
 
     unsigned level{ cntr->level };
@@ -458,9 +457,8 @@ L1:
 #endif
 }
 
-template <TypenameTplList>
-Pair<void*, bool> Cntr<TplList>::Insert(void* cntr_, size_t* idxes) {
-    auto* cntr{ static_cast<Cntr*>(cntr_) };
+template <TplParamList>
+Pair<void*, bool> Insert(Cntr<TplArgList>* cntr, size_t* idxes) {
     ZETA_Core_WhenEnableDebug(CheckIdxes(cntr, idxes));
 
     unsigned level{ cntr->level };
@@ -470,22 +468,28 @@ Pair<void*, bool> Cntr<TplList>::Insert(void* cntr_, size_t* idxes) {
     size_t stride{ cntr->stride };
 #endif
 
-    NavNodeAllocator* nav_node_allocator{ &cntr->nav_node_allocator };
+    NavNodeAllocatorOperator const& nav_node_alctr_opr{
+        *cntr->nav_node_alctr_opr
+    };
+    NavNodeAllocator* nav_node_alctr{ cntr->nav_node_alctr };
 
 #if EnData
-    DataNodeAllocator* data_node_allocator{ &cntr->data_node_allocator };
+    DataNodeAllocatorOperator const& data_node_alctr_opr{
+        *cntr->data_node_alctr_opr
+    };
+    DataNodeAllocator* data_node_alctr{ cntr->data_node_alctr };
 #endif
 
     if (cntr->root == nullptr) {
 #if EnData
         if (level == 1) {
-            cntr->root =
-                AllocateDataNode_(stride, branch_nums[0], data_node_allocator);
+            cntr->root = AllocateDataNode_(
+                stride, branch_nums[0], data_node_alctr_opr, data_node_alctr);
         } else
 #endif
         {
-            cntr->root =
-                AllocateNavNode_(branch_nums[level - 1], nav_node_allocator);
+            cntr->root = AllocateNavNode_(branch_nums[level - 1],
+                                          nav_node_alctr_opr, nav_node_alctr);
         }
     }
 
@@ -505,10 +509,12 @@ Pair<void*, bool> Cntr<TplList>::Insert(void* cntr_, size_t* idxes) {
         node = static_cast<NavNode*>(node)->ptrs[idxes[level_i]] =
 #if EnData
             level_i == 1
-                ? AllocateDataNode_(stride, branch_nums[0], data_node_allocator)
+                ? AllocateDataNode_(stride, branch_nums[0], data_node_alctr_opr,
+                                    data_node_alctr)
                 :
 #endif
-                AllocateNavNode_(branch_nums[level_i - 1], nav_node_allocator);
+                AllocateNavNode_(branch_nums[level_i - 1], nav_node_alctr_opr,
+                                 nav_node_alctr);
     }
 
     size_t last_idx{ idxes[0] };
@@ -534,9 +540,8 @@ Pair<void*, bool> Cntr<TplList>::Insert(void* cntr_, size_t* idxes) {
     return { .first = addr, .second = newly_inserted };
 }
 
-template <TypenameTplList>
-bool Cntr<TplList>::Erase(void* cntr_, size_t* idxes) {
-    auto* cntr{ static_cast<Cntr*>(cntr_) };
+template <TplParamList>
+bool Erase(Cntr<TplArgList>* cntr, size_t* idxes) {
     ZETA_Core_WhenEnableDebug(CheckIdxes(cntr, idxes));
 
     unsigned level{ cntr->level };
@@ -550,10 +555,16 @@ bool Cntr<TplList>::Erase(void* cntr_, size_t* idxes) {
 
     if (node == nullptr) { return false; }
 
-    NavNodeAllocator* nav_node_allocator{ &cntr->nav_node_allocator };
+    NavNodeAllocatorOperator const& nav_node_alctr_opr{
+        *cntr->nav_node_alctr_opr
+    };
+    NavNodeAllocator* nav_node_alctr{ cntr->nav_node_alctr };
 
 #if EnData
-    DataNodeAllocator* data_node_allocator{ &cntr->data_node_allocator };
+    DataNodeAllocatorOperator const& data_node_alctr_opr{
+        *cntr->data_node_alctr_opr
+    };
+    DataNodeAllocator* data_node_alctr{ &cntr->data_node_alctr };
 #endif
 
     void* nodes[max_level];
@@ -587,12 +598,12 @@ bool Cntr<TplList>::Erase(void* cntr_, size_t* idxes) {
 
 #if EnData
         if (level_i == 0) {
-            DeallocateDataNode_(stride, branch_nums[0], data_node_allocator,
-                                node);
+            DeallocateDataNode_(stride, branch_nums[0], data_node_alctr_opr,
+                                data_node_alctr, node);
         } else
 #endif
         {
-            DeallocateNavNode_(nav_node_allocator, node);
+            DeallocateNavNode_(nav_node_alctr_opr, nav_node_alctr, node);
         }
     }
 
@@ -601,24 +612,24 @@ bool Cntr<TplList>::Erase(void* cntr_, size_t* idxes) {
     return true;
 }
 
-template <TypenameTplList>
-void Cntr<TplList>::EraseAll_(Cntr* cntr, void* node, unsigned level_i) {
+template <TplParamList>
+void EraseAll_(Cntr<TplArgList>* cntr, void* node, unsigned level_i) {
 #if EnData
     unsigned branch_num{ cntr->branch_nums[level_i] };
     size_t stride{ cntr->stride };
 #endif
 
-    NavNodeAllocator* nav_node_allocator{ &cntr->nav_node_allocator };
+    NavNodeAllocator* node_alctr{ &cntr->node_alctr };
 
 #if EnData
-    DataNodeAllocator* data_node_allocator{ &cntr->data_node_allocator };
+    DataNodeAllocator* data_node_alctr{ &cntr->data_node_alctr };
 #endif
 
     if (level_i == 0) {
 #if EnData
-        DeallocateDataNode_(stride, branch_num, data_node_allocator, node);
+        DeallocateDataNode_(stride, branch_num, data_node_alctr, node);
 #else
-        DeallocateNavNode_(nav_node_allocator, node);
+        DeallocateNavNode_(node_alctr, node);
 #endif
 
         return;
@@ -630,12 +641,11 @@ void Cntr<TplList>::EraseAll_(Cntr* cntr, void* node, unsigned level_i) {
         EraseAll_(cntr, static_cast<NavNode*>(node)->ptrs[idx], level_i - 1);
     }
 
-    DeallocateNavNode_(nav_node_allocator, node);
+    DeallocateNavNode_(node_alctr, node);
 }
 
-template <TypenameTplList>
-void Cntr<TplList>::EraseAll(void* cntr_) {
-    auto* cntr{ static_cast<Cntr*>(cntr_) };
+template <TplParamList>
+void EraseAll(Cntr<TplArgList>* cntr) {
     ZETA_Core_WhenEnableDebug(Check(cntr));
 
     unsigned level{ cntr->level };
@@ -649,9 +659,8 @@ void Cntr<TplList>::EraseAll(void* cntr_) {
     cntr->root = nullptr;
 }
 
-template <TypenameTplList>
-void Cntr<TplList>::Check(void* cntr_) {
-    auto* cntr{ static_cast<Cntr*>(cntr_) };
+template <TplParamList>
+void Check(Cntr<TplArgList>* cntr) {
     ZETA_Core_DebugAssert(cntr != nullptr);
 
     unsigned level{ cntr->level };
@@ -668,9 +677,8 @@ void Cntr<TplList>::Check(void* cntr_) {
     }
 }
 
-template <TypenameTplList>
-void Cntr<TplList>::CheckIdxes(void* cntr_, size_t const* idxes) {
-    auto* cntr{ static_cast<Cntr*>(cntr_) };
+template <TplParamList>
+void CheckIdxes(Cntr<TplArgList>* cntr, size_t const* idxes) {
     ZETA_Core_WhenEnableDebug(Check(cntr));
 
     ZETA_Core_DebugAssert(idxes != nullptr);
@@ -682,17 +690,16 @@ void Cntr<TplList>::CheckIdxes(void* cntr_, size_t const* idxes) {
         ZETA_Core_DebugAssert(idxes[level_i] < branch_nums[level_i]);
     }
 }
-template <TypenameTplList>
-size_t Cntr<TplList>::Sanitize_(MemRecorder* dst_nav_node,
+
+size_t Sanitize_(MemRecorder* dst_nav_node,
 #if EnData
-                                MemRecorder* dst_data_node,
+                 MemRecorder* dst_data_node,
 #endif
-                                unsigned level_i,
-                                unsigned short const* branch_nums,
+                 unsigned level_i, unsigned short const* branch_nums,
 #if EnData
-                                size_t stride,
+                 size_t stride,
 #endif
-                                void* node) {
+                 void* node) {
     ZETA_Core_DebugAssert(*static_cast<unsigned long long*>(node) != 0);
 
     size_t cur_cnt{ static_cast<size_t>(
@@ -749,14 +756,14 @@ size_t Cntr<TplList>::Sanitize_(MemRecorder* dst_nav_node,
     return size;
 }
 
-template <TypenameTplList>
-void Cntr<TplList>::Sanitize(void* cntr_, MemRecorder* dst_nav_node
+template <TplParamList>
+void Sanitize(Cntr<TplArgList>* cntr, MemRecorder* dst_nav_node
 #if EnData
-                             ,
-                             MemRecorder* dst_data_node
+              ,
+              MemRecorder* dst_data_node
 #endif
 ) {
-    auto* cntr{ static_cast<Cntr*>(cntr_) };
+
     ZETA_Core_WhenEnableDebug(Check(cntr));
 
     unsigned level{ cntr->level };
@@ -782,4 +789,10 @@ void Cntr<TplList>::Sanitize(void* cntr_, MemRecorder* dst_nav_node
     ZETA_Core_DebugAssert(size == cntr->size);
 }
 
-}  // namespace zeta::core
+}  // namespace ops
+
+}  // namespace zeta::core::NameSpace
+
+#pragma pop_macro("NameSpace")
+#pragma pop_macro("TplParamList")
+#pragma pop_macro("TplArgList")

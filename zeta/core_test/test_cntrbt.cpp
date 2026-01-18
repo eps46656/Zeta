@@ -1,16 +1,25 @@
+#include <vector>
 #include <zeta/core/bin_tree.ipp>
+#include <zeta/core/bin_tree_node_tpl.hpp>
 #include <zeta/core/bin_tree_node_tpl.ipp>
+#include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils.ipp>
+#include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/ptr_utils.ipp>
 #include <zeta/core/rbtree.ipp>
 #include <zeta/core/utils.ipp>
+#include <zeta/core/value_wrapper.hpp>
+#include <zeta/core/value_wrapper.ipp>
 #include <zeta/core_test/random.hpp>
 
 // -----------------------------------------------------------------------------
 
-using bin_tree_node_t =
-    zeta::core::BinTreeNodeTpl<void*, true, false, false, true>;
+using bin_tree_node_t = zeta::core::BinTreeNodeTpl<
+    void*, zeta::core::value_wrapper::StaticValueWrapper<true>,
+    zeta::core::value_wrapper::StaticValueWrapper<true>,
+    zeta::core::value_wrapper::StaticValueWrapper<true>,
+    zeta::core::value_wrapper::StaticValueWrapper<true>>;
 
 struct Node {
     bin_tree_node_t n;
@@ -33,20 +42,34 @@ bin_tree_node_t* rb;
 // -----------------------------------------------------------------------------
 
 struct MyRBTreeNodeOperator {
-    static constexpr bool en_acc_size{ true };
+    static constexpr bool IsAccSizeEnabled() { return true; }
 
-    static constexpr size_t null_acc_size{ 0 };
+    static constexpr size_t GetNullAccSize() { return 0; }
 
     bin_tree_node_t* GetP(bin_tree_node_t* n) const { return n->GetPPtr(); }
     bin_tree_node_t* GetL(bin_tree_node_t* n) const { return n->GetLPtr(); }
     bin_tree_node_t* GetR(bin_tree_node_t* n) const { return n->GetRPtr(); }
 
+    bin_tree_node_t const* GetP(bin_tree_node_t const* n) const {
+        return n->GetPPtr();
+    }
+
+    bin_tree_node_t const* GetL(bin_tree_node_t const* n) const {
+        return n->GetLPtr();
+    }
+
+    bin_tree_node_t const* GetR(bin_tree_node_t const* n) const {
+        return n->GetRPtr();
+    }
+
     void SetP(bin_tree_node_t* n, bin_tree_node_t* m) const { n->SetPPtr(m); }
     void SetL(bin_tree_node_t* n, bin_tree_node_t* m) const { n->SetLPtr(m); }
     void SetR(bin_tree_node_t* n, bin_tree_node_t* m) const { n->SetRPtr(m); }
 
-    int GetColor(bin_tree_node_t* n) const { return n->GetPColor(); }
-    void SetColor(bin_tree_node_t* n, int color) const { n->SetPColor(color); }
+    unsigned GetColor(bin_tree_node_t* n) const { return n->GetPColor(); }
+    void SetColor(bin_tree_node_t* n, unsigned color) const {
+        n->SetPColor(color);
+    }
 
     size_t GetAccSize(bin_tree_node_t const* n) const {
         return n->GetAccSize();
@@ -167,6 +190,7 @@ void Insert(size_t idx, size_t size) {
             zeta::core::rbtree::InsertL(rbtn_opr, &ins_node->n, &new_node->n);
     } else if (vec.size() == 0) {
         root = &new_node->n;
+        rbtn_opr.SetColor(&new_node->n, zeta::core::rbtree::black);
     } else {
         Node* ins_node{ vec.back().linked_node };
         root =

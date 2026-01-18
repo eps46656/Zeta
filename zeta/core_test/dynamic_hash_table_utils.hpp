@@ -1,6 +1,12 @@
 #pragma once
 
 #include <cstdlib>
+#include <zeta/core/allocator.hpp>
+#include <zeta/core/allocator.ipp>
+#include <zeta/core/assoc_cntr.hpp>
+#include <zeta/core/assoc_cntr.ipp>
+#include <zeta/core/define.hpp>
+#include <zeta/core/dynamic_hash_table.hpp>
 #include <zeta/core/dynamic_hash_table.ipp>
 #include <zeta/core/mem_check_utils.hpp>
 #include <zeta/core_test/assoc_cntr_utils.hpp>
@@ -41,14 +47,15 @@ AssocCntrRef Create() {
         core::compare::TypeErasedCompare<Elem, Elem>;
 
     pack->dht.ght.table_node_allocator =
-        StdAllocator::GetAllocatorRef(&pack->ght_table_node_allocator);
+        zeta::core::allocator::MakeAllocatorRef(
+            &pack->ght_table_node_allocator);
 
     pack->dht.node_allocator =
-        StdAllocator::GetAllocatorRef(&pack->node_allocator);
+        zeta::core::allocator::MakeAllocatorRef(&pack->node_allocator);
 
     DynamicHashTable::Init(&pack->dht);
 
-    AssocCntrRef assoc_cntr_ref{ DynamicHashTable::GetAsscocCntrRef(
+    AssocCntrRef assoc_cntr_ref{ zeta::core::assoc_cntr::MakeAssocCntrRef(
         &pack->dht) };
 
     assoc_cntr_utils::AddSanitizeFunc(assoc_cntr_ref.vtable, Sanitize);

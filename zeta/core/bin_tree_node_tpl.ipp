@@ -2,7 +2,9 @@
 
 #include <zeta/core/bin_tree_node_tpl.hpp>
 #include <zeta/core/debug_utils.ipp>
+#include <zeta/core/integral.hpp>
 #include <zeta/core/ptr_utils.ipp>
+#include <zeta/core/type_traits.hpp>
 
 namespace zeta::core {
 
@@ -26,15 +28,17 @@ void BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor, EnAccSize>::Init() {
     if constexpr (EnRColor::value) {
         this->r.SetPtrColor(alignof(BinTreeNodeTpl), this, this, 0);
     } else {
-        this->r.SetPtr(alignof(BinTreeNodeTpl), EnRelLink ? this : nullptr,
-                       nullptr);
+        this->r.SetPtr(alignof(BinTreeNodeTpl), this,
+                       EnRelLink ? this : nullptr);
     }
+
+    if constexpr (EnAccSize::value) { this->acc_size = 0; }
 }
 
 template <typename LinkType, typename EnPColor, typename EnLColor,
           typename EnRColor, typename EnAccSize>
-auto BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
-                    EnAccSize>::GetPPtr() -> BinTreeNodeTpl* {
+BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor, EnAccSize>*
+BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor, EnAccSize>::GetPPtr() {
     auto m{ static_cast<BinTreeNodeTpl*>(
         this->p.GetPtr(alignof(BinTreeNodeTpl), this)) };
 
@@ -47,8 +51,8 @@ auto BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
 
 template <typename LinkType, typename EnPColor, typename EnLColor,
           typename EnRColor, typename EnAccSize>
-auto BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
-                    EnAccSize>::GetLPtr() -> BinTreeNodeTpl* {
+BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor, EnAccSize>*
+BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor, EnAccSize>::GetLPtr() {
     auto m{ static_cast<BinTreeNodeTpl*>(
         this->l.GetPtr(alignof(BinTreeNodeTpl), this)) };
 
@@ -61,8 +65,8 @@ auto BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
 
 template <typename LinkType, typename EnPColor, typename EnLColor,
           typename EnRColor, typename EnAccSize>
-auto BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
-                    EnAccSize>::GetRPtr() -> BinTreeNodeTpl* {
+BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor, EnAccSize>*
+BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor, EnAccSize>::GetRPtr() {
     auto m{ static_cast<BinTreeNodeTpl*>(
         this->r.GetPtr(alignof(BinTreeNodeTpl), this)) };
 
@@ -77,22 +81,25 @@ auto BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
 
 template <typename LinkType, typename EnPColor, typename EnLColor,
           typename EnRColor, typename EnAccSize>
-auto BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
-                    EnAccSize>::GetPPtr() const -> BinTreeNodeTpl const* {
+BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor, EnAccSize> const*
+BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor, EnAccSize>::GetPPtr()
+    const {
     return const_cast<BinTreeNodeTpl*>(this)->GetPPtr();
 }
 
 template <typename LinkType, typename EnPColor, typename EnLColor,
           typename EnRColor, typename EnAccSize>
-auto BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
-                    EnAccSize>::GetLPtr() const -> BinTreeNodeTpl const* {
+BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor, EnAccSize> const*
+BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor, EnAccSize>::GetLPtr()
+    const {
     return const_cast<BinTreeNodeTpl*>(this)->GetLPtr();
 }
 
 template <typename LinkType, typename EnPColor, typename EnLColor,
           typename EnRColor, typename EnAccSize>
-auto BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
-                    EnAccSize>::GetRPtr() const -> BinTreeNodeTpl const* {
+BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor, EnAccSize> const*
+BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor, EnAccSize>::GetRPtr()
+    const {
     return const_cast<BinTreeNodeTpl*>(this)->GetRPtr();
 }
 
@@ -100,22 +107,22 @@ auto BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
 
 template <typename LinkType, typename EnPColor, typename EnLColor,
           typename EnRColor, typename EnAccSize>
-int BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
-                   EnAccSize>::GetPColor() const {
+unsigned BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
+                        EnAccSize>::GetPColor() const {
     return this->p.GetColor(alignof(BinTreeNodeTpl), this);
 }
 
 template <typename LinkType, typename EnPColor, typename EnLColor,
           typename EnRColor, typename EnAccSize>
-int BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
-                   EnAccSize>::GetLColor() const {
+unsigned BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
+                        EnAccSize>::GetLColor() const {
     return this->l.GetColor(alignof(BinTreeNodeTpl), this);
 }
 
 template <typename LinkType, typename EnPColor, typename EnLColor,
           typename EnRColor, typename EnAccSize>
-int BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
-                   EnAccSize>::GetRColor() const {
+unsigned BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
+                        EnAccSize>::GetRColor() const {
     return this->r.GetColor(alignof(BinTreeNodeTpl), this);
 }
 
@@ -153,21 +160,21 @@ void BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor, EnAccSize>::SetRPtr(
 template <typename LinkType, typename EnPColor, typename EnLColor,
           typename EnRColor, typename EnAccSize>
 void BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
-                    EnAccSize>::SetPColor(int color) {
+                    EnAccSize>::SetPColor(unsigned color) {
     this->p.SetColor(alignof(BinTreeNodeTpl), this, color);
 }
 
 template <typename LinkType, typename EnPColor, typename EnLColor,
           typename EnRColor, typename EnAccSize>
 void BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
-                    EnAccSize>::SetLColor(int color) {
+                    EnAccSize>::SetLColor(unsigned color) {
     this->l.SetColor(alignof(BinTreeNodeTpl), this, color);
 }
 
 template <typename LinkType, typename EnPColor, typename EnLColor,
           typename EnRColor, typename EnAccSize>
 void BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
-                    EnAccSize>::SetRColor(int color) {
+                    EnAccSize>::SetRColor(unsigned color) {
     this->r.SetColor(alignof(BinTreeNodeTpl), this, color);
 }
 
@@ -175,18 +182,17 @@ void BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
 
 template <typename LinkType, typename EnPColor, typename EnLColor,
           typename EnRColor, typename EnAccSize>
-template <typename _>
-EnableIf<EnAccSize::value, size_t, _> BinTreeNodeTpl<
-    LinkType, EnPColor, EnLColor, EnRColor, EnAccSize>::GetAccSize() const {
+template <typename, typename>
+size_t BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
+                      EnAccSize>::GetAccSize() const {
     return this->acc_size;
 }
 
 template <typename LinkType, typename EnPColor, typename EnLColor,
           typename EnRColor, typename EnAccSize>
-template <typename _>
-EnableIf<EnAccSize::value, void, _>
-BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor, EnAccSize>::SetAccSize(
-    size_t acc_size) {
+template <typename, typename>
+void BinTreeNodeTpl<LinkType, EnPColor, EnLColor, EnRColor,
+                    EnAccSize>::SetAccSize(size_t acc_size) {
     this->acc_size = acc_size;
 }
 

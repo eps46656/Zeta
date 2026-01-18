@@ -2,10 +2,12 @@
 
 #include <zeta/core/bin_tree_node_tpl.ipp>
 #include <zeta/core/debug_utils.ipp>
+#include <zeta/core/define.hpp>
 #include <zeta/core/generic_hash_table.hpp>
 #include <zeta/core/mem_check_utils.hpp>
-#include <zeta/core/multi_level_table.ipp>
+#include <zeta/core/multi_level_ptr_table.ipp>
 #include <zeta/core/rbtree.ipp>
+#include <zeta/core/utils.hpp>
 #include <zeta/core/utils.ipp>
 
 namespace zeta::core {
@@ -13,41 +15,50 @@ namespace zeta::core {
 void GenericHashTableNode::Init() { this->n.Init(); }
 
 template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-auto GenericHashTable<NodeHash, NodeCompare,
-                      TableNodeAllocator>::TreeNodeOperator::GetP(TreeNode* n)
-    const -> TreeNode* {
+GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TreeNode*
+GenericHashTable<NodeHash, NodeCompare,
+                 TableNodeAllocator>::TreeNodeOperator::GetP(TreeNode* n)
+    const {
     return n->GetPPtr();
 }
 
 template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-auto GenericHashTable<NodeHash, NodeCompare,
-                      TableNodeAllocator>::TreeNodeOperator::GetL(TreeNode* n)
-    const -> TreeNode* {
+GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TreeNode*
+GenericHashTable<NodeHash, NodeCompare,
+                 TableNodeAllocator>::TreeNodeOperator::GetL(TreeNode* n)
+    const {
     return n->GetLPtr();
 }
 
 template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-auto GenericHashTable<NodeHash, NodeCompare,
-                      TableNodeAllocator>::TreeNodeOperator::GetR(TreeNode* n)
-    const -> TreeNode* {
+GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TreeNode*
+GenericHashTable<NodeHash, NodeCompare,
+                 TableNodeAllocator>::TreeNodeOperator::GetR(TreeNode* n)
+    const {
     return n->GetRPtr();
 }
 
 template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-auto GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::
-    TreeNodeOperator::GetP(TreeNode const* n) const -> TreeNode const* {
+GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TreeNode const*
+GenericHashTable<NodeHash, NodeCompare,
+                 TableNodeAllocator>::TreeNodeOperator::GetP(TreeNode const* n)
+    const {
     return n->GetPPtr();
 }
 
 template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-auto GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::
-    TreeNodeOperator::GetL(TreeNode const* n) const -> TreeNode const* {
+GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TreeNode const*
+GenericHashTable<NodeHash, NodeCompare,
+                 TableNodeAllocator>::TreeNodeOperator::GetL(TreeNode const* n)
+    const {
     return n->GetLPtr();
 }
 
 template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-auto GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::
-    TreeNodeOperator::GetR(TreeNode const* n) const -> TreeNode const* {
+GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TreeNode const*
+GenericHashTable<NodeHash, NodeCompare,
+                 TableNodeAllocator>::TreeNodeOperator::GetR(TreeNode const* n)
+    const {
     return n->GetRPtr();
 }
 
@@ -76,14 +87,14 @@ void GenericHashTable<NodeHash, NodeCompare,
 }
 
 template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-int GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::
+unsigned int GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::
     TreeNodeOperator::GetColor(TreeNode* n) const {
     return n->GetPColor();
 }
 
 template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
 void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::
-    TreeNodeOperator::SetColor(TreeNode* n, int color) const {
+    TreeNodeOperator::SetColor(TreeNode* n, unsigned int color) const {
     n->SetPColor(color);
 }
 
@@ -163,9 +174,10 @@ size_t GenericHashTable<NodeHash, NodeCompare,
 
 template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
 template <typename KeyHash, typename KeyNodeCompare>
-auto GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Find_(
+GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Node*
+GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Find_(
     unsigned long long salt, MLPT* table, size_t capacity, void const* key,
-    KeyHash const& key_hash, KeyNodeCompare const& key_node_compare) -> Node* {
+    KeyHash const& key_hash, KeyNodeCompare const& key_node_compare) {
     size_t idxes[max_level];
 
     SetIdxes_(table->level, idxes,
@@ -248,9 +260,11 @@ bool GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TryExtract_(
 
     if (root_entry == nullptr || *root_entry != root) { return false; }
 
-    if ((*root_entry = rbtree::Extract(tn_opr, &node->n)) == nullptr) {
-        MLPT::Erase(table, idxes);
-    }
+    void* new_root{ rbtree::Extract(tn_opr, &node->n) };
+
+    *root_entry = new_root;
+
+    if (new_root == nullptr) { MLPT::Erase(table, idxes); }
 
     return true;
 }
@@ -273,10 +287,13 @@ void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TryTransfer_(
             root_entry = static_cast<void**>(MLPT::FindFirst(cur_table, idxes));
         }
 
-        auto trans_node{ ZETA_Core_MemberToStruct(Node, n, *root_entry) };
+        auto* trans_node{ ZETA_Core_MemberToStruct(Node, n, *root_entry) };
 
-        if ((*root_entry = rbtree::Extract(tn_opr, &trans_node->n)) ==
-            nullptr) {
+        void* new_root{ rbtree::Extract(tn_opr, &trans_node->n) };
+
+        *root_entry = new_root;
+
+        if (new_root == nullptr) {
             MLPT::Erase(cur_table, idxes);
             root_entry = nullptr;
         }
@@ -384,7 +401,7 @@ bool GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Contain(
     auto ght{ static_cast<GenericHashTable const*>(ght_) };
     ZETA_Core_DebugAssert(CheckCntr(ght));
 
-    auto node{ static_cast<Node const*>(node_) };
+    auto const* node{ static_cast<Node const*>(node_) };
 
     if (node == nullptr) { return false; }
 
@@ -411,24 +428,21 @@ bool GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Contain(
 
     size_t idxes[max_level];
 
-    void** root_entry;
-
-    bool ret;
-
     SetIdxes_(cur_table.level, idxes,
               GetBucketIdx_(ght->node_hash(node, ght->cur_salt), cur_capacity));
 
-    if (!(ret = ((root_entry = static_cast<void**>(
-                      MLPT::Access(&cur_table, idxes))) != nullptr &&
-                 *root_entry == root)) &&
-        0 < nxt_capacity) {
+    void** root_entry{ static_cast<void**>(MLPT::Access(&cur_table, idxes)) };
+
+    bool ret{ root_entry != nullptr && *root_entry == root };
+
+    if (!ret && 0 < nxt_capacity) {
         SetIdxes_(
             nxt_table.level, idxes,
             GetBucketIdx_(ght->node_hash(node, ght->nxt_salt), nxt_capacity));
 
-        ret = (root_entry = static_cast<void**>(
-                   MLPT::Access(&nxt_table, idxes))) != nullptr &&
-              *root_entry == root;
+        root_entry = static_cast<void**>(MLPT::Access(&nxt_table, idxes));
+
+        ret = root_entry != nullptr && *root_entry == root;
     }
 
     TryRunPending_(ght, &cur_table, &nxt_table, 4);
@@ -484,7 +498,7 @@ void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Insert(
     auto ght{ static_cast<GenericHashTable*>(ght_) };
     ZETA_Core_DebugAssert(CheckCntr(ght));
 
-    auto node{ static_cast<Node*>(node_) };
+    auto* node{ static_cast<Node*>(node_) };
     ZETA_Core_DebugAssert(node != nullptr);
 
     size_t cur_capacity{ ght->cur_capacity };
@@ -523,7 +537,7 @@ void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Extract(
     auto ght{ static_cast<GenericHashTable*>(ght_) };
     ZETA_Core_DebugAssert(CheckCntr(ght));
 
-    auto node{ static_cast<Node*>(node_) };
+    auto* node{ static_cast<Node*>(node_) };
     ZETA_Core_DebugAssert(node != nullptr);
 
     size_t cur_capacity{ ght->cur_capacity };
@@ -591,11 +605,13 @@ void* GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::ExtractAny(
     void** root_entry{ static_cast<void**>(
         MLPT::FindFirst(&cur_table, idxes)) };
 
-    auto node{ ZETA_Core_MemberToStruct(Node, n, *root_entry) };
+    auto* node{ ZETA_Core_MemberToStruct(Node, n, *root_entry) };
 
-    if ((*root_entry = rbtree::Extract(tn_opr, &node->n)) == nullptr) {
-        MLPT::Erase(&cur_table, idxes);
-    }
+    void* new_root{ rbtree::Extract(tn_opr, &node->n) };
+
+    *root_entry = new_root;
+
+    if (new_root == nullptr) { MLPT::Erase(&cur_table, idxes); }
 
     --ght->size;
 
@@ -761,12 +777,13 @@ bool GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::CheckCntr(
 }
 
 template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-auto GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::SanitizeTree_(
+GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::SanitizeTreeRet
+GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::SanitizeTree_(
     GenericHashTable const* ght, MemRecorder* dst_node, unsigned long long salt,
-    size_t capacity, size_t bucket_idx, TreeNode* n) -> SanitizeTreeRet {
+    size_t capacity, size_t bucket_idx, TreeNode* n) {
     if (n == nullptr) { return { 0, nullptr, nullptr }; }
 
-    auto node{ ZETA_Core_MemberToStruct(Node, n, n) };
+    auto* node{ ZETA_Core_MemberToStruct(Node, n, n) };
 
     ZETA_Core_DebugAssert(GetBucketIdx_(ght->node_hash(node, salt), capacity) ==
                           bucket_idx);

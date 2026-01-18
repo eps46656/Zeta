@@ -31,7 +31,7 @@ inline void Sanitize(AssocCntrRef assoc_cntr) {
 
     auto iter{ map.find(assoc_cntr.vtable) };
     ZETA_Core_DebugAssert(iter != map.end());
-    ZETA_Core_DebugAssert(iter->second != NULL);
+    ZETA_Core_DebugAssert(iter->second != nullptr);
 
     iter->second(assoc_cntr);
 }
@@ -62,7 +62,7 @@ inline void Destroy(AssocCntrRef assoc_cntr) {
     auto iter{ map.find(assoc_cntr.vtable) };
 
     ZETA_Core_DebugAssert(iter != map.end());
-    ZETA_Core_DebugAssert(iter->second != NULL);
+    ZETA_Core_DebugAssert(iter->second != nullptr);
 
     iter->second(assoc_cntr);
 }
@@ -73,7 +73,7 @@ template <typename Key, typename Elem>
 Elem* Find(AssocCntrRef assoc_cntr, Key const& key) {
     void* cursor{ ZETA_Core_AssocCntr_AllocaCursor(&assoc_cntr) };
 
-    auto elem{ static_cast<Elem*>(AssocCntrRef::Find(
+    auto elem{ static_cast<Elem*>(AssocCntrRef::FnFind(
         &assoc_cntr, &key, core::hash::TypeErasedHash<Key>,
         core::compare::TypeErasedCompare<Key, Elem>, cursor)) };
 
@@ -110,7 +110,7 @@ template <typename Key, typename Elem>
 bool Erase(AssocCntrRef assoc_cntr, Key const& key) {
     void* cursor{ ZETA_Core_AssocCntr_AllocaCursor(&assoc_cntr) };
 
-    auto elem{ static_cast<Elem*>(AssocCntrRef::Find(
+    auto elem{ static_cast<Elem*>(AssocCntrRef::FnFind(
         &assoc_cntr, &key, core::hash::TypeErasedHash<Key>,
         core::compare::TypeErasedCompare<Key, Elem>, cursor)) };
 

@@ -1,7 +1,11 @@
 #pragma once
 
 #include <cstdlib>
+#include <zeta/core/allocator.hpp>
+#include <zeta/core/allocator.ipp>
 #include <zeta/core/seg_vector.ipp>
+#include <zeta/core/seq_cntr.hpp>
+#include <zeta/core/seq_cntr.ipp>
 #include <zeta/core_test/seq_cntr_utils.hpp>
 #include <zeta/core_test/std_allocator.hpp>
 
@@ -31,19 +35,21 @@ template <typename Elem>
 SeqCntrRef Create(size_t stride, size_t seg_capacity) {
     Pack* pack{ new Pack{} };
 
-    pack->seg_vector.stride = stride;
-    pack->seg_vector.width = sizeof(Elem);
-    pack->seg_vector.seg_capacity = seg_capacity;
+    auto sv{ &pack->seg_vector };
 
-    pack->seg_vector.seg_allocator =
-        StdAllocator::GetAllocatorRef(&pack->seg_allocator);
+    sv->stride = stride;
+    sv->width = sizeof(Elem);
+    sv->seg_capacity = seg_capacity;
 
-    pack->seg_vector.data_allocator =
-        StdAllocator::GetAllocatorRef(&pack->data_allocator);
+    sv->seg_allocator =
+        zeta::core::allocator::MakeAllocatorRef(&pack->seg_allocator);
+
+    sv->data_allocator =
+        zeta::core::allocator::MakeAllocatorRef(&pack->data_allocator);
 
     SegVector::Init(&pack->seg_vector);
 
-    SeqCntrRef seq_cntr_ref{ SegVector::GetSeqCntrRef(&pack->seg_vector) };
+    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr::MakeSeqCntrRef(sv) };
 
     seq_cntr_utils::AddSanitizeFunc(seq_cntr_ref.inst, Sanitize);
 

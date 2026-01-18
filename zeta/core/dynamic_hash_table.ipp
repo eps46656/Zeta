@@ -1,10 +1,13 @@
 #pragma once
 
 #include <zeta/core/debug_utils.ipp>
+#include <zeta/core/define.hpp>
 #include <zeta/core/dynamic_hash_table.hpp>
+#include <zeta/core/generic_hash_table.hpp>
 #include <zeta/core/generic_hash_table.ipp>
 #include <zeta/core/llist.ipp>
 #include <zeta/core/llist_node_tpl.ipp>
+#include <zeta/core/mem_check_utils.hpp>
 #include <zeta/core/utils.ipp>
 
 namespace zeta::core {
@@ -62,6 +65,36 @@ void DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
     GenericHashTableImpl::Deinit(&dht->ght);
 
     NodeAllocator::Deallocate(&dht->node_allocator, dht->lln);
+}
+
+template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
+          typename TableNodeAllocator>
+assoc_cntr::AssocCntrAbilityFlagType DynamicHashTable<
+    ElemHash, ElemCompare, NodeAllocator,
+    TableNodeAllocator>::GetDynamicEnabledAbilityFlag(void const* dht_) {
+    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
+    ZETA_Core_DebugAssert(CheckCntr(dht));
+    return dynamic_ability_flag;
+}
+
+template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
+          typename TableNodeAllocator>
+assoc_cntr::AssocCntrAbilityFlagType DynamicHashTable<
+    ElemHash, ElemCompare, NodeAllocator,
+    TableNodeAllocator>::GetDynamicDisabledAbilityFlag(void const* dht_) {
+    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
+    ZETA_Core_DebugAssert(CheckCntr(dht));
+    return dynamic_ability_flag;
+}
+
+template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
+          typename TableNodeAllocator>
+size_t DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
+                        TableNodeAllocator>::GetCursorSize(void const* dht_) {
+    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
+    ZETA_Core_DebugAssert(CheckCntr(dht));
+
+    return sizeof(Cursor);
 }
 
 template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
@@ -284,11 +317,11 @@ void const* DynamicHashTable<
 template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
           typename TableNodeAllocator>
 void* DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                       TableNodeAllocator>::Find(void* dht, void const* key,
-                                                 FnHash const& key_hash,
-                                                 FnCompare const&
-                                                     key_elem_compare,
-                                                 void* dst_cursor) {
+                       TableNodeAllocator>::FnFind(void* dht, void const* key,
+                                                   FnHash const& key_hash,
+                                                   FnCompare const&
+                                                       key_elem_compare,
+                                                   void* dst_cursor) {
     return TplFind(dht, key, key_hash, key_elem_compare, dst_cursor);
 }
 
@@ -296,10 +329,10 @@ template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
           typename TableNodeAllocator>
 void const* DynamicHashTable<
     ElemHash, ElemCompare, NodeAllocator,
-    TableNodeAllocator>::ConstFind(void const* dht, void const* key,
-                                   FnHash const& key_hash,
-                                   FnCompare const& key_elem_compare,
-                                   void* dst_cursor) {
+    TableNodeAllocator>::ConstFnFind(void const* dht, void const* key,
+                                     FnHash const& key_hash,
+                                     FnCompare const& key_elem_compare,
+                                     void* dst_cursor) {
     return ConstTplFind(dht, key, key_hash, key_elem_compare, dst_cursor);
 }
 
@@ -445,42 +478,6 @@ void DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
 
 template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
           typename TableNodeAllocator>
-assoc_cntr::AssocCntrRef
-DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                 TableNodeAllocator>::GetAsscocCntrRef(void* dht_) {
-    auto dht{ static_cast<DynamicHashTable*>(dht_) };
-    ZETA_Core_DebugAssert(CheckCntr(dht));
-
-    return {
-        .inst = dht,
-        .cursor_size = sizeof(Cursor),
-        .width = dht->width,
-        .capacity = ZETA_Core_max_capacity,
-        .vtable = &assoc_cntr_vtable,
-    };
-}
-
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-assoc_cntr::ConstAssocCntrRef
-DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                 TableNodeAllocator>::GetAsscocCntrRef(void const* dht_) {
-    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
-    ZETA_Core_DebugAssert(CheckCntr(dht));
-
-    return {
-        .inst = dht,
-        .cursor_size = sizeof(Cursor),
-        .width = dht->width,
-        .capacity = ZETA_Core_max_capacity,
-        .vtable = &assoc_cntr_vtable,
-    };
-}
-
-// -----------------------------------------------------------------------------
-
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
 bool DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
                       TableNodeAllocator>::CheckCntr(void const* dht_) {
     auto dht{ static_cast<DynamicHashTable const*>(dht_) };
@@ -572,40 +569,5 @@ void DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
 
     MemRecorder::Destroy(htn_records);
 }
-
-// -----------------------------------------------------------------------------
-
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-assoc_cntr::AssocCntrVTable const
-    DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                     TableNodeAllocator>::assoc_cntr_vtable{
-        .Deinit = &DynamicHashTable::Deinit,
-        .GetSize = &DynamicHashTable::GetSize,
-        .GetCapacity = &DynamicHashTable::GetCapacity,
-        .GetLBCursor = &DynamicHashTable::GetLBCursor,
-        .GetRBCursor = &DynamicHashTable::GetRBCursor,
-        .PeekL = &DynamicHashTable::PeekL,
-        .ConstPeekL = &DynamicHashTable::ConstPeekL,
-        .PeekR = &DynamicHashTable::PeekR,
-        .ConstPeekR = &DynamicHashTable::ConstPeekR,
-        .Refer = &DynamicHashTable::Refer,
-        .ConstRefer = &DynamicHashTable::ConstRefer,
-        .Find = &DynamicHashTable::Find,
-        .ConstFind = &DynamicHashTable::ConstFind,
-        .Insert = &DynamicHashTable::Insert,
-        .Erase = &DynamicHashTable::Erase,
-        .EraseAll = &DynamicHashTable::EraseAll,
-
-        .CopyCursor = &DynamicHashTable::CopyCursor,
-        .AreEqualCursor = &DynamicHashTable::AreEqualCursor,
-        .CompareCursor = nullptr,
-        .GetCursorDist = nullptr,
-        .GetCursorIdx = nullptr,
-        .CursorStepL = &DynamicHashTable::CursorStepL,
-        .CursorStepR = &DynamicHashTable::CursorStepR,
-        .CursorAdvanceL = nullptr,
-        .CursorAdvanceR = nullptr,
-    };
 
 }  // namespace zeta::core

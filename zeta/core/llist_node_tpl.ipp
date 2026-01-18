@@ -1,5 +1,6 @@
 #pragma once
 
+#include <zeta/core/debug_utils.hpp>
 #include <zeta/core/llist_node_tpl.hpp>
 #include <zeta/core/ptr_utils.ipp>
 
@@ -23,13 +24,15 @@ void LListNodeTpl<LinkType, EnLColor, EnRColor>::Init() {
 // -----------------------------------------------------------------------------
 
 template <typename LinkType, typename EnLColor, typename EnRColor>
-auto LListNodeTpl<LinkType, EnLColor, EnRColor>::GetLPtr() -> LListNodeTpl* {
+LListNodeTpl<LinkType, EnLColor, EnRColor>*
+LListNodeTpl<LinkType, EnLColor, EnRColor>::GetLPtr() {
     return static_cast<LListNodeTpl*>(
         this->l.GetPtr(alignof(LListNodeTpl), this));
 }
 
 template <typename LinkType, typename EnLColor, typename EnRColor>
-auto LListNodeTpl<LinkType, EnLColor, EnRColor>::GetRPtr() -> LListNodeTpl* {
+LListNodeTpl<LinkType, EnLColor, EnRColor>*
+LListNodeTpl<LinkType, EnLColor, EnRColor>::GetRPtr() {
     return static_cast<LListNodeTpl*>(
         this->r.GetPtr(alignof(LListNodeTpl), this));
 }
@@ -64,14 +67,14 @@ int LListNodeTpl<LinkType, EnLColor, EnRColor>::GetRColor() const {
 
 template <typename LinkType, typename EnLColor, typename EnRColor>
 void LListNodeTpl<LinkType, EnLColor, EnRColor>::SetLPtr(LListNodeTpl* m) {
-    if constexpr (EnRelLink || EnLColor::value) { m = m == nullptr ? this : m; }
+    ZETA_Core_DebugAssert(m != nullptr);
 
     this->l.SetPtr(alignof(LListNodeTpl), this, m);
 }
 
 template <typename LinkType, typename EnLColor, typename EnRColor>
 void LListNodeTpl<LinkType, EnLColor, EnRColor>::SetRPtr(LListNodeTpl* m) {
-    if constexpr (EnRelLink || EnRColor::value) { m = m == nullptr ? this : m; }
+    ZETA_Core_DebugAssert(m != nullptr);
 
     this->r.SetPtr(alignof(LListNodeTpl), this, m);
 }
@@ -89,30 +92,44 @@ void LListNodeTpl<LinkType, EnLColor, EnRColor>::SetRColor(int color) {
 }
 
 // -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+template <typename LinkType, typename EnLColor, typename EnRColor>
+constexpr bool LListNodeTplOperator::IsConst(
+    LListNodeTpl<LinkType, EnLColor, EnRColor>*) {
+    return false;
+}
+
+template <typename LinkType, typename EnLColor, typename EnRColor>
+constexpr bool LListNodeTplOperator::IsConst(
+    LListNodeTpl<LinkType, EnLColor, EnRColor> const*) {
+    return true;
+}
+
+// -----------------------------------------------------------------------------
 
 template <typename LinkType, typename EnLColor, typename EnRColor>
 LListNodeTpl<LinkType, EnLColor, EnRColor>* LListNodeTplOperator::GetL(
-    LListNodeTpl<LinkType, EnLColor, EnRColor>* n) const {
+    LListNodeTpl<LinkType, EnLColor, EnRColor>* n) {
     return n->GetLPtr();
 }
 
 template <typename LinkType, typename EnLColor, typename EnRColor>
 LListNodeTpl<LinkType, EnLColor, EnRColor>* LListNodeTplOperator::GetR(
-    LListNodeTpl<LinkType, EnLColor, EnRColor>* n) const {
+    LListNodeTpl<LinkType, EnLColor, EnRColor>* n) {
     return n->GetRPtr();
 }
 
 template <typename LinkType, typename EnLColor, typename EnRColor>
-void LListNodeTplOperator::SetL(
-    LListNodeTpl<LinkType, EnLColor, EnRColor>* n,
-    LListNodeTpl<LinkType, EnLColor, EnRColor>* m) const {
+void LListNodeTplOperator::SetL(LListNodeTpl<LinkType, EnLColor, EnRColor>* n,
+                                LListNodeTpl<LinkType, EnLColor, EnRColor>* m) {
     n->SetLPtr(m);
 }
 
 template <typename LinkType, typename EnLColor, typename EnRColor>
-void LListNodeTplOperator::SetR(
-    LListNodeTpl<LinkType, EnLColor, EnRColor>* n,
-    LListNodeTpl<LinkType, EnLColor, EnRColor>* m) const {
+void LListNodeTplOperator::SetR(LListNodeTpl<LinkType, EnLColor, EnRColor>* n,
+                                LListNodeTpl<LinkType, EnLColor, EnRColor>* m) {
     n->SetRPtr(m);
 }
 

@@ -1,14 +1,16 @@
 #pragma once
 
+#include <zeta/core/define.hpp>
+
 namespace zeta::core::llist {
 
 template <typename LListNodeOperator, typename LListNode>
-void CheckLListNodeOperator(LListNodeOperator const& lln_opr);
+void CheckContract(LListNodeOperator const& lln_opr);
 
 // -----------------------------------------------------------------------------
 
 template <typename LListNodeOperator, typename LListNode>
-size_t Count(LListNodeOperator const& lln_opr, LListNode const* n);
+size_t Count(LListNodeOperator const& lln_opr, LListNode* n);
 
 template <typename LListNodeOperator, typename LListNode>
 void InsertL(LListNodeOperator const& lln_opr, LListNode* n, LListNode* m);

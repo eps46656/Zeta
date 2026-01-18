@@ -5,13 +5,13 @@
 
 namespace zeta::core::rbtree {
 
-constexpr int black{ 0 };
-constexpr int red{ 1 };
+constexpr unsigned black{ 1 };
+constexpr unsigned red{ 2 };
 
 // -----------------------------------------------------------------------------
 
 template <typename RBTreeNodeOperator, typename RBTreeNode>
-void CheckRBTreeNodeOperator(RBTreeNodeOperator const& rbtn_opr);
+void CheckContract(RBTreeNodeOperator const& rbtn_opr);
 
 // -----------------------------------------------------------------------------
 

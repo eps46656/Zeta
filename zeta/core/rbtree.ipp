@@ -1,28 +1,50 @@
 #pragma once
 
 #include <zeta/core/bin_tree.ipp>
+#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/define.hpp>
+#include <zeta/core/integral.hpp>
+#include <zeta/core/mem_check_utils.hpp>
 #include <zeta/core/rbtree.hpp>
+#include <zeta/core/type_traits.hpp>
+#include <zeta/core/utils.hpp>
+#include <zeta/core/utils.ipp>
 
 namespace zeta::core::rbtree {
 
 template <typename RBTreeNodeOperator, typename RBTreeNode>
-void CheckRBTreeNodeOperator(RBTreeNodeOperator const& rbtn_opr) {
-    bin_tree::CheckBinTreeNodeOperator<RBTreeNodeOperator, RBTreeNode>(
-        rbtn_opr);
+void CheckContract(RBTreeNodeOperator const& rbtn_opr) {
+    bin_tree::CheckBinTreeNode<RBTreeNodeOperator, RBTreeNode>(rbtn_opr);
 
-    RBTreeNode* n{ nullptr };
+    using rbtn_t = RemoveConst<RBTreeNode>;
 
-    ZETA_Core_StaticAssert(IsAnyOf<decltype(rbtn_opr.GetColor(n)), int>);
+    rbtn_t* rbtn_ptr{ nullptr };
+    rbtn_t const* const_rbtn_ptr{ nullptr };
 
-    ZETA_Core_StaticAssert(
-        IsAnyOf<decltype((rbtn_opr.SetColor(n, size_t{ 0 }), 0)), int>);
+    unsigned unsigned_val{ 0 };
+
+#pragma push_macro("CheckMethod")
+
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define CheckMethod(method, return_type, ...) \
+    ZETA_Core_StaticAssert(                   \
+        IsAnyOf<decltype(rbtn_opr.method(__VA_ARGS__)), return_type>)
+
+    CheckMethod(GetColor, unsigned, rbtn_ptr);
+    CheckMethod(GetColor, unsigned, const_rbtn_ptr);
+
+    CheckMethod(SetColor, TypeAny, rbtn_ptr, unsigned_val);
+
+#pragma pop_macro("CheckMethod")
 }
 
 // -----------------------------------------------------------------------------
 
-#pragma push_macro("InsertBalance__")
+namespace detail {
 
-#define InsertBalance__(D, E)                            \
+#pragma push_macro("InsertBalance_F_")
+
+#define InsertBalance_F_(D, E)                           \
     RBTreeNode* nu{ rbtn_opr.Get##E(ng) };               \
                                                          \
     if (nu != nullptr && rbtn_opr.GetColor(nu) == red) { \
@@ -40,12 +62,11 @@ void CheckRBTreeNodeOperator(RBTreeNodeOperator const& rbtn_opr) {
                                                          \
     rbtn_opr.SetColor(ng, red);                          \
     rbtn_opr.SetColor(np, black);                        \
-    bin_tree::Rotate##E(rbtn_opr, ng);                   \
-    break;
+    bin_tree::Rotate##E(rbtn_opr, ng);
 
 template <typename RBTreeNodeOperator, typename RBTreeNode>
 RBTreeNode* InsertBalance_(RBTreeNodeOperator const& rbtn_opr, RBTreeNode* n) {
-    CheckRBTreeNodeOperator<RBTreeNodeOperator, RBTreeNode>(rbtn_opr);
+    CheckRBTreeNode<RBTreeNodeOperator, RBTreeNode>(rbtn_opr);
 
     ZETA_Core_DebugAssert(n != nullptr);
 
@@ -67,16 +88,20 @@ RBTreeNode* InsertBalance_(RBTreeNodeOperator const& rbtn_opr, RBTreeNode* n) {
         }
 
         if (rbtn_opr.GetL(ng) == np) {
-            InsertBalance__(L, R);
+            InsertBalance_F_(L, R);
         } else {
-            InsertBalance__(R, L);
+            InsertBalance_F_(R, L);
         }
+
+        break;
     }
 
     return bin_tree::GetMostP(rbtn_opr, n).first;
 }
 
-#pragma pop_macro("InsertBalance__")
+#pragma pop_macro("InsertBalance_F_")
+
+}  // namespace detail
 
 #pragma push_macro("Insert_")
 
@@ -106,7 +131,7 @@ RBTreeNode* InsertBalance_(RBTreeNodeOperator const& rbtn_opr, RBTreeNode* n) {
                              bin_tree::GetMost##E(rbtn_opr, pos_d).first, n); \
     }                                                                         \
                                                                               \
-    return InsertBalance_(rbtn_opr, n);
+    return detail::InsertBalance_(rbtn_opr, n);
 
 template <typename RBTreeNodeOperator, typename RBTreeNode>
 RBTreeNode* InsertL(RBTreeNodeOperator const& rbtn_opr, RBTreeNode* pos,
@@ -125,7 +150,7 @@ RBTreeNode* InsertR(RBTreeNodeOperator const& rbtn_opr, RBTreeNode* pos,
 template <typename RBTreeNodeOperator, typename RBTreeNode>
 RBTreeNode* Insert(RBTreeNodeOperator const& rbtn_opr, RBTreeNode* pos_l,
                    RBTreeNode* pos_r, RBTreeNode* n) {
-    CheckRBTreeNodeOperator<RBTreeNodeOperator, RBTreeNode>(rbtn_opr);
+    CheckRBTreeNode<RBTreeNodeOperator, RBTreeNode>(rbtn_opr);
 
     ZETA_Core_DebugAssert(pos_l != n);
     ZETA_Core_DebugAssert(pos_r != n);
@@ -154,7 +179,7 @@ RBTreeNode* Insert(RBTreeNodeOperator const& rbtn_opr, RBTreeNode* pos_l,
         bin_tree::AttatchL(rbtn_opr, pos_r, n);
     }
 
-    return InsertBalance_(rbtn_opr, n);
+    return detail::InsertBalance_(rbtn_opr, n);
 }
 
 #pragma push_macro("GeneralInsert_")
@@ -184,49 +209,49 @@ RBTreeNode* GeneralInsertR(RBTreeNodeOperator const& rbtn_opr, RBTreeNode* root,
 
 #pragma pop_macro("GeneralInsert_")
 
-#pragma push_macro("ExtractBalance__")
+namespace detail {
 
-#define ExtractBalance__(D, E)                                        \
-    RBTreeNode* ns{ rbtn_opr.Get##E(np) };                            \
-                                                                      \
-    if (ns != nullptr && rbtn_opr.GetColor(ns) == red) {              \
-        rbtn_opr.SetColor(np, red);                                   \
-        rbtn_opr.SetColor(ns, black);                                 \
-        bin_tree::Rotate##D(rbtn_opr, np);                            \
-        ns = rbtn_opr.Get##E(np);                                     \
-    }                                                                 \
-                                                                      \
-    RBTreeNode* nsd{ rbtn_opr.Get##D(ns) };                           \
-    RBTreeNode* nse{ rbtn_opr.Get##E(ns) };                           \
-                                                                      \
-    int nse_color{ nse == nullptr ? black : rbtn_opr.GetColor(nse) }; \
-                                                                      \
-    if ((nsd == nullptr || rbtn_opr.GetColor(nsd) == black) &&        \
-        nse_color == black) {                                         \
-        rbtn_opr.SetColor(ns, red);                                   \
-        n = np;                                                       \
-        continue;                                                     \
-    }                                                                 \
-                                                                      \
-    if (nse_color == black) {                                         \
-        rbtn_opr.SetColor(ns, red);                                   \
-        rbtn_opr.SetColor(nsd, black);                                \
-        bin_tree::Rotate##E(rbtn_opr, ns);                            \
-        nse = ns;                                                     \
-        ns = nsd;                                                     \
-        nsd = rbtn_opr.Get##D(nsd);                                   \
-    }                                                                 \
-                                                                      \
-    rbtn_opr.SetColor(ns, rbtn_opr.GetColor(np));                     \
-    rbtn_opr.SetColor(nse, black);                                    \
-    rbtn_opr.SetColor(np, black);                                     \
-    bin_tree::Rotate##D(rbtn_opr, np);                                \
-                                                                      \
-    break;
+#pragma push_macro("ExtractBalance_F_")
+
+#define ExtractBalance_F_(D, E)                                            \
+    RBTreeNode* ns{ rbtn_opr.Get##E(np) };                                 \
+                                                                           \
+    if (rbtn_opr.GetColor(ns) == red) {                                    \
+        rbtn_opr.SetColor(np, red);                                        \
+        rbtn_opr.SetColor(ns, black);                                      \
+        bin_tree::Rotate##D(rbtn_opr, np);                                 \
+        ns = rbtn_opr.Get##E(np);                                          \
+    }                                                                      \
+                                                                           \
+    RBTreeNode* nsd{ rbtn_opr.Get##D(ns) };                                \
+    RBTreeNode* nse{ rbtn_opr.Get##E(ns) };                                \
+                                                                           \
+    unsigned nse_color{ nse == nullptr ? black : rbtn_opr.GetColor(nse) }; \
+                                                                           \
+    if ((nsd == nullptr || rbtn_opr.GetColor(nsd) == black) &&             \
+        nse_color == black) {                                              \
+        rbtn_opr.SetColor(ns, red);                                        \
+        n = np;                                                            \
+        continue;                                                          \
+    }                                                                      \
+                                                                           \
+    if (nse_color == black) {                                              \
+        rbtn_opr.SetColor(ns, red);                                        \
+        rbtn_opr.SetColor(nsd, black);                                     \
+        bin_tree::Rotate##E(rbtn_opr, ns);                                 \
+        nse = ns;                                                          \
+        ns = nsd;                                                          \
+        nsd = rbtn_opr.Get##D(nsd);                                        \
+    }                                                                      \
+                                                                           \
+    rbtn_opr.SetColor(ns, rbtn_opr.GetColor(np));                          \
+    rbtn_opr.SetColor(nse, black);                                         \
+    rbtn_opr.SetColor(np, black);                                          \
+    bin_tree::Rotate##D(rbtn_opr, np);
 
 template <typename RBTreeNodeOperator, typename RBTreeNode>
 void ExtractBalance_(RBTreeNodeOperator const& rbtn_opr, RBTreeNode* n) {
-    CheckRBTreeNodeOperator<RBTreeNodeOperator, RBTreeNode>(rbtn_opr);
+    CheckRBTreeNode<RBTreeNodeOperator, RBTreeNode>(rbtn_opr);
 
     for (;;) {
         if (rbtn_opr.GetColor(n) == red) {
@@ -239,18 +264,22 @@ void ExtractBalance_(RBTreeNodeOperator const& rbtn_opr, RBTreeNode* n) {
         if (np == nullptr) { break; }
 
         if (rbtn_opr.GetL(np) == n) {
-            ExtractBalance__(L, R);
+            ExtractBalance_F_(L, R);
         } else {
-            ExtractBalance__(R, L);
+            ExtractBalance_F_(R, L);
         }
+
+        break;
     }
 }
 
-#pragma pop_macro("ExtractBalance__")
+#pragma pop_macro("ExtractBalance_F_")
+
+}  // namespace detail
 
 template <typename RBTreeNodeOperator, typename RBTreeNode>
 RBTreeNode* Extract(RBTreeNodeOperator const& rbtn_opr, RBTreeNode* pos) {
-    CheckRBTreeNodeOperator<RBTreeNodeOperator, RBTreeNode>(rbtn_opr);
+    CheckRBTreeNode<RBTreeNodeOperator, RBTreeNode>(rbtn_opr);
 
     ZETA_Core_DebugAssert(pos != nullptr);
 
@@ -270,8 +299,8 @@ RBTreeNode* Extract(RBTreeNodeOperator const& rbtn_opr, RBTreeNode* pos) {
 
         bin_tree::Swap(rbtn_opr, n, m);
 
-        int nc{ rbtn_opr.GetColor(n) };
-        int mc{ rbtn_opr.GetColor(m) };
+        unsigned nc{ rbtn_opr.GetColor(n) };
+        unsigned mc{ rbtn_opr.GetColor(m) };
 
         if (nc != mc) {
             rbtn_opr.SetColor(n, mc);
@@ -292,7 +321,7 @@ RBTreeNode* Extract(RBTreeNodeOperator const& rbtn_opr, RBTreeNode* pos) {
             bin_tree::RotateL(rbtn_opr, n);
             rbtn_opr.SetColor(nr, black);
         } else {
-            ExtractBalance_(rbtn_opr, n);
+            detail::ExtractBalance_(rbtn_opr, n);
         }
     }
 
@@ -305,10 +334,12 @@ RBTreeNode* Extract(RBTreeNodeOperator const& rbtn_opr, RBTreeNode* pos) {
     return root;
 }
 
+namespace detail {
+
 template <typename RBTreeNodeOperator, typename RBTreeNode>
 size_t Sanitize_(RBTreeNodeOperator const& rbtn_opr, MemRecorder* dst_mr,
                  RBTreeNode* n) {
-    CheckRBTreeNodeOperator<RBTreeNodeOperator, RBTreeNode>(rbtn_opr);
+    CheckRBTreeNode<RBTreeNodeOperator, RBTreeNode>(rbtn_opr);
 
     if (n == nullptr) { return 0; }
 
@@ -326,7 +357,7 @@ size_t Sanitize_(RBTreeNodeOperator const& rbtn_opr, MemRecorder* dst_mr,
 
     ZETA_Core_DebugAssert(lbh == rbh);
 
-    int nc{ rbtn_opr.GetColor(n) };
+    unsigned nc{ rbtn_opr.GetColor(n) };
 
     ZETA_Core_DebugAssert(nc == black || nc == red);
 
@@ -338,17 +369,19 @@ size_t Sanitize_(RBTreeNodeOperator const& rbtn_opr, MemRecorder* dst_mr,
     return lbh;
 }
 
+}  // namespace detail
+
 template <typename RBTreeNodeOperator, typename RBTreeNode>
 void Sanitize(RBTreeNodeOperator const& rbtn_opr, MemRecorder* dst_mr,
               RBTreeNode* root) {
-    CheckRBTreeNodeOperator<RBTreeNodeOperator, RBTreeNode>(rbtn_opr);
+    CheckRBTreeNode<RBTreeNodeOperator, RBTreeNode>(rbtn_opr);
 
     if (root == nullptr) { return; }
 
     ZETA_Core_DebugAssert(rbtn_opr.GetP(root) == nullptr);
     ZETA_Core_DebugAssert(rbtn_opr.GetColor(root) == black);
 
-    Sanitize_(rbtn_opr, dst_mr, root);
+    detail::Sanitize_(rbtn_opr, dst_mr, root);
 }
 
 }  // namespace zeta::core::rbtree

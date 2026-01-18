@@ -39,48 +39,6 @@
         << '\n';                                                       \
     ZETA_Core_StaticAssert(true)
 
-#define ZETA_Core_PrintVar(var)                                      \
-    zeta::core::debug_utils::PrintVar(std::cout, __FILE__, __LINE__, \
-                                      __PRETTY_FUNCTION__,           \
-                                      ZETA_Core_ToStr(var), (var))   \
-        << '\n';                                                     \
-    if (ZETA_Core_ImmPrint) { std::cout.flush(); }                   \
-    ZETA_Core_StaticAssert(true)
-
-#define ZETA_Core_Debug_PrintVar(var)                                  \
-    zeta::core::debug_utils::PrintVar(                                 \
-        zeta::core::debug_utils::debug_str_stream, __FILE__, __LINE__, \
-        __PRETTY_FUNCTION__, ZETA_Core_ToStr(var), (var))              \
-        << '\n';                                                       \
-    ZETA_Core_StaticAssert(true)
-
-#define ZETA_Core_DebugAssert_(tmp_cond, cond)                                 \
-    {                                                                          \
-        auto tmp_cond{ cond };                                                 \
-                                                                               \
-        if (tmp_cond) {                                                        \
-        } else {                                                               \
-            ZETA_Core_PrintVar("Debug Assert !!!");                            \
-                                                                               \
-            zeta::core::debug_utils::PrintVar(std::cout, __FILE__, __LINE__,   \
-                                              __PRETTY_FUNCTION__,             \
-                                              ZETA_Core_ToStr(cond), tmp_cond) \
-                << '\n';                                                       \
-                                                                               \
-            zeta::core::debug_utils::PrintDebugStrStream();                    \
-                                                                               \
-            ZETA_Core_PrintStackTrace;                                         \
-                                                                               \
-            std::cout.flush();                                                 \
-                                                                               \
-            exit(1);                                                           \
-        }                                                                      \
-    }
-
-#define ZETA_Core_DebugAssert(...) \
-    ZETA_Core_WhenEnableDebug(     \
-        ZETA_Core_DebugAssert_(ZETA_Core_TmpName, (__VA_ARGS__)))
-
 // -----------------------------------------------------------------------------
 
 namespace zeta::core::debug_utils {
@@ -105,10 +63,7 @@ template <typename T>
 std::string GetTypeStr();
 
 template <typename T, typename = void>
-struct PrintVarCore;
-
-template <typename T>
-PrintVarCore<T> const& GetPrintVarCore();
+struct VarPrinter;
 
 std::ostream& PrintPos(std::ostream& os, char const* file, int line,
                        char const* func);

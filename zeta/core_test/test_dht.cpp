@@ -1,9 +1,15 @@
 #include <memory>
 #include <unordered_set>
+#include <vector>
+#include <zeta/core/assoc_cntr.hpp>
+#include <zeta/core/compare.hpp>
 #include <zeta/core/compare.ipp>
 #include <zeta/core/debug_deque.ipp>
+#include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils.ipp>
+#include <zeta/core/hash.hpp>
 #include <zeta/core/hash.ipp>
+#include <zeta/core/integral.hpp>
 #include <zeta/core/mem_check_utils.hpp>
 #include <zeta/core_test/assoc_cntr_utils.hpp>
 #include <zeta/core_test/debug_hash_table_utils.hpp>
@@ -16,7 +22,7 @@
 namespace zeta::core_test {
 
 void main1() {
-    unsigned random_seed{ static_cast<unsigned>(time(NULL)) };
+    unsigned random_seed{ static_cast<unsigned>(time(nullptr)) };
     unsigned fixed_seed{ 1729615114 };
 
     // unsigned seed { random_seed};

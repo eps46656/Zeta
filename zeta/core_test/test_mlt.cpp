@@ -1,4 +1,3 @@
-#include <map>
 #include <vector>
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/debug_utils.hpp>
@@ -10,15 +9,17 @@
 #include <zeta/core_test/std_allocator.hpp>
 #include <zeta/core_test/timer.hpp>
 
+namespace MLPT = zeta::core::multi_level_ptr_table;
+namespace MLDT = zeta::core::multi_level_data_table;
+
 struct MultiLevelPtrTableMap {
-    using MLPT =
-        zeta::core::MultiLevelPtrTable<zeta::core::allocator::AllocatorRef>;
-
-    zeta::core_test::StdAllocator nav_node_allocator;
-
     unsigned short branch_nums[MLPT::max_level];
 
-    MLPT mlpt;
+    zeta::core_test::std_allocator::Allocator nav_node_alctr;
+
+    MLPT::Cntr<zeta::core_test::std_allocator::AllocatorOperator,
+               zeta::core_test::std_allocator::Allocator>
+        mlpt;
 
     MultiLevelPtrTableMap() {
         ZETA_Core_PrintCurPos;
@@ -38,11 +39,9 @@ struct MultiLevelPtrTableMap {
 
         this->mlpt.branch_nums = this->branch_nums;
 
-        this->mlpt.nav_node_allocator =
-            zeta::core_test::StdAllocator::GetAllocatorRef(
-                &this->nav_node_allocator);
+        this->mlpt.nav_node_alctr = &this->nav_node_alctr;
 
-        MLPT::Init(&this->mlpt);
+        MLPT::ops::Init(&this->mlpt);
 
         ZETA_Core_PrintCurPos;
 
@@ -74,22 +73,22 @@ struct MultiLevelPtrTableMap {
         zeta::core::MemRecorder* nav_node_mem_recorder =
             zeta::core::MemRecorder::Create();
 
-        MLPT::Sanitize(&this->mlpt, nav_node_mem_recorder);
+        MLPT::ops::Sanitize(&this->mlpt, nav_node_mem_recorder);
 
         zeta::core::MemRecorder::MatchRecords(
-            this->nav_node_allocator.mem_recorder, nav_node_mem_recorder);
+            this->mlpt.nav_node_alctr->mem_recorder, nav_node_mem_recorder);
 
         zeta::core::MemRecorder::Destroy(nav_node_mem_recorder);
     }
 
-    size_t GetCapacity() { return MLPT::GetCapacity(&this->mlpt); }
+    size_t GetCapacity() { return MLPT::ops::GetCapacity(&this->mlpt); }
 
     void** Access(size_t idx) {
         size_t idxes[MLPT::max_level];
 
         this->SetIdxes_(idx, idxes);
 
-        void* n{ MLPT::Access(&this->mlpt, idxes) };
+        void* n{ MLPT::ops::Access(&this->mlpt, idxes) };
 
         this->Sanitize();
 
@@ -101,7 +100,7 @@ struct MultiLevelPtrTableMap {
 
         this->SetIdxes_(idx, idxes);
 
-        void* n{ MLPT::Insert(&this->mlpt, idxes).first };
+        void* n{ MLPT::ops::Insert(&this->mlpt, idxes).first };
 
         ZETA_Core_DebugAssert(n != nullptr);
 
@@ -115,14 +114,14 @@ struct MultiLevelPtrTableMap {
 
         this->SetIdxes_(idx, idxes);
 
-        MLPT::Erase(&this->mlpt, idxes);
+        MLPT::ops::Erase(&this->mlpt, idxes);
     }
 
     size_t FindPrev(size_t idx) {
         size_t idxes[MLPT::max_level];
         SetIdxes_(idx, idxes);
 
-        void* n = MLPT::FindPrev(&this->mlpt, idxes, true);
+        void* n = MLPT::ops::FindPrev(&this->mlpt, idxes, true);
 
         this->Sanitize();
 
@@ -133,7 +132,7 @@ struct MultiLevelPtrTableMap {
         size_t idxes[MLPT::max_level];
         SetIdxes_(idx, idxes);
 
-        void* n = MLPT::FindNext(&this->mlpt, idxes, true);
+        void* n = MLPT::ops::FindNext(&this->mlpt, idxes, true);
 
         this->Sanitize();
 
@@ -146,12 +145,12 @@ struct MultiLevelPtrTableMap {
 
         std::vector<std::pair<size_t, void*>> ret;
 
-        void* n{ MLPT::FindNext(&this->mlpt, idxes, true) };
+        void* n{ MLPT::ops::FindNext(&this->mlpt, idxes, true) };
 
         while (n != nullptr) {
             ret.emplace_back(GetIdx_(idxes), *static_cast<void**>(n));
 
-            n = MLPT::FindNext(&this->mlpt, idxes, false);
+            n = MLPT::ops::FindNext(&this->mlpt, idxes, false);
         }
 
         return ret;
@@ -160,16 +159,16 @@ struct MultiLevelPtrTableMap {
 
 template <typename T>
 struct MultiLevelDataTableMap {
-    using MLDT =
-        zeta::core::MultiLevelDataTable<zeta::core::allocator::AllocatorRef,
-                                        zeta::core::allocator::AllocatorRef>;
-
-    zeta::core_test::StdAllocator nav_node_allocator;
-    zeta::core_test::StdAllocator dat_node_allocator;
+    zeta::core_test::std_allocator::Allocator nav_node_alctr;
+    zeta::core_test::std_allocator::Allocator dat_node_alctr;
 
     unsigned short branch_nums[MLDT::max_level];
 
-    MLDT mldt;
+    MLDT::Cntr<zeta::core_test::std_allocator::AllocatorOperator,
+               zeta::core_test::std_allocator::Allocator,
+               zeta::core_test::std_allocator::AllocatorOperator,
+               zeta::core_test::std_allocator::Allocator>
+        mldt;
 
     MultiLevelDataTableMap() {
         unsigned level{ 8 };
@@ -189,15 +188,10 @@ struct MultiLevelDataTableMap {
 
         this->mldt.stride = sizeof(T);
 
-        this->mldt.nav_node_allocator =
-            zeta::core_test::StdAllocator::GetAllocatorRef(
-                &this->nav_node_allocator);
+        this->mldt.nav_node_alctr = &this->nav_node_alctr;
+        this->mldt.data_node_alctr = &this->dat_node_alctr;
 
-        this->mldt.data_node_allocator =
-            zeta::core_test::StdAllocator::GetAllocatorRef(
-                &this->dat_node_allocator);
-
-        MLDT::Init(&this->mldt);
+        MLDT::ops::Init(&this->mldt);
 
         this->Sanitize();
     }
@@ -230,27 +224,27 @@ struct MultiLevelDataTableMap {
         zeta::core::MemRecorder* dat_node_mem_recorder =
             zeta::core::MemRecorder::Create();
 
-        MLDT::Sanitize(&this->mldt, nav_node_mem_recorder,
-                       dat_node_mem_recorder);
+        MLDT::ops::Sanitize(&this->mldt, nav_node_mem_recorder,
+                            dat_node_mem_recorder);
 
-        zeta::core::MemRecorder::MatchRecords(
-            this->nav_node_allocator.mem_recorder, nav_node_mem_recorder);
+        zeta::core::MemRecorder::MatchRecords(this->nav_node_alctr.mem_recorder,
+                                              nav_node_mem_recorder);
 
-        zeta::core::MemRecorder::MatchRecords(
-            this->dat_node_allocator.mem_recorder, dat_node_mem_recorder);
+        zeta::core::MemRecorder::MatchRecords(this->dat_node_alctr.mem_recorder,
+                                              dat_node_mem_recorder);
 
         zeta::core::MemRecorder::Destroy(nav_node_mem_recorder);
         zeta::core::MemRecorder::Destroy(dat_node_mem_recorder);
     }
 
-    size_t GetCapacity() { return MLDT::GetCapacity(&this->mldt); }
+    size_t GetCapacity() { return MLDT::ops::GetCapacity(&this->mldt); }
 
     T* Access(size_t idx) {
         size_t idxes[MLDT::max_level];
 
         this->SetIdxes_(idx, idxes);
 
-        void* n = MLDT::Access(&this->mldt, idxes);
+        void* n = MLDT::ops::Access(&this->mldt, idxes);
 
         this->Sanitize();
 
@@ -262,7 +256,7 @@ struct MultiLevelDataTableMap {
 
         this->SetIdxes_(idx, idxes);
 
-        void* n = MLDT::Insert(&this->mldt, idxes).first;
+        void* n = MLDT::ops::Insert(&this->mldt, idxes).first;
 
         ZETA_Core_DebugAssert(n != nullptr);
 
@@ -276,7 +270,7 @@ struct MultiLevelDataTableMap {
 
         this->SetIdxes_(idx, idxes);
 
-        MLDT::Erase(&this->mldt, idxes);
+        MLDT::ops::Erase(&this->mldt, idxes);
 
         this->Sanitize();
     }
@@ -285,7 +279,7 @@ struct MultiLevelDataTableMap {
         size_t idxes[MLDT::max_level];
         SetIdxes_(idx, idxes);
 
-        void* n = MLDT::FindPrev(&this->mldt, idxes, true);
+        void* n = MLDT::ops::FindPrev(&this->mldt, idxes, true);
 
         this->Sanitize();
 
@@ -296,7 +290,7 @@ struct MultiLevelDataTableMap {
         size_t idxes[MLDT::max_level];
         SetIdxes_(idx, idxes);
 
-        void* n = MLDT::FindNext(&this->mldt, idxes, true);
+        void* n = MLDT::ops::FindNext(&this->mldt, idxes, true);
 
         this->Sanitize();
 
@@ -309,12 +303,12 @@ struct MultiLevelDataTableMap {
 
         std::vector<std::pair<size_t, T>> ret;
 
-        void* n = MLDT::FindNext(&this->mldt, idxes, true);
+        void* n = MLDT::ops::FindNext(&this->mldt, idxes, true);
 
         while (n != nullptr) {
             ret.push_back({ GetIdx_(idxes), *static_cast<T*>(n) });
 
-            n = MLDT::FindNext(&this->mldt, idxes, false);
+            n = MLDT::ops::FindNext(&this->mldt, idxes, false);
         }
 
         return ret;

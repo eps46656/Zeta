@@ -48,20 +48,27 @@ __attribute__((aligned(8)));
 
 struct LListNodeTplOperator {
     template <typename LinkType, typename EnLColor, typename EnRColor>
-    LListNodeTpl<LinkType, EnLColor, EnRColor>* GetL(
-        LListNodeTpl<LinkType, EnLColor, EnRColor>* n) const;
+    static constexpr bool IsConst(LListNodeTpl<LinkType, EnLColor, EnRColor>*);
 
     template <typename LinkType, typename EnLColor, typename EnRColor>
-    LListNodeTpl<LinkType, EnLColor, EnRColor>* GetR(
-        LListNodeTpl<LinkType, EnLColor, EnRColor>* n) const;
+    static constexpr bool IsConst(
+        LListNodeTpl<LinkType, EnLColor, EnRColor> const*);
 
     template <typename LinkType, typename EnLColor, typename EnRColor>
-    void SetL(LListNodeTpl<LinkType, EnLColor, EnRColor>* n,
-              LListNodeTpl<LinkType, EnLColor, EnRColor>* m) const;
+    static LListNodeTpl<LinkType, EnLColor, EnRColor>* GetL(
+        LListNodeTpl<LinkType, EnLColor, EnRColor>* n);
 
     template <typename LinkType, typename EnLColor, typename EnRColor>
-    void SetR(LListNodeTpl<LinkType, EnLColor, EnRColor>* n,
-              LListNodeTpl<LinkType, EnLColor, EnRColor>* m) const;
+    static LListNodeTpl<LinkType, EnLColor, EnRColor>* GetR(
+        LListNodeTpl<LinkType, EnLColor, EnRColor>* n);
+
+    template <typename LinkType, typename EnLColor, typename EnRColor>
+    static void SetL(LListNodeTpl<LinkType, EnLColor, EnRColor>* n,
+                     LListNodeTpl<LinkType, EnLColor, EnRColor>* m);
+
+    template <typename LinkType, typename EnLColor, typename EnRColor>
+    static void SetR(LListNodeTpl<LinkType, EnLColor, EnRColor>* n,
+                     LListNodeTpl<LinkType, EnLColor, EnRColor>* m);
 };
 
 }  // namespace zeta::core

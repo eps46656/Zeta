@@ -1,60 +1,289 @@
 #pragma once
 
-#define ZETA_Core_Unused(x) (void)(x)
-
-#define ZETA_Core_Identity(...) __VA_ARGS__
+#include <cstddef>
 
 // -----------------------------------------------------------------------------
 
-#define ZETA_Core_ForEach_GetFirst(x, ...) x
-#define ZETA_Core_ForEach_GetRes(x, ...) __VA_OPT__(, __VA_ARGS__)
+#if !defined(offsetof)
+#define offsetof(type, member) __builtin_offsetof(type, member)
+#endif
 
-#define ZETA_Core_ForEach_0(func, x, ...)                            \
-    func, ZETA_Core_ForEach_GetFirst(__VA_OPT__(                     \
-              func(x, ZETA_Core_ForEach_GetFirst(__VA_ARGS__)), ) x) \
-              __VA_OPT__(ZETA_Core_ForEach_GetRes(__VA_ARGS__))
-#define ZETA_Core_ForEach_1(func, ...)         \
-    ZETA_Core_ForEach_A_1(ZETA_Core_ForEach_0, \
-                          ZETA_Core_ForEach_0(func, __VA_ARGS__))
-#define ZETA_Core_ForEach_2(func, ...)         \
-    ZETA_Core_ForEach_A_2(ZETA_Core_ForEach_1, \
-                          ZETA_Core_ForEach_1(func, __VA_ARGS__))
-#define ZETA_Core_ForEach_3(func, ...)         \
-    ZETA_Core_ForEach_A_3(ZETA_Core_ForEach_2, \
-                          ZETA_Core_ForEach_2(func, __VA_ARGS__))
-#define ZETA_Core_ForEach_4(func, ...)         \
-    ZETA_Core_ForEach_A_4(ZETA_Core_ForEach_3, \
-                          ZETA_Core_ForEach_3(func, __VA_ARGS__))
-#define ZETA_Core_ForEach_5(func, ...)         \
-    ZETA_Core_ForEach_A_5(ZETA_Core_ForEach_4, \
-                          ZETA_Core_ForEach_4(func, __VA_ARGS__))
-#define ZETA_Core_ForEach_6(func, ...)         \
-    ZETA_Core_ForEach_A_6(ZETA_Core_ForEach_5, \
-                          ZETA_Core_ForEach_5(func, __VA_ARGS__))
-#define ZETA_Core_ForEach_7(func, ...)         \
-    ZETA_Core_ForEach_A_7(ZETA_Core_ForEach_6, \
-                          ZETA_Core_ForEach_6(func, __VA_ARGS__))
-#define ZETA_Core_ForEach_8(func, ...)         \
-    ZETA_Core_ForEach_A_8(ZETA_Core_ForEach_7, \
-                          ZETA_Core_ForEach_7(func, __VA_ARGS__))
+// -----------------------------------------------------------------------------
 
-#define ZETA_Core_ForEach_A_1(func, ...) func(__VA_ARGS__)
-#define ZETA_Core_ForEach_A_2(func, ...) func(__VA_ARGS__)
-#define ZETA_Core_ForEach_A_3(func, ...) func(__VA_ARGS__)
-#define ZETA_Core_ForEach_A_4(func, ...) func(__VA_ARGS__)
-#define ZETA_Core_ForEach_A_5(func, ...) func(__VA_ARGS__)
-#define ZETA_Core_ForEach_A_6(func, ...) func(__VA_ARGS__)
-#define ZETA_Core_ForEach_A_7(func, ...) func(__VA_ARGS__)
-#define ZETA_Core_ForEach_A_8(func, ...) func(__VA_ARGS__)
-#define ZETA_Core_ForEach_A(func, ...) func(__VA_ARGS__)
+#define ZETA_Core_Unused(x) (void)(x)
 
-#define ZETA_Core_DetectError()
+#define ZETA_Core_Error()
 
-#define ZETA_Core_GetResult(func, x, ...) x ZETA_Core_DetectError(__VA_ARGS__)
+#define ZETA_Core_Identity(...) __VA_ARGS__
 
-#define ZETA_Core_ForEach(func, ...)         \
-    ZETA_Core_ForEach_A(ZETA_Core_GetResult, \
-                        ZETA_Core_ForEach_8(func, __VA_ARGS__))
+#define ZETA_Core_Comma ,
+
+#define ZETA_Core_LParen (
+#define ZETA_Core_RParen )
+
+#define ZETA_Core_LBrace {
+#define ZETA_Core_RBrace }
+
+// -----------------------------------------------------------------------------
+
+#define ZETA_Core_Get0(x, ...) x
+#define ZETA_Core_Get1(x, ...) ZETA_Core_Get0(__VA_ARGS__)
+#define ZETA_Core_Get2(x, ...) ZETA_Core_Get1(__VA_ARGS__)
+#define ZETA_Core_Get3(x, ...) ZETA_Core_Get2(__VA_ARGS__)
+#define ZETA_Core_Get4(x, ...) ZETA_Core_Get3(__VA_ARGS__)
+#define ZETA_Core_Get5(x, ...) ZETA_Core_Get4(__VA_ARGS__)
+
+#define ZETA_Core_GetRes(x, ...) __VA_ARGS__
+
+// -----------------------------------------------------------------------------
+
+#define ZETA_Core_HasArgs(...) ZETA_Core_Get0(__VA_OPT__(1, ) 0)
+
+// -----------------------------------------------------------------------------
+
+#define ZETA_Core_ForEach_Identity(...) __VA_ARGS__
+#define ZETA_Core_ForEach_Get0(x, ...) x
+#define ZETA_Core_ForEach_GetRes(x, ...) __VA_ARGS__
+
+#define ZETA_Core_ForEach_Get012_(x, y, z, ...) x, y, z
+#define ZETA_Core_ForEach_Get012(...) ZETA_Core_ForEach_Get012_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_0_(func, seq, ...)               \
+    func,                                                  \
+        (ZETA_Core_ForEach_Identity seq __VA_OPT__(        \
+            , func(ZETA_Core_ForEach_Get0(__VA_ARGS__)))), \
+        __VA_OPT__(ZETA_Core_ForEach_GetRes(__VA_ARGS__))
+#define ZETA_Core_ForEach_0(...) ZETA_Core_ForEach_0_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_1_(func, seq, ...)                                 \
+    ZETA_Core_ForEach_Get012(                                                \
+        __VA_OPT__(ZETA_Core_ForEach_0(                                      \
+                       ZETA_Core_ForEach_0(func, seq, __VA_ARGS__)), ) func, \
+        seq, __VA_ARGS__)
+#define ZETA_Core_ForEach_1(...) ZETA_Core_ForEach_1_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_2_(func, seq, ...)                                 \
+    ZETA_Core_ForEach_Get012(                                                \
+        __VA_OPT__(ZETA_Core_ForEach_1(                                      \
+                       ZETA_Core_ForEach_1(func, seq, __VA_ARGS__)), ) func, \
+        seq, __VA_ARGS__)
+#define ZETA_Core_ForEach_2(...) ZETA_Core_ForEach_2_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_3_(func, seq, ...)                                 \
+    ZETA_Core_ForEach_Get012(                                                \
+        __VA_OPT__(ZETA_Core_ForEach_2(                                      \
+                       ZETA_Core_ForEach_2(func, seq, __VA_ARGS__)), ) func, \
+        seq, __VA_ARGS__)
+#define ZETA_Core_ForEach_3(...) ZETA_Core_ForEach_3_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_4_(func, seq, ...)                                 \
+    ZETA_Core_ForEach_Get012(                                                \
+        __VA_OPT__(ZETA_Core_ForEach_3(                                      \
+                       ZETA_Core_ForEach_3(func, seq, __VA_ARGS__)), ) func, \
+        seq, __VA_ARGS__)
+#define ZETA_Core_ForEach_4(...) ZETA_Core_ForEach_4_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_5_(func, seq, ...)                                 \
+    ZETA_Core_ForEach_Get012(                                                \
+        __VA_OPT__(ZETA_Core_ForEach_4(                                      \
+                       ZETA_Core_ForEach_4(func, seq, __VA_ARGS__)), ) func, \
+        seq, __VA_ARGS__)
+#define ZETA_Core_ForEach_5(...) ZETA_Core_ForEach_5_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_6_(func, seq, ...)                                 \
+    ZETA_Core_ForEach_Get012(                                                \
+        __VA_OPT__(ZETA_Core_ForEach_5(                                      \
+                       ZETA_Core_ForEach_5(func, seq, __VA_ARGS__)), ) func, \
+        seq, __VA_ARGS__)
+#define ZETA_Core_ForEach_6(...) ZETA_Core_ForEach_6_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_7_(func, seq, ...)                                 \
+    ZETA_Core_ForEach_Get012(                                                \
+        __VA_OPT__(ZETA_Core_ForEach_6(                                      \
+                       ZETA_Core_ForEach_6(func, seq, __VA_ARGS__)), ) func, \
+        seq, __VA_ARGS__)
+#define ZETA_Core_ForEach_7(...) ZETA_Core_ForEach_7_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_8_(func, seq, ...)                                 \
+    ZETA_Core_ForEach_Get012(                                                \
+        __VA_OPT__(ZETA_Core_ForEach_7(                                      \
+                       ZETA_Core_ForEach_7(func, seq, __VA_ARGS__)), ) func, \
+        seq, __VA_ARGS__)
+#define ZETA_Core_ForEach_8(...) ZETA_Core_ForEach_8_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_Fetch_(func, seq, _) ZETA_Core_ForEach_GetRes seq
+
+#define ZETA_Core_ForEach_Fetch(...) ZETA_Core_ForEach_Fetch_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach(func, ...) \
+    ZETA_Core_ForEach_Fetch(ZETA_Core_ForEach_8(func, (), __VA_ARGS__))
+
+// -----------------------------------------------------------------------------
+
+#define ZETA_Core_ForEach_NoCamma_Identity(...) __VA_ARGS__
+#define ZETA_Core_ForEach_NoCamma_Get0(x, ...) x
+#define ZETA_Core_ForEach_NoCamma_GetRes(x, ...) __VA_ARGS__
+
+#define ZETA_Core_ForEach_NoCamma_Get012_(x, y, z, ...) x, y, z
+#define ZETA_Core_ForEach_NoCamma_Get012(...) \
+    ZETA_Core_ForEach_NoCamma_Get012_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_NoCamma_0_(func, seq, ...)             \
+    func,                                                        \
+        (ZETA_Core_ForEach_NoCamma_Identity seq __VA_OPT__(      \
+            func(ZETA_Core_ForEach_NoCamma_Get0(__VA_ARGS__)))), \
+        __VA_OPT__(ZETA_Core_ForEach_NoCamma_GetRes(__VA_ARGS__))
+#define ZETA_Core_ForEach_NoCamma_0(...) \
+    ZETA_Core_ForEach_NoCamma_0_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_NoCamma_1_(func, seq, ...)                        \
+    ZETA_Core_ForEach_NoCamma_Get012(                                       \
+        __VA_OPT__(ZETA_Core_ForEach_NoCamma_0(ZETA_Core_ForEach_NoCamma_0( \
+                       func, seq, __VA_ARGS__)), ) func,                    \
+        seq, __VA_ARGS__)
+#define ZETA_Core_ForEach_NoCamma_1(...) \
+    ZETA_Core_ForEach_NoCamma_1_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_NoCamma_2_(func, seq, ...)                        \
+    ZETA_Core_ForEach_NoCamma_Get012(                                       \
+        __VA_OPT__(ZETA_Core_ForEach_NoCamma_1(ZETA_Core_ForEach_NoCamma_1( \
+                       func, seq, __VA_ARGS__)), ) func,                    \
+        seq, __VA_ARGS__)
+#define ZETA_Core_ForEach_NoCamma_2(...) \
+    ZETA_Core_ForEach_NoCamma_2_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_NoCamma_3_(func, seq, ...)                        \
+    ZETA_Core_ForEach_NoCamma_Get012(                                       \
+        __VA_OPT__(ZETA_Core_ForEach_NoCamma_2(ZETA_Core_ForEach_NoCamma_2( \
+                       func, seq, __VA_ARGS__)), ) func,                    \
+        seq, __VA_ARGS__)
+#define ZETA_Core_ForEach_NoCamma_3(...) \
+    ZETA_Core_ForEach_NoCamma_3_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_NoCamma_4_(func, seq, ...)                        \
+    ZETA_Core_ForEach_NoCamma_Get012(                                       \
+        __VA_OPT__(ZETA_Core_ForEach_NoCamma_3(ZETA_Core_ForEach_NoCamma_3( \
+                       func, seq, __VA_ARGS__)), ) func,                    \
+        seq, __VA_ARGS__)
+#define ZETA_Core_ForEach_NoCamma_4(...) \
+    ZETA_Core_ForEach_NoCamma_4_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_NoCamma_5_(func, seq, ...)                        \
+    ZETA_Core_ForEach_NoCamma_Get012(                                       \
+        __VA_OPT__(ZETA_Core_ForEach_NoCamma_4(ZETA_Core_ForEach_NoCamma_4( \
+                       func, seq, __VA_ARGS__)), ) func,                    \
+        seq, __VA_ARGS__)
+#define ZETA_Core_ForEach_NoCamma_5(...) \
+    ZETA_Core_ForEach_NoCamma_5_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_NoCamma_6_(func, seq, ...)                        \
+    ZETA_Core_ForEach_NoCamma_Get012(                                       \
+        __VA_OPT__(ZETA_Core_ForEach_NoCamma_5(ZETA_Core_ForEach_NoCamma_5( \
+                       func, seq, __VA_ARGS__)), ) func,                    \
+        seq, __VA_ARGS__)
+#define ZETA_Core_ForEach_NoCamma_6(...) \
+    ZETA_Core_ForEach_NoCamma_6_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_NoCamma_7_(func, seq, ...)                        \
+    ZETA_Core_ForEach_NoCamma_Get012(                                       \
+        __VA_OPT__(ZETA_Core_ForEach_NoCamma_6(ZETA_Core_ForEach_NoCamma_6( \
+                       func, seq, __VA_ARGS__)), ) func,                    \
+        seq, __VA_ARGS__)
+#define ZETA_Core_ForEach_NoCamma_7(...) \
+    ZETA_Core_ForEach_NoCamma_7_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_NoCamma_8_(func, seq, ...)                        \
+    ZETA_Core_ForEach_NoCamma_Get012(                                       \
+        __VA_OPT__(ZETA_Core_ForEach_NoCamma_7(ZETA_Core_ForEach_NoCamma_7( \
+                       func, seq, __VA_ARGS__)), ) func,                    \
+        seq, __VA_ARGS__)
+#define ZETA_Core_ForEach_NoCamma_8(...) \
+    ZETA_Core_ForEach_NoCamma_8_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_NoCamma_Fetch_(func, seq, _) \
+    ZETA_Core_ForEach_NoCamma_Identity seq
+
+#define ZETA_Core_ForEach_NoCamma_Fetch(...) \
+    ZETA_Core_ForEach_NoCamma_Fetch_(__VA_ARGS__)
+
+#define ZETA_Core_ForEach_NoCamma(func, ...) \
+    ZETA_Core_ForEach_NoCamma_Fetch(         \
+        ZETA_Core_ForEach_NoCamma_8(func, (), __VA_ARGS__))
+
+// -----------------------------------------------------------------------------
+
+#define ZETA_Core_Zip2_Identity(...) __VA_ARGS__
+#define ZETA_Core_Zip2_Get0(x, ...) x
+#define ZETA_Core_Zip2_GetRes(x, ...) __VA_ARGS__
+
+#define ZETA_Core_Zip2_HasArgs(...) ZETA_Core_Zip2_Get0(__VA_OPT__(1, ) 0)
+
+#define ZETA_Core_Zip2_AddTuple_00(func, ret_tuple_seq, seq_a, seq_b) \
+    func, ret_tuple_seq, seq_a, seq_b
+
+#define ZETA_Core_Zip2_AddTuple_01()
+
+#define ZETA_Core_Zip2_AddTuple_10()
+
+#define ZETA_Core_Zip2_AddTuple_11(func, ret_tuple_seq, seq_a, seq_b) \
+    func,                                                             \
+        (ZETA_Core_Identity ret_tuple_seq,                            \
+         func(ZETA_Core_Zip2_Get0 seq_a, ZETA_Core_Zip2_Get0 seq_b)), \
+        (ZETA_Core_Zip2_GetRes seq_a), (ZETA_Core_Zip2_GetRes seq_b)
+
+#define ZETA_Core_Zip2_AddTuple__(func, ret_tuple_seq, seq_a, seq_b,           \
+                                  has_seq_a, has_seq_b)                        \
+    ZETA_Core_Zip2_AddTuple_##has_seq_a##has_seq_b(func, ret_tuple_seq, seq_a, \
+                                                   seq_b)
+
+#define ZETA_Core_Zip2_AddTuple_(func, ret_tuple_seq, seq_a, seq_b, has_seq_a, \
+                                 has_seq_b)                                    \
+    ZETA_Core_Zip2_AddTuple__(func, ret_tuple_seq, seq_a, seq_b, has_seq_a,    \
+                              has_seq_b)
+
+#define ZETA_Core_Zip2_AddTuple(func, ret_tuple_seq, seq_a, seq_b) \
+    ZETA_Core_Zip2_AddTuple_(func, ret_tuple_seq, seq_a, seq_b,    \
+                             ZETA_Core_Zip2_HasArgs seq_a,         \
+                             ZETA_Core_Zip2_HasArgs seq_b)
+
+#define ZETA_Core_Zip2_0_(func, ret_tuple_seq, seq_a, seq_b) \
+    ZETA_Core_Zip2_AddTuple(func, ret_tuple_seq, seq_a, seq_b)
+#define ZETA_Core_Zip2_0(...) ZETA_Core_Zip2_0_(__VA_ARGS__)
+
+#define ZETA_Core_Zip2_1_(...) ZETA_Core_Zip2_0(ZETA_Core_Zip2_0(__VA_ARGS__))
+#define ZETA_Core_Zip2_1(...) ZETA_Core_Zip2_1_(__VA_ARGS__)
+
+#define ZETA_Core_Zip2_2_(...) ZETA_Core_Zip2_1(ZETA_Core_Zip2_1(__VA_ARGS__))
+#define ZETA_Core_Zip2_2(...) ZETA_Core_Zip2_2_(__VA_ARGS__)
+
+#define ZETA_Core_Zip2_3_(...) ZETA_Core_Zip2_2(ZETA_Core_Zip2_2(__VA_ARGS__))
+#define ZETA_Core_Zip2_3(...) ZETA_Core_Zip2_3_(__VA_ARGS__)
+
+#define ZETA_Core_Zip2_4_(...) ZETA_Core_Zip2_3(ZETA_Core_Zip2_3(__VA_ARGS__))
+#define ZETA_Core_Zip2_4(...) ZETA_Core_Zip2_4_(__VA_ARGS__)
+
+#define ZETA_Core_Zip2_5_(...) ZETA_Core_Zip2_4(ZETA_Core_Zip2_4(__VA_ARGS__))
+#define ZETA_Core_Zip2_5(...) ZETA_Core_Zip2_5_(__VA_ARGS__)
+
+#define ZETA_Core_Zip2_6_(...) ZETA_Core_Zip2_5(ZETA_Core_Zip2_5(__VA_ARGS__))
+#define ZETA_Core_Zip2_6(...) ZETA_Core_Zip2_6_(__VA_ARGS__)
+
+#define ZETA_Core_Zip2_7_(...) ZETA_Core_Zip2_6(ZETA_Core_Zip2_6(__VA_ARGS__))
+#define ZETA_Core_Zip2_7(...) ZETA_Core_Zip2_7_(__VA_ARGS__)
+
+#define ZETA_Core_Zip2_8_(...) ZETA_Core_Zip2_7(ZETA_Core_Zip2_7(__VA_ARGS__))
+#define ZETA_Core_Zip2_8(...) ZETA_Core_Zip2_8_(__VA_ARGS__)
+
+#define ZETA_Core_Zip2_DetectError_(x, y)
+#define ZETA_Core_Zip2_DetectError(...) ZETA_Core_Zip2_DetectError_(__VA_ARGS__)
+
+#define ZETA_Core_Zip2_Fetch_(func, ret_tuple_seq, seq_a, seq_b)    \
+    ZETA_Core_Zip2_GetRes ret_tuple_seq ZETA_Core_Zip2_DetectError( \
+        ZETA_Core_Zip2_Identity seq_a, ZETA_Core_Zip2_Identity seq_b)
+#define ZETA_Core_Zip2_Fetch(...) ZETA_Core_Zip2_Fetch_(__VA_ARGS__)
+
+#define ZETA_Core_Zip2(func, seq_a, seq_b) \
+    ZETA_Core_Zip2_Fetch(ZETA_Core_Zip2_8(func, (), seq_a, seq_b))
 
 // -----------------------------------------------------------------------------
 
@@ -85,6 +314,12 @@
     (reinterpret_cast<struct_type*>(                                   \
         const_cast<char*>(reinterpret_cast<char const*>(member_ptr)) - \
         offsetof(struct_type, member_name)))
+
+// -----------------------------------------------------------------------------
+
+#define ZETA_Core_IfNot(cond) \
+    if (cond) {               \
+    } else
 
 // -----------------------------------------------------------------------------
 
@@ -143,3 +378,13 @@
 #define ZETA_Core_ConstexprThreeWay(constexpr_cond, result_a, result_b)       \
     ZETA_Core_ConstexprThreeWay_(ZETA_Core_TmpName, constexpr_cond, result_a, \
                                  result_b)
+
+namespace zeta::core {
+
+using size_t = __SIZE_TYPE__;
+
+using uintptr_t = __UINTPTR_TYPE__;
+using sintptr_t = __INTPTR_TYPE__;
+using ptrdiff_t = __PTRDIFF_TYPE__;
+
+}  // namespace zeta::core

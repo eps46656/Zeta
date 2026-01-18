@@ -2,47 +2,47 @@
 
 namespace zeta::core::compare {
 
-template <typename X, typename Y>
-int Compare(X const& x, Y const& y);
+template <typename A, typename B>
+int Compare(A const& a, B const& b);
 
-template <typename X, typename Y>
-int TypeErasedCompare(void const* x, void const* y);
+template <typename A, typename B>
+int TypeErasedCompare(void const* a, void const* b);
 
 // -----------------------------------------------------------------------------
 
-template <typename X, typename Y>
+template <typename A, typename B>
 struct CppStdEqualTo {
-    bool operator()(X const& x, Y const& y) const;
+    bool operator()(A const& a, B const& b) const;
 };
 
-template <typename X, typename Y>
+template <typename A, typename B>
 struct CppStdNotEqualTo {
-    bool operator()(X const& x, Y const& y) const;
+    bool operator()(A const& a, B const& b) const;
 };
 
-template <typename X, typename Y>
+template <typename A, typename B>
 struct CppStdLess {
-    bool operator()(X const& x, Y const& y) const;
+    bool operator()(A const& a, B const& b) const;
 };
 
-template <typename X, typename Y>
+template <typename A, typename B>
 struct CppStdLessEqual {
-    bool operator()(X const& x, Y const& y) const;
+    bool operator()(A const& a, B const& b) const;
 };
 
-template <typename X, typename Y>
+template <typename A, typename B>
 struct CppStdGreater {
-    bool operator()(X const& x, Y const& y) const;
+    bool operator()(A const& a, B const& b) const;
 };
 
-template <typename X, typename Y>
+template <typename A, typename B>
 struct CppStdGreaterEqual {
-    bool operator()(X const& x, Y const& y) const;
+    bool operator()(A const& a, B const& b) const;
 };
 
 // -----------------------------------------------------------------------------
 
-template <typename X, typename Y, typename _ = void>
+template <typename A, typename B, typename = void>
 struct CompareCore;
 
 }  // namespace zeta::core::compare

@@ -6,8 +6,51 @@
 #include <zeta/core/debug_utils.hpp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/type_traits.hpp>
 
 #pragma push_macro("Format")
+
+#define ZETA_Core_PrintVar(var)                                      \
+    zeta::core::debug_utils::PrintVar(std::cout, __FILE__, __LINE__, \
+                                      __PRETTY_FUNCTION__,           \
+                                      ZETA_Core_ToStr(var), (var))   \
+        << '\n';                                                     \
+    if (ZETA_Core_ImmPrint) { std::cout.flush(); }                   \
+    ZETA_Core_StaticAssert(true)
+
+#define ZETA_Core_Debug_PrintVar(var)                                  \
+    zeta::core::debug_utils::PrintVar(                                 \
+        zeta::core::debug_utils::debug_str_stream, __FILE__, __LINE__, \
+        __PRETTY_FUNCTION__, ZETA_Core_ToStr(var), (var))              \
+        << '\n';                                                       \
+    ZETA_Core_StaticAssert(true)
+
+#define ZETA_Core_DebugAssert_(tmp_cond, cond)                                 \
+    {                                                                          \
+        auto tmp_cond{ cond };                                                 \
+                                                                               \
+        if (tmp_cond) {                                                        \
+        } else {                                                               \
+            ZETA_Core_PrintVar("Debug Assert !!!");                            \
+                                                                               \
+            zeta::core::debug_utils::PrintVar(std::cout, __FILE__, __LINE__,   \
+                                              __PRETTY_FUNCTION__,             \
+                                              ZETA_Core_ToStr(cond), tmp_cond) \
+                << '\n';                                                       \
+                                                                               \
+            zeta::core::debug_utils::PrintDebugStrStream();                    \
+                                                                               \
+            ZETA_Core_PrintStackTrace;                                         \
+                                                                               \
+            std::cout.flush();                                                 \
+                                                                               \
+            exit(1);                                                           \
+        }                                                                      \
+    }
+
+#define ZETA_Core_DebugAssert(...) \
+    ZETA_Core_WhenEnableDebug(     \
+        ZETA_Core_DebugAssert_(ZETA_Core_TmpName, (__VA_ARGS__)))
 
 #define Format(left_right, width) \
     left_right << std::setfill(' ') << std::setw(width)
@@ -25,7 +68,7 @@ std::string GetTypeStr() {
 }
 
 template <typename T>
-struct PrintVarCore<T, EnableIf<(IsIntegral<T> || IsPointer<T>), void>> {
+struct VarPrinter<T, EnableIf<(IsIntegral<T> || IsPointer<T>), void>> {
     static constexpr auto PreProcess_(T const& value) {
         if constexpr (IsPointer<T>) {
             return reinterpret_cast<uintptr_t>(value);
@@ -36,7 +79,7 @@ struct PrintVarCore<T, EnableIf<(IsIntegral<T> || IsPointer<T>), void>> {
         }
     }
 
-    std::ostream& operator()(std::ostream& os, T const& value) const {
+    static std::ostream& Print(std::ostream& os, T const& value) {
         if constexpr (IsAnyOf<T, bool>) {
             os << Format(std::right, dec_width) << (value ? "true" : "false");
         } else {
@@ -56,44 +99,36 @@ struct PrintVarCore<T, EnableIf<(IsIntegral<T> || IsPointer<T>), void>> {
 };
 
 template <>
-struct PrintVarCore<char[]> {
-    std::ostream& operator()(std::ostream& os, char const* value) const {
+struct VarPrinter<char[]> {
+    static std::ostream& Print(std::ostream& os, char const* value) {
         os << space_str << "\"" << value << "\"";
         return os;
     }
 };
 
 template <>
-struct PrintVarCore<char const[]> {
-    std::ostream& operator()(std::ostream& os, char const* value) const {
+struct VarPrinter<char const[]> {
+    static std::ostream& Print(std::ostream& os, char const* value) {
         os << space_str << "\"" << value << "\"";
         return os;
     }
 };
 
 template <size_t N>
-struct PrintVarCore<char[N]> {
-    std::ostream& operator()(std::ostream& os, char const* value) const {
+struct VarPrinter<char[N]> {
+    static std::ostream& Print(std::ostream& os, char const* value) {
         os << space_str << "\"" << value << "\"";
         return os;
     }
 };
 
 template <size_t N>
-struct PrintVarCore<char const[N]> {
-    std::ostream& operator()(std::ostream& os, char const* value) const {
+struct VarPrinter<char const[N]> {
+    static std::ostream& Print(std::ostream& os, char const* value) {
         os << space_str << "\"" << value << "\"";
         return os;
     }
 };
-
-// -----------------------------------------------------------------------------
-
-template <typename T>
-PrintVarCore<T> const& GetPrintVarCore() {
-    static PrintVarCore<T> const print_var_core;
-    return print_var_core;
-}
 
 // -----------------------------------------------------------------------------
 
@@ -114,7 +149,7 @@ std::ostream& PrintVar(std::ostream& os, char const* file, int line,
         Format(std::right, type_str_width) << GetTypeStr<T>()
                                    << space_str.c_str();
 
-    PrintVarCore<T>{}(os, var);
+    VarPrinter<T>::Print(os, var);
 
     return os;
 }

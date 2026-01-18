@@ -1,7 +1,11 @@
 #pragma once
 
+#include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils.ipp>
+#include <zeta/core/define.hpp>
+#include <zeta/core/hash.hpp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/type_traits.hpp>
 #include <zeta/core/utils.hpp>
 
 namespace zeta::core {
@@ -180,7 +184,7 @@ decltype(auto) GetNth(Args&&... args) {
 // -----------------------------------------------------------------------------
 
 template <typename T>
-RemoveRef<T>&& Move(T&& t) {
+constexpr RemoveRef<T>&& Move(T&& t) {
     return static_cast<RemoveRef<T>&&>(t);
 }
 
@@ -202,24 +206,22 @@ void Swap(X&& x, Y&& y) {
 namespace detail {
 
 template <typename Operation, typename T0>
-decltype(auto) MakeLeftAssocOperation_(Operation const&, T0&& x0) {
+constexpr decltype(auto) LeftReduce_(Operation const&, T0&& x0) {
     return Forward<T0>(x0);
 }
 
 template <typename Operation, typename T0, typename T1, typename... Ts>
-decltype(auto) MakeLeftAssocOperation_(Operation const& opr, T0&& x0, T1&& x1,
-                                       Ts&&... xs) {
-    return MakeLeftAssocOperation_(opr(Forward<T0>(x0), Forward<T1>(x1)),
-                                   Forward<Ts>(xs)...);
+constexpr decltype(auto) LeftReduce_(Operation const& opr, T0&& x0, T1&& x1,
+                                     Ts&&... xs) {
+    return LeftReduce_(opr(Forward<T0>(x0), Forward<T1>(x1)),
+                       Forward<Ts>(xs)...);
 }
 
 }  // namespace detail
 
 template <typename Operation, typename T0, typename... Ts>
-decltype(auto) MakeLeftAssocOperation(Operation const& opr, T0&& x0,
-                                      Ts&&... xs) {
-    return detail::MakeLeftAssocOperation_(opr, Forward<T0>(x0),
-                                           Forward<Ts>(xs)...);
+constexpr decltype(auto) LeftReduce(Operation const& opr, T0&& x0, Ts&&... xs) {
+    return detail::LeftReduce_(opr, Forward<T0>(x0), Forward<Ts>(xs)...);
 }
 
 // -----------------------------------------------------------------------------
@@ -227,24 +229,23 @@ decltype(auto) MakeLeftAssocOperation(Operation const& opr, T0&& x0,
 namespace detail {
 
 template <typename Operation, typename T0>
-decltype(auto) MakeRightAssocOperation_(Operation const&, T0&& x0) {
+static constexpr decltype(auto) RightReduce_(Operation const&, T0&& x0) {
     return Forward<T0>(x0);
 }
 
 template <typename Operation, typename T0, typename T1, typename... Ts>
-decltype(auto) MakeRightAssocOperation_(Operation const& opr, T0&& x0, T1&& x1,
-                                        Ts&&... xs) {
-    return opr(Forward<T0>(x0), MakeRightAssocOperation_(opr, Forward<T1>(x1),
-                                                         Forward<Ts>(xs)...));
+static constexpr decltype(auto) RightReduce_(Operation const& opr, T0&& x0,
+                                             T1&& x1, Ts&&... xs) {
+    return opr(Forward<T0>(x0),
+               RightReduce_(opr, Forward<T1>(x1), Forward<Ts>(xs)...));
 }
 
 }  // namespace detail
 
 template <typename Operation, typename T0, typename... Ts>
-decltype(auto) MakeRightAssocOperation(Operation const& opr, T0&& x0,
-                                       Ts&&... xs) {
-    return detail::MakeRightAssocOperation_(opr, Forward<T0>(x0),
-                                            Forward<Ts>(xs)...);
+constexpr decltype(auto) RightReduce(Operation const& opr, T0&& x0,
+                                     Ts&&... xs) {
+    return detail::RightReduce_(opr, Forward<T0>(x0), Forward<Ts>(xs)...);
 }
 
 // -----------------------------------------------------------------------------
@@ -252,21 +253,20 @@ decltype(auto) MakeRightAssocOperation(Operation const& opr, T0&& x0,
 namespace detail {
 
 template <size_t Beg, size_t End>
-struct MakeTreeAssocOperator_ {
+struct TreeReduce_ {
     template <typename Operation, typename... Ts>
-    static decltype(auto) F(Operation const& opr, Ts&&... xs) {
+    static constexpr decltype(auto) F(Operation const& opr, Ts&&... xs) {
         constexpr size_t Mid{ (Beg + End) / 2 };
 
-        return opr(
-            MakeTreeAssocOperator_<Beg, Mid>::F(opr, Forward<Ts>(xs)...),
-            MakeTreeAssocOperator_<Mid, End>::F(opr, Forward<Ts>(xs)...));
+        return opr(TreeReduce_<Beg, Mid>::F(opr, Forward<Ts>(xs)...),
+                   TreeReduce_<Mid, End>::F(opr, Forward<Ts>(xs)...));
     }
 };
 
 template <size_t Beg>
-struct MakeTreeAssocOperator_<Beg, Beg + 1> {
+struct TreeReduce_<Beg, Beg + 1> {
     template <typename Operation, typename... Ts>
-    static decltype(auto) F(Operation const&, Ts&&... xs) {
+    static constexpr decltype(auto) F(Operation const&, Ts&&... xs) {
         return GetNth<Beg>(Forward<Ts>(xs)...);
     }
 };
@@ -274,10 +274,9 @@ struct MakeTreeAssocOperator_<Beg, Beg + 1> {
 }  // namespace detail
 
 template <typename Operation, typename T0, typename... Ts>
-decltype(auto) MakeTreeAssocOperation(Operation const& opr, T0&& x0,
-                                      Ts&&... xs) {
-    return detail::MakeTreeAssocOperator_<0, 1 + sizeof...(xs)>::F(
-        opr, Forward<T0>(x0), Forward<Ts>(xs)...);
+constexpr decltype(auto) TreeReduce(Operation const& opr, T0&& x0, Ts&&... xs) {
+    return detail::TreeReduce_<0, 1 + sizeof...(xs)>::F(opr, Forward<T0>(x0),
+                                                        Forward<Ts>(xs)...);
 }
 
 // -----------------------------------------------------------------------------
@@ -286,7 +285,7 @@ namespace detail {
 
 struct MinOperation_ {
     template <typename X, typename Y>
-    decltype(auto) operator()(X&& x, Y&& y) const {
+    constexpr decltype(auto) operator()(X&& x, Y&& y) const {
         return y < x ? Forward<Y>(y) : Forward<X>(x);
     }
 };
@@ -294,9 +293,9 @@ struct MinOperation_ {
 }  // namespace detail
 
 template <typename T0, typename... Ts>
-decltype(auto) Min(T0&& x0, Ts&&... xs) {
-    return MakeTreeAssocOperation(detail::MinOperation_{}, Forward<T0>(x0),
-                                  Forward<Ts>(xs)...);
+constexpr decltype(auto) Min(T0&& x0, Ts&&... xs) {
+    return TreeReduce(detail::MinOperation_{}, Forward<T0>(x0),
+                      Forward<Ts>(xs)...);
 }
 
 // -----------------------------------------------------------------------------
@@ -305,7 +304,7 @@ namespace detail {
 
 struct MaxOperation_ {
     template <typename X, typename Y>
-    decltype(auto) operator()(X&& x, Y&& y) const {
+    constexpr decltype(auto) operator()(X&& x, Y&& y) const {
         return x < y ? Forward<Y>(y) : Forward<X>(x);
     }
 };
@@ -313,9 +312,9 @@ struct MaxOperation_ {
 }  // namespace detail
 
 template <typename T0, typename... Ts>
-decltype(auto) Max(T0&& x0, Ts&&... xs) {
-    return MakeTreeAssocOperation(detail::MaxOperation_{}, Forward<T0>(x0),
-                                  Forward<Ts>(xs)...);
+constexpr decltype(auto) Max(T0&& x0, Ts&&... xs) {
+    return TreeReduce(detail::MaxOperation_{}, Forward<T0>(x0),
+                      Forward<Ts>(xs)...);
 }
 
 // -----------------------------------------------------------------------------
@@ -324,7 +323,7 @@ namespace detail {
 
 struct SumOperation_ {
     template <typename X, typename Y>
-    decltype(auto) operator()(X&& x, Y&& y) const {
+    constexpr decltype(auto) operator()(X&& x, Y&& y) const {
         return Forward<X>(x) + Forward<Y>(y);
     }
 };
@@ -332,9 +331,9 @@ struct SumOperation_ {
 }  // namespace detail
 
 template <typename T0, typename... Ts>
-decltype(auto) Sum(T0&& x0, Ts&&... xs) {
-    return MakeTreeAssocOperation(detail::SumOperation_{}, Forward<T0>(x0),
-                                  Forward<Ts>(xs)...);
+constexpr decltype(auto) Sum(T0&& x0, Ts&&... xs) {
+    return TreeReduce(detail::SumOperation_{}, Forward<T0>(x0),
+                      Forward<Ts>(xs)...);
 }
 
 // -----------------------------------------------------------------------------
@@ -352,7 +351,7 @@ Pair<Node*, size_t> GetMostLink(Node* n, GetLinkFunc const& get_link) {
 
 // -----------------------------------------------------------------------------
 
-inline int MemCompare(void const* a, void const* b, size_t size) {
+inline int Compare(void const* a, void const* b, size_t size) {
     if (a == b || size == 0) { return 0; }
 
     ZETA_Core_DebugAssert(a != nullptr);
@@ -396,7 +395,7 @@ inline void* MemRotate(void* data_, size_t l_size, size_t r_size) {
 
     if (l_size == 0 && r_size == 0) { return data; }
 
-    ZETA_Core_DebugAssert(data != NULL);
+    ZETA_Core_DebugAssert(data != nullptr);
 
     char* ret{ data + r_size };
 
@@ -420,7 +419,7 @@ inline unsigned long long MemHash(void const* data_, size_t size,
     constexpr unsigned long long fnv_prime{ 1099511628211ULL };
 
     auto data{ static_cast<unsigned char const*>(data_) };
-    ZETA_Core_DebugAssert(data != NULL);
+    ZETA_Core_DebugAssert(data != nullptr);
 
     unsigned long long ret{ fnv_offset_basis };
 
@@ -446,11 +445,11 @@ inline int ElemCompare(void const* a_, void const* b_, size_t width,
 
     if (width == a_stride && width == b_stride) {
         ZETA_Core_PrintCurPos;
-        return MemCompare(a, b, width * cnt);
+        return Compare(a, b, width * cnt);
     }
 
     for (; 0 < cnt; a += a_stride, b += b_stride, --cnt) {
-        int cmp{ MemCompare(a, b, width) };
+        int cmp{ Compare(a, b, width) };
 
         if (cmp != 0) {
             ZETA_Core_PrintVar(cmp);
@@ -626,7 +625,7 @@ inline void* ElemRotate(void* data_, size_t width, size_t stride, size_t l_size,
 
     if (l_size == 0 && r_size == 0) { return data; }
 
-    ZETA_Core_DebugAssert(data != NULL);
+    ZETA_Core_DebugAssert(data != nullptr);
 
     char* ret{ data + stride * r_size };
 
@@ -752,19 +751,19 @@ inline constexpr unsigned long long Power(unsigned long long base,
 
 // -----------------------------------------------------------------------------
 
-inline constexpr unsigned FloorLog2(unsigned long long x) {
+constexpr unsigned FloorLog2(unsigned long long x) {
     ZETA_Core_DebugAssert(0 < x);
     return ZETA_Core_ullong_width - 1 -
            static_cast<unsigned>(__builtin_clzll(x));
 }
 
-inline constexpr unsigned CeilLog2(unsigned long long x) {
+constexpr unsigned CeilLog2(unsigned long long x) {
     return x <= 1 ? 0
                   : ZETA_Core_ullong_width -
                         static_cast<unsigned>(__builtin_clzll(x - 1));
 }
 
-inline constexpr unsigned FloorLog(unsigned long long x, unsigned base) {
+constexpr unsigned FloorLog(unsigned long long x, unsigned base) {
     ZETA_Core_DebugAssert(1 < base);
 
     if (base == 2) { return FloorLog2(x); }
@@ -791,7 +790,7 @@ inline constexpr unsigned FloorLog(unsigned long long x, unsigned base) {
     return ret;
 }
 
-inline constexpr unsigned CeilLog(unsigned long long x, unsigned base) {
+constexpr unsigned CeilLog(unsigned long long x, unsigned base) {
     ZETA_Core_DebugAssert(1 < base);
 
     if (base == 2) { return CeilLog2(x); }
@@ -801,7 +800,7 @@ inline constexpr unsigned CeilLog(unsigned long long x, unsigned base) {
 
 // -----------------------------------------------------------------------------
 
-inline constexpr int FindPrevOne(unsigned long long val, int pos) {
+constexpr int FindPrevOne(unsigned long long val, int pos) {
     ZETA_Core_DebugAssert(-1 <= pos);
     ZETA_Core_DebugAssert(pos <= ZETA_Core_ullong_width);
 
@@ -812,7 +811,7 @@ inline constexpr int FindPrevOne(unsigned long long val, int pos) {
     return val == 0 ? -1 : ZETA_Core_ullong_width - 1 - __builtin_clzll(val);
 }
 
-inline constexpr int FindNextOne(unsigned long long val, int pos) {
+constexpr int FindNextOne(unsigned long long val, int pos) {
     ZETA_Core_DebugAssert(-1 <= pos);
     ZETA_Core_DebugAssert(pos <= ZETA_Core_ullong_width);
 
@@ -837,6 +836,28 @@ inline unsigned long long GCD(unsigned long long x, unsigned long long y) {
 inline unsigned long long LCM(unsigned long long x, unsigned long long y) {
     unsigned long long gcd{ GCD(x, y) };
     return x / gcd * y;
+}
+
+// -----------------------------------------------------------------------------
+
+template <typename T>
+T* GetInstPtr(T& inst) {
+    return &inst;
+}
+
+template <typename T>
+T* GetInstPtr(T&& inst) {
+    return &inst;
+}
+
+template <typename T>
+T* GetInstPtr(T* inst) {
+    return inst;
+}
+
+template <typename T>
+T const* GetInstPtr(T const* inst) {
+    return inst;
 }
 
 }  // namespace zeta::core

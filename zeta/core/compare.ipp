@@ -6,57 +6,57 @@
 
 namespace zeta::core::compare {
 
-template <typename X, typename Y>
-int Compare(X const& x, Y const& y) {
-    static CompareCore<X, Y> const compare_core;
-    return compare_core(x, y);
+template <typename A, typename B>
+int Compare(A const& a, B const& b) {
+    static CompareCore<A, B> const compare_core;
+    return compare_core(a, b);
 }
 
-template <typename X, typename Y>
-int TypeErasedCompare(void const* x, void const* y) {
-    return Compare<X, Y>(*static_cast<X const*>(x), *static_cast<Y const*>(y));
-}
-
-// -----------------------------------------------------------------------------
-
-template <typename X, typename Y>
-bool CppStdEqualTo<X, Y>::operator()(X const& x, Y const& y) const {
-    return Compare(x, y) == 0;
-}
-
-template <typename X, typename Y>
-bool CppStdNotEqualTo<X, Y>::operator()(X const& x, Y const& y) const {
-    return Compare(x, y) == 0;
-}
-
-template <typename X, typename Y>
-bool CppStdLess<X, Y>::operator()(X const& x, Y const& y) const {
-    return Compare(x, y) < 0;
-}
-
-template <typename X, typename Y>
-bool CppStdLessEqual<X, Y>::operator()(X const& x, Y const& y) const {
-    return Compare(x, y) <= 0;
-}
-
-template <typename X, typename Y>
-bool CppStdGreater<X, Y>::operator()(X const& x, Y const& y) const {
-    return Compare(x, y) > 0;
-}
-
-template <typename X, typename Y>
-bool CppStdGreaterEqual<X, Y>::operator()(X const& x, Y const& y) const {
-    return Compare(x, y) >= 0;
+template <typename A, typename B>
+int TypeErasedCompare(void const* a, void const* b) {
+    return Compare<A, B>(*static_cast<A const*>(a), *static_cast<B const*>(b));
 }
 
 // -----------------------------------------------------------------------------
 
-template <typename X, typename Y>
-struct CompareCore<X, Y,
-                   EnableIf<(IsIntegral<X> || IsPointer<X> || IsArray<X>) &&
-                                (IsIntegral<Y> || IsPointer<Y> || IsArray<Y>),
+template <typename A, typename B>
+bool CppStdEqualTo<A, B>::operator()(A const& a, B const& b) const {
+    return Compare(a, b) == 0;
+}
+
+template <typename A, typename B>
+bool CppStdNotEqualTo<A, B>::operator()(A const& a, B const& b) const {
+    return Compare(a, b) == 0;
+}
+
+template <typename A, typename B>
+bool CppStdLess<A, B>::operator()(A const& a, B const& b) const {
+    return Compare(a, b) < 0;
+}
+
+template <typename A, typename B>
+bool CppStdLessEqual<A, B>::operator()(A const& a, B const& b) const {
+    return Compare(a, b) <= 0;
+}
+
+template <typename A, typename B>
+bool CppStdGreater<A, B>::operator()(A const& a, B const& b) const {
+    return Compare(a, b) > 0;
+}
+
+template <typename A, typename B>
+bool CppStdGreaterEqual<A, B>::operator()(A const& a, B const& b) const {
+    return Compare(a, b) >= 0;
+}
+
+// -----------------------------------------------------------------------------
+
+template <typename A, typename B>
+struct CompareCore<A, B,
+                   EnableIf<(IsIntegral<A> || IsPointer<A> || IsArray<A>) &&
+                                (IsIntegral<B> || IsPointer<B> || IsArray<B>),
                             void>> {
-    int operator()(X const& x, Y const& y) const { return (y < x) - (x < y); }
+    int operator()(A const& a, B const& b) const { return (b < a) - (a < b); }
 };
 
 }  // namespace zeta::core::compare

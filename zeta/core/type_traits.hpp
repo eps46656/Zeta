@@ -1,11 +1,22 @@
 #pragma once
 
+#include <zeta/core/define.hpp>
+
 namespace zeta::core {
 
 template <typename T>
 T Declval();
 
 // -----------------------------------------------------------------------------
+
+template <typename... Args>
+using Void = void;
+
+// -----------------------------------------------------------------------------
+
+struct TypeNone {};
+
+struct TypeAny {};
 
 namespace detail {
 
@@ -15,6 +26,36 @@ struct IsAnyOf_;
 template <typename X>
 struct IsAnyOf_<X> {
     static constexpr bool value{ false };
+};
+
+template <typename... Ts>
+struct IsAnyOf_<TypeNone, TypeNone, Ts...> {
+    static constexpr bool value{ false };
+};
+
+template <typename... Ts>
+struct IsAnyOf_<TypeAny, TypeAny, Ts...> {
+    static constexpr bool value{ true };
+};
+
+template <typename T0, typename... Ts>
+struct IsAnyOf_<TypeNone, T0, Ts...> {
+    static constexpr bool value{ false };
+};
+
+template <typename T0, typename... Ts>
+struct IsAnyOf_<TypeAny, T0, Ts...> {
+    static constexpr bool value{ true };
+};
+
+template <typename X, typename... Ts>
+struct IsAnyOf_<X, TypeNone, Ts...> {
+    static constexpr bool value{ IsAnyOf_<X, Ts...>::value };
+};
+
+template <typename X, typename... Ts>
+struct IsAnyOf_<X, TypeAny, Ts...> {
+    static constexpr bool value{ true };
 };
 
 template <typename X, typename... Ts>
@@ -178,25 +219,100 @@ using RemoveCVRef = RemoveConst<RemoveVolatile<RemoveRef<T>>>;
 // -----------------------------------------------------------------------------
 
 template <typename T>
-constexpr bool IsConst{ IsAnyOf<T, RemoveConst<T> const> };
+constexpr bool IsConst{ __is_const(T) };
 
 template <typename T>
-constexpr bool IsVolatile{ IsAnyOf<T, RemoveVolatile<T> volatile> };
+constexpr bool IsVolatile{ __is_volatile(T) };
+
+// -----------------------------------------------------------------------------
+
+/*
+
+type
+    void type
+    object type
+        scalar type
+            arithmetic type
+                integral type
+                    unsigned integral type
+                    signed integral type
+                floating point type
+            pointer type
+            pointer to member type
+            null pointer type
+            enumeration type
+        compound type
+            class type
+            union type
+            array type
+    reference type
+        lvalue reference type
+        rvalue reference type
+    function type
+
+*/
 
 template <typename T>
-constexpr bool IsPointer{ IsAnyOf<T, RemovePointer<T>*> };
+constexpr bool IsVoid{ __is_void(T) };
 
 template <typename T>
-constexpr bool IsLValueRef{ IsAnyOf<T, RemoveRef<T>&> };
+constexpr bool IsUnsignedIntegral{ __is_unsigned(T) };
 
 template <typename T>
-constexpr bool IsRValueRef{ IsAnyOf<T, RemoveRef<T>&&> };
+constexpr bool IsSignedIntegral{ __is_signed(T) };
 
 template <typename T>
-constexpr bool IsRef{ IsLValueRef<T> || IsRValueRef<T> };
+constexpr bool IsIntegral{ __is_integral(T) };
 
 template <typename T>
-constexpr bool IsArray{ !IsAnyOf<T, RemoveArray<T>> };
+constexpr bool IsFloatingPoint{ __is_floating_point(T) };
+
+template <typename T>
+constexpr bool IsArithmetic{ __is_arithmetic(T) };
+
+template <typename T>
+constexpr bool IsPointer{ __is_pointer(T) };
+
+template <typename T>
+constexpr bool IsPointerToMember{ __is_member_pointer(T) };
+
+template <typename T>
+constexpr bool IsNullPointer{ IsAnyOf<T, decltype(nullptr)> };
+
+template <typename T>
+constexpr bool IsEnum{ __is_enum(T) };
+
+template <typename T>
+constexpr bool IsScalar{ __is_scalar(T) };
+
+template <typename T>
+constexpr bool IsClass{ __is_class(T) };
+
+template <typename T>
+constexpr bool IsArray{ __is_array(T) };
+
+template <typename T>
+constexpr bool IsUnion{ __is_union(T) };
+
+template <typename T>
+constexpr bool IsCompound{ __is_compound(T) };
+
+template <typename T>
+constexpr bool IsObject{ __is_object(T) };
+
+template <typename T>
+constexpr bool IsLValueRef{ __is_lvalue_reference(T) };
+
+template <typename T>
+constexpr bool IsRValueRef{ __is_rvalue_reference(T) };
+
+template <typename T>
+constexpr bool IsRef{ __is_reference(T) };
+
+template <typename T>
+constexpr bool IsFunction{ __is_function(T) };
+
+// -----------------------------------------------------------------------------
 
 template <typename T>
 constexpr bool IsEmpty{ __is_empty(T) };
@@ -225,44 +341,28 @@ using Conditional = typename detail::Conditional_<Cond, T1, T2>::type;
 
 // -----------------------------------------------------------------------------
 
-namespace detail {
-
 template <typename Base, typename Derived>
-struct IsBaseOf_ {
-    using BareBase = RemoveCVRef<Base>;
-    using BareDerived = RemoveCVRef<Derived>;
-
-    static constexpr bool test(Base*) { return true; }
-    static constexpr bool test(...) { return false; }
-
-    static constexpr bool value{ !IsAnyOf<void, BareBase> &&
-                                 test(static_cast<BareDerived*>(nullptr)) };
-};
-
-}  // namespace detail
-
-template <typename Base, typename Derived>
-constexpr bool IsBaseOf{ detail::IsBaseOf_<Base, Derived>::value };
+constexpr bool IsBaseOf{ __is_base_of(Base, Derived) };
 
 // -----------------------------------------------------------------------------
 
 namespace detail {
 
-template <bool Cond, typename T, typename _ = void>
+template <bool Cond, typename _ = void>
 struct EnableIf_;
 
-template <typename T>
-struct EnableIf_<true, T, void> {
-    using type = T;
+template <>
+struct EnableIf_<true, void> {
+    using type = void;
 };
 
-template <typename T>
-struct EnableIf_<false, T, void> {};
+template <>
+struct EnableIf_<false, void> {};
 
 }  // namespace detail
 
-template <bool Cond, typename T, typename _ = void>
-using EnableIf = typename detail::EnableIf_<Cond, T, _>::type;
+template <bool Cond, typename _ = void>
+using EnableIf = typename detail::EnableIf_<Cond, _>::type;
 
 // -----------------------------------------------------------------------------
 
@@ -303,5 +403,10 @@ template <auto FuncInst>
 constexpr bool IsInvocableAny{
     detail::IsInvocableAny_<FuncInst, decltype(FuncInst)>::value
 };
+
+// -----------------------------------------------------------------------------
+
+template <typename FromT, typename ToT>
+constexpr bool IsConvertible{ __is_convertible(FromT, ToT) };
 
 }  // namespace zeta::core

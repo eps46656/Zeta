@@ -7,7 +7,7 @@
 #include <zeta/core/type_traits.hpp>
 
 #define ZETA_Core_AreOverlapped(a_beg, a_end, b_beg, b_end) \
-    (!((a_end) <= (b_beg) || (b_end) <= (a_beg)))
+    (((a_beg) < (b_end)) && ((b_beg) < (a_end)))
 
 namespace zeta::core {
 
@@ -98,8 +98,8 @@ bool operator!=(Triplet<XFirst, XSecond, XThird> const& x,
 
 template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
           typename YSecond, typename YThird>
-bool operator<(Triplet<XFirst, XSecond, XThird> const& a,
-               Triplet<YFirst, YSecond, YThird> const& b);
+bool operator<(Triplet<XFirst, XSecond, XThird> const& x,
+               Triplet<YFirst, YSecond, YThird> const& y);
 
 template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
           typename YSecond, typename YThird>
@@ -113,8 +113,8 @@ bool operator>(Triplet<XFirst, XSecond, XThird> const& x,
 
 template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
           typename YSecond, typename YThird>
-bool operator>=(Triplet<XFirst, XSecond, XThird> const& a,
-                Triplet<YFirst, YSecond, YThird> const& b);
+bool operator>=(Triplet<XFirst, XSecond, XThird> const& x,
+                Triplet<YFirst, YSecond, YThird> const& y);
 
 // -----------------------------------------------------------------------------
 
@@ -124,7 +124,7 @@ decltype(auto) GetNth(Args&&... args);
 // -----------------------------------------------------------------------------
 
 template <typename T>
-RemoveRef<T>&& Move(T&& t);
+constexpr RemoveRef<T>&& Move(T&& t);
 
 template <typename T>
 constexpr T&& Forward(RemoveRef<T>& t);
@@ -135,29 +135,26 @@ void Swap(X&& x, Y&& y);
 // -----------------------------------------------------------------------------
 
 template <typename Operation, typename T0, typename... Ts>
-decltype(auto) MakeLeftAssocOperation(Operation const& opr, T0&& x0,
-                                      Ts&&... xs);
+constexpr decltype(auto) LeftReduce(Operation const& opr, T0&& x0, Ts&&... xs);
 
 template <typename Operation, typename T0, typename... Ts>
-decltype(auto) MakeRightAssocOperation(Operation const& opr, T0&& x0,
-                                       Ts&&... xs);
+constexpr decltype(auto) RightReduce(Operation const& opr, T0&& x0, Ts&&... xs);
 
 template <typename Operation, typename T0, typename... Ts>
-decltype(auto) MakeTreeAssocOperation(Operation const& opr, T0&& x0,
-                                      Ts&&... xs);
+constexpr decltype(auto) TreeReduce(Operation const& opr, T0&& x0, Ts&&... xs);
 
 // -----------------------------------------------------------------------------
 
 template <typename T0, typename... Ts>
-decltype(auto) Min(T0&& x0, Ts&&... xs);
+constexpr decltype(auto) Min(T0&& x0, Ts&&... xs);
 
 template <typename T0, typename... Ts>
-decltype(auto) Max(T0&& x0, Ts&&... xs);
+constexpr decltype(auto) Max(T0&& x0, Ts&&... xs);
 
 // -----------------------------------------------------------------------------
 
 template <typename T0, typename... Ts>
-decltype(auto) Sum(T0&& x0, Ts&&... xs);
+constexpr decltype(auto) Sum(T0&& x0, Ts&&... xs);
 
 // -----------------------------------------------------------------------------
 
@@ -268,5 +265,22 @@ int Choose3(bool cond0, bool cond1, bool cond2,
 unsigned long long GCD(unsigned long long x, unsigned long long y);
 
 unsigned long long LCM(unsigned long long x, unsigned long long y);
+
+// -----------------------------------------------------------------------------
+
+template <typename T>
+T* GetInstPtr(T& inst);
+
+template <typename T>
+T const* GetInstPtr(T const& inst);
+
+template <typename T>
+T* GetInstPtr(T&& inst);
+
+template <typename T>
+T* GetInstPtr(T* inst);
+
+template <typename T>
+T const* GetInstPtr(T const* inst);
 
 }  // namespace zeta::core

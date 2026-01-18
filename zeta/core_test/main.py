@@ -254,7 +254,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
     add_c_cpp_file(DIR / "ptr_iter.hpp", C_CPP_HEADER)
     add_c_cpp_file(DIR / "ptr_iter.ipp", C_CPP_HEADER)
 
-    add_c_cpp_file(DIR / "staging_vector_utils.h", C_CPP_HEADER)
+    add_c_cpp_file(DIR / "staging_seg_vector_utils.hpp", C_CPP_HEADER)
     add_c_cpp_file(DIR / "static_search_table.h", C_CPP_HEADER)
     add_c_cpp_file(DIR / "std_allocator.hpp", C_CPP_HEADER)
     add_c_cpp_file(DIR / "test_head.h", C_CPP_HEADER)

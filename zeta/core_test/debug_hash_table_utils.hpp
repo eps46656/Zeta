@@ -1,8 +1,12 @@
 #pragma once
 
 #include <cstdlib>
+#include <zeta/core/assoc_cntr.hpp>
+#include <zeta/core/assoc_cntr.ipp>
+#include <zeta/core/debug_hash_table.hpp>
 #include <zeta/core/debug_hash_table.ipp>
 #include <zeta/core/debug_utils.ipp>
+#include <zeta/core/define.hpp>
 #include <zeta/core_test/assoc_cntr_utils.hpp>
 
 namespace zeta::core_test::debug_hash_table_utils {
@@ -37,7 +41,7 @@ AssocCntrRef Create() {
 
     DebugHashTable::Init(&pack->debug_ht);
 
-    AssocCntrRef assoc_cntr_ref{ DebugHashTable::GetAsscocCntrRef(
+    AssocCntrRef assoc_cntr_ref{ zeta::core::assoc_cntr::MakeAssocCntrRef(
         &pack->debug_ht) };
 
     assoc_cntr_utils::AddSanitizeFunc(assoc_cntr_ref.vtable, Sanitize);
@@ -48,7 +52,7 @@ AssocCntrRef Create() {
 }
 
 void Destroy(AssocCntrRef assoc_cntr) {
-    if (assoc_cntr.inst == NULL) { return; }
+    if (assoc_cntr.inst == nullptr) { return; }
 
     DebugHashTablePack* pack{ ZETA_Core_MemberToStruct(
         DebugHashTablePack, debug_ht, assoc_cntr.inst) };
@@ -59,7 +63,7 @@ void Destroy(AssocCntrRef assoc_cntr) {
 }
 
 inline void Sanitize(AssocCntrRef assoc_cntr) {
-    if (assoc_cntr.inst == NULL) { return; }
+    if (assoc_cntr.inst == nullptr) { return; }
 }
 
 }  // namespace zeta::core_test::debug_hash_table_utils

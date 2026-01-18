@@ -1,7 +1,9 @@
 #pragma once
 
+#include <zeta/core/assoc_cntr.hpp>
 #include <zeta/core/debug_hash_table.hpp>
 #include <zeta/core/debug_utils.ipp>
+#include <zeta/core/define.hpp>
 #include <zeta/core/function_ref.ipp>
 #include <zeta/core/utils.ipp>
 
@@ -54,6 +56,35 @@ void DebugHashTable<ElemHash, ElemCompare>::Deinit(void* debug_ht_) {
     delete hash_table;
 
     debug_ht->hash_table = nullptr;
+}
+
+template <typename ElemHash, typename ElemCompare>
+assoc_cntr::AssocCntrAbilityFlagType
+DebugHashTable<ElemHash, ElemCompare>::GetDynamicEnabledAbilityFlag(
+    void const* debug_ht_) {
+    auto debug_ht{ static_cast<DebugHashTable const*>(debug_ht_) };
+    ZETA_Core_DebugAssert(CheckCntr(debug_ht));
+
+    return dynamic_ability_flag;
+}
+
+template <typename ElemHash, typename ElemCompare>
+assoc_cntr::AssocCntrAbilityFlagType
+DebugHashTable<ElemHash, ElemCompare>::GetDynamicDisabledAbilityFlag(
+    void const* debug_ht_) {
+    auto debug_ht{ static_cast<DebugHashTable const*>(debug_ht_) };
+    ZETA_Core_DebugAssert(CheckCntr(debug_ht));
+
+    return dynamic_ability_flag;
+}
+
+template <typename ElemHash, typename ElemCompare>
+size_t DebugHashTable<ElemHash, ElemCompare>::GetCursorSize(
+    void const* debug_ht_) {
+    auto debug_ht{ static_cast<DebugHashTable const*>(debug_ht_) };
+    ZETA_Core_DebugAssert(CheckCntr(debug_ht));
+
+    return sizeof(typename hash_table_t::iterator);
 }
 
 template <typename ElemHash, typename ElemCompare>
@@ -151,7 +182,7 @@ void const* DebugHashTable<ElemHash, ElemCompare>::ConstRefer(
 }
 
 template <typename ElemHash, typename ElemCompare>
-void* DebugHashTable<ElemHash, ElemCompare>::Find(
+void* DebugHashTable<ElemHash, ElemCompare>::FnFind(
     void* debug_ht_, void const* key, FnHash const& key_hash,
     FnCompare const& key_elem_compare, void* dst_cursor_) {
     auto debug_ht{ static_cast<DebugHashTable*>(debug_ht_) };
@@ -176,11 +207,11 @@ void* DebugHashTable<ElemHash, ElemCompare>::Find(
 }
 
 template <typename ElemHash, typename ElemCompare>
-void const* DebugHashTable<ElemHash, ElemCompare>::ConstFind(
+void const* DebugHashTable<ElemHash, ElemCompare>::ConstFnFind(
     void const* debug_ht, void const* key, FnHash const& key_hash,
     FnCompare const& key_elem_compare, void* dst_cursor) {
-    return Find(const_cast<void*>(debug_ht), key, key_hash, key_elem_compare,
-                dst_cursor);
+    return FnFind(const_cast<void*>(debug_ht), key, key_hash, key_elem_compare,
+                  dst_cursor);
 }
 
 template <typename ElemHash, typename ElemCompare>
@@ -206,8 +237,8 @@ void* DebugHashTable<ElemHash, ElemCompare>::TplFind(
         },
     };
 
-    return Find(debug_ht_, &key, lambda_key_hash, lambda_key_elem_compare,
-                dst_cursor_);
+    return FnFind(debug_ht_, &key, lambda_key_hash, lambda_key_elem_compare,
+                  dst_cursor_);
 }
 
 template <typename ElemHash, typename ElemCompare>
@@ -323,44 +354,8 @@ void DebugHashTable<ElemHash, ElemCompare>::CursorStepR(void const* debug_ht_,
 // -----------------------------------------------------------------------------
 
 template <typename ElemHash, typename ElemCompare>
-assoc_cntr::AssocCntrRef
-DebugHashTable<ElemHash, ElemCompare>::GetAsscocCntrRef(void* debug_ht_) {
-    auto debug_ht{ static_cast<DebugHashTable*>(debug_ht_) };
-    ZETA_Core_DebugAssert(CheckCntr(debug_ht));
-
-    return {
-        .inst = debug_ht,
-
-        .cursor_size = sizeof(typename hash_table_t::iterator),
-        .width = debug_ht->width,
-        .capacity = ZETA_Core_max_capacity,
-
-        .vtable = &assoc_cntr_vtable,
-    };
-}
-
-template <typename ElemHash, typename ElemCompare>
-assoc_cntr::ConstAssocCntrRef
-DebugHashTable<ElemHash, ElemCompare>::GetAsscocCntrRef(void const* debug_ht_) {
-    auto debug_ht{ static_cast<DebugHashTable const*>(debug_ht_) };
-    ZETA_Core_DebugAssert(CheckCntr(debug_ht));
-
-    return {
-        .inst = const_cast<DebugHashTable*>(debug_ht),
-
-        .cursor_size = sizeof(hash_table_t::iterator),
-        .width = debug_ht->width,
-        .capacity = ZETA_Core_max_capacity,
-
-        .vtable = &assoc_cntr_vtable,
-    };
-}
-
-// -----------------------------------------------------------------------------
-
-template <typename ElemHash, typename ElemCompare>
 bool DebugHashTable<ElemHash, ElemCompare>::CheckCntr(void const* debug_ht_) {
-    auto debug_ht{ static_cast<DebugHashTable const*>(debug_ht_) };
+    auto const* debug_ht{ static_cast<DebugHashTable const*>(debug_ht_) };
     if (!(debug_ht != nullptr)) { return false; }
 
     hash_table_t* hash_table{ debug_ht->hash_table };
@@ -380,45 +375,5 @@ bool DebugHashTable<ElemHash, ElemCompare>::CheckCursor(void const* debug_ht_,
 
     return true;
 }
-
-// -----------------------------------------------------------------------------
-
-template <typename ElemHash, typename ElemCompare>
-assoc_cntr::AssocCntrVTable const
-    DebugHashTable<ElemHash, ElemCompare>::assoc_cntr_vtable{
-        .Deinit = &DebugHashTable::Deinit,
-
-        .GetSize = &DebugHashTable::GetSize,
-        .GetCapacity = &DebugHashTable::GetCapacity,
-
-        .GetLBCursor = nullptr,
-        .GetRBCursor = &DebugHashTable::GetRBCursor,
-
-        .PeekL = &DebugHashTable::PeekL,
-        .ConstPeekL = &DebugHashTable::ConstPeekL,
-
-        .PeekR = nullptr,
-        .ConstPeekR = nullptr,
-
-        .Refer = &DebugHashTable::Refer,
-        .ConstRefer = &DebugHashTable::ConstRefer,
-
-        .Find = &DebugHashTable::Find,
-        .ConstFind = &DebugHashTable::ConstFind,
-
-        .Insert = &DebugHashTable::Insert,
-        .Erase = &DebugHashTable::Erase,
-        .EraseAll = &DebugHashTable::EraseAll,
-
-        .CopyCursor = &DebugHashTable::CopyCursor,
-        .AreEqualCursor = &DebugHashTable::AreEqualCursor,
-        .CompareCursor = nullptr,
-        .GetCursorDist = nullptr,
-        .GetCursorIdx = nullptr,
-        .CursorStepL = &DebugHashTable::CursorStepL,
-        .CursorStepR = &DebugHashTable::CursorStepR,
-        .CursorAdvanceL = nullptr,
-        .CursorAdvanceR = nullptr,
-    };
 
 }  // namespace zeta::core

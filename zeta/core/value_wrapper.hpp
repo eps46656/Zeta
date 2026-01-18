@@ -18,6 +18,11 @@ struct DynamicValueWrapper {
 
 // -----------------------------------------------------------------------------
 
+using FalseType = StaticValueWrapper<false>;
+using TrueType = StaticValueWrapper<true>;
+
+// -----------------------------------------------------------------------------
+
 namespace detail {
 
 template <typename T>

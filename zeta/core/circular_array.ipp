@@ -1,15 +1,24 @@
 #pragma once
 
 #include <zeta/core/circular_array.hpp>
+#include <zeta/core/compare.hpp>
+#include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/seq_cntr.hpp>
+#include <zeta/core/seq_cntr.ipp>
+#include <zeta/core/type_traits.hpp>
+#include <zeta/core/type_wrapper.hpp>
+#include <zeta/core/utils.hpp>
 #include <zeta/core/utils.ipp>
 
-namespace zeta::core {
+namespace zeta::core::circular_array {
 
-inline void* CircularArray::ReferElem(void* data, size_t stride, size_t offset,
-                                      size_t idx, size_t capacity) {
-    ZETA_Core_DebugAssert(data != NULL);
+namespace ops {
+
+inline void* ReferElem(void* data, size_t stride, size_t offset, size_t idx,
+                       size_t capacity) {
+    ZETA_Core_DebugAssert(data != nullptr);
     ZETA_Core_DebugAssert(0 < stride);
     ZETA_Core_DebugAssert(offset < capacity);
     ZETA_Core_DebugAssert(idx < capacity);
@@ -21,8 +30,8 @@ inline void* CircularArray::ReferElem(void* data, size_t stride, size_t offset,
            stride * (k < capacity ? k : k - capacity);
 }
 
-inline size_t CircularArray::GetLongestContPred(size_t offset, size_t idx,
-                                                size_t size, size_t capacity) {
+inline size_t GetLongestContPred(size_t offset, size_t idx, size_t size,
+                                 size_t capacity) {
     ZETA_Core_DebugAssert(offset == 0 || offset < capacity);
     ZETA_Core_DebugAssert(idx <= size);
     ZETA_Core_DebugAssert(size <= capacity);
@@ -32,8 +41,8 @@ inline size_t CircularArray::GetLongestContPred(size_t offset, size_t idx,
     return idx <= k ? idx : idx - k;
 }
 
-inline size_t CircularArray::GetLongestContSucr(size_t offset, size_t idx,
-                                                size_t size, size_t capacity) {
+inline size_t GetLongestContSucr(size_t offset, size_t idx, size_t size,
+                                 size_t capacity) {
     ZETA_Core_DebugAssert(offset == 0 || offset < capacity);
     ZETA_Core_DebugAssert(idx <= size);
     ZETA_Core_DebugAssert(size <= capacity);
@@ -43,33 +52,33 @@ inline size_t CircularArray::GetLongestContSucr(size_t offset, size_t idx,
     return (size <= k || k <= idx) ? size - idx : k - idx;
 }
 
-template <typename SeqCntrRefTplIsConst>
-void CircularArray::AssignFromSeqCntr(
-    void* ca_, size_t dst_beg,
-    seq_cntr::SeqCntrRefTpl<SeqCntrRefTplIsConst> const* src_seq_cntr,
-    void* src_seq_cntr_cursor, size_t cnt) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+/*
+template <typename SrcSeqCntr>
+inline void AssignFromSeqCntr(Cntr* cntr, size_t dst_beg, SrcSeqCntr const*
+src_sc, void* src_sc_cursor, size_t cnt) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) ==
+                          CheckResultCode::Success);
 
-    ZETA_Core_DebugAssert(src_seq_cntr_cursor != nullptr);
+    ZETA_Core_DebugAssert(src_sc_cursor != nullptr);
 
-    if (src_seq_cntr->vtable == &seq_cntr_vtable) {
-        auto src_ca_cursor{ static_cast<Cursor const*>(src_seq_cntr_cursor) };
+    if (src_sc->vtable == &seq_GetVTable<SeqCntrView, Cntr>()) {
+        auto const* src_ca_cursor{ static_cast<Cursor const*>(src_sc_cursor) };
 
-        auto src_ca{ static_cast<CircularArray const*>(src_seq_cntr->inst) };
+        auto const* src_ca{ static_cast<Cntr const*>(src_sc->inst) };
 
-        ZETA_Core_DebugAssert(CheckCursor(src_ca, src_ca_cursor));
+        ZETA_Core_DebugAssert(CheckCursor(src_ca, src_ca_cursor)==
+                          CheckResultCode::Success);
 
-        AssignFromCircularArray(ca, dst_beg, src_ca, src_ca_cursor->idx, cnt);
+        AssignFromCircularArray(cntr, dst_beg, src_ca, src_ca_cursor->idx, cnt);
 
         return;
     }
 
-    void* data{ ca->data };
-    size_t stride{ ca->stride };
-    size_t offset{ ca->offset };
-    size_t size{ ca->size };
-    size_t capacity{ ca->capacity };
+    void* data{ cntr->data };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
 
     size_t idx{ dst_beg };
 
@@ -79,7 +88,7 @@ void CircularArray::AssignFromSeqCntr(
         size_t cur_cnt{ Min(cnt,
                             GetLongestContSucr(offset, idx, size, capacity)) };
 
-        seq_cntr::ConstSeqCntrRef::MemRead(
+        seq_ConstSeqCntrRef::MemRead(
             src_seq_cntr, src_seq_cntr_cursor, cur_cnt,
             ReferElem(data, stride, offset, idx, capacity), stride,
             src_seq_cntr_cursor);
@@ -88,30 +97,27 @@ void CircularArray::AssignFromSeqCntr(
         cnt -= cur_cnt;
     }
 }
+*/
 
-inline void CircularArray::AssignFromCircularArray(void* dst_ca_,
-                                                   size_t dst_beg,
-                                                   void const* src_ca_,
-                                                   size_t src_beg, size_t cnt) {
-    auto dst_ca{ static_cast<CircularArray*>(dst_ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(dst_ca));
+inline void AssignFromCircularArray(Cntr* dst_cntr, size_t dst_beg,
+                                    Cntr const* src_cntr, size_t src_beg,
+                                    size_t cnt) {
+    ZETA_Core_DebugAssert(CheckCntr(dst_cntr) == CheckResultCode::Success);
+    ZETA_Core_DebugAssert(CheckCntr(src_cntr) == CheckResultCode::Success);
 
-    auto src_ca{ static_cast<CircularArray const*>(src_ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(src_ca));
+    char* dst_data{ static_cast<char*>(dst_cntr->data) };
+    size_t dst_width{ dst_cntr->width };
+    size_t dst_stride{ dst_cntr->stride };
+    size_t dst_offset{ dst_cntr->offset };
+    size_t dst_size{ dst_cntr->size };
+    size_t dst_capacity{ dst_cntr->capacity };
 
-    char* dst_data{ static_cast<char*>(dst_ca->data) };
-    size_t dst_width{ dst_ca->width };
-    size_t dst_stride{ dst_ca->stride };
-    size_t dst_offset{ dst_ca->offset };
-    size_t dst_size{ dst_ca->size };
-    size_t dst_capacity{ dst_ca->capacity };
-
-    char* src_data{ static_cast<char*>(src_ca->data) };
-    size_t src_width{ src_ca->width };
-    size_t src_stride{ src_ca->stride };
-    size_t src_offset{ src_ca->offset };
-    size_t src_size{ src_ca->size };
-    size_t src_capacity{ src_ca->capacity };
+    char* src_data{ static_cast<char*>(src_cntr->data) };
+    size_t src_width{ src_cntr->width };
+    size_t src_stride{ src_cntr->stride };
+    size_t src_offset{ src_cntr->offset };
+    size_t src_size{ src_cntr->size };
+    size_t src_capacity{ src_cntr->capacity };
 
     ZETA_Core_DebugAssert(seq_cntr::IsDereferable(dst_beg, cnt, dst_size));
 
@@ -121,7 +127,7 @@ inline void CircularArray::AssignFromCircularArray(void* dst_ca_,
 
     size_t width{ Min(dst_width, src_width) };
 
-    if (dst_ca != src_ca) {
+    if (dst_cntr != src_cntr) {
         ZETA_Core_DebugAssert(
             !ZETA_Core_AreOverlapped(dst_data, dst_data + dst_capacity,
                                      src_data, src_data + src_capacity));
@@ -174,24 +180,21 @@ VEC_BW_MOVE:
 
         cnt -= cur_cnt;
     }
-
-    return;
 }
 
-template <typename ReaderWriter>
-void CircularArray::ReadWrite_(void* ca_, size_t idx, size_t cnt,
-                               ReaderWriter&& reader_writer,
-                               void* dst_cursor_) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+template <bool EnWrite, typename ReaderWriter>
+void ReadWrite_(
+    Cntr* cntr, size_t idx, size_t cnt,
+    ReaderWriter&&
+        reader_writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    Cursor* dst_cursor) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
-    void* data{ ca->data };
-    size_t stride{ ca->stride };
-    size_t offset{ ca->offset };
-    size_t size{ ca->size };
-    size_t capacity{ ca->capacity };
+    void* data{ cntr->data };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
 
     ZETA_Core_DebugAssert(seq_cntr::IsDereferable(idx, cnt, size));
 
@@ -199,15 +202,16 @@ void CircularArray::ReadWrite_(void* ca_, size_t idx, size_t cnt,
         size_t cur_cnt{ Min(cnt,
                             GetLongestContSucr(offset, idx, size, capacity)) };
 
-        reader_writer(ReferElem(data, stride, offset, idx, capacity), stride,
-                      cur_cnt);
+        reader_writer(static_cast<Conditional<EnWrite, void*, void const*>>(
+                          ReferElem(data, stride, offset, idx, capacity)),
+                      stride, cur_cnt);
 
         idx += cur_cnt;
         cnt -= cur_cnt;
     }
 
     if (dst_cursor != nullptr) {
-        dst_cursor->ca = ca;
+        dst_cursor->cntr = cntr;
         dst_cursor->idx = idx;
         dst_cursor->ref = idx < size
                               ? ReferElem(data, stride, offset, idx, capacity)
@@ -215,97 +219,85 @@ void CircularArray::ReadWrite_(void* ca_, size_t idx, size_t cnt,
     }
 }
 
-// -----------------------------------------------------------------------------
-
-inline void CircularArray::Init(void const* ca) {
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline void Init(Cntr const* cntr) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 }
 
-inline void CircularArray::Deinit(void* ca_) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline void Deinit(Cntr* cntr) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 }
 
-inline size_t CircularArray::GetWidth(void const* ca_) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+constexpr size_t GetCursorSize(Cntr const* cntr) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    return ca->width;
+    return sizeof(Cursor);
 }
 
-inline size_t CircularArray::GetSride(void const* ca_) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline size_t GetWidth(Cntr const* cntr) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    return ca->stride;
+    return cntr->width;
 }
 
-inline size_t CircularArray::GetOffset(void const* ca_) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline size_t GetSride(Cntr const* cntr) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    return ca->offset;
+    return cntr->stride;
 }
 
-inline size_t CircularArray::GetSize(void const* ca_) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline size_t GetOffset(Cntr const* cntr) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    return ca->size;
+    return cntr->offset;
 }
 
-inline size_t CircularArray::GetCapacity(void const* ca_) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline size_t GetSize(Cntr const* cntr) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    return ca->capacity;
+    return cntr->size;
 }
 
-inline void CircularArray::GetLBCursor(void const* ca_, void* dst_cursor_) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline size_t GetCapacity(Cntr const* cntr) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    Cursor* dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
+    return cntr->capacity;
+}
+
+inline void GetLBCursor(Cntr const* cntr, Cursor* dst_cursor) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
     if (dst_cursor == nullptr) { return; }
 
-    dst_cursor->ca = ca;
+    dst_cursor->cntr = cntr;
     dst_cursor->idx = static_cast<size_t>(-1);
     dst_cursor->ref = nullptr;
 }
 
-inline void CircularArray::GetRBCursor(void const* ca_, void* dst_cursor_) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
-
-    Cursor* dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
+inline void GetRBCursor(Cntr const* cntr, Cursor* dst_cursor) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
     if (dst_cursor == nullptr) { return; }
 
-    dst_cursor->ca = ca;
-    dst_cursor->idx = ca->size;
+    dst_cursor->cntr = cntr;
+    dst_cursor->idx = cntr->size;
     dst_cursor->ref = nullptr;
 }
 
-inline void* CircularArray::PeekL(void* ca_, void* dst_cursor_,
-                                  void* dst_elem) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline void* PeekL(Cntr* cntr, Cursor* dst_cursor, void* dst_elem) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    void* data{ ca->data };
-    size_t width{ ca->width };
-    size_t stride{ ca->stride };
-    size_t offset{ ca->offset };
-    size_t size{ ca->size };
-    size_t capacity{ ca->capacity };
-
-    Cursor* dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
+    void* data{ cntr->data };
+    size_t width{ cntr->width };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
 
     void* ref{ 0 < size ? ReferElem(data, stride, offset, 0, capacity)
                         : nullptr };
 
     if (dst_cursor != nullptr) {
-        dst_cursor->ca = ca;
+        dst_cursor->cntr = cntr;
         dst_cursor->idx = 0;
         dst_cursor->ref = ref;
     }
@@ -317,30 +309,25 @@ inline void* CircularArray::PeekL(void* ca_, void* dst_cursor_,
     return ref;
 }
 
-inline void const* CircularArray::ConstPeekL(void const* ca, void* dst_cursor,
-                                             void* dst_elem) {
-    return PeekL(const_cast<void*>(ca), dst_cursor, dst_elem);
+inline void const* PeekL(Cntr const* cntr, Cursor* dst_cursor, void* dst_elem) {
+    return PeekL(const_cast<Cntr*>(cntr), dst_cursor, dst_elem);
 }
 
-inline void* CircularArray::PeekR(void* ca_, void* dst_cursor_,
-                                  void* dst_elem) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline void* PeekR(Cntr* cntr, Cursor* dst_cursor, void* dst_elem) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
-    void* data{ ca->data };
-    size_t width{ ca->width };
-    size_t stride{ ca->stride };
-    size_t offset{ ca->offset };
-    size_t size{ ca->size };
-    size_t capacity{ ca->capacity };
+    void* data{ cntr->data };
+    size_t width{ cntr->width };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
 
     void* ref{ 0 < size ? ReferElem(data, stride, offset, size - 1, capacity)
                         : nullptr };
 
     if (dst_cursor != nullptr) {
-        dst_cursor->ca = ca;
+        dst_cursor->cntr = cntr;
         dst_cursor->idx = size - 1;
         dst_cursor->ref = ref;
     }
@@ -352,24 +339,20 @@ inline void* CircularArray::PeekR(void* ca_, void* dst_cursor_,
     return ref;
 }
 
-inline void const* CircularArray::ConstPeekR(void const* ca, void* dst_cursor,
-                                             void* dst_elem) {
-    return PeekR(const_cast<void*>(ca), dst_cursor, dst_elem);
+inline void const* PeekR(Cntr const* cntr, Cursor* dst_cursor, void* dst_elem) {
+    return PeekR(const_cast<Cntr*>(cntr), dst_cursor, dst_elem);
 }
 
-inline void* CircularArray::Access(void* ca_, size_t idx, void* dst_cursor_,
-                                   void* dst_elem) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline void* Access(Cntr* cntr, size_t idx, Cursor* dst_cursor,
+                    void* dst_elem) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    void* data{ ca->data };
-    size_t width{ ca->width };
-    size_t stride{ ca->stride };
-    size_t offset{ ca->offset };
-    size_t size{ ca->size };
-    size_t capacity{ ca->capacity };
-
-    Cursor* dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
+    void* data{ cntr->data };
+    size_t width{ cntr->width };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
 
     ZETA_Core_DebugAssert(idx + 1 < size + 2);
 
@@ -377,7 +360,7 @@ inline void* CircularArray::Access(void* ca_, size_t idx, void* dst_cursor_,
                           : nullptr };
 
     if (dst_cursor != nullptr) {
-        dst_cursor->ca = ca;
+        dst_cursor->cntr = cntr;
         dst_cursor->idx = idx;
         dst_cursor->ref = ref;
     }
@@ -389,201 +372,112 @@ inline void* CircularArray::Access(void* ca_, size_t idx, void* dst_cursor_,
     return ref;
 }
 
-inline void const* CircularArray::ConstAccess(void const* ca, size_t idx,
-                                              void* dst_cursor,
-                                              void* dst_elem) {
-    return Access(const_cast<void*>(ca), idx, dst_cursor, dst_elem);
+inline void const* Access(Cntr const* cntr, size_t idx, Cursor* dst_cursor,
+                          void* dst_elem) {
+    return Access(const_cast<Cntr*>(cntr), idx, dst_cursor, dst_elem);
 }
 
-inline void* CircularArray::Refer(void* ca_, void const* pos_cursor_) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline void* Derefer(Cntr* cntr, Cursor const* pos_cursor, void* dst_elem) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    auto pos_cursor{ static_cast<Cursor const*>(pos_cursor_) };
-    ZETA_Core_DebugAssert(CheckCursor(ca, pos_cursor));
+    ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor) ==
+                          CheckResultCode::Success);
 
-    return pos_cursor->ref;
+    void* elem{ pos_cursor->ref };
+
+    if (elem != nullptr && dst_elem != nullptr) {
+        MemCopy(dst_elem, elem, cntr->width);
+    }
+
+    return elem;
 }
 
-inline void const* CircularArray::ConstRefer(void const* ca,
-                                             void const* pos_cursor) {
-    return Refer(const_cast<void*>(ca), pos_cursor);
+inline void const* Derefer(Cntr const* cntr, Cursor const* pos_cursor,
+                           void* dst_elem) {
+    return Derefer(const_cast<Cntr*>(cntr), pos_cursor, dst_elem);
 }
-
-// -----------------------------------------------------------------------------
 
 template <typename Reader>
-void CircularArray::TplRead(void const* ca_, void const* pos_cursor_,
-                            size_t cnt, Reader&& reader, void* dst_cursor) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    auto pos_cursor{ static_cast<Cursor const*>(pos_cursor_) };
-    ZETA_Core_DebugAssert(CheckCursor(ca, pos_cursor));
+void Read(Cntr const* cntr, Cursor const* pos_cursor, size_t cnt,
+          Reader&& reader,  // NOLINT(cppcoreguidelines-missing-std-forward)
+          Cursor* dst_cursor) {
+    ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor) ==
+                          CheckResultCode::Success);
 
-    ReadWrite_(const_cast<CircularArray*>(ca), pos_cursor->idx, cnt, reader,
-               dst_cursor);
+    ReadWrite_<true>(const_cast<Cntr*>(cntr), pos_cursor->idx, cnt, reader,
+                     dst_cursor);
 }
 
 template <typename Writer>
-void CircularArray::TplWrite(void* ca_, void const* pos_cursor_, size_t cnt,
-                             Writer&& writer, void* dst_cursor) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    auto pos_cursor{ static_cast<Cursor const*>(pos_cursor_) };
-    ZETA_Core_DebugAssert(CheckCursor(ca, pos_cursor));
-
-    ReadWrite_(ca, pos_cursor->idx, cnt, writer, dst_cursor);
+void Write(Cntr* cntr, Cursor const* pos_cursor, size_t cnt,
+           Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+           Cursor* dst_cursor) {
+    ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor) ==
+                          CheckResultCode::Success);
+    ReadWrite_<true>(cntr, pos_cursor->idx, cnt, writer, dst_cursor);
 }
 
 template <typename ReaderWriter>
-void CircularArray::TplReadWrite(void* ca_, void const* pos_cursor_, size_t cnt,
-                                 ReaderWriter&& reader_writer,
-                                 void* dst_cursor) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    auto pos_cursor{ static_cast<Cursor const*>(pos_cursor_) };
-    ZETA_Core_DebugAssert(CheckCursor(ca, pos_cursor));
-
-    ReadWrite_(ca, pos_cursor->idx, cnt, reader_writer, dst_cursor);
-}
-
-// -----------------------------------------------------------------------------
-
-inline void CircularArray::MemRead(void const* ca_, void const* pos_cursor,
-                                   size_t cnt, void* dst, size_t dst_stride,
-                                   void* dst_cursor) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
-
-    ZETA_Core_DebugAssert(dst != nullptr);
-
-    size_t width{ ca->width };
-
-    TplRead(
-        ca, pos_cursor, cnt,
-        [=](void const* src, size_t src_stride, size_t cnt) mutable {
-            ElemCopy(dst, src, width, dst_stride, src_stride, cnt);
-            dst = static_cast<char*>(dst) + dst_stride * cnt;
-        },
-        dst_cursor);
-}
-
-inline void CircularArray::MemWrite(void* ca_, void* pos_cursor, size_t cnt,
-                                    void const* src, size_t src_stride,
-                                    void* dst_cursor) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
-
-    ZETA_Core_DebugAssert(src != nullptr);
-
-    size_t width{ ca->width };
-
-    TplWrite(
-        ca_, pos_cursor, cnt,
-        [=](void* dst, size_t dst_stride, size_t cnt) mutable {
-            ElemCopy(dst, src, width, dst_stride, src_stride, cnt);
-            src = static_cast<char const*>(src) + src_stride * cnt;
-        },
-        dst_cursor);
-}
-
-// -----------------------------------------------------------------------------
-
-inline void CircularArray::FnRead(void const* ca, void const* pos_cursor,
-                                  size_t cnt, seq_cntr::FnReader reader,
-                                  void* dst_cursor) {
-    TplRead(ca, pos_cursor, cnt, reader, dst_cursor);
-}
-
-inline void CircularArray::FnWrite(void* ca, void* pos_cursor, size_t cnt,
-                                   seq_cntr::FnWriter writer,
-                                   void* dst_cursor) {
-    TplWrite(ca, pos_cursor, cnt, writer, dst_cursor);
-}
-
-inline void CircularArray::FnReadWrite(void* ca, void* pos_cursor, size_t cnt,
-                                       seq_cntr::FnReaderWriter reader_writer,
-                                       void* dst_cursor) {
-    TplReadWrite(ca, pos_cursor, cnt, reader_writer, dst_cursor);
+void ReadWrite(
+    Cntr* cntr, Cursor const* pos_cursor, size_t cnt,
+    ReaderWriter&&
+        reader_writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    Cursor* dst_cursor) {
+    ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor));
+    ReadWrite_<true>(cntr, pos_cursor->idx, cnt, reader_writer, dst_cursor);
 }
 
 // -----------------------------------------------------------------------------
 
 template <typename ReaderWriter>
-void CircularArray::IdxTplRead(void const* ca, size_t idx, size_t cnt,
-                               ReaderWriter&& reader_writer) {
-    ReadWrite_(const_cast<void*>(ca), idx, cnt, reader_writer, nullptr);
+void IdxRead(
+    Cntr const* cntr, size_t idx, size_t cnt,
+    ReaderWriter&& reader  // NOLINT(cppcoreguidelines-missing-std-forward)
+) {
+    ReadWrite_<true>(const_cast<Cntr*>(cntr), idx, cnt, reader, nullptr);
 }
 
 template <typename ReaderWriter>
-void CircularArray::IdxTplWrite(void* ca, size_t idx, size_t cnt,
-                                ReaderWriter&& reader_writer) {
-    ReadWrite_(ca, idx, cnt, reader_writer, nullptr);
+void IdxWrite(
+    Cntr* cntr, size_t idx, size_t cnt,
+    ReaderWriter&& writer  // NOLINT(cppcoreguidelines-missing-std-forward)
+) {
+    ReadWrite_<true>(cntr, idx, cnt, writer, nullptr);
 }
 
 template <typename ReaderWriter>
-void CircularArray::IdxTplReadWrite(void* ca, size_t idx, size_t cnt,
-                                    ReaderWriter&& reader_writer) {
-    ReadWrite_(ca, idx, cnt, reader_writer, nullptr);
-}
-
-// -----------------------------------------------------------------------------
-
-inline void CircularArray::IdxMemRead(void const* ca_, size_t idx, size_t cnt,
-                                      void* dst, size_t dst_stride) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
-
-    ZETA_Core_DebugAssert(dst != nullptr);
-
-    size_t width{ ca->width };
-
-    IdxTplRead(ca, idx, cnt,
-               [=](void const* src, size_t src_stride, size_t cnt) mutable {
-                   ElemCopy(dst, src, width, dst_stride, src_stride, cnt);
-                   dst = static_cast<char*>(dst) + dst_stride * cnt;
-               });
-}
-
-inline void CircularArray::IdxMemWrite(void* ca_, size_t idx, size_t cnt,
-                                       void const* src, size_t src_stride) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
-
-    ZETA_Core_DebugAssert(src != nullptr);
-
-    size_t width{ ca->width };
-
-    IdxTplWrite(ca_, idx, cnt,
-                [=](void* dst, size_t dst_stride, size_t cnt) mutable {
-                    ElemCopy(dst, src, width, dst_stride, src_stride, cnt);
-                    src = static_cast<char const*>(src) + src_stride * cnt;
-                });
+void IdxReadWrite(
+    Cntr* cntr, size_t idx, size_t cnt,
+    ReaderWriter&&
+        reader_writer  // NOLINT(cppcoreguidelines-missing-std-forward)
+) {
+    ReadWrite_<false>(cntr, idx, cnt, reader_writer, nullptr);
 }
 
 // -----------------------------------------------------------------------------
 
 template <typename Writer>
-void* CircularArray::TplPushL(void* ca_, size_t cnt, Writer&& writer,
-                              void* dst_cursor_) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+void* PushL(Cntr* cntr, size_t cnt,
+            Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+            Cursor* dst_cursor) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
-    void* data{ ca->data };
-    size_t stride{ ca->stride };
-    size_t offset{ ca->offset };
-    size_t size{ ca->size };
-    size_t capacity{ ca->capacity };
+    void* data{ cntr->data };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
 
     ZETA_Core_DebugAssert(seq_cntr::IsInsertable(0, cnt, size, capacity));
 
-    ca->offset = offset = (offset < cnt ? offset + capacity : offset) - cnt;
-    ca->size = size += cnt;
+    cntr->offset = offset = (offset < cnt ? offset + capacity : offset) - cnt;
+    cntr->size = size += cnt;
 
     void* ref{ 0 < size ? ReferElem(data, stride, offset, 0, capacity)
                         : nullptr };
 
     if (dst_cursor != nullptr) {
-        dst_cursor->ca = ca;
+        dst_cursor->cntr = cntr;
         dst_cursor->idx = 0;
         dst_cursor->ref = ref;
     }
@@ -602,28 +496,26 @@ void* CircularArray::TplPushL(void* ca_, size_t cnt, Writer&& writer,
 }
 
 template <typename Writer>
-void* CircularArray::TplPushR(void* ca_, size_t cnt, Writer&& writer,
-                              void* dst_cursor_) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+void* PushR(Cntr* cntr, size_t cnt,
+            Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+            Cursor* dst_cursor) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
-    void* data{ ca->data };
-    size_t stride{ ca->stride };
-    size_t offset{ ca->offset };
-    size_t size{ ca->size };
-    size_t capacity{ ca->capacity };
+    void* data{ cntr->data };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
 
     ZETA_Core_DebugAssert(seq_cntr::IsInsertable(size, cnt, size, capacity));
 
-    ca->size = size += cnt;
+    cntr->size = size += cnt;
 
     void* ref{ 0 < cnt ? ReferElem(data, stride, offset, size - cnt, capacity)
                        : nullptr };
 
     if (dst_cursor != nullptr) {
-        dst_cursor->ca = ca;
+        dst_cursor->cntr = cntr;
         dst_cursor->idx = size - cnt;
         dst_cursor->ref = ref;
     }
@@ -643,17 +535,17 @@ void* CircularArray::TplPushR(void* ca_, size_t cnt, Writer&& writer,
 }
 
 template <typename Writer>
-void* CircularArray::TplInsert(void* ca_, void* pos_cursor_, size_t cnt,
-                               Writer&& writer, void* dst_cursor) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    auto pos_cursor{ static_cast<Cursor*>(pos_cursor_) };
-    ZETA_Core_DebugAssert(CheckCursor(ca, pos_cursor));
+void* Insert(Cntr* cntr, Cursor* pos_cursor, size_t cnt,
+             Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+             Cursor* dst_cursor) {
+    ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor) ==
+                          CheckResultCode::Success);
 
-    void* data{ ca->data };
-    size_t stride{ ca->stride };
-    size_t offset{ ca->offset };
-    size_t size{ ca->size };
-    size_t capacity{ ca->capacity };
+    void* data{ cntr->data };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
 
     if (cnt == 0) { return pos_cursor->ref; }
 
@@ -664,37 +556,39 @@ void* CircularArray::TplInsert(void* ca_, void* pos_cursor_, size_t cnt,
     size_t l_size{ idx };
     size_t r_size{ size - idx };
 
-    ca->size = size += cnt;
+    cntr->size = size += cnt;
 
     unsigned long long random_seed{ GetRandom() };
 
     if (Choose2(l_size <= r_size, r_size <= l_size, &random_seed) == 0) {
-        ca->offset = offset = (offset < cnt ? offset + capacity : offset) - cnt;
-        AssignFromCircularArray(ca, 0, ca, cnt, l_size);
+        cntr->offset = offset =
+            (offset < cnt ? offset + capacity : offset) - cnt;
+        AssignFromCircularArray(cntr, 0, cntr, cnt, l_size);
     } else {
-        AssignFromCircularArray(ca, l_size + cnt, ca, l_size, r_size);
+        AssignFromCircularArray(cntr, l_size + cnt, cntr, l_size, r_size);
     }
 
     void* ref{ ReferElem(data, stride, offset, idx, capacity) };
 
     pos_cursor->ref = ref;
 
-    TplWrite(ca, pos_cursor, cnt, writer, dst_cursor);
+    Write(cntr, pos_cursor, cnt, writer, dst_cursor);
 
     return ref;
 }
 
 template <typename Writer>
-void* CircularArray::IdxTplInsert(void* ca_, size_t idx, size_t cnt,
-                                  Writer&& writer) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+void* IdxInsert(
+    Cntr* cntr, size_t idx, size_t cnt,
+    Writer&& writer  // NOLINT(cppcoreguidelines-missing-std-forward)
+) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    void* data{ ca->data };
-    size_t stride{ ca->stride };
-    size_t offset{ ca->offset };
-    size_t size{ ca->size };
-    size_t capacity{ ca->capacity };
+    void* data{ cntr->data };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
 
     if (cnt == 0) { return ReferElem(data, stride, offset, idx, capacity); }
 
@@ -703,160 +597,74 @@ void* CircularArray::IdxTplInsert(void* ca_, size_t idx, size_t cnt,
     size_t l_size{ idx };
     size_t r_size{ size - idx };
 
-    ca->size = size += cnt;
+    cntr->size = size += cnt;
 
     unsigned long long random_seed{ GetRandom() };
 
     if (Choose2(l_size <= r_size, r_size <= l_size, &random_seed) == 0) {
-        ca->offset = offset = (offset < cnt ? offset + capacity : offset) - cnt;
-        AssignFromCircularArray(ca, 0, ca, cnt, l_size);
+        cntr->offset = offset =
+            (offset < cnt ? offset + capacity : offset) - cnt;
+        AssignFromCircularArray(cntr, 0, cntr, cnt, l_size);
     } else {
-        AssignFromCircularArray(ca, l_size + cnt, ca, l_size, r_size);
+        AssignFromCircularArray(cntr, l_size + cnt, cntr, l_size, r_size);
     }
 
     void* ref{ ReferElem(data, stride, offset, idx, capacity) };
 
-    IdxTplWrite(ca, idx, cnt, writer);
+    IdxWrite(cntr, idx, cnt, writer);
 
     return ref;
 }
 
 // -----------------------------------------------------------------------------
 
-inline void* CircularArray::FnPushL(void* ca, size_t cnt,
-                                    seq_cntr::FnWriter writer,
-                                    void* dst_cursor) {
-    return TplPushL(ca, cnt, writer, dst_cursor);
-}
+inline void PopL(Cntr* cntr, size_t cnt) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-inline void* CircularArray::FnPushR(void* ca, size_t cnt,
-                                    seq_cntr::FnWriter writer,
-                                    void* dst_cursor) {
-    return TplPushR(ca, cnt, writer, dst_cursor);
-}
-
-inline void* CircularArray::FnInsert(void* ca, void* pos_cursor, size_t cnt,
-                                     seq_cntr::FnWriter writer,
-                                     void* dst_cursor) {
-    return TplInsert(ca, pos_cursor, cnt, writer, dst_cursor);
-}
-
-// -----------------------------------------------------------------------------
-
-inline void* CircularArray::MemPushL(void* ca_, size_t cnt, void const* src,
-                                     size_t src_stride, void* dst_cursor) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
-
-    size_t width{ ca->width };
-
-    if (src == nullptr) {
-        return TplPushL(ca_, cnt, [](void*, size_t, size_t) {}, dst_cursor);
-    }
-
-    return TplPushL(
-        ca_, cnt,
-        [=](void* dst, size_t dst_stride, size_t cnt) mutable {
-            ElemCopy(dst, src, width, dst_stride, src_stride, cnt);
-            src = static_cast<char const*>(src) + src_stride * cnt;
-        },
-        dst_cursor);
-}
-
-inline void* CircularArray::MemPushR(void* ca_, size_t cnt, void const* src,
-                                     size_t src_stride, void* dst_cursor) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
-
-    size_t width{ ca->width };
-
-    if (src == nullptr) {
-        return TplPushR(ca_, cnt, [](void*, size_t, size_t) {}, dst_cursor);
-    }
-
-    return TplPushR(
-        ca_, cnt,
-        [=](void* dst, size_t dst_stride, size_t cnt) mutable {
-            ElemCopy(dst, src, width, dst_stride, src_stride, cnt);
-            src = static_cast<char const*>(src) + src_stride * cnt;
-        },
-        dst_cursor);
-}
-
-inline void* CircularArray::MemInsert(void* ca_, void* pos_cursor, size_t cnt,
-                                      void const* src, size_t src_stride,
-                                      void* dst_cursor) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
-
-    size_t width{ ca->width };
-
-    if (src == nullptr) {
-        return TplInsert(
-            ca, pos_cursor, cnt, [](void*, size_t, size_t) {}, dst_cursor);
-    }
-
-    return TplInsert(
-        ca_, pos_cursor, cnt,
-        [=](void* dst, size_t dst_stride, size_t cnt) mutable {
-            ElemCopy(dst, src, width, dst_stride, src_stride, cnt);
-            src = static_cast<char const*>(src) + src_stride * cnt;
-        },
-        dst_cursor);
-}
-
-// -----------------------------------------------------------------------------
-
-inline void CircularArray::PopL(void* ca_, size_t cnt) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
-
-    size_t size{ ca->size };
+    size_t size{ cntr->size };
     ZETA_Core_DebugAssert(cnt <= size);
 
-    size_t capacity{ ca->capacity };
+    size_t capacity{ cntr->capacity };
 
-    size_t offset{ ca->offset + cnt };
+    size_t offset{ cntr->offset + cnt };
 
-    ca->offset = offset < capacity ? offset : offset - capacity;
-    ca->size = size -= cnt;
+    cntr->offset = offset < capacity ? offset : offset - capacity;
+    cntr->size = size -= cnt;
 
-    if (size == 0) { ca->offset = 0; }
+    if (size == 0) { cntr->offset = 0; }
 }
 
-inline void CircularArray::PopR(void* ca_, size_t cnt) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline void PopR(Cntr* cntr, size_t cnt) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    size_t size{ ca->size };
+    size_t size{ cntr->size };
     ZETA_Core_DebugAssert(cnt <= size);
 
-    ca->size = size -= cnt;
+    cntr->size = size -= cnt;
 
-    if (size == 0) { ca->offset = 0; }
+    if (size == 0) { cntr->offset = 0; }
 }
 
-inline void CircularArray::Erase(void* ca_, void* pos_cursor_, size_t cnt) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    auto pos_cursor{ static_cast<Cursor*>(pos_cursor_) };
-    ZETA_Core_DebugAssert(CheckCursor(ca, pos_cursor));
+inline void Erase(Cntr* cntr, Cursor* pos_cursor, size_t cnt) {
+    ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor) ==
+                          CheckResultCode::Success);
 
     size_t idx{ pos_cursor->idx };
 
-    IdxErase(ca, idx, cnt);
+    IdxErase(cntr, idx, cnt);
 
-    pos_cursor->ref = idx < ca->size ? ReferElem(ca->data, ca->stride,
-                                                 ca->offset, idx, ca->capacity)
-                                     : nullptr;
+    pos_cursor->ref = idx < cntr->size
+                          ? ReferElem(cntr->data, cntr->stride, cntr->offset,
+                                      idx, cntr->capacity)
+                          : nullptr;
 }
 
-inline void CircularArray::IdxErase(void* ca_, size_t idx, size_t cnt) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline void IdxErase(Cntr* cntr, size_t idx, size_t cnt) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    size_t offset{ ca->offset };
-    size_t size{ ca->size };
-    size_t capacity{ ca->capacity };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
 
     ZETA_Core_DebugAssert(seq_cntr::IsErasable(idx, cnt, size));
 
@@ -868,93 +676,86 @@ inline void CircularArray::IdxErase(void* ca_, size_t idx, size_t cnt) {
     unsigned long long random_seed{ GetRandom() };
 
     if (Choose2(l_size <= r_size, r_size <= l_size, &random_seed) == 0) {
-        AssignFromCircularArray(ca, cnt, ca, 0, l_size);
+        AssignFromCircularArray(cntr, cnt, cntr, 0, l_size);
 
         offset += cnt;
-        ca->offset = offset = offset < capacity ? offset : offset - capacity;
+        cntr->offset = offset = offset < capacity ? offset : offset - capacity;
     } else {
-        AssignFromCircularArray(ca, l_size, ca, l_size + cnt, r_size);
+        AssignFromCircularArray(cntr, l_size, cntr, l_size + cnt, r_size);
     }
 
-    ca->size = (size -= cnt);
+    cntr->size = (size -= cnt);
 
-    if (size == 0) { ca->offset = offset = 0; }
+    if (size == 0) { cntr->offset = offset = 0; }
 }
 
-inline void CircularArray::EraseAll(void* ca_) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline void EraseAll(Cntr* cntr) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    ca->offset = 0;
-    ca->size = 0;
+    cntr->offset = 0;
+    cntr->size = 0;
 }
 
 // -----------------------------------------------------------------------------
 
-inline void CircularArray::CopyCursor(void const* ca_, void* dst_cursor_,
-                                      void const* src_cursor_) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline void CopyCursor(Cntr const* cntr, Cursor* dst_cursor,
+                       Cursor const* src_cursor) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
     ZETA_Core_DebugAssert(dst_cursor != nullptr);
 
-    auto src_cursor{ static_cast<Cursor const*>(src_cursor_) };
-    ZETA_Core_DebugAssert(CheckCursor(ca, src_cursor));
+    ZETA_Core_DebugAssert(CheckCursor(cntr, src_cursor) ==
+                          CheckResultCode::Success);
 
-    dst_cursor->ca = ca;
+    dst_cursor->cntr = cntr;
     dst_cursor->idx = src_cursor->idx;
     dst_cursor->ref = src_cursor->ref;
 }
 
-inline bool CircularArray::AreEqualCursor(void const* ca, void const* cursor_a,
-                                          void const* cursor_b) {
-    return GetCursorIdx(ca, cursor_a) == GetCursorIdx(ca, cursor_b);
+inline bool AreEqualCursor(Cntr const* cntr, Cursor const* cursor_a,
+                           Cursor const* cursor_b) {
+    return GetCursorIdx(cntr, cursor_a) == GetCursorIdx(cntr, cursor_b);
 }
 
-inline int CircularArray::CompareCursor(void const* ca, void const* cursor_a,
-                                        void const* cursor_b) {
-    return compare::Compare(GetCursorIdx(ca, cursor_a) + 1,
-                            GetCursorIdx(ca, cursor_b) + 1);
+inline int CompareCursor(Cntr const* cntr, Cursor const* cursor_a,
+                         Cursor const* cursor_b) {
+    return compare::Compare(GetCursorIdx(cntr, cursor_a) + 1,
+                            GetCursorIdx(cntr, cursor_b) + 1);
 }
 
-inline size_t CircularArray::GetCursorDist(void const* ca, void const* cursor_a,
-                                           void const* cursor_b) {
-    return GetCursorIdx(ca, cursor_b) - GetCursorIdx(ca, cursor_a);
+inline size_t GetCursorDist(Cntr const* cntr, Cursor const* cursor_a,
+                            Cursor const* cursor_b) {
+    return GetCursorIdx(cntr, cursor_b) - GetCursorIdx(cntr, cursor_a);
 }
 
-inline size_t CircularArray::GetCursorIdx(void const* ca_,
-                                          void const* cursor_) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline size_t GetCursorIdx(Cntr const* cntr, Cursor const* cursor) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    auto cursor{ static_cast<Cursor const*>(cursor_) };
-    ZETA_Core_DebugAssert(CheckCursor(ca, cursor));
+    ZETA_Core_DebugAssert(CheckCursor(cntr, cursor) ==
+                          CheckResultCode::Success);
 
     return cursor->idx;
 }
 
-inline void CircularArray::CursorStepL(void const* ca, void* cursor) {
-    CursorAdvanceL(ca, cursor, 1);
+inline void CursorStepL(Cntr const* cntr, Cursor* cursor) {
+    CursorAdvanceL(cntr, cursor, 1);
 }
 
-inline void CircularArray::CursorStepR(void const* ca, void* cursor) {
-    CursorAdvanceR(ca, cursor, 1);
+inline void CursorStepR(Cntr const* cntr, Cursor* cursor) {
+    CursorAdvanceR(cntr, cursor, 1);
 }
 
-inline void CircularArray::CursorAdvanceL(void const* ca_, void* cursor_,
-                                          size_t step) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline void CursorAdvanceL(Cntr const* cntr, Cursor* cursor, size_t step) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    void* data{ ca->data };
-    size_t stride{ ca->stride };
-    size_t offset{ ca->offset };
-    size_t size{ ca->size };
-    size_t capacity{ ca->capacity };
+    void* data{ cntr->data };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
 
-    auto cursor{ static_cast<Cursor*>(cursor_) };
-    ZETA_Core_DebugAssert(CheckCursor(ca, cursor));
+    ZETA_Core_DebugAssert(CheckCursor(cntr, cursor) ==
+                          CheckResultCode::Success);
 
     ZETA_Core_DebugAssert(step <= cursor->idx + 1);
 
@@ -966,19 +767,17 @@ inline void CircularArray::CursorAdvanceL(void const* ca_, void* cursor_,
         idx < size ? ReferElem(data, stride, offset, idx, capacity) : nullptr;
 }
 
-inline void CircularArray::CursorAdvanceR(void const* ca_, void* cursor_,
-                                          size_t step) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+inline void CursorAdvanceR(Cntr const* cntr, Cursor* cursor, size_t step) {
+    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
 
-    void* data{ ca->data };
-    size_t stride{ ca->stride };
-    size_t offset{ ca->offset };
-    size_t size{ ca->size };
-    size_t capacity{ ca->capacity };
+    void* data{ cntr->data };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
 
-    auto cursor{ static_cast<Cursor*>(cursor_) };
-    ZETA_Core_DebugAssert(CheckCursor(ca, cursor));
+    ZETA_Core_DebugAssert(CheckCursor(cntr, cursor) ==
+                          CheckResultCode::Success);
 
     ZETA_Core_DebugAssert(step <= size - cursor->idx);
 
@@ -992,155 +791,355 @@ inline void CircularArray::CursorAdvanceR(void const* ca_, void* cursor_,
 
 // -----------------------------------------------------------------------------
 
-inline bool CircularArray::CheckCntr(void const* ca_) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    if (!(ca != nullptr)) {
-        ZETA_Core_PrintCurPos;
-        return false;
-    }
+inline int CheckCntr(Cntr const* cntr) {
+    if (!(cntr != nullptr)) { return CheckResultCode::NullCntr; }
 
-    void* data{ ca->data };
-    size_t width{ ca->width };
-    size_t stride{ ca->stride };
-    size_t offset{ ca->offset };
-    size_t size{ ca->size };
-    size_t capacity{ ca->capacity };
+    void* data{ cntr->data };
+    size_t width{ cntr->width };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
 
-    if (!(0 < width)) {
-        ZETA_Core_PrintCurPos;
-        return false;
-    }
-    if (!(width <= stride)) {
-        ZETA_Core_PrintCurPos;
-        return false;
-    }
+    if (!(0 < width)) { return CheckResultCode::ZeroWidth; }
+
+    if (!(width <= stride)) { return CheckResultCode::WidthGreaterThenStride; }
+
     if (!(offset == 0 || offset < capacity)) {
-        ZETA_Core_PrintCurPos;
-        return false;
+        return CheckResultCode::OffsetGreaterThenCapacity;
     }
+
     if (!(size <= capacity)) {
-        ZETA_Core_PrintCurPos;
-        return false;
+        return CheckResultCode::SizeGreaterThenCapacity;
     }
+
     if (!(capacity <= ZETA_Core_max_capacity)) {
-        ZETA_Core_PrintCurPos;
-        return false;
+        return CheckResultCode::CapacityGreaterThenMaxCapacity;
     }
 
     if (!(data != nullptr || capacity == 0)) {
-        ZETA_Core_PrintVar(data);
-        ZETA_Core_PrintVar(capacity);
-        return false;
+        return CheckResultCode::NullDataWithNonZeroCapacity;
     }
 
-    return true;
+    return CheckResultCode::Success;
 }
 
-inline bool CircularArray::CheckCursor(void const* ca_, void const* cursor_) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    if (!CheckCntr(ca)) { return false; }
-
-    auto cursor{ static_cast<Cursor const*>(cursor_) };
-    if (!(cursor != nullptr)) { return false; }
-
-    if (!(ca == cursor->ca)) { return false; }
-
-    void* data{ ca->data };
-    size_t stride{ ca->stride };
-    size_t offset{ ca->offset };
-    size_t size{ ca->size };
-    size_t capacity{ ca->capacity };
-
-    if (!(seq_cntr::IsReferable(cursor->idx, 1, size))) { return false; }
-
-    if (cursor->idx < size &&
-        !(cursor->ref == CircularArray::ReferElem(data, stride, offset,
-                                                  cursor->idx, capacity))) {
-        return false;
+inline int CheckCursor(Cntr const* cntr, Cursor const* cursor) {
+    {
+        int rc{ CheckCntr(cntr) };
+        if (rc != CheckResultCode::Success) { return rc; }
     }
 
-    return true;
+    if (!(cursor != nullptr)) { return CheckResultCode::NullCursor; }
+
+    if (!(cntr == cursor->cntr)) { return CheckResultCode::CntrCursorMismatch; }
+
+    void* data{ cntr->data };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
+
+    if (!(seq_cntr::IsReferable(cursor->idx, 1, size))) {
+        return CheckResultCode::CursorIdxOutOfRange;
+    }
+
+    if (!(size <= cursor->idx ||
+          cursor->ref ==
+              ReferElem(data, stride, offset, cursor->idx, capacity))) {
+        return CheckResultCode::CursorRefMismatch;
+    };
+
+    return CheckResultCode::Success;
 }
+
+}  // namespace ops
 
 // -----------------------------------------------------------------------------
 
-inline seq_cntr::SeqCntrRef CircularArray::GetSeqCntrRef(void* ca_) {
-    auto ca{ static_cast<CircularArray*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
+constexpr bool SeqCntrView::IsConst(SeqCntrView*) { return false; }
 
-    return {
-        .inst = ca,
+constexpr bool SeqCntrView::IsConst(SeqCntrView const*) { return true; }
 
-        .cursor_size = sizeof(Cursor),
-        .width = ca->width,
-        .capacity = ca->capacity,
+constexpr seq_cntr::AbilityFlag SeqCntrView::GetStaticEnabledAbilityFlag(
+    SeqCntrView*) {
+    return seq_cntr::AbilityFlagBuilder{
+        .GetCursorSize = true,
 
-        .vtable = &seq_cntr_vtable,
-    };
+        .GetWidth = true,
+        .GetSize = true,
+        .GetCapacity = true,
+
+        .GetLBCursor = true,
+        .GetRBCursor = true,
+
+        .PeekL = true,
+        .PeekR = true,
+
+        .Access = true,
+        .Derefer = true,
+
+        .Read = true,
+        .Write = true,
+        .ReadWrite = true,
+
+        .PushL = true,
+        .PushR = true,
+        .Insert = true,
+
+        .PopL = true,
+        .PopR = true,
+        .Erase = true,
+        .EraseAll = true,
+
+        .CopyCursor = true,
+
+        .AreEqualCursor = true,
+        .CompareCursor = true,
+        .GetCursorDist = true,
+        .GetCursorIdx = true,
+
+        .CursorStepL = true,
+        .CursorStepR = true,
+
+        .CursorAdvanceL = true,
+        .CursorAdvanceR = true,
+    }();
 }
 
-inline seq_cntr::ConstSeqCntrRef CircularArray::GetSeqCntrRef(void const* ca_) {
-    auto ca{ static_cast<CircularArray const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckCntr(ca));
-
-    return {
-        .inst = nullptr,
-
-        .cursor_size = sizeof(Cursor),
-        .width = ca->width,
-        .capacity = ca->capacity,
-
-        .vtable = &seq_cntr_vtable,
-    };
+constexpr seq_cntr::AbilityFlag SeqCntrView::GetStaticEnabledAbilityFlag(
+    SeqCntrView const*) {
+    return seq_cntr::non_const_ability_flag &
+           GetStaticEnabledAbilityFlag(static_cast<SeqCntrView*>(nullptr));
 }
 
-// -----------------------------------------------------------------------------
+constexpr seq_cntr::AbilityFlag SeqCntrView::GetStaticDisabledAbilityFlag(
+    SeqCntrView const*) {
+    return seq_cntr::empty_ability_flag;
+}
 
-seq_cntr::SeqCntrVTable const CircularArray::seq_cntr_vtable{
-    .Deinit = &CircularArray::Deinit,
+constexpr seq_cntr::AbilityFlag SeqCntrView::GetDynamicEnabledAbilityFlag(
+    SeqCntrView const*) {
+    return seq_cntr::empty_ability_flag;
+}
 
-    .GetSize = &CircularArray::GetSize,
-    .GetCapacity = &CircularArray::GetCapacity,
+constexpr seq_cntr::AbilityFlag SeqCntrView::GetDynamicDisabledAbilityFlag(
+    SeqCntrView const*) {
+    return seq_cntr::empty_ability_flag;
+}
 
-    .GetLBCursor = &CircularArray::GetLBCursor,
-    .GetRBCursor = &CircularArray::GetRBCursor,
+constexpr size_t SeqCntrView::GetCursorSize(SeqCntrView const* seq_cntr_view) {
+    return ops::GetCursorSize(
+        static_cast<Cntr const*>(static_cast<void const*>(seq_cntr_view)));
+}
 
-    .PeekL = &CircularArray::PeekL,
-    .ConstPeekL = &CircularArray::ConstPeekL,
-    .PeekR = &CircularArray::PeekR,
-    .ConstPeekR = &CircularArray::ConstPeekR,
-    .Access = &CircularArray::Access,
-    .ConstAccess = &CircularArray::ConstAccess,
-    .Refer = &CircularArray::Refer,
-    .ConstRefer = &CircularArray::ConstRefer,
+size_t SeqCntrView::GetWidth(SeqCntrView const* seq_cntr_view) {
+    return ops::GetWidth(reinterpret_cast<Cntr const*>(seq_cntr_view));
+}
 
-    .FnRead = &CircularArray::FnRead,
-    .FnWrite = &CircularArray::FnWrite,
-    .FnReadWrite = &CircularArray::FnReadWrite,
-    .MemRead = &CircularArray::MemRead,
-    .MemWrite = &CircularArray::MemWrite,
+size_t SeqCntrView::GetSize(SeqCntrView const* seq_cntr_view) {
+    return ops::GetSize(reinterpret_cast<Cntr const*>(seq_cntr_view));
+}
 
-    .FnPushL = &CircularArray::FnPushL,
-    .FnPushR = &CircularArray::FnPushR,
-    .FnInsert = &CircularArray::FnInsert,
-    .MemPushL = &CircularArray::MemPushL,
-    .MemPushR = &CircularArray::MemPushR,
-    .MemInsert = &CircularArray::MemInsert,
+size_t SeqCntrView::GetCapacity(SeqCntrView const* seq_cntr_view) {
+    return ops::GetCapacity(reinterpret_cast<Cntr const*>(seq_cntr_view));
+}
 
-    .PopL = &CircularArray::PopL,
-    .PopR = &CircularArray::PopR,
-    .Erase = &CircularArray::Erase,
-    .EraseAll = &CircularArray::EraseAll,
+void SeqCntrView::GetLBCursor(SeqCntrView const* seq_cntr_view,
+                              void* dst_cursor) {
+    ops::GetLBCursor(reinterpret_cast<Cntr const*>(seq_cntr_view),
+                     static_cast<Cursor*>(dst_cursor));
+}
 
-    .CopyCursor = &CircularArray::CopyCursor,
-    .AreEqualCursor = &CircularArray::AreEqualCursor,
-    .CompareCursor = &CircularArray::CompareCursor,
-    .GetCursorDist = &CircularArray::GetCursorDist,
-    .GetCursorIdx = &CircularArray::GetCursorIdx,
-    .CursorStepL = &CircularArray::CursorStepL,
-    .CursorStepR = &CircularArray::CursorStepR,
-    .CursorAdvanceL = &CircularArray::CursorAdvanceL,
-    .CursorAdvanceR = &CircularArray::CursorAdvanceR,
-};
+void SeqCntrView::GetRBCursor(SeqCntrView const* seq_cntr_view,
+                              void* dst_cursor) {
+    ops::GetRBCursor(reinterpret_cast<Cntr const*>(seq_cntr_view),
+                     static_cast<Cursor*>(dst_cursor));
+}
 
-}  // namespace zeta::core
+void* SeqCntrView::PeekL(SeqCntrView* seq_cntr_view, void* dst_cursor,
+                         void* dst_elem) {
+    return ops::PeekL(reinterpret_cast<Cntr*>(seq_cntr_view),
+                      static_cast<Cursor*>(dst_cursor), dst_elem);
+}
+
+void const* SeqCntrView::PeekL(SeqCntrView const* seq_cntr_view,
+                               void* dst_cursor, void* dst_elem) {
+    return ops::PeekL(reinterpret_cast<Cntr const*>(seq_cntr_view),
+                      static_cast<Cursor*>(dst_cursor), dst_elem);
+}
+
+void* SeqCntrView::PeekR(SeqCntrView* seq_cntr_view, void* dst_cursor,
+                         void* dst_elem) {
+    return ops::PeekR(reinterpret_cast<Cntr*>(seq_cntr_view),
+                      static_cast<Cursor*>(dst_cursor), dst_elem);
+}
+
+void const* SeqCntrView::PeekR(SeqCntrView const* seq_cntr_view,
+                               void* dst_cursor, void* dst_elem) {
+    return ops::PeekR(reinterpret_cast<Cntr const*>(seq_cntr_view),
+                      static_cast<Cursor*>(dst_cursor), dst_elem);
+}
+
+void* SeqCntrView::Access(SeqCntrView* seq_cntr_view, size_t idx,
+                          void* dst_cursor, void* dst_elem) {
+    return ops::Access(reinterpret_cast<Cntr*>(seq_cntr_view), idx,
+                       static_cast<Cursor*>(dst_cursor), dst_elem);
+}
+
+void const* SeqCntrView::Access(SeqCntrView const* seq_cntr_view, size_t idx,
+                                void* dst_cursor, void* dst_elem) {
+    return ops::Access(reinterpret_cast<Cntr const*>(seq_cntr_view), idx,
+                       static_cast<Cursor*>(dst_cursor), dst_elem);
+}
+
+void* SeqCntrView::Derefer(SeqCntrView* seq_cntr_view, void const* pos_cursor,
+                           void* dst_elem) {
+    return ops::Derefer(reinterpret_cast<Cntr*>(seq_cntr_view),
+                        static_cast<Cursor const*>(pos_cursor), dst_elem);
+}
+
+void const* SeqCntrView::Derefer(SeqCntrView const* seq_cntr_view,
+                                 void const* pos_cursor, void* dst_elem) {
+    return ops::Derefer(reinterpret_cast<Cntr const*>(seq_cntr_view),
+                        static_cast<Cursor const*>(pos_cursor), dst_elem);
+}
+
+template <typename Reader>
+void SeqCntrView::Read(
+    SeqCntrView const* seq_cntr_view, void const* pos_cursor, size_t cnt,
+    Reader&& reader,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    ops::Read(reinterpret_cast<Cntr const*>(seq_cntr_view),
+              static_cast<Cursor const*>(pos_cursor), cnt,
+              Forward<Reader>(reader), static_cast<Cursor*>(dst_cursor));
+}
+
+template <typename Writer>
+void SeqCntrView::Write(
+    SeqCntrView* seq_cntr_view, void* pos_cursor, size_t cnt,
+    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    ops::Write(reinterpret_cast<Cntr*>(seq_cntr_view),
+               static_cast<Cursor*>(pos_cursor), cnt, Forward<Writer>(writer),
+               static_cast<Cursor*>(dst_cursor));
+}
+
+template <typename ReaderWriter>
+void SeqCntrView::ReadWrite(
+    SeqCntrView* seq_cntr_view, void* pos_cursor, size_t cnt,
+    ReaderWriter&&
+        reader_writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    ops::ReadWrite(reinterpret_cast<Cntr*>(seq_cntr_view),
+                   static_cast<Cursor*>(pos_cursor), cnt,
+                   Forward<ReaderWriter>(reader_writer),
+                   static_cast<Cursor*>(dst_cursor));
+}
+
+template <typename Writer>
+void* SeqCntrView::PushL(
+    SeqCntrView* seq_cntr_view, size_t cnt,
+    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    return ops::PushL(reinterpret_cast<Cntr*>(seq_cntr_view), cnt,
+                      Forward<Writer>(writer),
+                      static_cast<Cursor*>(dst_cursor));
+}
+
+template <typename Writer>
+void* SeqCntrView::PushR(
+    SeqCntrView* seq_cntr_view, size_t cnt,
+    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    return ops::PushR(reinterpret_cast<Cntr*>(seq_cntr_view), cnt,
+                      Forward<Writer>(writer),
+                      static_cast<Cursor*>(dst_cursor));
+}
+
+template <typename Writer>
+void* SeqCntrView::Insert(
+    SeqCntrView* seq_cntr_view, void* pos_cursor, size_t cnt,
+    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    return ops::Insert(reinterpret_cast<Cntr*>(seq_cntr_view),
+                       static_cast<Cursor*>(pos_cursor), cnt,
+                       Forward<Writer>(writer),
+                       static_cast<Cursor*>(dst_cursor));
+}
+
+void SeqCntrView::PopL(SeqCntrView* seq_cntr_view, size_t cnt) {
+    ops::PopL(reinterpret_cast<Cntr*>(seq_cntr_view), cnt);
+}
+
+void SeqCntrView::PopR(SeqCntrView* seq_cntr_view, size_t cnt) {
+    ops::PopR(reinterpret_cast<Cntr*>(seq_cntr_view), cnt);
+}
+
+void SeqCntrView::Erase(SeqCntrView* seq_cntr_view, void* pos_cursor,
+                        size_t cnt) {
+    ops::Erase(reinterpret_cast<Cntr*>(seq_cntr_view),
+               static_cast<Cursor*>(pos_cursor), cnt);
+}
+
+void SeqCntrView::EraseAll(SeqCntrView* seq_cntr_view) {
+    ops::EraseAll(reinterpret_cast<Cntr*>(seq_cntr_view));
+}
+
+void SeqCntrView::CopyCursor(SeqCntrView const* seq_cntr_view, void* dst_cursor,
+                             void const* src_cursor) {
+    ops::CopyCursor(reinterpret_cast<Cntr const*>(seq_cntr_view),
+                    static_cast<Cursor*>(dst_cursor),
+                    static_cast<Cursor const*>(src_cursor));
+}
+
+bool SeqCntrView::AreEqualCursor(SeqCntrView const* seq_cntr_view,
+                                 void const* cursor_a, void const* cursor_b) {
+    return ops::AreEqualCursor(reinterpret_cast<Cntr const*>(seq_cntr_view),
+                               static_cast<Cursor const*>(cursor_a),
+                               static_cast<Cursor const*>(cursor_b));
+}
+
+int SeqCntrView::CompareCursor(SeqCntrView const* seq_cntr_view,
+                               void const* cursor_a, void const* cursor_b) {
+    return ops::CompareCursor(reinterpret_cast<Cntr const*>(seq_cntr_view),
+                              static_cast<Cursor const*>(cursor_a),
+                              static_cast<Cursor const*>(cursor_b));
+}
+
+size_t SeqCntrView::GetCursorDist(SeqCntrView const* seq_cntr_view,
+                                  void const* cursor_a, void const* cursor_b) {
+    return ops::GetCursorDist(reinterpret_cast<Cntr const*>(seq_cntr_view),
+                              static_cast<Cursor const*>(cursor_a),
+                              static_cast<Cursor const*>(cursor_b));
+}
+
+size_t SeqCntrView::GetCursorIdx(SeqCntrView const* seq_cntr_view,
+                                 void const* cursor) {
+    return ops::GetCursorIdx(reinterpret_cast<Cntr const*>(seq_cntr_view),
+                             static_cast<Cursor const*>(cursor));
+}
+
+void SeqCntrView::CursorStepL(SeqCntrView const* seq_cntr_view, void* cursor) {
+    ops::CursorStepL(reinterpret_cast<Cntr const*>(seq_cntr_view),
+                     static_cast<Cursor*>(cursor));
+}
+
+void SeqCntrView::CursorStepR(SeqCntrView const* seq_cntr_view, void* cursor) {
+    ops::CursorStepR(reinterpret_cast<Cntr const*>(seq_cntr_view),
+                     static_cast<Cursor*>(cursor));
+}
+
+void SeqCntrView::CursorAdvanceL(SeqCntrView const* seq_cntr_view, void* cursor,
+                                 size_t step) {
+    ops::CursorAdvanceL(reinterpret_cast<Cntr const*>(seq_cntr_view),
+                        static_cast<Cursor*>(cursor), step);
+}
+
+void SeqCntrView::CursorAdvanceR(SeqCntrView const* seq_cntr_view, void* cursor,
+                                 size_t step) {
+    ops::CursorAdvanceR(reinterpret_cast<Cntr const*>(seq_cntr_view),
+                        static_cast<Cursor*>(cursor), step);
+}
+
+}  // namespace zeta::core::circular_array

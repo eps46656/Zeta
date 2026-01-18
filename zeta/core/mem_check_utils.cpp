@@ -1,3 +1,4 @@
+#include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/mem_check_utils.hpp>
@@ -56,7 +57,9 @@ void MemRecorder::Record(void* mem_recorder_, void const* ptr, size_t size) {
             static_cast<char const*>(iter->first) + iter->second <= ptr);
     }
 
-    mem_recorder->records.insert({ ptr, size });
+    bool b{ mem_recorder->records.insert({ ptr, size }).second };
+
+    ZETA_Core_DebugAssert(b);
 }
 
 bool MemRecorder::Unrecord(void* mem_recorder_, void const* ptr) {
@@ -77,6 +80,11 @@ void MemRecorder::MatchRecords(MemRecorder const* src_mem_recorder,
                                MemRecorder const* dst_mem_recorder) {
     ZETA_Core_DebugAssert(src_mem_recorder != nullptr);
     ZETA_Core_DebugAssert(dst_mem_recorder != nullptr);
+
+    if (src_mem_recorder->records.size() != dst_mem_recorder->records.size()) {
+        ZETA_Core_PrintVar(src_mem_recorder->records.size());
+        ZETA_Core_PrintVar(dst_mem_recorder->records.size());
+    }
 
     ZETA_Core_DebugAssert(src_mem_recorder->records.size() ==
                           dst_mem_recorder->records.size());

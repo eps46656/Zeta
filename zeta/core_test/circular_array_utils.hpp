@@ -1,20 +1,27 @@
 #pragma once
 
 #include <cstdlib>
+#include <zeta/core/circular_array.hpp>
 #include <zeta/core/circular_array.ipp>
+#include <zeta/core/seq_cntr.hpp>
+#include <zeta/core/seq_cntr.ipp>
+#include <zeta/core/value_wrapper.hpp>
 #include <zeta/core_test/seq_cntr_utils.hpp>
 
 namespace zeta::core_test::circular_array_utils {
 
-using SeqCntrRef = core::seq_cntr::SeqCntrRef;
-using CircularArray = core::CircularArray;
+using SeqCntrRef = core::seq_cntr::Ref<core::value_wrapper::FalseType>;
+
+namespace CircularArrayNS = core::circular_array;
+namespace CircularArrayOps = CircularArrayNS::ops;
+using CircularArray = CircularArrayNS::Cntr;
 
 template <typename Elem>
 SeqCntrRef Create(size_t stride, size_t capacity);
 
-void Destroy(SeqCntrRef seq_cntr_ref);
+void Destroy(void* ca);
 
-void Sanitize(SeqCntrRef seq_cntr_ref);
+void Sanitize(void const* ca);
 
 template <typename Elem>
 SeqCntrRef Create(size_t stride, size_t capacity) {
@@ -30,7 +37,7 @@ SeqCntrRef Create(size_t stride, size_t capacity) {
     ca->size = 0;
     ca->capacity = capacity;
 
-    SeqCntrRef seq_cntr_ref{ CircularArray::GetSeqCntrRef(ca) };
+    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr::MakeRef(ca) };
 
     seq_cntr_utils::AddSanitizeFunc(ca, Sanitize);
 
@@ -39,18 +46,20 @@ SeqCntrRef Create(size_t stride, size_t capacity) {
     return seq_cntr_ref;
 }
 
-inline void Destroy(SeqCntrRef seq_cntr_ref) {
-    if (seq_cntr_ref.inst == NULL) { return; }
+inline void Destroy(void* ca_) {
+    CircularArray* ca{ static_cast<CircularArray*>(ca_) };
 
-    auto ca{ static_cast<CircularArray*>(seq_cntr_ref.inst) };
+    if (ca == nullptr) { return; }
 
-    CircularArray::Deinit(ca);
+    CircularArrayOps::Deinit(ca);
 
     delete ca;
 }
 
-inline void Sanitize(SeqCntrRef seq_cntr_ref) {
-    if (seq_cntr_ref.inst == NULL) { return; }
+inline void Sanitize(void const* ca_) {
+    CircularArray const* ca{ static_cast<CircularArray const*>(ca_) };
+
+    if (ca == nullptr) { return; }
 }
 
 }  // namespace zeta::core_test::circular_array_utils
