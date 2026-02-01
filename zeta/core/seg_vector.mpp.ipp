@@ -2,6 +2,8 @@
 #error "EnStaging is not defined."
 #endif
 
+#define EnStaging 1
+
 #include <iostream>
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/bin_tree.ipp>
@@ -24,10 +26,10 @@
 #include <zeta/core/utils.hpp>
 #include <zeta/core/utils.ipp>
 
-// -----------------------------------------------------------------------------
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access)
 
 #pragma push_macro("NameSpace")
-#pragma push_macro("CntrTplDefParamList")
+#pragma push_macro("CntrTplParamList")
 #pragma push_macro("CntrTplArgList")
 #pragma push_macro("EnStagingTernary")
 
@@ -35,14 +37,10 @@
 
 #define NameSpace staging_seg_vector
 
-#define CntrTplDefParamList                                                  \
-    typename OriginOperator, typename Origin, typename SegAllocatorOperator, \
-        typename SegAllocator, typename DataAllocatorOperator,               \
-        typename DataAllocator
+#define CntrTplParamList \
+    typename Origin, typename SegAllocatorLike, typename DataAllocatorLike
 
-#define CntrTplArgList                                          \
-    OriginOperator, Origin, SegAllocatorOperator, SegAllocator, \
-        DataAllocatorOperator, DataAllocator
+#define CntrTplArgList Origin, SegAllocatorLike, DataAllocatorLike
 
 #define EnStagingTernary(cond, x, y) ((cond) ? (x) : (y))
 
@@ -50,12 +48,9 @@
 
 #define NameSpace seg_vector
 
-#define CntrTplDefParamList                               \
-    typename SegAllocatorOperator, typename SegAllocator, \
-        typename DataAllocatorOperator, typename DataAllocator
+#define CntrTplParamList typename SegAllocatorLike, typename DataAllocatorLike
 
-#define CntrTplArgList \
-    SegAllocatorOperator, SegAllocator, DataAllocatorOperator, DataAllocator
+#define CntrTplArgList SegAllocatorLike, DataAllocatorLike
 
 #define EnStagingTernary(cond, x, y) (y)
 
@@ -65,81 +60,144 @@
 
 namespace zeta::core::NameSpace {
 
-TreeNode* TreeNodeOperator::GetP(TreeNode* n) { return n->GetPPtr(); }
-
-TreeNode* TreeNodeOperator::GetL(TreeNode* n) { return n->GetLPtr(); }
-
-TreeNode* TreeNodeOperator::GetR(TreeNode* n) { return n->GetRPtr(); }
-
-void TreeNodeOperator::SetP(TreeNode* n, TreeNode* m) { n->SetPPtr(m); }
-
-void TreeNodeOperator::SetL(TreeNode* n, TreeNode* m) { n->SetLPtr(m); }
-
-void TreeNodeOperator::SetR(TreeNode* n, TreeNode* m) { n->SetRPtr(m); }
-
-unsigned TreeNodeOperator::GetColor(TreeNode* n) { return n->GetPColor(); }
-
-void TreeNodeOperator::SetColor(TreeNode* n, unsigned color) {
-    n->SetPColor(color);
+constexpr bool TreeNodeView::IsConst(type_wrapper::TypeWrapper<TreeNode*>) {
+    return false;
 }
 
-size_t TreeNodeOperator::GetAccSize(TreeNode* n) { return n->GetAccSize(); }
-
-void TreeNodeOperator::SetAccSize(TreeNode* n, size_t size) {
-    n->SetAccSize(size);
+constexpr bool TreeNodeView::IsConst(
+    type_wrapper::TypeWrapper<TreeNode const*>) {
+    return true;
 }
 
-// -----------------------------------------------------------------------------
-
-#if EnStaging
-
-size_t OffsetCntNode::NodeHash::operator()(GenericHashTableNode const* ghtn,
-                                           unsigned long long salt) const {
-    OffsetCntNode* node{ ZETA_Core_MemberToStruct(OffsetCntNode, ghtn, ghtn) };
-
-    return ULLHash(node->offset, salt);
+constexpr bool TreeNodeView::IsAccSizeEnabled(
+    type_wrapper::TypeWrapper<TreeNode const*>) {
+    return true;
 }
 
-int OffsetCntNode::NodeCompare::operator()(
-    GenericHashTableNode const* a_ghtn,
-    GenericHashTableNode const* b_ghtn) const {
-    OffsetCntNode* a_node{ ZETA_Core_MemberToStruct(OffsetCntNode, ghtn,
-                                                    a_ghtn) };
-    OffsetCntNode* b_node{ ZETA_Core_MemberToStruct(OffsetCntNode, ghtn,
-                                                    b_ghtn) };
-    return compare::Compare(a_node->offset, b_node->offset);
+constexpr size_t TreeNodeView::GetNullAccSize(
+    type_wrapper::TypeWrapper<TreeNode const*>) {
+    return 0;
 }
 
-#endif
+TreeNodeView* TreeNodeView::GetP(TreeNodeView* n) {
+    return reinterpret_cast<TreeNodeView*>(
+        reinterpret_cast<TreeNode*>(n)->GetPPtr());
+}
+
+TreeNodeView* TreeNodeView::GetL(TreeNodeView* n) {
+    return reinterpret_cast<TreeNodeView*>(
+        reinterpret_cast<TreeNode*>(n)->GetLPtr());
+}
+
+TreeNodeView* TreeNodeView::GetR(TreeNodeView* n) {
+    return reinterpret_cast<TreeNodeView*>(
+        reinterpret_cast<TreeNode*>(n)->GetRPtr());
+}
+
+TreeNodeView const* TreeNodeView::GetP(TreeNodeView const* n) {
+    return reinterpret_cast<TreeNodeView const*>(
+        reinterpret_cast<TreeNode const*>(n)->GetPPtr());
+}
+
+TreeNodeView const* TreeNodeView::GetL(TreeNodeView const* n) {
+    return reinterpret_cast<TreeNodeView const*>(
+        reinterpret_cast<TreeNode const*>(n)->GetLPtr());
+}
+
+TreeNodeView const* TreeNodeView::GetR(TreeNodeView const* n) {
+    return reinterpret_cast<TreeNodeView const*>(
+        reinterpret_cast<TreeNode const*>(n)->GetRPtr());
+}
+
+void TreeNodeView::SetP(TreeNodeView* n, TreeNodeView* m) {
+    reinterpret_cast<TreeNode*>(n)->SetPPtr(reinterpret_cast<TreeNode*>(m));
+}
+
+void TreeNodeView::SetL(TreeNodeView* n, TreeNodeView* m) {
+    reinterpret_cast<TreeNode*>(n)->SetLPtr(reinterpret_cast<TreeNode*>(m));
+}
+
+void TreeNodeView::SetR(TreeNodeView* n, TreeNodeView* m) {
+    reinterpret_cast<TreeNode*>(n)->SetRPtr(reinterpret_cast<TreeNode*>(m));
+}
+
+unsigned TreeNodeView::GetColor(TreeNodeView const* n) {
+    return reinterpret_cast<TreeNode const*>(n)->GetPColor();
+}
+
+void TreeNodeView::SetColor(TreeNodeView* n, unsigned color) {
+    reinterpret_cast<TreeNode*>(n)->SetPColor(color);
+}
+
+size_t TreeNodeView::GetAccSize(TreeNodeView const* n) {
+    return reinterpret_cast<TreeNode const*>(n)->GetAccSize();
+}
+
+void TreeNodeView::SetAccSize(TreeNodeView* n, size_t size) {
+    reinterpret_cast<TreeNode*>(n)->SetAccSize(size);
+}
 
 // -----------------------------------------------------------------------------
 
 namespace ops {
 
-size_t GetAvgCnt_(size_t cnt, size_t seg_capacity,
-                  unsigned long long& random_seed) {
+namespace detail {
+
+template <CntrTplParamList>
+void CheckCntr_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList> const* cntr) {
+    ZETA_Core_DebugAssert(cntr != nullptr);
+
+    size_t width{ cntr->width };
+
+    ZETA_Core_DebugAssert(0 < width);
+
+    size_t stride{ cntr->stride };
+    ZETA_Core_DebugAssert(width <= stride);
+
+    size_t seg_capacity{ cntr->seg_capacity };
+    ZETA_Core_DebugAssert(0 < seg_capacity);
+    ZETA_Core_DebugAssert(seg_capacity <= ZETA_Core_ushrt_max);
+}
+
+template <CntrTplParamList>
+void CheckCursor_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList> const* cntr, Cursor const* cursor) {
+    CheckCntr_(cntr);
+
+    ZETA_Core_DebugAssert(cursor != nullptr);
+
+    Cursor re_cursor;
+    Access(cntr, cursor->idx, &re_cursor, nullptr);
+
+    ZETA_Core_DebugAssert(*cursor == re_cursor);
+}
+
+size_t GetAvgCnt_  // NOLINT(misc-use-internal-linkage)
+    (size_t cnt, size_t seg_capacity, unsigned long long& random_seed) {
     size_t seg_cnt{ UIntCeilDiv(cnt, seg_capacity) };
 
     return (cnt + SimpleRandomRotate(&random_seed) % seg_cnt) / seg_cnt;
 }
 
-// -----------------------------------------------------------------------------
-
 #if EnStaging
 
-unsigned GetNColor_(TreeNode const* n) {
+inline unsigned GetNColor_  // NOLINT(misc-use-internal-linkage)
+    (TreeNode const* n) {
     unsigned color{ n->GetLColor() };
     ZETA_Core_DebugAssert(color == ref_color || color == dat_color);
     return color;
 }
 
-void DirectlySetNColor_(TreeNode* n, unsigned color) {
+inline void DirectlySetNColor_  // NOLINT(misc-use-internal-linkage)
+    (TreeNode* n, unsigned color) {
     ZETA_Core_DebugAssert(color == ref_color || color == dat_color);
 
     n->SetLColor(color);
 }
 
-void SetNColor_(TreeNode* n, unsigned color) {
+inline void SetNColor_  // NOLINT(misc-use-internal-linkage)
+    (TreeNode* n, unsigned color) {
     ZETA_Core_DebugAssert(color == ref_color || color == dat_color);
     ZETA_Core_DebugAssert(0 <= GetNColor_(n));
 
@@ -148,16 +206,17 @@ void SetNColor_(TreeNode* n, unsigned color) {
 
 #endif
 
-// -----------------------------------------------------------------------------
-
-Seg* NToSeg_(TreeNode* n) { return ZETA_Core_MemberToStruct(Seg, n, n); }
+inline Seg* NToSeg_  // NOLINT(misc-use-internal-linkage)
+    (TreeNode* n) {
+    return ZETA_Core_MemberToStruct(Seg, n, n);
+}
 
 // -----------------------------------------------------------------------------
 
 #if EnStaging
 
-inline void GetRefSegState_(size_t seg_capacity, Seg* seg,
-                            CircularArray* dst_ca, size_t* dst_vacant) {
+inline void GetRefSegState_  // NOLINT(misc-use-internal-linkage)
+    (size_t seg_capacity, Seg* seg, CircularArray* dst_ca, size_t* dst_vacant) {
     ZETA_Core_DebugAssert(GetNColor_(&seg->n) == ref_color);
 
     size_t size{ seg->ref.size };
@@ -169,8 +228,8 @@ inline void GetRefSegState_(size_t seg_capacity, Seg* seg,
 
 #endif
 
-inline void GetDatSegState_(size_t seg_capacity, Seg* seg,
-                            CircularArray* dst_ca, size_t* dst_vacant) {
+inline void GetDatSegState_  // NOLINT(misc-use-internal-linkage)
+    (size_t seg_capacity, Seg* seg, CircularArray* dst_ca, size_t* dst_vacant) {
 #if EnStaging
     ZETA_Core_DebugAssert(GetNColor_(&seg->n) == dat_color);
 #endif
@@ -184,11 +243,12 @@ inline void GetDatSegState_(size_t seg_capacity, Seg* seg,
     *dst_vacant = seg_capacity - size;
 }
 
-inline void GetSegState_(size_t seg_capacity, Seg* seg,
+inline void GetSegState_  // NOLINT(misc-use-internal-linkage)
+    (size_t seg_capacity, Seg* seg,
 #if EnStaging
-                         unsigned* dst_color,
+     unsigned* dst_color,
 #endif
-                         CircularArray* dst_ca, size_t* dst_vacant) {
+     CircularArray* dst_ca, size_t* dst_vacant) {
 #if EnStaging
     unsigned color{ GetNColor_(&seg->n) };
     *dst_color = color;
@@ -202,11 +262,9 @@ inline void GetSegState_(size_t seg_capacity, Seg* seg,
     }
 }
 
-// -----------------------------------------------------------------------------
-
-template <CntrTplDefParamList>
-Seg* AllocateSeg_(Cntr<CntrTplArgList>* cntr,
-                  PoolAllocator* seg_pool_allocator) {
+template <CntrTplParamList>
+Seg* AllocateSeg_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, PoolAllocator* seg_pool_allocator) {
     Seg* seg{ seg_pool_allocator == nullptr
                   ? nullptr
                   : static_cast<Seg*>(
@@ -222,9 +280,9 @@ Seg* AllocateSeg_(Cntr<CntrTplArgList>* cntr,
     return seg;
 }
 
-template <CntrTplDefParamList>
-void* AllocateData_(Cntr<CntrTplArgList>* cntr,
-                    PoolAllocator* data_pool_allocator) {
+template <CntrTplParamList>
+void* AllocateData_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, PoolAllocator* data_pool_allocator) {
     void* data{ data_pool_allocator == nullptr
                     ? nullptr
                     : PoolAllocator::Allocate(data_pool_allocator, 1) };
@@ -239,8 +297,9 @@ void* AllocateData_(Cntr<CntrTplArgList>* cntr,
 
 #if EnStaging
 
-template <CntrTplDefParamList>
-auto AllocateRefSeg_(Cntr<CntrTplArgList>* cntr) -> Seg* {
+template <CntrTplParamList>
+Seg* AllocateRefSeg_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr) {
     Seg* seg{ AllocateSeg_(cntr, nullptr) };
 
     DirectlySetNColor_(&seg->n, ref_color);
@@ -253,8 +312,9 @@ auto AllocateRefSeg_(Cntr<CntrTplArgList>* cntr) -> Seg* {
 
 #endif
 
-template <CntrTplDefParamList>
-Seg* AllocateDatSeg_(Cntr<CntrTplArgList>* cntr) {
+template <CntrTplParamList>
+Seg* AllocateDatSeg_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr) {
     Seg* seg{ AllocateSeg_(cntr, nullptr) };
 
 #if EnStaging
@@ -268,31 +328,29 @@ Seg* AllocateDatSeg_(Cntr<CntrTplArgList>* cntr) {
     return seg;
 }
 
-// -----------------------------------------------------------------------------
-
 #if EnStaging
 
-template <CntrTplDefParamList>
-void TransferRefSegToDatSeg_(Cntr<CntrTplArgList>* cntr, Seg* seg) {
+template <CntrTplParamList>
+void TransferRefSegToDatSeg_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, Seg* seg) {
     ZETA_Core_DebugAssert(GetNColor_(&seg->n) == ref_color);
 
-    OriginOperator const* origin_opr{ cntr->origin_opr };
     Origin* origin{ cntr->origin };
 
     void* data{ AllocateData_(cntr, nullptr) };
 
     size_t size{ seg->ref.size };
 
-    void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin_opr, origin) };
+    void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin) };
 
-    origin_opr->Access(origin, seg->ref.beg, origin_cursor, nullptr);
-    origin_opr->Read(origin, origin_cursor, size,
-                     seq_cntr::MemReader{
-                         .dst = data,
-                         .dst_width = cntr->stride,
-                         .dst_stride = cntr->stride,
-                     },
-                     nullptr);
+    Origin::Access(origin, seg->ref.beg, origin_cursor, nullptr);
+    Origin::Read(origin, origin_cursor, size,
+                 seq_cntr::MemReader{
+                     .dst = data,
+                     .dst_width = cntr->stride,
+                     .dst_stride = cntr->stride,
+                 },
+                 nullptr);
 
     SetNColor_(&seg->n, dat_color);
 
@@ -301,42 +359,39 @@ void TransferRefSegToDatSeg_(Cntr<CntrTplArgList>* cntr, Seg* seg) {
     seg->dat.size = static_cast<unsigned short>(size);
 }
 
-template <CntrTplDefParamList>
-void PushRefL_(Cntr<CntrTplArgList>* cntr, CircularArray* ca, size_t beg,
-               size_t size) {
-    OriginOperator const* origin_opr{ cntr->origin_opr };
+template <CntrTplParamList>
+void PushRefL_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, CircularArray* ca, size_t beg, size_t size) {
     Origin* origin{ cntr->origin };
 
     circular_array::ops::PushL(ca, size, [](void*, size_t, size_t) {}, nullptr);
 
-    void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin_opr, origin) };
+    void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin) };
 
-    origin_opr->Access(origin, beg, origin_cursor, nullptr);
+    Origin::Access(origin, beg, origin_cursor, nullptr);
 
     circular_array::ops::AssignFromSeqCntr(ca, 0, origin, origin_cursor, size);
 }
 
-template <CntrTplDefParamList>
-void PushRefR_(Cntr<CntrTplArgList>* cntr, CircularArray* ca, size_t beg,
-               size_t size) {
-    OriginOperator const* origin_opr{ cntr->origin_opr };
+template <CntrTplParamList>
+void PushRefR_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, CircularArray* ca, size_t beg, size_t size) {
     Origin* origin{ cntr->origin };
 
     circular_array::ops::PushR(ca, size, [](void*, size_t, size_t) {}, nullptr);
 
-    void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin_opr, origin) };
+    void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin) };
 
-    origin_opr->Access(origin, beg, origin_cursor, nullptr);
+    Origin::Access(origin, beg, origin_cursor, nullptr);
 
     circular_array::ops::AssignFromSeqCntr(ca, ca->size - size, origin,
                                            origin_cursor, size);
 }
 
-template <CntrTplDefParamList, typename Writer>
-void RefShoveL_(Cntr<CntrTplArgList>* cntr, CircularArray* l_ca, Seg* r_seg,
-                size_t rl_size, size_t ins_cnt, size_t shove_cnt,
-                Writer&& writer) {
-    OriginOperator const* origin_opr{ cntr->origin_opr };
+template <CntrTplParamList, typename Writer>
+void RefShoveL_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, CircularArray* l_ca, Seg* r_seg,
+     size_t rl_size, size_t ins_cnt, size_t shove_cnt, Writer& writer) {
     Origin* origin{ cntr->origin };
 
     size_t stride{ l_ca->stride };
@@ -347,12 +402,12 @@ void RefShoveL_(Cntr<CntrTplArgList>* cntr, CircularArray* l_ca, Seg* r_seg,
 
     size_t l_i{ l_ca->size };
 
-    void* r_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin_opr, origin) };
+    void* r_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin) };
 
     circular_array::ops::PushR(
         l_ca, shove_cnt, [](void*, size_t, size_t) {}, nullptr);
 
-    origin_opr->Access(origin, r_seg->ref.beg, r_cursor, nullptr);
+    Origin::Access(origin, r_seg->ref.beg, r_cursor, nullptr);
 
     size_t l_ca_offset{ l_ca->offset };
     size_t l_ca_size{ l_ca->size };
@@ -364,7 +419,7 @@ void RefShoveL_(Cntr<CntrTplArgList>* cntr, CircularArray* l_ca, Seg* r_seg,
 
         i -= cur_i;
 
-        origin_opr->MemRead(
+        Origin::MemRead(
             origin, r_cursor, cur_i,
             circular_array::ops::Access(l_ca, l_i, nullptr, nullptr), stride,
             r_cursor);
@@ -382,7 +437,7 @@ void RefShoveL_(Cntr<CntrTplArgList>* cntr, CircularArray* l_ca, Seg* r_seg,
 
         i -= cur_i;
 
-        origin_opr->MemRead(
+        Origin::MemRead(
             origin, r_cursor, cur_i,
             circular_array::ops::Access(l_ca, l_i, nullptr, nullptr), stride,
             r_cursor);
@@ -399,11 +454,11 @@ void RefShoveL_(Cntr<CntrTplArgList>* cntr, CircularArray* l_ca, Seg* r_seg,
     }
 
     void* data{ AllocateData_(cntr, nullptr) };
-    auto data_i{ static_cast<char*>(data) };
+    auto* data_i{ static_cast<char*>(data) };
 
     if (cnt_a < rl_size) {
-        origin_opr->MemRead(origin, r_cursor, rl_size - cnt_a, data_i, stride,
-                            r_cursor);
+        Origin::MemRead(origin, r_cursor, rl_size - cnt_a, data_i, stride,
+                        r_cursor);
 
         data_i += stride * (rl_size - cnt_a);
     }
@@ -413,8 +468,8 @@ void RefShoveL_(Cntr<CntrTplArgList>* cntr, CircularArray* l_ca, Seg* r_seg,
     data_i += stride * (ins_cnt - cnt_b);
 
     if (rl_size < r_seg->ref.size) {
-        origin_opr->MemRead(origin, r_cursor, r_seg->ref.size - rl_size, data_i,
-                            stride, r_cursor);
+        Origin::MemRead(origin, r_cursor, r_seg->ref.size - rl_size, data_i,
+                        stride, r_cursor);
     }
 
     SetNColor_(&r_seg->n, dat_color);
@@ -424,11 +479,10 @@ void RefShoveL_(Cntr<CntrTplArgList>* cntr, CircularArray* l_ca, Seg* r_seg,
     r_seg->dat.size = static_cast<unsigned short>(new_r_size);
 }
 
-template <CntrTplDefParamList, typename Writer>
-void RefShoveR_(Cntr<CntrTplArgList>* cntr, Seg* l_seg, CircularArray* r_ca,
-                size_t lr_size, size_t ins_cnt, size_t shove_cnt,
-                Writer&& writer) {
-    OriginOperator const* origin_opr{ cntr->origin_opr };
+template <CntrTplParamList, typename Writer>
+void RefShoveR_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, Seg* l_seg, CircularArray* r_ca,
+     size_t lr_size, size_t ins_cnt, size_t shove_cnt, Writer& writer) {
     Origin* origin{ cntr->origin };
 
     size_t stride{ r_ca->stride };
@@ -439,13 +493,13 @@ void RefShoveR_(Cntr<CntrTplArgList>* cntr, Seg* l_seg, CircularArray* r_ca,
 
     size_t r_i{ 0 };
 
-    void* l_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin_opr, origin) };
+    void* l_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin) };
 
     circular_array::ops::PushL(
         r_ca, shove_cnt, [](void*, size_t, size_t) {}, nullptr);
 
-    origin_opr->Access(origin, l_seg->ref.beg + l_seg->ref.size - cnt_a - cnt_c,
-                       l_cursor, nullptr);
+    Origin::Access(origin, l_seg->ref.beg + l_seg->ref.size - cnt_a - cnt_c,
+                   l_cursor, nullptr);
 
     size_t r_ca_offset{ r_ca->offset };
     size_t r_ca_size{ r_ca->size };
@@ -457,7 +511,7 @@ void RefShoveR_(Cntr<CntrTplArgList>* cntr, Seg* l_seg, CircularArray* r_ca,
 
         i -= cur_i;
 
-        origin_opr->MemRead(
+        Origin::MemRead(
             origin, l_cursor, cur_i,
             circular_array::ops::Access(r_ca, r_i, nullptr, nullptr), stride,
             l_cursor);
@@ -475,7 +529,7 @@ void RefShoveR_(Cntr<CntrTplArgList>* cntr, Seg* l_seg, CircularArray* r_ca,
 
         i -= cur_i;
 
-        origin_opr->MemRead(
+        Origin::MemRead(
             origin, l_cursor, cur_i,
             circular_array::ops::Access(r_ca, r_i, nullptr, nullptr), stride,
             l_cursor);
@@ -491,13 +545,13 @@ void RefShoveR_(Cntr<CntrTplArgList>* cntr, Seg* l_seg, CircularArray* r_ca,
     }
 
     void* data{ AllocateData_(cntr, nullptr) };
-    auto data_i{ static_cast<char*>(data) };
+    auto* data_i{ static_cast<char*>(data) };
 
-    origin_opr->Access(origin, l_seg->ref.beg, l_cursor, nullptr);
+    Origin::Access(origin, l_seg->ref.beg, l_cursor, nullptr);
 
     if (lr_size < l_seg->ref.size) {
-        origin_opr->MemRead(origin, l_cursor, l_seg->ref.size - lr_size, data_i,
-                            stride, l_cursor);
+        Origin::MemRead(origin, l_cursor, l_seg->ref.size - lr_size, data_i,
+                        stride, l_cursor);
 
         data_i += stride * (l_seg->ref.size - lr_size);
     }
@@ -507,8 +561,8 @@ void RefShoveR_(Cntr<CntrTplArgList>* cntr, Seg* l_seg, CircularArray* r_ca,
     data_i += stride * (ins_cnt - cnt_b);
 
     if (cnt_a < lr_size) {
-        origin_opr->MemRead(origin, l_cursor, lr_size - cnt_a, data_i, stride,
-                            l_cursor);
+        Origin::MemRead(origin, l_cursor, lr_size - cnt_a, data_i, stride,
+                        l_cursor);
     }
 
     SetNColor_(&l_seg->n, dat_color);
@@ -520,20 +574,15 @@ void RefShoveR_(Cntr<CntrTplArgList>* cntr, Seg* l_seg, CircularArray* r_ca,
 
 #endif
 
-template <CntrTplDefParamList>
-int Merge2_(Cntr<CntrTplArgList>* cntr, Seg* a_seg, Seg* b_seg,
-            bool a_read_data, bool b_read_data) {
+template <CntrTplParamList>
+int Merge2_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, Seg* a_seg, Seg* b_seg, bool a_read_data,
+     bool b_read_data) {
 #if EnStaging
-    OriginOperator const* origin_opr{ cntr->origin_opr };
     Origin* origin{ cntr->origin };
 #endif
 
-#if EnStaging
-    size_t width{ origin->width };
-#else
     size_t width{ cntr->width };
-#endif
-
     size_t stride{ cntr->stride };
     size_t seg_capacity{ cntr->seg_capacity };
 
@@ -553,21 +602,20 @@ int Merge2_(Cntr<CntrTplArgList>* cntr, Seg* a_seg, Seg* b_seg,
     if (a_color == ref_color && b_color == ref_color) {
         size_t total_size{ a_size + b_size };
 
-        void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin_opr,
-                                                            origin) };
+        void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin) };
 
         char* data{ static_cast<char*>(AllocateData_(cntr, nullptr)) };
 
         if (a_read_data) {
-            origin_opr->Access(origin, a_seg->ref.beg, origin_cursor, nullptr);
-            origin_opr->MemRead(origin, origin_cursor, a_size, data, stride,
-                                nullptr);
+            Origin::Access(origin, a_seg->ref.beg, origin_cursor, nullptr);
+            Origin::MemRead(origin, origin_cursor, a_size, data, stride,
+                            nullptr);
         }
 
         if (b_read_data) {
-            origin_opr->Access(origin, b_seg->ref.beg, origin_cursor, nullptr);
-            origin_opr->MemRead(origin, origin_cursor, b_seg->ref.size,
-                                data + stride * a_size, stride, nullptr);
+            Origin::Access(origin, b_seg->ref.beg, origin_cursor, nullptr);
+            Origin::MemRead(origin, origin_cursor, b_seg->ref.size,
+                            data + stride * a_size, stride, nullptr);
         }
 
         a_seg->ref.size = 0;
@@ -677,13 +725,11 @@ int Merge2_(Cntr<CntrTplArgList>* cntr, Seg* a_seg, Seg* b_seg,
 
 // -----------------------------------------------------------------------------
 
-template <CntrTplDefParamList, bool EnRead, typename CoreReaderWriter>
-void CoreReadWrite_(Cntr<CntrTplArgList>* cntr, void* pos_cursor_, size_t cnt,
-                    CoreReaderWriter& core_reader_writer, void* dst_cursor_) {
-    auto pos_cursor{ static_cast<Cursor*>(pos_cursor_) };
+template <CntrTplParamList, bool EnRead, typename ReaderWriterCore>
+void ReadWrite_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, Cursor* pos_cursor, size_t cnt,
+     ReaderWriterCore& reader_writer_core, Cursor* dst_cursor) {
     ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor));
-
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
 
     if (cnt == 0) {
         if (dst_cursor != nullptr) {
@@ -701,13 +747,10 @@ void CoreReadWrite_(Cntr<CntrTplArgList>* cntr, void* pos_cursor_, size_t cnt,
         seq_cntr::IsDereferable(pos_cursor->idx, cnt, GetSize(cntr)));
 
 #if EnStaging
-    OriginOperator const* origin_opr{ cntr->origin_opr };
     Origin* origin{ cntr->origin };
-    size_t width{ origin->width };
-#else
-    size_t width{ cntr->width };
 #endif
 
+    size_t width{ cntr->width };
     size_t stride{ cntr->stride };
     size_t seg_capacity{ cntr->seg_capacity };
     size_t size{ GetSize(cntr) };
@@ -725,9 +768,9 @@ void CoreReadWrite_(Cntr<CntrTplArgList>* cntr, void* pos_cursor_, size_t cnt,
     Seg* seg;
 
 #if EnStaging
-    TreeNode* l_n{ bin_tree::StepL(tn_opr, n) };
+    TreeNode* l_n{ bin_tree::StepL(n) };
 
-    void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin_opr, origin) };
+    void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin) };
 
     unsigned long long random_seed{ GetRandom() };
 
@@ -749,7 +792,7 @@ void CoreReadWrite_(Cntr<CntrTplArgList>* cntr, void* pos_cursor_, size_t cnt,
         if (0 < l_seg_size) {
             Seg* new_seg{ AllocateRefSeg_(cntr) };
 
-            cntr->root = rbtree::Insert(tn_opr, l_n, n, &new_seg->n);
+            cntr->root = rbtree::Insert(l_n, n, &new_seg->n);
 
             new_seg->ref.beg = seg->ref.beg;
             new_seg->ref.size = l_seg_size;
@@ -757,7 +800,7 @@ void CoreReadWrite_(Cntr<CntrTplArgList>* cntr, void* pos_cursor_, size_t cnt,
             seg->ref.beg += l_seg_size;
             seg->ref.size -= l_seg_size;
 
-            bin_tree::SetSize(tn_opr, &new_seg->n, new_seg->ref.size);
+            bin_tree::SetSize(&new_seg->n, new_seg->ref.size);
 
             l_n = &new_seg->n;
         }
@@ -773,27 +816,26 @@ void CoreReadWrite_(Cntr<CntrTplArgList>* cntr, void* pos_cursor_, size_t cnt,
         if (avg_seg_size == seg->ref.size) {
             char* data{ static_cast<char*>(AllocateData_(cntr, nullptr)) };
 
-            origin_opr->Access(origin, seg->ref.beg, origin_cursor, nullptr);
+            Origin::Access(origin, seg->ref.beg, origin_cursor, nullptr);
 
             if constexpr (EnRead) {
-                origin_opr->MemRead(origin, origin_cursor,
-                                    cnt_a + cnt_b + cnt_c, data, stride,
-                                    nullptr);
+                Origin::MemRead(origin, origin_cursor, cnt_a + cnt_b + cnt_c,
+                                data, stride, nullptr);
             } else {
-                origin_opr->MemRead(origin, origin_cursor, cnt_a, data, stride,
-                                    nullptr);
+                Origin::MemRead(origin, origin_cursor, cnt_a, data, stride,
+                                nullptr);
 
                 if (0 < cnt_c) {
-                    origin_opr->Access(origin, seg->ref.beg + cnt_a + cnt_b,
-                                       origin_cursor, nullptr);
+                    Origin::Access(origin, seg->ref.beg + cnt_a + cnt_b,
+                                   origin_cursor, nullptr);
 
-                    origin_opr->MemRead(origin, origin_cursor, cnt_c,
-                                        data + stride * (cnt_a + cnt_b), stride,
-                                        nullptr);
+                    Origin::MemRead(origin, origin_cursor, cnt_c,
+                                    data + stride * (cnt_a + cnt_b), stride,
+                                    nullptr);
                 }
             }
 
-            core_reader_writer.ReadWriteDat(data + stride * cnt_a, width,
+            reader_writer_core.ReadWriteDat(data + stride * cnt_a, width,
                                             stride, cnt_b);
 
             SetNColor_(n, dat_color);
@@ -805,39 +847,38 @@ void CoreReadWrite_(Cntr<CntrTplArgList>* cntr, void* pos_cursor_, size_t cnt,
             pos_cursor->ref = data + stride * seg_idx;
 
             l_n = n;
-            n = bin_tree::StepR(tn_opr, n);
+            n = bin_tree::StepR(n);
 
             seg_idx = 0;
         } else {
             Seg* new_seg{ AllocateDatSeg_(cntr) };
 
-            cntr->root = rbtree::Insert(tn_opr, l_n, n, &new_seg->n);
+            cntr->root = rbtree::Insert(l_n, n, &new_seg->n);
 
             new_seg->dat.size = static_cast<unsigned short>(avg_seg_size);
 
             char* data{ static_cast<char*>(new_seg->dat.data) };
 
-            origin_opr->Access(origin, seg->ref.beg, origin_cursor, nullptr);
+            Origin::Access(origin, seg->ref.beg, origin_cursor, nullptr);
 
             if constexpr (EnRead) {
-                origin_opr->MemRead(origin, origin_cursor,
-                                    cnt_a + cnt_b + cnt_c, data, stride,
-                                    nullptr);
+                Origin::MemRead(origin, origin_cursor, cnt_a + cnt_b + cnt_c,
+                                data, stride, nullptr);
             } else {
-                origin_opr->MemRead(origin, origin_cursor, cnt_a, data, stride,
-                                    nullptr);
+                Origin::MemRead(origin, origin_cursor, cnt_a, data, stride,
+                                nullptr);
 
                 if (0 < cnt_c) {
-                    origin_opr->Access(origin, seg->ref.beg + cnt_a + cnt_b,
-                                       origin_cursor, nullptr);
+                    Origin::Access(origin, seg->ref.beg + cnt_a + cnt_b,
+                                   origin_cursor, nullptr);
 
-                    origin_opr->MemRead(origin, origin_cursor, cnt_c,
-                                        data + stride * (cnt_a + cnt_b), stride,
-                                        nullptr);
+                    Origin::MemRead(origin, origin_cursor, cnt_c,
+                                    data + stride * (cnt_a + cnt_b), stride,
+                                    nullptr);
                 }
             }
 
-            core_reader_writer.ReadWriteDat(data, 0, cnt_a, cnt_b);
+            reader_writer_core.ReadWriteDat(data, 0, cnt_a, cnt_b);
 
             seg->ref.beg += avg_seg_size;
             seg->ref.size -= avg_seg_size;
@@ -848,11 +889,11 @@ void CoreReadWrite_(Cntr<CntrTplArgList>* cntr, void* pos_cursor_, size_t cnt,
             seg_idx += cnt_b;
 
             if (seg_idx < new_seg->dat.size) {
-                bin_tree::SetSize(tn_opr, n, seg->ref.size);
+                bin_tree::SetSize(n, seg->ref.size);
 
                 n = &new_seg->n;
             } else {
-                bin_tree::SetSize(tn_opr, &new_seg->n, new_seg->dat.size);
+                bin_tree::SetSize(&new_seg->n, new_seg->dat.size);
 
                 l_n = &new_seg->n;
                 seg_idx = 0;
@@ -878,7 +919,7 @@ WRITE_INTO_REF_SEG_END:;
 
                 Seg* new_seg{ AllocateRefSeg_(cntr) };
 
-                cntr->root = rbtree::Insert(tn_opr, l_n, n, &new_seg->n);
+                cntr->root = rbtree::Insert(l_n, n, &new_seg->n);
 
                 new_seg->ref.beg = seg->ref.beg;
                 new_seg->ref.size = split_cnt;
@@ -894,27 +935,26 @@ WRITE_INTO_REF_SEG_END:;
                 seg_size = seg->ref.size;
             }
 
-            bin_tree::SetSize(tn_opr, &seg->n, seg_size);
+            bin_tree::SetSize(&seg->n, seg_size);
 
             size_t cur_cnt{ Min(cnt, seg_size) };
 
             char* data{ static_cast<char*>(AllocateData_(cntr, nullptr)) };
 
             if constexpr (EnRead) {
-                origin_opr->Access(origin, seg->ref.beg, origin_cursor,
-                                   nullptr);
+                Origin::Access(origin, seg->ref.beg, origin_cursor, nullptr);
 
-                origin_opr->MemRead(origin, origin_cursor, seg_size, data,
-                                    stride, nullptr);
+                Origin::MemRead(origin, origin_cursor, seg_size, data, stride,
+                                nullptr);
             } else if (cur_cnt < seg_size) {
-                origin_opr->Access(origin, seg->ref.beg + cur_cnt,
-                                   origin_cursor, nullptr);
+                Origin::Access(origin, seg->ref.beg + cur_cnt, origin_cursor,
+                               nullptr);
 
-                origin_opr->MemRead(origin, origin_cursor, seg_size - cur_cnt,
-                                    data + stride * cur_cnt, stride, nullptr);
+                Origin::MemRead(origin, origin_cursor, seg_size - cur_cnt,
+                                data + stride * cur_cnt, stride, nullptr);
             }
 
-            core_reader_writer.ReadWriteDat(data, 0, 0, cur_cnt);
+            reader_writer_core.ReadWriteDat(data, 0, 0, cur_cnt);
 
             SetNColor_(n, dat_color);
 
@@ -926,10 +966,9 @@ WRITE_INTO_REF_SEG_END:;
                 if (r_n != nullptr) {
                     Seg* r_seg{ NToSeg_(r_n) };
 
-                    bin_tree::SetSize(tn_opr, r_n,
-                                      GetNColor_(r_n) == ref_color
-                                          ? r_seg->ref.size
-                                          : r_seg->dat.size);
+                    bin_tree::SetSize(r_n, GetNColor_(r_n) == ref_color
+                                               ? r_seg->ref.size
+                                               : r_seg->dat.size);
                 }
 
                 seg_idx = cur_cnt;
@@ -938,7 +977,7 @@ WRITE_INTO_REF_SEG_END:;
             }
 
             l_n = n;
-            n = r_n == nullptr ? bin_tree::StepR(tn_opr, n) : r_n;
+            n = r_n == nullptr ? bin_tree::StepR(n) : r_n;
 
             cnt -= cur_cnt;
         } else
@@ -946,7 +985,7 @@ WRITE_INTO_REF_SEG_END:;
         {
             size_t cur_cnt{ Min(cnt, seg->dat.size - seg_idx) };
 
-            core_reader_writer.ReadWriteDat(seg->dat.data, seg->dat.offset,
+            reader_writer_core.ReadWriteDat(seg->dat.data, seg->dat.offset,
                                             seg_idx, cur_cnt);
 
             seg_idx += cur_cnt;
@@ -955,7 +994,7 @@ WRITE_INTO_REF_SEG_END:;
 #if EnStaging
                 l_n = n;
 #endif
-                n = bin_tree::StepR(tn_opr, n);
+                n = bin_tree::StepR(n);
                 seg_idx = 0;
             }
 
@@ -966,9 +1005,8 @@ WRITE_INTO_REF_SEG_END:;
     if (cntr->rb != n) {
         seg = NToSeg_(n);
 
-        bin_tree::SetSize(tn_opr, n,
-                          EnStagingTernary(GetNColor_(n) == ref_color,
-                                           seg->ref.size, seg->dat.size));
+        bin_tree::SetSize(n, EnStagingTernary(GetNColor_(n) == ref_color,
+                                              seg->ref.size, seg->dat.size));
     }
 
     if (dst_cursor == nullptr) { return; }
@@ -1002,36 +1040,37 @@ WRITE_INTO_REF_SEG_END:;
         circular_array::ops::Access(&ca, seg_idx, nullptr, nullptr);
 }
 
-// -----------------------------------------------------------------------------
-
 #if EnStaging
 
-template <CntrTplDefParamList>
-void EraseRefSeg_(Cntr<CntrTplArgList>* cntr, Seg* seg) {
+template <CntrTplParamList>
+void EraseRefSeg_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, Seg* seg) {
     ZETA_Core_DebugAssert(GetNColor_(&seg->n) == ref_color);
 
-    cntr->root = rbtree::Extract(tn_opr, &seg->n);
+    cntr->root = rbtree::Extract(&seg->n);
 
-    SegAllocator::Deallocate(&cntr->seg_allocator, seg);
+    SegAllocatorLike::Deallocate(&cntr->seg_allocator, seg);
 }
 
 #endif
 
-template <CntrTplDefParamList>
-void EraseDatSeg_(Cntr<CntrTplArgList>* cntr, Seg* seg) {
+template <CntrTplParamList>
+void EraseDatSeg_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, Seg* seg) {
 #if EnStaging
     ZETA_Core_DebugAssert(GetNColor_(&seg->n) == dat_color);
 #endif
 
-    cntr->root = rbtree::Extract(tn_opr, &seg->n);
+    cntr->root = rbtree::Extract(&seg->n);
 
-    DataAllocator::Deallocate(&cntr->data_allocator, seg->dat.data);
+    DataAllocatorLike::Deallocate(&cntr->data_allocator, seg->dat.data);
 
-    SegAllocator::Deallocate(&cntr->seg_allocator, seg);
+    SegAllocatorLike::Deallocate(&cntr->seg_allocator, seg);
 }
 
-template <CntrTplDefParamList>
-void EraseSeg_(Cntr<CntrTplArgList>* cntr, Seg* seg) {
+template <CntrTplParamList>
+void EraseSeg_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, Seg* seg) {
 #if EnStaging
     if (GetNColor_(&seg->n) == ref_color) {
         EraseRefSeg_(cntr, seg);
@@ -1042,13 +1081,10 @@ void EraseSeg_(Cntr<CntrTplArgList>* cntr, Seg* seg) {
     }
 }
 
-template <typename SegAllocatorOperator, typename SegAllocator,
-          typename DataAllocatorOperator, typename DataAllocator>
-void EraseAllSegsCore_(TreeNode* lb, TreeNode* rb, TreeNode* n,
-                       SegAllocatorOperator const& seg_alctr_opr,
-                       SegAllocator* seg_alctr,
-                       DataAllocatorOperator const& data_alctr_opr,
-                       DataAllocator* data_alctr) {
+template <typename SegAllocatorLike, typename DataAllocatorLike>
+void EraseAllSegsRecursive_  // NOLINT(misc-use-internal-linkage)
+    (TreeNode* lb, TreeNode* rb, TreeNode* n, SegAllocatorLike* seg_alctr,
+     DataAllocatorLike* data_alctr) {
     do {
         TreeNode* nl{ n->GetLPtr() };
         TreeNode* nr{ n->GetRPtr() };
@@ -1060,10 +1096,10 @@ void EraseAllSegsCore_(TreeNode* lb, TreeNode* rb, TreeNode* n,
             if (GetNColor_(n) == dat_color)
 #endif
             {
-                data_alctr_opr.Deallocate(data_alctr, seg->dat.data);
+                DataAllocatorLike::Deallocate(data_alctr, seg->dat.data);
             }
 
-            seg_alctr_opr->Deallocate(seg_alctr, seg);
+            SegAllocatorLike::Deallocate(seg_alctr, seg);
         }
 
         if (nr == nullptr) {
@@ -1074,28 +1110,24 @@ void EraseAllSegsCore_(TreeNode* lb, TreeNode* rb, TreeNode* n,
         }
 
         if (nl != nullptr) {
-            EraseAllSegsCore_(lb, rb, nl, seg_alctr_opr, seg_alctr,
-                              data_alctr_opr, data_alctr);
+            EraseAllSegsRecursive_(lb, rb, nl, seg_alctr, data_alctr);
         }
 
         n = nr;
     } while (n != nullptr);
 }
 
-template <CntrTplDeclParamList>
-void EraseAllSegs_(Cntr<CntrTplArgList>* cntr,
-                   SegAllocatorOperator const& seg_alctr_opr,
-                   SegAllocator* seg_alctr,
-                   DataAllocatorOperator const& data_alctr_opr,
-                   DataAllocator* data_alctr) {
-    EraseAllSegsCore_(cntr->lb, cntr->rb, cntr->root, seg_alctr_opr, seg_alctr,
-                      data_alctr_opr, data_alctr);
+template <CntrTplParamList>
+void EraseAllSegs_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, SegAllocatorLike* seg_alctr,
+     DataAllocatorLike* data_alctr) {
+    EraseAllSegsRecursive_(cntr->lb, cntr->rb, cntr->root, seg_alctr,
+                           data_alctr);
 }
 
-// -----------------------------------------------------------------------------
-
-template <CntrTplDefParamList>
-void InitTree_(Cntr<CntrTplArgList>* cntr) {
+template <CntrTplParamList>
+void InitTree_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr) {
     cntr->lb->Init();
     cntr->rb->Init();
 
@@ -1104,692 +1136,40 @@ void InitTree_(Cntr<CntrTplArgList>* cntr) {
 
     TreeNode* root{ nullptr };
 
-    root = rbtree::InsertR(tn_opr, root, cntr->lb);
-    root = rbtree::InsertR(tn_opr, root, cntr->rb);
+    root = rbtree::InsertR(root, cntr->lb);
+    root = rbtree::InsertR(root, cntr->rb);
 
     cntr->root = root;
 }
 
 #if EnStaging
 
-template <CntrTplDefParamList>
-void RefOrigin_(Cntr<CntrTplArgList>* cntr) {
-    OriginOperator const* origin_opr{ cntr->origin_opr };
+template <CntrTplParamList>
+void RefOrigin_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr) {
     Origin* origin{ cntr->origin };
 
-    size_t origin_size{ origin_opr->GetSize(origin) };
+    size_t origin_size{ Origin::GetSize(origin) };
 
     if (origin_size == 0) { return; }
 
     Seg* seg{ AllocateRefSeg_(cntr) };
 
-    cntr->root = rbtree::Insert(tn_opr, cntr->lb, cntr->rb, &seg->n);
+    cntr->root = rbtree::Insert(cntr->lb, cntr->rb, &seg->n);
 
     seg->ref.beg = 0;
     seg->ref.size = origin_size;
 
-    bin_tree::SetSize(tn_opr, &seg->n, origin_size);
+    bin_tree::SetSize(&seg->n, origin_size);
 }
 
 #endif
+
+}  // namespace detail
 
 // -----------------------------------------------------------------------------
 
-#if EnStaging
-
-template <CntrTplDefParamList>
-unsigned long long OffsetHash_(size_t offset, unsigned long long salt) {
-    return ULLHash(offset, salt);
-}
-
-template <CntrTplDefParamList>
-int OffsetOffsetCntNodeCompare_(size_t offset,
-                                GenericHashTableNode const* ghtn) {
-    OffsetCntNode* node{ ZETA_Core_MemberToStruct(OffsetCntNode, ghtn, ghtn) };
-
-    return compare::Compare(offset, node->offset);
-}
-
-template <CntrTplDefParamList>
-size_t RecordOffset_(Cntr<CntrTplArgList>* cntr, TreeNode* n, size_t dst_idx,
-                     OffsetCntGenericHashTable* ght) {
-    while (n != nullptr) {
-        TreeNode* nl{ n->GetLPtr() };
-        TreeNode* nr{ n->GetRPtr() };
-
-        if (nl != nullptr) { dst_idx = RecordOffset_(cntr, nl, dst_idx, ght); }
-
-        if (cntr->lb == n || cntr->rb == n) {
-            n = nr;
-            continue;
-        }
-
-        Seg* seg{ NToSeg_(n) };
-
-        if (GetNColor_(n) == dat_color) {
-            dst_idx += seg->dat.size;
-            n = nr;
-            continue;
-        }
-
-        size_t offset{ seg->ref.beg - dst_idx };
-
-        GenericHashTableNode* ghtn{ OffsetCntGenericHashTable::Find(
-            ght, &offset, OffsetHash_, OffsetOffsetCntNodeCompare_) };
-
-        OffsetCntNode* offset_cnt_node;
-
-        if (ghtn == nullptr) {
-            offset_cnt_node = allocator::SafeAllocate(
-                &allocator::weak_lifo_allocator, alignof(OffsetCntNode),
-                sizeof(OffsetCntNode));
-
-            ghtn = &offset_cnt_node->ghtn;
-
-            offset_cnt_node->offset = offset;
-            offset_cnt_node->cnt = 0;
-
-            ghtn->Init();
-
-            OffsetCntGenericHashTable::Insert(ght, ghtn);
-        } else {
-            offset_cnt_node =
-                ZETA_Core_MemberToStruct(OffsetCntNode, ghtn, ghtn);
-        }
-
-        offset_cnt_node->cnt += seg->ref.size;
-
-        dst_idx += seg->ref.size;
-
-        n = nr;
-    }
-
-    return dst_idx;
-}
-
-template <CntrTplDefParamList>
-Pair<size_t, size_t> ToWBSeg_(Cntr<CntrTplArgList>* cntr, TreeNode* n,
-                              WBSeg* dst) {
-    Pair<size_t, size_t> ret{ 0, 0 };
-
-    while (n != nullptr) {
-        TreeNode* nl{ n->GetLPtr() };
-        TreeNode* nr{ n->GetRPtr() };
-
-        auto l_ret{ ToWBSeg_(cntr, nl, dst) };
-
-        dst += l_ret.first + l_ret.second;
-
-        ret.first += l_ret.first;
-        ret.second += l_ret.second;
-
-        if (cntr->lb == n || cntr->rb == n) {
-            n = nr;
-            continue;
-        }
-
-        Seg* seg{ NToSeg_(n) };
-
-        if (GetNColor_(n) == ref_color) {
-            ++ret.first;
-
-            dst->beg = seg->ref.beg;
-            dst->size = seg->ref.size;
-        } else {
-            ++ret.second;
-
-            dst->beg = ZETA_Core_size_max;
-            dst->size = seg->dat.size;
-            dst->data = seg->dat.data;
-            dst->offset = seg->dat.offset;
-        }
-
-        SegAllocator::Deallocate(&cntr->seg_allocator, seg);
-
-        WBSeg* prv{ dst - 1 };
-
-        dst->dst_idx = prv->dst_idx + prv->size;
-
-        dst->acc_ref = prv->beg == ZETA_Core_size_max ? prv->acc_ref
-                                                      : prv->beg + prv->size;
-
-        ++dst;
-
-        n = nr;
-    }
-
-    return ret;
-}
-
-template <CntrTplDefParamList>
-void WriteWBSeg_(Cntr<CntrTplArgList>* cntr, CircularArray* ca, WBSeg* wb_segs,
-                 size_t wb_segs_cnt, size_t dst_offset, size_t ref_offset) {
-    seq_cntr::SeqCntrRef* origin{ &cntr->origin };
-    DataAllocator* data_allocator{ &cntr->data_allocator };
-
-    if (wb_segs_cnt == 0) { return; }
-
-    struct {
-        size_t wb_seg_lb;
-        size_t wb_seg_rb;
-    } buffer[ZETA_Core_ullong_width * 2];
-
-    size_t buffer_i{ 0 };
-
-    buffer[buffer_i++] = { 0, wb_segs_cnt };
-
-    while (0 < buffer_i) {
-        auto [wb_seg_lb, wb_seg_rb]{ buffer[--buffer_i] };
-
-        if (wb_seg_lb + 1 < wb_seg_rb) {
-            size_t wb_seg_mb{ (wb_seg_lb + wb_seg_rb) / 2 };
-
-            WBSeg* mid_wb_seg{ wb_segs + wb_seg_mb };
-
-            size_t dst_pivot{ dst_offset + mid_wb_seg->dst_idx };
-            size_t src_pivot{ ref_offset + mid_wb_seg->acc_ref };
-
-            if (dst_pivot <= src_pivot) {
-                buffer[buffer_i++] = { wb_seg_mb, wb_seg_rb };
-                buffer[buffer_i++] = { wb_seg_lb, wb_seg_mb };
-            } else {
-                buffer[buffer_i++] = { wb_seg_lb, wb_seg_mb };
-                buffer[buffer_i++] = { wb_seg_mb, wb_seg_rb };
-            }
-
-            continue;
-        }
-
-        WBSeg* wb_seg{ wb_segs + wb_seg_lb };
-
-        if (wb_segs->beg == ZETA_Core_size_max) {
-            ca->data = wb_segs->data;
-            ca->offset = wb_segs->offset;
-            ca->size = wb_segs->size;
-
-            seq_cntr::RangeAssign(origin, &ca, dst_offset + wb_segs->dst_idx, 0,
-                                  wb_segs->size);
-
-            DataAllocator::Deallocate(data_allocator, ca->data);
-        } else {
-            size_t cur_dst_idx{ dst_offset + wb_segs->dst_idx };
-            size_t cur_ref_beg{ ref_offset + wb_segs->beg };
-
-            if (cur_dst_idx != cur_ref_beg) {
-                seq_cntr::RangeAssign(origin, origin, cur_dst_idx, cur_ref_beg,
-                                      wb_segs->size);
-            }
-        }
-    }
-}
-
-template <CntrTplDefParamList>
-void WriteBack_LR_(Cntr<CntrTplArgList>* cntr, int write_back_strategy,
-                   unsigned long long cost_coeff_read,
-                   unsigned long long cost_coeff_write,
-                   unsigned long long cost_coeff_insert,
-                   unsigned long long cost_coeff_erase) {
-    size_t stride{ cntr->stride };
-
-    size_t size{ GetSize(cntr) };
-
-    seq_cntr::SeqCntrRef* origin{ &cntr->origin };
-
-    size_t origin_size{ origin_opr->GetSize(origin) };
-
-    size_t del_l_cnt;
-    size_t del_r_cnt;
-
-    switch (write_back_strategy) {
-    case WriteBackStrategy::L:
-        del_l_cnt = size - origin_size;
-        del_r_cnt = 0;
-        break;
-
-    case WriteBackStrategy::R:
-        del_l_cnt = 0;
-        del_r_cnt = size - origin_size;
-        break;
-
-    case WriteBackStrategy::LR: {
-        OffsetCntGenericHashTable ght{
-            .table_node_allocator = allocator::weak_lifo_allocator,
-        };
-
-        OffsetCntGenericHashTable::Init(&ght);
-
-        RecordOffset_(cntr, cntr->root, 0, &ght);
-
-        unsigned long long best_cost{ ZETA_Core_ullong_max };
-
-        del_l_cnt = 0;
-        del_r_cnt = size - origin_size;
-
-        for (;;) {
-            GenericHashTableNode* ghtn{ OffsetCntGenericHashTable::ExtractAny(
-                &ght) };
-
-            if (ghtn == nullptr) { break; }
-
-            OffsetCntNode* offset_cnt_node{ ZETA_Core_MemberToStruct(
-                OffsetCntNode, ghtn, ghtn) };
-
-            size_t cur_offset{ offset_cnt_node->offset };
-
-            size_t cur_del_l_cnt{ 0 };
-            size_t cur_del_r_cnt{ size - origin_size };
-
-            if (cur_offset <= ZETA_Core_size_max / 2) {
-                cur_del_l_cnt -= cur_offset;
-                cur_del_r_cnt += cur_offset;
-            } else {
-                cur_del_l_cnt += cur_offset;
-                cur_del_r_cnt -= cur_offset;
-            }
-
-            unsigned long long cur_cost{ -(
-                (cost_coeff_read + cost_coeff_write) * offset_cnt_node->cnt) };
-
-            if (cur_del_l_cnt <= ZETA_Core_size_max / 2) {
-                cur_cost += cost_coeff_insert * cur_del_l_cnt;
-            } else {
-                cur_cost += cost_coeff_erase * -cur_del_l_cnt;
-            }
-
-            if (cur_del_r_cnt <= ZETA_Core_size_max / 2) {
-                cur_cost += cost_coeff_insert * cur_del_r_cnt;
-            } else {
-                cur_cost += cost_coeff_erase * -cur_del_r_cnt;
-            }
-
-            if (cur_cost - best_cost < ZETA_Core_ullong_max / 2) {}
-
-            if (cur_cost < best_cost ||
-                (cur_cost == best_cost && cur_del_l_cnt < del_l_cnt)) {
-                best_cost = cur_cost;
-                del_l_cnt = cur_del_l_cnt;
-                del_r_cnt = cur_del_r_cnt;
-            }
-
-            allocator::AllocatorRef::Deallocate(&allocator::weak_lifo_allocator,
-                                                offset_cnt_node);
-        }
-
-        break;
-    }
-    }
-
-    ZETA_Core_SanitizeAssert(origin_size + del_l_cnt + del_r_cnt == size);
-
-    size_t push_l_cnt;
-    size_t pop_l_cnt;
-
-    size_t push_r_cnt;
-    size_t pop_r_cnt;
-
-    if (del_l_cnt <= ZETA_Core_size_max / 2) {
-        push_l_cnt = del_l_cnt;
-        pop_l_cnt = 0;
-    } else {
-        push_l_cnt = 0;
-        pop_l_cnt = -del_l_cnt;
-    }
-
-    if (del_r_cnt <= ZETA_Core_size_max / 2) {
-        push_r_cnt = del_r_cnt;
-        pop_r_cnt = 0;
-    } else {
-        push_r_cnt = 0;
-        pop_r_cnt = -del_r_cnt;
-    }
-
-    if (0 < push_l_cnt) { SeqCntrPushL(origin, push_l_cnt, nullptr); }
-
-    if (0 < push_r_cnt) { SeqCntrPushR(origin, push_r_cnt, nullptr); }
-
-    size_t segs_cnt{ bin_tree::Count(cntr->root) - 2 };
-
-    auto wb_segs{ static_cast<WBSeg*>(allocator::SafeAllocate(
-                      &allocator::weak_lifo_allocator, alignof(WBSeg),
-                      sizeof(WBSeg) * (segs_cnt + 1))) +
-                  1 };
-
-    WBSeg* lb_wb_seg{ wb_segs - 1 };
-
-    lb_wb_seg->beg = 0;
-    lb_wb_seg->size = 0;
-
-    lb_wb_seg->dst_idx = pop_l_cnt;
-    lb_wb_seg->acc_ref = pop_l_cnt;
-
-    ToWBSeg_(cntr, cntr->root, wb_segs);
-
-    CircularArray ca{
-        .data = {},
-        .width = origin->width,
-        .stride = stride,
-        .offset = 0,
-        .size = 0,
-        .capacity = cntr->seg_capacity,
-    };
-
-    WriteWBSeg_(cntr, &ca, wb_segs, segs_cnt, 0, push_l_cnt);
-
-    allocator::AllocatorRef::Deallocate(&allocator::weak_lifo_allocator,
-                                        lb_wb_seg);
-
-    if (0 < pop_l_cnt) { SeqCntrPopL(origin, pop_l_cnt); }
-
-    if (0 < pop_r_cnt) { SeqCntrPopR(origin, pop_r_cnt); }
-
-    InitTree_(cntr);
-    RefOrigin_(cntr);
-}
-
-template <CntrTplDefParamList>
-void WriteBack_Random_(Cntr<CntrTplArgList>* cntr,
-                       unsigned long long cost_coeff_read,
-                       unsigned long long cost_coeff_write,
-                       unsigned long long cost_coeff_insert,
-                       unsigned long long cost_coeff_erase) {
-    size_t stride{ cntr->stride };
-    size_t size{ GetSize(cntr) };
-
-    seq_cntr::SeqCntrRef* origin{ &cntr->origin };
-
-    size_t origin_size = SeqCntrGetSize(origin);
-
-    size_t segs_cnt{ bin_tree::Count(cntr->root) - 2 };
-
-    auto wb_segs{ static_cast<WBSeg*>(allocator::SafeAllocate(
-                      &allocator::weak_lifo_allocator, alignof(WBSeg),
-                      sizeof(WBSeg) * (segs_cnt + 2))) +
-                  1 };
-
-    WBSeg* lb_wb_seg{ wb_segs - 1 };
-
-    lb_wb_seg->beg = 0;
-    lb_wb_seg->size = 0;
-
-    lb_wb_seg->dst_idx = 0;
-    lb_wb_seg->acc_ref = 0;
-
-    auto to_wb_seg_ret{ ToWBSeg_(cntr, cntr->root, wb_segs) };
-
-    {
-        size_t check_ref_segs_cnt{ 0 };
-        size_t check_dat_segs_cnt{ 0 };
-
-        for (size_t i{ 0 }; i < segs_cnt; ++i) {
-            if (wb_segs[i].beg == ZETA_Core_size_max) {
-                ++check_dat_segs_cnt;
-            } else {
-                ++check_ref_segs_cnt;
-            }
-        }
-
-        ZETA_Core_SanitizeAssert(to_wb_seg_ret.first == check_ref_segs_cnt);
-        ZETA_Core_SanitizeAssert(to_wb_seg_ret.second == check_dat_segs_cnt);
-    }
-
-    WBSeg* rb_wb_seg{ wb_segs + segs_cnt };
-
-    rb_wb_seg->beg = origin_size;
-    rb_wb_seg->size = 0;
-
-    rb_wb_seg->dst_idx = size;
-    rb_wb_seg->acc_ref = (rb_wb_seg - 1)->acc_ref;
-
-    size_t ref_segs_cnt = to_wb_seg_ret.ref_segs_cnt;
-
-    CircularArray ca{
-        .data = {},
-        .width = origin->width,
-        .stride = stride,
-        .offset = 0,
-        .size = 0,
-        .capacity = cntr->seg_capacity,
-    };
-
-    if (ref_segs_cnt == 0) {
-        if (origin_size < size) {
-            SeqCntrPopR(origin, size - origin_size);
-        } else if (size < origin_size) {
-            SeqCntrPushR(origin, origin_size - size, nullptr);
-        }
-
-        WriteWBSeg_(cntr, &ca, wb_segs, segs_cnt, 0, 0);
-
-        allocator::AllocatorRef::Deallocate(&allocator::weak_lifo_allocator,
-                                            wb_segs - 1);
-
-        InitTree_(cntr);
-        RefOrigin_(cntr);
-
-        return;
-    }
-
-    unsigned long long cost_coeff_read_write{ cost_coeff_read +
-                                              cost_coeff_write };
-
-    auto ref_wb_segs{ static_cast<WBSeg**>(allocator::SafeAllocate(
-                          &allocator::weak_lifo_allocator, alignof(WBSeg*),
-                          sizeof(WBSeg*) * (ref_segs_cnt + 2))) +
-                      1 };
-
-    ref_wb_segs[-1] = lb_wb_seg;
-    ref_wb_segs[ref_segs_cnt] = rb_wb_seg;
-
-    for (size_t i{ 0 }, j{ 0 }; j < ref_segs_cnt; ++i) {
-        ZETA_Core_SanitizeAssert(j < ref_segs_cnt);
-
-        WBSeg* wb_seg{ wb_segs + i };
-
-        if (wb_seg->beg != ZETA_Core_size_max) { ref_wb_segs[j++] = wb_seg; }
-    }
-
-    auto acc_arr{ static_cast<size_t*>(allocator::SafeAllocate(
-        &allocator::weak_lifo_allocator, alignof(size_t),
-        sizeof(size_t) * (ref_segs_cnt + 2))) };
-
-    auto acc_brr{ static_cast<unsigned long long*>(allocator::SafeAllocate(
-        &allocator::weak_lifo_allocator, alignof(unsigned long long),
-        sizeof(unsigned long long) * (ref_segs_cnt + 1))) };
-
-    acc_arr[0] = 0;
-    acc_brr[0] = 0;
-
-    size_t prv_ref_end{ 0 };
-    size_t prv_dst_end{ 0 };
-
-    for (size_t i{ 1 }; i <= ref_segs_cnt; ++i) {
-        WBSeg* cur_ref_seg{ ref_wb_segs[i - 1] };
-
-        size_t cur_beg{ cur_ref_seg->beg };
-        size_t cur_size{ cur_ref_seg->size };
-        size_t cur_dst_idx{ cur_ref_seg->dst_idx };
-
-        acc_arr[i] = acc_arr[i - 1] + (cur_dst_idx - prv_dst_end) -
-                     (cur_beg - prv_ref_end);
-        acc_brr[i] = acc_brr[i - 1] + cost_coeff_read_write * cur_size;
-
-        prv_ref_end = cur_beg + cur_size;
-        prv_dst_end = cur_dst_idx + cur_size;
-    }
-
-    acc_arr[ref_segs_cnt + 1] = acc_arr[ref_segs_cnt] + (size - prv_dst_end) -
-                                (origin_size - prv_ref_end);
-
-#if ZETA_Core_EnableDebug
-    auto dp_best_cost{ static_cast<unsigned long long*>(allocator::SafeAllocate(
-        &allocator::weak_lifo_allocator, alignof(unsigned long long),
-        sizeof(unsigned long long) * (ref_segs_cnt + 2))) };
-
-    dp_best_cost[0] = 0;
-#endif
-
-    auto dp_cost{ static_cast<unsigned long long*>(allocator::SafeAllocate(
-        &allocator::weak_lifo_allocator, alignof(unsigned long long),
-        sizeof(unsigned long long) * (ref_segs_cnt + 2))) };
-
-    auto dp_prv{ static_cast<size_t*>(allocator::SafeAllocate(
-        &allocator::weak_lifo_allocator, alignof(size_t),
-        sizeof(size_t) * (ref_segs_cnt + 2))) };
-
-    dp_cost[0] = 0;
-    dp_prv[0] = ZETA_Core_size_max;
-
-#if ZETA_Core_EnableDebug
-    for (size_t i{ 1 }; i <= ref_segs_cnt + 1; ++i) {
-        unsigned long long ans_cost{ ZETA_Core_ullong_max };
-
-        for (size_t j{ i }, j_end{ 0 }; j_end < j--;) {
-            size_t sum_arr{ acc_arr[i] - acc_arr[j] };
-
-            unsigned long long cur_cost{ dp_best_cost[j] +
-                                         (sum_arr <= ZETA_Core_size_max / 2
-                                              ? cost_coeff_erase * sum_arr
-                                              : cost_coeff_insert * -sum_arr) +
-                                         acc_brr[i - 1] - acc_brr[j] };
-
-            if (cur_cost < ans_cost) { ans_cost = cur_cost; }
-        }
-
-        dp_best_cost[i] = ans_cost;
-    }
-#endif
-
-    for (size_t i{ 1 }; i <= ref_segs_cnt + 1; ++i) {
-        unsigned long long ans_cost{ ZETA_Core_ullong_max };
-        unsigned long long ans_prv{ 0 };
-
-        for (size_t j{ i }, j_end{ Max(8ULL, i) - 8 }; j_end < j--;) {
-            size_t sum_arr{ acc_arr[i] - acc_arr[j] };
-
-            unsigned long long cur_cost{ dp_cost[j] +
-                                         (sum_arr <= ZETA_Core_size_max / 2
-                                              ? cost_coeff_erase * sum_arr
-                                              : cost_coeff_insert * -sum_arr) +
-                                         acc_brr[i - 1] - acc_brr[j] };
-
-            if (cur_cost < ans_cost) {
-                ans_cost = cur_cost;
-                ans_prv = j;
-            }
-        }
-
-        dp_cost[i] = ans_cost;
-        dp_prv[i] = ans_prv;
-    }
-
-#if ZETA_Core_EnableDebug
-    {
-        unsigned long long best_cost{ dp_best_cost[ref_segs_cnt + 1] };
-        unsigned long long better_cost{ dp_cost[ref_segs_cnt + 1] };
-
-        ZETA_Core_DebugAssert(best_cost <= 512 || better_cost <= best_cost * 2);
-    }
-#endif
-
-    void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin_opr, origin) };
-
-    unsigned long long check_cost{ 0 };
-
-    for (size_t cur_end{ ref_segs_cnt + 1 }; 0 < cur_end;) {
-        size_t cur_beg{ dp_prv[cur_end] };
-
-        WBSeg* beg_wb_seg{ (ref_wb_segs - 1)[cur_beg] };
-        WBSeg* end_wb_seg{ (ref_wb_segs - 1)[cur_end] };
-
-        size_t src_beg{ beg_wb_seg->beg + beg_wb_seg->size };
-        size_t src_end{ end_wb_seg->beg };
-
-        size_t dst_beg{ beg_wb_seg->dst_idx + beg_wb_seg->size };
-        size_t dst_end{ end_wb_seg->dst_idx };
-
-        size_t dst_size{ dst_end - dst_beg };
-        size_t src_size{ src_end - src_beg };
-
-        {
-            WBSeg* segs_{ beg_wb_seg + 1 };
-            size_t segs_cnt_{ end_wb_seg - beg_wb_seg - 1 };
-
-            size_t check_dst_size{ 0 };
-
-            for (size_t i{ 0 }; i < segs_cnt_; ++i) {
-                check_dst_size += segs_[i].size;
-
-                if (segs_[i].beg == ZETA_Core_size_max) { continue; }
-
-                check_cost += cost_coeff_read_write * segs_[i].size;
-            }
-
-            ZETA_Core_SanitizeAssert(dst_size == check_dst_size);
-
-            if (src_size < dst_size) {
-                check_cost += cost_coeff_insert * (dst_size - src_size);
-            }
-
-            if (dst_size < src_size) {
-                check_cost += cost_coeff_erase * (src_size - dst_size);
-            }
-        }
-
-        if (src_size < dst_size) {
-            size_t diff_size{ dst_size - src_size };
-
-            SeqCntrAccess(origin, src_end, origin_cursor, nullptr);
-            SeqCntrInsert(origin, origin_cursor, diff_size);
-
-            src_end += diff_size;
-            src_size += diff_size;
-        }
-
-        WriteWBSeg_(cntr, &ca, beg_wb_seg + 1, end_wb_seg - beg_wb_seg - 1,
-                    src_beg - dst_beg, 0);
-
-        if (dst_size < src_size) {
-            size_t diff_size{ src_size - dst_size };
-
-            SeqCntrAccess(origin, src_end - diff_size, origin_cursor, nullptr);
-
-            SeqCntrErase(origin, origin_cursor, diff_size);
-        }
-
-        cur_end = cur_beg;
-    }
-
-    ZETA_Core_SanitizeAssert(check_cost == dp_cost[ref_segs_cnt + 1]);
-
-    allocator::AllocatorRef::Deallocate(&allocator::weak_lifo_allocator,
-                                        wb_segs - 1);
-    allocator::AllocatorRef::Deallocate(&allocator::weak_lifo_allocator,
-                                        ref_wb_segs - 1);
-
-    allocator::AllocatorRef::Deallocate(&allocator::weak_lifo_allocator,
-                                        acc_arr);
-    allocator::AllocatorRef::Deallocate(&allocator::weak_lifo_allocator,
-                                        acc_brr);
-
-#if ZETA_Core_EnableDebug
-    allocator::AllocatorRef::Deallocate(&allocator::weak_lifo_allocator,
-                                        dp_best_cost);
-#endif
-
-    allocator::AllocatorRef::Deallocate(&allocator::weak_lifo_allocator,
-                                        dp_cost);
-    allocator::AllocatorRef::Deallocate(&allocator::weak_lifo_allocator,
-                                        dp_prv);
-
-    InitTree_(cntr);
-    RefOrigin_(cntr);
-}
-
-#endif
-
-// -----------------------------------------------------------------------------
-
-template <CntrTplDefParamList>
+template <CntrTplParamList>
 void PrintState_(Cntr<CntrTplArgList>* cntr, TreeNode* n) {
     TreeNode* l_n{ n->GetLPtr() };
     TreeNode* r_n{ n->GetRPtr() };
@@ -1815,12 +1195,16 @@ void PrintState_(Cntr<CntrTplArgList>* cntr, TreeNode* n) {
     if (r_n != nullptr) { PrintState_(cntr, r_n); }
 }
 
-template <CntrTplDefParamList>
-Stats GetStats_(Cntr const* cntr, TreeNode* n) {
+template <CntrTplParamList>
+Stats GetStats_(Cntr<CntrTplArgList> const* cntr, TreeNode* n) {
     Stats ret{
+#if EnStaging
         .ref_seg_cnt = 0,
+#endif
         .dat_seg_cnt = 0,
+#if EnStaging
         .ref_size = 0,
+#endif
         .dat_size = 0,
     };
 
@@ -1854,9 +1238,13 @@ Stats GetStats_(Cntr const* cntr, TreeNode* n) {
 
         Stats l_stats{ GetStats_(cntr, l_n) };
 
+#if EnStaging
         ret.ref_seg_cnt += l_stats.ref_seg_cnt;
+#endif
         ret.dat_seg_cnt += l_stats.dat_seg_cnt;
+#if EnStaging
         ret.ref_size += l_stats.ref_size;
+#endif
         ret.dat_size += l_stats.dat_size;
 
         n = r_n;
@@ -1865,24 +1253,30 @@ Stats GetStats_(Cntr const* cntr, TreeNode* n) {
     return ret;
 }
 
-template <CntrTplDefParamList>
-SanitizeRet Sanitize_(Cntr const* cntr, MemRecorder* dst_seg,
-                      MemRecorder* dst_data, TreeNode* n) {
-    size_t stride{ cntr->stride };
+struct SanitizeRet {
+    bool b;
+    size_t ref_beg;
+    size_t ref_end;
+};
 
+template <CntrTplParamList>
+SanitizeRet Sanitize_(Cntr<CntrTplArgList> const* cntr, MemRecorder* dst_seg,
+                      MemRecorder* dst_data, TreeNode* n) {
 #if EnStaging
-    seq_cntr::SeqCntrRef const* origin{ &cntr->origin };
-    size_t origin_size{ origin_opr->GetSize(origin) };
+    auto* origin{ cntr->origin };
+    size_t origin_size{ Origin::GetSize(origin) };
 #endif
 
-    TreeNode* l_n{ bin_tree::StepL(tn_opr, n) };
-    TreeNode* r_n{ bin_tree::StepR(tn_opr, n) };
+    size_t stride{ cntr->stride };
+
+    TreeNode* l_n{ bin_tree::StepL(n) };
+    TreeNode* r_n{ bin_tree::StepR(n) };
 
     if (cntr->lb == n) {
         ZETA_Core_DebugAssert(l_n == nullptr);
         ZETA_Core_DebugAssert(r_n != nullptr);
 
-        ZETA_Core_DebugAssert(bin_tree::GetSize(tn_opr, n) == 1);
+        ZETA_Core_DebugAssert(bin_tree::GetSize(n) == 1);
 
         if (dst_seg != nullptr) {
             MemRecorder::Record(dst_seg, cntr->lb, sizeof(TreeNode));
@@ -1891,7 +1285,7 @@ SanitizeRet Sanitize_(Cntr const* cntr, MemRecorder* dst_seg,
         ZETA_Core_DebugAssert(l_n != nullptr);
         ZETA_Core_DebugAssert(r_n == nullptr);
 
-        ZETA_Core_DebugAssert(bin_tree::GetSize(tn_opr, n) == 1);
+        ZETA_Core_DebugAssert(bin_tree::GetSize(n) == 1);
 
         if (dst_seg != nullptr) {
             MemRecorder::Record(dst_seg, cntr->rb, sizeof(TreeNode));
@@ -1915,7 +1309,7 @@ SanitizeRet Sanitize_(Cntr const* cntr, MemRecorder* dst_seg,
 
         size_t size{ seg->ref.size };
 
-        ZETA_Core_DebugAssert(size == bin_tree::GetSize(tn_opr, n));
+        ZETA_Core_DebugAssert(size == bin_tree::GetSize(n));
 
         if (cntr->lb != l_n) {
             Seg* l_seg{ NToSeg_(l_n) };
@@ -1953,7 +1347,7 @@ SanitizeRet Sanitize_(Cntr const* cntr, MemRecorder* dst_seg,
 
         size_t size{ seg->dat.size };
 
-        ZETA_Core_DebugAssert(size == bin_tree::GetSize(tn_opr, n));
+        ZETA_Core_DebugAssert(size == bin_tree::GetSize(n));
 
         ZETA_Core_DebugAssert(0 < size);
         ZETA_Core_DebugAssert(size <= cntr->seg_capacity);
@@ -2055,8 +1449,8 @@ SanitizeRet Sanitize_(Cntr const* cntr, MemRecorder* dst_seg,
 
 // -----------------------------------------------------------------------------
 
-template <CntrTplDefParamList>
-void Init(Cntr<CntrTplArgList>* cntr_) {
+template <CntrTplParamList>
+void Init(Cntr<CntrTplArgList>* cntr) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
     cntr->lb = static_cast<TreeNode*>(allocator::SafeAllocate(
@@ -2072,65 +1466,45 @@ void Init(Cntr<CntrTplArgList>* cntr_) {
 #endif
 }
 
-template <CntrTplDefParamList>
-void Deinit(Cntr<CntrTplArgList> cntr) {
+template <CntrTplParamList>
+void Deinit(Cntr<CntrTplArgList>* cntr) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
     EraseAllSegs_(cntr, &cntr->seg_allocator, &cntr->data_allocator);
 
-    SegAllocator::Deallocate(&cntr->seg_allocator, cntr->lb);
-    SegAllocator::Deallocate(&cntr->seg_allocator, cntr->rb);
+    SegAllocatorLike::Deallocate(&cntr->seg_allocator, cntr->lb);
+    SegAllocatorLike::Deallocate(&cntr->seg_allocator, cntr->rb);
 }
 
-template <CntrTplDefParamList>
-seq_cntr::SeqCntrAbilityFlagType GetDynamicEnabledAbilityFlag(void const*) {
-    return dynamic_ability_flag;
-}
-
-template <CntrTplDefParamList>
-seq_cntr::SeqCntrAbilityFlagType GetDynamicDisabledAbilityFlag(void const*) {
-    return dynamic_ability_flag;
-}
-
-template <CntrTplDefParamList>
-size_t GetCursorSize(void const*) {
+template <CntrTplParamList>
+constexpr size_t GetCursorSize(void const*) {
     return sizeof(Cursor);
 }
 
-template <CntrTplDefParamList>
-size_t GetWidth(void const* cntr_) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
+template <CntrTplParamList>
+size_t GetWidth(Cntr<CntrTplArgList> const* cntr) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
-#if EnStaging
-    return cntr->origin.width;
-#else
     return cntr->width;
-#endif
 }
 
-template <CntrTplDefParamList>
-size_t GetSize(void const* cntr_) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
+template <CntrTplParamList>
+size_t GetSize(Cntr<CntrTplArgList> const* cntr) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
     return cntr->root->GetAccSize() - 2;
 }
 
-template <CntrTplDefParamList>
-size_t GetCapacity(void const* cntr_) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
+template <CntrTplParamList>
+size_t GetCapacity(Cntr<CntrTplArgList> const* cntr) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
     return ZETA_Core_max_capacity;
 }
 
-template <CntrTplDefParamList>
-void GetLBCursor(void const* cntr_, void* dst_cursor_) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
+template <CntrTplParamList>
+void GetLBCursor(Cntr<CntrTplArgList> const* cntr, Cursor* dst_cursor) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
-
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
 
     if (dst_cursor == nullptr) { return; }
 
@@ -2141,12 +1515,9 @@ void GetLBCursor(void const* cntr_, void* dst_cursor_) {
     dst_cursor->ref = nullptr;
 }
 
-template <CntrTplDefParamList>
-void GetRBCursor(void const* cntr_, void* dst_cursor_) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
+template <CntrTplParamList>
+void GetRBCursor(Cntr<CntrTplArgList> const* cntr, Cursor* dst_cursor) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
-
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
 
     if (dst_cursor == nullptr) { return; }
 
@@ -2157,23 +1528,20 @@ void GetRBCursor(void const* cntr_, void* dst_cursor_) {
     dst_cursor->ref = nullptr;
 }
 
-template <CntrTplDefParamList>
-void* PeekL(Cntr<CntrTplArgList> cntr, void* dst_cursor_, void* dst_elem) {
+template <CntrTplParamList>
+void* PeekL(Cntr<CntrTplArgList>* cntr, Cursor* dst_cursor, bool lazy_copy_elem,
+            void* dst_elem) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
 #if EnStaging
-    seq_cntr::SeqCntrRef* origin{ &cntr->origin };
-    size_t width{ origin->width };
-#else
-    size_t width{ cntr->width };
+    auto* origin{ cntr->origin };
 #endif
 
+    size_t width{ cntr->width };
     size_t stride{ cntr->stride };
     size_t seg_capacity{ cntr->seg_capacity };
 
-    TreeNode* n{ bin_tree::StepR(tn_opr, cntr->lb) };
+    TreeNode* n{ bin_tree::StepR(cntr->lb) };
 
     if (cntr->rb == n) {
         if (dst_cursor != nullptr) {
@@ -2187,13 +1555,13 @@ void* PeekL(Cntr<CntrTplArgList> cntr, void* dst_cursor_, void* dst_elem) {
         return nullptr;
     }
 
-    Seg* seg{ NToSeg_(n) };
+    Seg* seg{ detail::NToSeg_(n) };
 
     void* ref;
 
 #if EnStaging
-    if (GetNColor_(n) == ref_color) {
-        origin_opr->Access(origin, seg->ref.beg, nullptr, dst_elem);
+    if (detail::GetNColor_(n) == ref_color) {
+        Origin::Access(origin, seg->ref.beg, nullptr, dst_elem);
         ref = nullptr;
     } else
 #endif
@@ -2221,29 +1589,28 @@ void* PeekL(Cntr<CntrTplArgList> cntr, void* dst_cursor_, void* dst_elem) {
     return ref;
 }
 
-template <CntrTplDefParamList>
-void const* ConstPeekL(void const* cntr, void* dst_cursor, void* dst_elem) {
-    return PeekL(const_cast<void*>(cntr), dst_cursor, dst_elem);
+template <CntrTplParamList>
+void const* PeekL(Cntr<CntrTplArgList> const* cntr, Cursor* dst_cursor,
+                  bool lazy_copy_elem, void* dst_elem) {
+    return PeekL(const_cast<Cntr<CntrTplArgList>*>(cntr), dst_cursor,
+                 lazy_copy_elem, dst_elem);
 }
 
-template <CntrTplDefParamList>
-void* PeekR(Cntr<CntrTplArgList> cntr, void* dst_cursor_, void* dst_elem) {
+template <CntrTplParamList>
+void* PeekR(Cntr<CntrTplArgList>* cntr, Cursor* dst_cursor, bool lazy_copy_elem,
+            void* dst_elem) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
 #if EnStaging
-    seq_cntr::SeqCntrRef* origin{ &cntr->origin };
-    size_t width{ origin->width };
-#else
-    size_t width{ cntr->width };
+    auto* origin{ cntr->origin };
 #endif
 
+    size_t width{ cntr->width };
     size_t stride{ cntr->stride };
     size_t seg_capacity{ cntr->seg_capacity };
     size_t size{ GetSize(cntr) };
 
-    TreeNode* n{ bin_tree::StepL(tn_opr, cntr->rb) };
+    TreeNode* n{ bin_tree::StepL(cntr->rb) };
 
     if (cntr->lb == n) {
         if (dst_cursor != nullptr) {
@@ -2267,8 +1634,7 @@ void* PeekR(Cntr<CntrTplArgList> cntr, void* dst_cursor_, void* dst_elem) {
     if (GetNColor_(n) == ref_color) {
         seg_size = seg->ref.size;
 
-        origin_opr->Access(origin, seg->ref.beg + seg_size - 1, nullptr,
-                           dst_elem);
+        Origin::Access(origin, seg->ref.beg + seg_size - 1, nullptr, dst_elem);
 
         ref = nullptr;
     } else
@@ -2299,32 +1665,30 @@ void* PeekR(Cntr<CntrTplArgList> cntr, void* dst_cursor_, void* dst_elem) {
     return ref;
 }
 
-template <CntrTplDefParamList>
-void const* ConstPeekR(void const* cntr, void* dst_cursor, void* dst_elem) {
-    return PeekR(const_cast<void*>(cntr), dst_cursor, dst_elem);
+template <CntrTplParamList>
+void const* PeekR(Cntr<CntrTplArgList> const* cntr, Cursor* dst_cursor,
+                  bool lazy_copy_elem, void* dst_elem) {
+    return PeekR(const_cast<Cntr<CntrTplArgList>*>(cntr), dst_cursor,
+                 lazy_copy_elem, dst_elem);
 }
 
-template <CntrTplDefParamList>
-void* Access(Cntr<CntrTplArgList> cntr, size_t idx, void* dst_cursor_,
+template <CntrTplParamList>
+void* Access(Cntr<CntrTplArgList>* cntr, size_t idx, Cursor* dst_cursor,
              void* dst_elem) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
 #if EnStaging
-    seq_cntr::SeqCntrRef* origin{ &cntr->origin };
-    size_t width{ origin->width };
-#else
-    size_t width{ cntr->width };
+    auto* origin{ cntr->origin };
 #endif
 
+    size_t width{ cntr->width };
     size_t stride{ cntr->stride };
     size_t seg_capacity{ cntr->seg_capacity };
     size_t size{ GetSize(cntr) };
 
     ZETA_Core_DebugAssert(seq_cntr::IsReferable(idx, 1, size));
 
-    auto [n, seg_idx]{ bin_tree::AccessL(tn_opr, cntr->root, idx + 1) };
+    auto [n, seg_idx]{ bin_tree::AccessL(cntr->root, idx + 1) };
 
     void* ref{ nullptr };
 
@@ -2334,8 +1698,8 @@ void* Access(Cntr<CntrTplArgList> cntr, size_t idx, void* dst_cursor_,
 #if EnStaging
         if (GetNColor_(n) == ref_color) {
             if (dst_elem != nullptr) {
-                origin_opr->Access(origin, seg->ref.beg + seg_idx, nullptr,
-                                   dst_elem);
+                Origin::Access(origin, seg->ref.beg + seg_idx, nullptr,
+                               dst_elem);
             }
         } else
 #endif
@@ -2364,51 +1728,45 @@ void* Access(Cntr<CntrTplArgList> cntr, size_t idx, void* dst_cursor_,
     return ref;
 }
 
-template <CntrTplDefParamList>
-void const* ConstAccess(void const* cntr, size_t idx, void* dst_cursor,
-                        void* dst_elem) {
-    return Access(const_cast<void*>(cntr), idx, dst_cursor, dst_elem);
+template <CntrTplParamList>
+void const* Access(Cntr<CntrTplArgList> const* cntr, size_t idx,
+                   Cursor* dst_cursor, void* dst_elem) {
+    return Access(const_cast<Cntr<CntrTplArgList>*>(cntr), idx, dst_cursor,
+                  dst_elem);
 }
 
-template <CntrTplDefParamList>
-void* Refer(Cntr<CntrTplArgList> cntr, void const* pos_cursor_) {
-    auto pos_cursor{ static_cast<Cursor const*>(pos_cursor_) };
+template <CntrTplParamList>
+void* Derefer(Cntr<CntrTplArgList>* cntr, Cursor const* pos_cursor,
+              bool lazy_copy_elem, void* dst_elem) {
     ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor));
 
-    return pos_cursor->ref;
+    void* elem{ pos_cursor->ref };
+
+    // TODO
 }
 
-template <CntrTplDefParamList>
-void const* ConstRefer(void const* cntr, void const* pos_cursor) {
-    return Refer(const_cast<void*>(cntr), pos_cursor);
+template <CntrTplParamList>
+void const* Derefer(Cntr<CntrTplArgList> const* cntr, void const* pos_cursor,
+                    bool lazy_copy_elem, void* dst_elem) {
+    return Derefer(const_cast<Cntr<CntrTplArgList>*>(cntr), pos_cursor,
+                   lazy_copy_elem, dst_elem);
 }
 
-// -----------------------------------------------------------------------------
-
-template <CntrTplDefParamList>
-template <typename Reader>
-void Read(void const* cntr_, void const* pos_cursor_, size_t cnt,
+template <CntrTplParamList, typename Reader>
+void Read(Cntr<CntrTplArgList> const* cntr, Cursor const* pos_cursor,
+          size_t cnt,
           Reader&& reader,  // NOLINT(cppcoreguidelines-missing-std-forward)
-          void* dst_cursor_) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
-    auto pos_cursor{ static_cast<Cursor const*>(pos_cursor_) };
+          Cursor* dst_cursor) {
     ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor));
-
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
 
     ZETA_Core_DebugAssert(
         seq_cntr::IsDereferable(pos_cursor->idx, cnt, GetSize(cntr)));
 
 #if EnStaging
-    auto origin{ &cntr->origin };
+    auto* origin{ cntr->origin };
 #endif
 
-#if EnStaging
-    size_t width{ origin->width };
-#else
     size_t width{ cntr->width };
-#endif
-
     size_t stride{ cntr->stride };
     size_t seg_capacity{ cntr->seg_capacity };
 
@@ -2433,7 +1791,7 @@ void Read(void const* cntr_, void const* pos_cursor_, size_t cnt,
     }
 
 #if EnStaging
-    void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin_opr, origin) };
+    void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin) };
 #endif
 
     CircularArray ca{
@@ -2458,11 +1816,10 @@ void Read(void const* cntr_, void const* pos_cursor_, size_t cnt,
             seg_size = seg->ref.size;
             cur_cnt = Min(cnt, seg_size - seg_idx);
 
-            origin_opr->ConstAccess(origin, seg->ref.beg + seg_idx,
-                                    origin_cursor, nullptr);
+            Origin::ConstAccess(origin, seg->ref.beg + seg_idx, origin_cursor,
+                                nullptr);
 
-            origin_opr->FnRead(origin, origin_cursor, cur_cnt, fn_reader,
-                               nullptr);
+            Origin::FnRead(origin, origin_cursor, cur_cnt, fn_reader, nullptr);
         } else
 #endif
         {
@@ -2478,7 +1835,7 @@ void Read(void const* cntr_, void const* pos_cursor_, size_t cnt,
         seg_idx += cur_cnt;
 
         if (seg_idx == seg_size) {
-            n = bin_tree::StepR(tn_opr, n);
+            n = bin_tree::StepR(n);
             seg_idx = 0;
         }
 
@@ -2508,26 +1865,17 @@ void Read(void const* cntr_, void const* pos_cursor_, size_t cnt,
         circular_array::ops::Access(&ca, seg_idx, nullptr, nullptr);
 }
 
-template <CntrTplDefParamList>
-template <typename Writer>
-void Write(Cntr<CntrTplArgList> cntr, void* pos_cursor, size_t cnt,
+template <CntrTplParamList, typename Writer>
+void Write(Cntr<CntrTplArgList>* cntr, Cursor* pos_cursor, size_t cnt,
            Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-           void* dst_cursor) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
-
-#if EnStaging
-    size_t width{ cntr->origin.width };
-#else
+           Cursor* dst_cursor) {
     size_t width{ cntr->width };
-#endif
-
     size_t stride{ cntr->stride };
     size_t seg_capacity{ cntr->seg_capacity };
 
-    // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members)
-
     struct {
-        Writer&& writer;
+        Writer&&
+            writer;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
 
         seq_cntr::FnWriter fn_writer;
 
@@ -2539,7 +1887,7 @@ void Write(Cntr<CntrTplArgList> cntr, void* pos_cursor, size_t cnt,
 
             circular_array::ops::IdxWrite(&this->ca, idx, cnt, this->writer);
         }
-    } core_reader{
+    } reader_core{
         .writer = writer,
         .fn_writer = writer,
 
@@ -2553,33 +1901,22 @@ void Write(Cntr<CntrTplArgList> cntr, void* pos_cursor, size_t cnt,
         },
     };
 
-    // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
-
-    CoreReadWrite_<false>(cntr_, pos_cursor, cnt, core_reader, dst_cursor);
+    CoreReadWrite_<false>(cntr, pos_cursor, cnt, reader_core, dst_cursor);
 }
 
-template <CntrTplDefParamList>
-template <typename ReaderWriter>
+template <CntrTplParamList, typename ReaderWriter>
 void ReadWrite(
-    Cntr<CntrTplArgList> cntr, void* pos_cursor, size_t cnt,
+    Cntr<CntrTplArgList>* cntr, Cursor* pos_cursor, size_t cnt,
     ReaderWriter&&
         reader_writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    void* dst_cursor) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
-
-#if EnStaging
-    size_t width{ cntr->origin.width };
-#else
+    Cursor* dst_cursor) {
     size_t width{ cntr->width };
-#endif
-
     size_t stride{ cntr->stride };
     size_t seg_capacity{ cntr->seg_capacity };
 
-    // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members)
-
     struct {
-        ReaderWriter&& reader_writer;
+        ReaderWriter&&
+            reader_writer;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
 
         seq_cntr::FnReaderWriter fn_reader_writer;
 
@@ -2592,7 +1929,7 @@ void ReadWrite(
             circular_array::ops::IdxWrite(&this->ca, idx, cnt,
                                           this->reader_writer);
         }
-    } core_reader_writer{
+    } reader_writer_core{
         .reader_writer = reader_writer,
         .fn_reader_writer = reader_writer,
 
@@ -2608,136 +1945,38 @@ void ReadWrite(
 
     // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
 
-    CoreReadWrite_<true>(cntr_, pos_cursor, cnt, core_reader_writer,
-                         dst_cursor);
+    CoreReadWrite_<true>(cntr, pos_cursor, cnt, reader_writer_core, dst_cursor);
 }
 
-// -----------------------------------------------------------------------------
-
-template <CntrTplDefParamList>
-void FnRead(void const* cntr, void const* pos_cursor, size_t cnt,
-            seq_cntr::FnReader reader, void* dst_cursor) {
-    Read(cntr, pos_cursor, cnt, reader, dst_cursor);
-}
-
-template <CntrTplDefParamList>
-void FnWrite(void* cntr, void* pos_cursor, size_t cnt,
-             seq_cntr::FnWriter writer, void* dst_cursor) {
-    Write(cntr, pos_cursor, cnt, writer, dst_cursor);
-}
-
-template <CntrTplDefParamList>
-void FnReadWrite(void* cntr, void* pos_cursor, size_t cnt,
-                 seq_cntr::FnReaderWriter reader_writer, void* dst_cursor) {
-    ReadWrite(cntr, pos_cursor, cnt, reader_writer, dst_cursor);
-}
-
-// -----------------------------------------------------------------------------
-
-template <CntrTplDefParamList>
-void MemRead(void const* cntr_, void const* pos_cursor, size_t cnt, void* dst,
-             size_t dst_stride, void* dst_cursor) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
-    ZETA_Core_DebugAssert(CheckCntr(cntr));
-
-    ZETA_Core_DebugAssert(dst != nullptr);
-
-    size_t width{ GetWidth(cntr) };
-
-    Read(
-        cntr, pos_cursor, cnt,
-        [=](void const* src, size_t src_stride, size_t cnt) mutable {
-            ElemCopy(dst, src, width, dst_stride, src_stride, cnt);
-            dst = static_cast<char*>(dst) + dst_stride * cnt;
-        },
-        dst_cursor);
-}
-
-template <CntrTplDefParamList>
-void MemWrite(Cntr<CntrTplArgList> cntr, void* pos_cursor, size_t cnt,
-              void const* src, size_t src_stride, void* dst_cursor) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
-
-#if EnStaging
-    size_t width{ cntr->origin.width };
-#else
-    size_t width{ cntr->width };
-#endif
-
-    size_t stride{ cntr->stride };
-    size_t seg_capacity{ cntr->seg_capacity };
-
-    struct {
-        void const* src;
-        size_t src_stride;
-
-        CircularArray ca;
-
-        void ReadWriteDat(void* data, size_t offset, size_t idx, size_t cnt) {
-            this->ca.data = data;
-            this->ca.offset = offset;
-
-            circular_array::ops::IdxMemWrite(&this->ca, idx, cnt, this->src,
-                                             this->src_stride);
-
-            this->src =
-                static_cast<char const*>(this->src) + this->src_stride * cnt;
-        }
-    } core_reader{
-        .src = src,
-        .src_stride= src_stride,
-
-        .ca = {
-            .data = {},
-            .width = width,
-            .stride = stride,
-            .offset = {},
-            .size = seg_capacity,
-            .capacity = seg_capacity,
-        },
-    };
-
-    CoreReadWrite_<false>(cntr_, pos_cursor, cnt, core_reader, dst_cursor);
-}
-
-// -----------------------------------------------------------------------------
-
-template <CntrTplDefParamList>
-template <typename Writer>
-void* PushL(Cntr<CntrTplArgList> cntr, size_t cnt,
+template <CntrTplParamList, typename Writer>
+void* PushL(Cntr<CntrTplArgList>* cntr, size_t cnt,
             Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-            void* dst_cursor) {
+            Cursor* dst_cursor) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
     Cursor pos_cursor;
     PeekL(cntr, &pos_cursor, nullptr);
 
-    return TplInsert(cntr, &pos_cursor, cnt, writer, dst_cursor);
+    return Insert(cntr, &pos_cursor, cnt, writer, dst_cursor);
 }
 
-template <CntrTplDefParamList>
-template <typename Writer>
-void* PushR(Cntr<CntrTplArgList> cntr, size_t cnt,
+template <CntrTplParamList, typename Writer>
+void* PushR(Cntr<CntrTplArgList>* cntr, size_t cnt,
             Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-            void* dst_cursor) {
+            Cursor* dst_cursor) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
     Cursor pos_cursor;
     GetRBCursor(cntr, &pos_cursor);
 
-    return TplInsert(cntr, &pos_cursor, cnt, writer, dst_cursor);
+    return Insert(cntr, &pos_cursor, cnt, writer, dst_cursor);
 }
 
-template <CntrTplDefParamList>
-template <typename Writer>
-void* TplInsert(
-    Cntr<CntrTplArgList> cntr, void* pos_cursor_, size_t cnt,
-    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    void* dst_cursor_) {
-    auto pos_cursor{ static_cast<Cursor*>(pos_cursor_) };
+template <CntrTplParamList, typename Writer>
+void* Insert(Cntr<CntrTplArgList>* cntr, Cursor* pos_cursor, size_t cnt,
+             Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+             Cursor* dst_cursor) {
     ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor));
-
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
 
     ZETA_Core_DebugAssert(seq_cntr::IsInsertable(
         pos_cursor->idx, cnt, GetSize(cntr), GetCapacity(cntr)));
@@ -2754,12 +1993,7 @@ void* TplInsert(
         return pos_cursor->ref;
     }
 
-#if EnStaging
-    size_t width{ cntr->origin.width };
-#else
     size_t width{ cntr->width };
-#endif
-
     size_t stride{ cntr->stride };
     size_t seg_capacity{ cntr->seg_capacity };
 
@@ -2824,7 +2058,7 @@ void* TplInsert(
 
         */
 
-        l_n = bin_tree::StepL(tn_opr, m_n);
+        l_n = bin_tree::StepL(m_n);
 
         r_n = m_n;
 
@@ -2892,14 +2126,14 @@ void* TplInsert(
             } else
 #endif
             {
-                ref = circular_array::ops::IdxTplInsert(&m_ca, seg_idx, cnt,
-                                                        writer);
+                ref =
+                    circular_array::ops::IdxInsert(&m_ca, seg_idx, cnt, writer);
             }
 
             m_seg->dat.offset = static_cast<unsigned short>(m_ca.offset);
             m_seg->dat.size = static_cast<unsigned short>(m_ca.size);
 
-            bin_tree::SetSize(tn_opr, m_n, m_ca.size);
+            bin_tree::SetSize(m_n, m_ca.size);
 
             pos_cursor->n = m_n;
             pos_cursor->seg_idx = seg_idx;
@@ -2917,8 +2151,10 @@ void* TplInsert(
             return ref;
         }
 
-        l_n = bin_tree::StepL(tn_opr, m_n);
-        r_n = bin_tree::StepR(tn_opr, m_n);
+        l_n = reinterpret_cast<TreeNode*>(
+            bin_tree::StepL(reinterpret_cast<TreeNodeView*>(m_n)));
+        r_n = reinterpret_cast<TreeNode*>(
+            bin_tree::StepR(reinterpret_cast<TreeNodeView*>(m_n)));
 
         if (cntr->lb == l_n) {
             l_seg = nullptr;
@@ -3013,12 +2249,12 @@ void* TplInsert(
                 m_seg->dat.size = static_cast<unsigned short>(m_ca.size);
             }
 
-            bin_tree::SetSize(tn_opr, m_n, m_ca.size);
+            bin_tree::SetSize(m_n, m_ca.size);
 
             l_seg->dat.offset = static_cast<unsigned short>(l_ca.offset);
             l_seg->dat.size = static_cast<unsigned short>(l_ca.size);
 
-            bin_tree::SetSize(tn_opr, l_n, l_ca.size);
+            bin_tree::SetSize(l_n, l_ca.size);
 
             if (ret_seg_idx < l_ca.size) {
                 pos_cursor->n = l_n;
@@ -3089,12 +2325,12 @@ void* TplInsert(
                 m_seg->dat.size = static_cast<unsigned short>(m_ca.size);
             }
 
-            bin_tree::SetSize(tn_opr, m_n, m_ca.size);
+            bin_tree::SetSize(m_n, m_ca.size);
 
             r_seg->dat.offset = static_cast<unsigned short>(r_ca.offset);
             r_seg->dat.size = static_cast<unsigned short>(r_ca.size);
 
-            bin_tree::SetSize(tn_opr, r_n, r_ca.size);
+            bin_tree::SetSize(r_n, r_ca.size);
 
             if (ret_seg_idx < m_ca.size) {
                 pos_cursor->n = m_n;
@@ -3252,7 +2488,7 @@ void* TplInsert(
             if (m_color == ref_color) {
                 Seg* new_l_seg{ AllocateRefSeg_(cntr) };
 
-                cntr->root = rbtree::Insert(tn_opr, l_n, m_n, &new_l_seg->n);
+                cntr->root = rbtree::Insert(l_n, m_n, &new_l_seg->n);
 
                 l_n = &new_l_seg->n;
                 l_seg = new_l_seg;
@@ -3272,7 +2508,7 @@ void* TplInsert(
             {
                 Seg* new_l_seg{ AllocateDatSeg_(cntr) };
 
-                cntr->root = rbtree::Insert(tn_opr, l_n, m_n, &new_l_seg->n);
+                cntr->root = rbtree::Insert(l_n, m_n, &new_l_seg->n);
 
                 l_n = &new_l_seg->n;
                 l_seg = new_l_seg;
@@ -3309,7 +2545,7 @@ void* TplInsert(
             if (m_color == ref_color) {
                 Seg* new_r_seg{ AllocateRefSeg_(cntr) };
 
-                cntr->root = rbtree::Insert(tn_opr, m_n, r_n, &new_r_seg->n);
+                cntr->root = rbtree::Insert(m_n, r_n, &new_r_seg->n);
 
                 l_n = m_n;
                 l_seg = m_seg;
@@ -3328,7 +2564,7 @@ void* TplInsert(
             {
                 Seg* new_r_seg{ AllocateDatSeg_(cntr) };
 
-                cntr->root = rbtree::Insert(tn_opr, m_n, r_n, &new_r_seg->n);
+                cntr->root = rbtree::Insert(m_n, r_n, &new_r_seg->n);
 
                 l_n = m_n;
                 l_seg = m_seg;
@@ -3450,7 +2686,7 @@ void* TplInsert(
             l_seg->dat.size = static_cast<unsigned short>(l_ca.size);
         }
 
-        bin_tree::SetSize(tn_opr, l_n, l_ca.size);
+        bin_tree::SetSize(l_n, l_ca.size);
     }
 
     for (size_t extra_seg_i{ 0 }; extra_seg_i < extra_segs_cnt; ++extra_seg_i) {
@@ -3458,13 +2694,13 @@ void* TplInsert(
 
         Seg* new_l_seg{ AllocateDatSeg_(cntr) };
 
-        cntr->root = rbtree::Insert(tn_opr, l_n, r_n, &new_l_seg->n);
+        cntr->root = rbtree::Insert(l_n, r_n, &new_l_seg->n);
 
         writer(new_l_seg->dat.data, stride, cur_size);
 
         new_l_seg->dat.size = static_cast<unsigned short>(cur_size);
 
-        bin_tree::SetSize(tn_opr, &new_l_seg->n, cur_size);
+        bin_tree::SetSize(&new_l_seg->n, cur_size);
 
         total_size -= cur_size;
 
@@ -3521,7 +2757,7 @@ void* TplInsert(
             r_seg->dat.size = static_cast<unsigned short>(r_ca.size);
         }
 
-        bin_tree::SetSize(tn_opr, r_n, r_ca.size);
+        bin_tree::SetSize(r_n, r_ca.size);
     }
 
     if (dst_cursor == nullptr) { return pos_cursor->ref; }
@@ -3549,102 +2785,7 @@ void* TplInsert(
     return pos_cursor->ref;
 }
 
-template <CntrTplDefParamList>
-void* FnPushL(void* cntr, size_t cnt, seq_cntr::FnWriter writer,
-              void* dst_cursor) {
-    return PushL(cntr, cnt, writer, dst_cursor);
-}
-
-template <CntrTplDefParamList>
-void* FnPushR(void* cntr, size_t cnt, seq_cntr::FnWriter writer,
-              void* dst_cursor) {
-    return PushR(cntr, cnt, writer, dst_cursor);
-}
-
-template <CntrTplDefParamList>
-void* FnInsert(void* cntr, void* pos_cursor, size_t cnt,
-               seq_cntr::FnWriter writer, void* dst_cursor) {
-    return TplInsert(cntr, pos_cursor, cnt, writer, dst_cursor);
-}
-
-// -----------------------------------------------------------------------------
-
-template <CntrTplDefParamList>
-void* MemPushL(Cntr<CntrTplArgList> cntr, size_t cnt, void const* src,
-               size_t src_stride, void* dst_cursor) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr));
-
-#if EnStaging
-    size_t width{ cntr->origin.width };
-#else
-    size_t width{ cntr->width };
-#endif
-
-    if (src == nullptr) {
-        return PushL(cntr, cnt, [](void*, size_t, size_t) {}, dst_cursor);
-    }
-
-    return PushL(
-        cntr, cnt,
-        [=](void* dst, size_t dst_stride, size_t cnt) mutable {
-            ElemCopy(dst, src, width, dst_stride, src_stride, cnt);
-            src = static_cast<char const*>(src) + src_stride * cnt;
-        },
-        dst_cursor);
-}
-
-template <CntrTplDefParamList>
-void* MemPushR(Cntr<CntrTplArgList> cntr, size_t cnt, void const* src,
-               size_t src_stride, void* dst_cursor) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr));
-
-#if EnStaging
-    size_t width{ cntr->origin.width };
-#else
-    size_t width{ cntr->width };
-#endif
-
-    if (src == nullptr) {
-        return PushR(cntr, cnt, [](void*, size_t, size_t) {}, dst_cursor);
-    }
-
-    return PushR(
-        cntr, cnt,
-        [=](void* dst, size_t dst_stride, size_t cnt) mutable {
-            ElemCopy(dst, src, width, dst_stride, src_stride, cnt);
-            src = static_cast<char const*>(src) + src_stride * cnt;
-        },
-        dst_cursor);
-}
-
-template <CntrTplDefParamList>
-void* MemInsert(Cntr<CntrTplArgList> cntr, void* pos_cursor, size_t cnt,
-                void const* src, size_t src_stride, void* dst_cursor) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr));
-
-#if EnStaging
-    size_t width{ cntr->origin.width };
-#else
-    size_t width{ cntr->width };
-#endif
-
-    if (src == nullptr) {
-        return TplInsert(
-            cntr, pos_cursor, cnt, [](void*, size_t, size_t) {}, dst_cursor);
-    }
-
-    return TplInsert(
-        cntr, pos_cursor, cnt,
-        [=](void* dst, size_t dst_stride, size_t cnt) mutable {
-            ElemCopy(dst, src, width, dst_stride, src_stride, cnt);
-            src = static_cast<char const*>(src) + src_stride * cnt;
-        },
-        dst_cursor);
-}
-
-// -----------------------------------------------------------------------------
-
-template <CntrTplDefParamList>
+template <CntrTplParamList>
 void PopL(void* cntr, size_t cnt) {
     Cursor pos_cursor;
     PeekL(cntr, &pos_cursor, nullptr);
@@ -3652,7 +2793,7 @@ void PopL(void* cntr, size_t cnt) {
     Erase(cntr, &pos_cursor, cnt);
 }
 
-template <CntrTplDefParamList>
+template <CntrTplParamList>
 void PopR(void* cntr, size_t cnt) {
     size_t size{ GetSize(cntr) };
 
@@ -3664,9 +2805,8 @@ void PopR(void* cntr, size_t cnt) {
     Erase(cntr, &pos_cursor, cnt);
 }
 
-template <CntrTplDefParamList>
-void Erase(Cntr<CntrTplArgList> cntr, void* pos_cursor_, size_t cnt) {
-    auto pos_cursor{ static_cast<Cursor*>(pos_cursor_) };
+template <CntrTplParamList>
+void Erase(Cntr<CntrTplArgList>* cntr, Cursor* pos_cursor, size_t cnt) {
     ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor));
 
     if (cnt == 0) { return; }
@@ -3686,7 +2826,7 @@ void Erase(Cntr<CntrTplArgList> cntr, void* pos_cursor_, size_t cnt) {
     TreeNode* m_n{ pos_cursor->n };
     size_t seg_idx{ pos_cursor->seg_idx };
 
-    TreeNode* l_n{ bin_tree::StepL(tn_opr, m_n) };
+    TreeNode* l_n{ bin_tree::StepL(m_n) };
 
     Seg* m_seg{ NToSeg_(m_n) };
 
@@ -3714,11 +2854,11 @@ void Erase(Cntr<CntrTplArgList> cntr, void* pos_cursor_, size_t cnt) {
         if (ref_size - seg_idx <= cnt) {
             m_seg->ref.size = seg_idx;
             cnt -= ref_size - seg_idx;
-            m_n = bin_tree::StepR(tn_opr, m_n);
+            m_n = bin_tree::StepR(m_n);
         } else {
             Seg* pre_m_seg{ AllocateRefSeg_(cntr) };
 
-            cntr->root = rbtree::Insert(tn_opr, l_n, &m_seg->n, &pre_m_seg->n);
+            cntr->root = rbtree::Insert(l_n, &m_seg->n, &pre_m_seg->n);
 
             first_seg = pre_m_seg;
 
@@ -3743,7 +2883,7 @@ void Erase(Cntr<CntrTplArgList> cntr, void* pos_cursor_, size_t cnt) {
         if (GetNColor_(m_n) == ref_color) {
             if (m_seg->ref.size <= cnt) {
                 cnt -= m_seg->ref.size;
-                TreeNode* nxt_m_n{ bin_tree::StepR(tn_opr, m_n) };
+                TreeNode* nxt_m_n{ bin_tree::StepR(m_n) };
                 EraseRefSeg_(cntr, m_seg);
                 m_n = nxt_m_n;
 
@@ -3760,7 +2900,7 @@ void Erase(Cntr<CntrTplArgList> cntr, void* pos_cursor_, size_t cnt) {
         if (seg_idx == 0 && m_seg->dat.size <= cnt) {
             cnt -= m_seg->dat.size;
 
-            TreeNode* nxt_m_n{ bin_tree::StepR(tn_opr, m_n) };
+            TreeNode* nxt_m_n{ bin_tree::StepR(m_n) };
 
             EraseDatSeg_(cntr, m_seg);
 
@@ -3781,7 +2921,7 @@ void Erase(Cntr<CntrTplArgList> cntr, void* pos_cursor_, size_t cnt) {
         m_seg->dat.size = static_cast<unsigned short>(m_ca.size);
 
         if (seg_idx == m_seg->dat.size) {
-            m_n = bin_tree::StepR(tn_opr, m_n);
+            m_n = bin_tree::StepR(m_n);
             seg_idx = 0;
         }
 
@@ -3811,7 +2951,7 @@ void Erase(Cntr<CntrTplArgList> cntr, void* pos_cursor_, size_t cnt) {
     size_t c_vacant;
     size_t d_vacant;
 
-    TreeNode* r_n{ last_exist ? bin_tree::StepR(tn_opr, m_n) : m_n };
+    TreeNode* r_n{ last_exist ? bin_tree::StepR(m_n) : m_n };
 
     {
         Seg* segs_buffer[4]{ nullptr, nullptr, nullptr, nullptr };
@@ -4019,7 +3159,7 @@ UPDATE: {
     if (a_size == 0) {
         EraseSeg_(cntr, a_seg);
     } else {
-        bin_tree::SetSize(tn_opr, &a_seg->n, a_size);
+        bin_tree::SetSize(&a_seg->n, a_size);
     }
 
     if (ret_n != nullptr) {
@@ -4037,7 +3177,7 @@ UPDATE: {
     if (b_size == 0) {
         EraseSeg_(cntr, b_seg);
     } else {
-        bin_tree::SetSize(tn_opr, &b_seg->n, b_size);
+        bin_tree::SetSize(&b_seg->n, b_size);
     }
 
     if (ret_n != nullptr) {
@@ -4055,7 +3195,7 @@ UPDATE: {
     if (c_size == 0) {
         EraseSeg_(cntr, c_seg);
     } else {
-        bin_tree::SetSize(tn_opr, &c_seg->n, c_size);
+        bin_tree::SetSize(&c_seg->n, c_size);
     }
 
     if (ret_n != nullptr) {
@@ -4073,7 +3213,7 @@ UPDATE: {
     if (d_size == 0) {
         EraseSeg_(cntr, d_seg);
     } else {
-        bin_tree::SetSize(tn_opr, &d_seg->n, d_size);
+        bin_tree::SetSize(&d_seg->n, d_size);
     }
 
     if (ret_n == nullptr) { ret_n = &d_seg->n; }
@@ -4103,33 +3243,33 @@ UPDATE_END:
                                                   nullptr, nullptr);
 }
 
-template <CntrTplDefParamList>
-void EraseAll(Cntr<CntrTplArgList> cntr) {
+template <CntrTplParamList>
+void EraseAll(Cntr<CntrTplArgList>* cntr) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
-    EraseAllSegs_(cntr, &cntr->seg_allocator, &cntr->data_allocator);
+    detail::EraseAllSegs_(cntr, &cntr->seg_allocator, &cntr->data_allocator);
 
-    InitTree_(cntr);
+    detail::InitTree_(cntr);
 }
 
-template <CntrTplDefParamList>
-void Reset(Cntr<CntrTplArgList> cntr) {
+template <CntrTplParamList>
+void Reset(Cntr<CntrTplArgList>* cntr) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
-    EraseAllSegs_(cntr, &cntr->seg_allocator, &cntr->data_allocator);
+    detail::EraseAllSegs_(cntr, &cntr->seg_allocator, &cntr->data_allocator);
 
-    InitTree_(cntr);
+    detail::InitTree_(cntr);
 
 #if EnStaging
-    RefOrigin_(cntr);
+    detail::RefOrigin_(cntr);
 #endif
 }
 
-template <CntrTplDefParamList>
-void Copy(Cntr<CntrTplArgList> cntr, void* src_sv_) {
+template <CntrTplParamList>
+void Copy(Cntr<CntrTplArgList>* cntr, void* src_sv_) {
     ZETA_Core_WhenEnableDebug(CheckCntr(cntr));
 
-    auto src_sv{ static_cast<Cntr*>(src_sv_) };
+    auto src_sv{ static_cast<Cntr<CntrTplArgList>*>(src_sv_) };
     ZETA_Core_WhenEnableDebug(CheckCntr(src_sv));
 
     if (cntr == src_sv) { return; }
@@ -4195,11 +3335,11 @@ void Copy(Cntr<CntrTplArgList> cntr, void* src_sv_) {
         if (src_lb == src_n) {
             n = lb;
             n->Init();
-            bin_tree::SetSize(tn_opr, n, 1);
+            bin_tree::SetSize(n, 1);
         } else if (src_rb == src_n) {
             n = rb;
             n->Init();
-            bin_tree::SetSize(tn_opr, n, 1);
+            bin_tree::SetSize(n, 1);
         } else {
             Seg* seg{ AllocateSeg_(cntr, segs) };
             n = &seg->n;
@@ -4218,7 +3358,7 @@ void Copy(Cntr<CntrTplArgList> cntr, void* src_sv_) {
                 seg->ref.beg = src_seg->ref.beg;
                 seg->ref.size = src_seg->ref.size;
 
-                bin_tree::SetSize(tn_opr, n, seg->ref.size);
+                bin_tree::SetSize(n, seg->ref.size);
             } else
 #endif
             {
@@ -4232,7 +3372,7 @@ void Copy(Cntr<CntrTplArgList> cntr, void* src_sv_) {
                 circular_array::ops::IdxRead(&ca, 0, ca.size, seg->dat.data,
                                              cntr->stride, nullptr);
 
-                bin_tree::SetSize(tn_opr, n, ca.size);
+                bin_tree::SetSize(n, ca.size);
             }
         }
 
@@ -4242,8 +3382,8 @@ void Copy(Cntr<CntrTplArgList> cntr, void* src_sv_) {
             cntr->root = n;
         } else {
             switch (dir) {
-            case 0: bin_tree::AttatchL(tn_opr, p_n, n); break;
-            case 1: bin_tree::AttatchR(tn_opr, p_n, n); break;
+            case 0: bin_tree::AttatchL(p_n, n); break;
+            case 1: bin_tree::AttatchR(p_n, n); break;
             }
         }
 
@@ -4254,29 +3394,29 @@ void Copy(Cntr<CntrTplArgList> cntr, void* src_sv_) {
     for (;;) {
         void* seg{ PoolAllocator::Allocate(&segs, 1) };
         if (seg == nullptr) { break; }
-        SegAllocator::Deallocate(&cntr->seg_allocator, seg);
+        SegAllocatorLike::Deallocate(&cntr->seg_allocator, seg);
     }
 
     for (;;) {
         void* data{ PoolAllocator::Allocate(&datas, 1) };
         if (data == nullptr) { break; }
-        DataAllocator::Deallocate(&cntr->data_allocator, data);
+        DataAllocatorLike::Deallocate(&cntr->data_allocator, data);
     }
 }
 
 #if EnStaging
 
-template <CntrTplDefParamList>
-void Collapse(Cntr<CntrTplArgList> cntr) {
+template <CntrTplParamList>
+void Collapse(Cntr<CntrTplArgList>* cntr) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
-    Cntr* origin_cntr{ cntr->origin.inst };
+    Cntr<CntrTplArgList>* origin_cntr{ cntr->origin.inst };
 
     cntr->origin = origin_cntr->origin;
 
     size_t stride{ cntr->stride };
 
-    TreeNode* n{ bin_tree::StepR(tn_opr, cntr->lb) };
+    TreeNode* n{ bin_tree::StepR(cntr->lb) };
 
     Cursor origin_cursor;
     Access(origin_cntr, 0, &origin_cursor, nullptr);
@@ -4291,7 +3431,7 @@ void Collapse(Cntr<CntrTplArgList> cntr) {
         Seg* seg{ NToSeg_(n) };
 
         if (GetNColor_(n) == dat_color) {
-            n = bin_tree::StepR(tn_opr, n);
+            n = bin_tree::StepR(n);
             continue;
         }
 
@@ -4314,7 +3454,7 @@ void Collapse(Cntr<CntrTplArgList> cntr) {
         if (origin_seg_color == ref_color) {
             if (seg->ref.size <= origin_res_size) {
                 seg->ref.beg = origin_seg->ref.beg + origin_seg_idx;
-                n = bin_tree::StepR(tn_opr, n);
+                n = bin_tree::StepR(n);
                 continue;
             }
 
@@ -4323,14 +3463,14 @@ void Collapse(Cntr<CntrTplArgList> cntr) {
             new_ref_seg->ref.beg = origin_seg->ref.beg + origin_seg_idx;
             new_ref_seg->ref.size = origin_res_size;
 
-            bin_tree::SetSize(tn_opr, &new_ref_seg->n, new_ref_seg->ref.size);
+            bin_tree::SetSize(&new_ref_seg->n, new_ref_seg->ref.size);
 
             seg->ref.beg += origin_res_size;
             seg->ref.size -= origin_res_size;
 
-            bin_tree::SetSize(tn_opr, seg, seg->ref.size);
+            bin_tree::SetSize(seg, seg->ref.size);
 
-            cntr->root = rbtree::InsertL(tn_opr, n, &new_ref_seg->n);
+            cntr->root = rbtree::InsertL(n, &new_ref_seg->n);
 
             continue;
         }
@@ -4347,14 +3487,14 @@ void Collapse(Cntr<CntrTplArgList> cntr) {
 
             new_dat_seg->dat.size = cur_cnt;
 
-            bin_tree::SetSize(tn_opr, &new_dat_seg->n, cur_cnt);
+            bin_tree::SetSize(&new_dat_seg->n, cur_cnt);
 
             seg->ref.beg += origin_res_size;
             seg->ref.size -= origin_res_size;
 
-            bin_tree::SetSize(tn_opr, n, seg->ref.size);
+            bin_tree::SetSize(n, seg->ref.size);
 
-            cntr->root = rbtree::InsertL(tn_opr, n, &new_dat_seg->n);
+            cntr->root = rbtree::InsertL(n, &new_dat_seg->n);
 
             n = &new_dat_seg->n;
             seg = new_dat_seg;
@@ -4367,19 +3507,732 @@ void Collapse(Cntr<CntrTplArgList> cntr) {
         circular_array::ops::IdxRead(&origin_ca, origin_seg_idx, cur_cnt,
                                      seg->dat.data, stride, nullptr);
 
-        n = bin_tree::StepR(tn_opr, n);
+        n = bin_tree::StepR(n);
     }
 }
 
-template <CntrTplDefParamList>
-void WriteBack(Cntr<CntrTplArgList> cntr, int write_back_strategy,
+namespace detail {
+
+struct WBSeg {
+    size_t beg;
+    size_t size;
+
+    size_t dst_idx;
+    size_t acc_ref;
+
+    void* data;
+    unsigned short offset;
+};
+
+struct OffsetCntNode {
+    generic_hash_table::Node ghtn;
+
+    size_t offset;
+    size_t cnt;
+};
+
+struct OffsetCntNodeHash {
+    size_t operator()(generic_hash_table::Node const* ghtn,
+                      unsigned long long salt) const {
+        OffsetCntNode* node{ ZETA_Core_MemberToStruct(OffsetCntNode, ghtn,
+                                                      ghtn) };
+
+        return ULLHash(node->offset, salt);
+    }
+};
+
+struct OffsetCntNodeCompare {
+    int operator()(generic_hash_table::Node const* a_ghtn,
+                   generic_hash_table::Node const* b_ghtn) const {
+        return compare::Compare(
+            ZETA_Core_MemberToStruct(OffsetCntNode, ghtn, a_ghtn)->offset,
+            ZETA_Core_MemberToStruct(OffsetCntNode, ghtn, b_ghtn)->offset);
+    }
+};
+
+template <CntrTplParamList>
+unsigned long long OffsetHash_  // NOLINT(misc-use-internal-linkage)
+    (size_t offset, unsigned long long salt) {
+    return ULLHash(offset, salt);
+}
+
+template <CntrTplParamList>
+int OffsetOffsetCntNodeCompare_  // NOLINT(misc-use-internal-linkage)
+    (size_t offset, generic_hash_table::Node const* ghtn) {
+    return compare::Compare(
+        offset, ZETA_Core_MemberToStruct(OffsetCntNode, ghtn, ghtn)->offset);
+}
+
+using OffsetCntGenericHashTable =
+    generic_hash_table::Cntr<OffsetCntNodeHash, OffsetCntNodeCompare,
+                             allocator::Ref<value_wrapper::FalseType>>;
+
+template <CntrTplParamList>
+size_t RecordOffset_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, TreeNode* n, size_t dst_idx,
+     OffsetCntGenericHashTable* ght) {
+    while (n != nullptr) {
+        TreeNode* nl{ n->GetLPtr() };
+        TreeNode* nr{ n->GetRPtr() };
+
+        if (nl != nullptr) { dst_idx = RecordOffset_(cntr, nl, dst_idx, ght); }
+
+        if (cntr->lb == n || cntr->rb == n) {
+            n = nr;
+            continue;
+        }
+
+        Seg* seg{ NToSeg_(n) };
+
+        if (GetNColor_(n) == dat_color) {
+            dst_idx += seg->dat.size;
+            n = nr;
+            continue;
+        }
+
+        size_t offset{ seg->ref.beg - dst_idx };
+
+        generic_hash_table::Node* ghtn{ generic_hash_table::ops::Find(
+            ght, &offset, OffsetHash_, OffsetOffsetCntNodeCompare_) };
+
+        OffsetCntNode* offset_cnt_node;
+
+        if (ghtn == nullptr) {
+            offset_cnt_node =
+                static_cast<OffsetCntNode*>(allocator::SafeAllocate(
+                    &allocator::weak_lifo_allocator, alignof(OffsetCntNode),
+                    sizeof(OffsetCntNode)));
+
+            ghtn = &offset_cnt_node->ghtn;
+
+            offset_cnt_node->offset = offset;
+            offset_cnt_node->cnt = 0;
+
+            ghtn->Init();
+
+            generic_hash_table::ops::Insert(ght, ghtn);
+        } else {
+            offset_cnt_node =
+                ZETA_Core_MemberToStruct(OffsetCntNode, ghtn, ghtn);
+        }
+
+        offset_cnt_node->cnt += seg->ref.size;
+
+        dst_idx += seg->ref.size;
+
+        n = nr;
+    }
+
+    return dst_idx;
+}
+
+template <CntrTplParamList>
+Pair<size_t, size_t> ToWBSeg_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, TreeNode* n, WBSeg* dst) {
+    Pair<size_t, size_t> ret{ 0, 0 };
+
+    while (n != nullptr) {
+        TreeNode* nl{ n->GetLPtr() };
+        TreeNode* nr{ n->GetRPtr() };
+
+        auto l_ret{ ToWBSeg_(cntr, nl, dst) };
+
+        dst += l_ret.first + l_ret.second;
+
+        ret.first += l_ret.first;
+        ret.second += l_ret.second;
+
+        if (cntr->lb == n || cntr->rb == n) {
+            n = nr;
+            continue;
+        }
+
+        Seg* seg{ NToSeg_(n) };
+
+        if (GetNColor_(n) == ref_color) {
+            ++ret.first;
+
+            dst->beg = seg->ref.beg;
+            dst->size = seg->ref.size;
+        } else {
+            ++ret.second;
+
+            dst->beg = ZETA_Core_size_max;
+            dst->size = seg->dat.size;
+            dst->data = seg->dat.data;
+            dst->offset = seg->dat.offset;
+        }
+
+        SegAllocatorLike::Deallocate(&cntr->seg_allocator, seg);
+
+        WBSeg* prv{ dst - 1 };
+
+        dst->dst_idx = prv->dst_idx + prv->size;
+
+        dst->acc_ref = prv->beg == ZETA_Core_size_max ? prv->acc_ref
+                                                      : prv->beg + prv->size;
+
+        ++dst;
+
+        n = nr;
+    }
+
+    return ret;
+}
+
+template <CntrTplParamList>
+void WriteWBSeg_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, CircularArray* ca, WBSeg* wb_segs,
+     size_t wb_segs_cnt, size_t dst_offset, size_t ref_offset) {
+    auto* origin{ &cntr->origin };
+    DataAllocatorLike* data_allocator{ &cntr->data_allocator };
+
+    if (wb_segs_cnt == 0) { return; }
+
+    struct {
+        size_t wb_seg_lb;
+        size_t wb_seg_rb;
+    } buffer[ZETA_Core_ullong_width * 2];
+
+    size_t buffer_i{ 0 };
+
+    buffer[buffer_i++] = { 0, wb_segs_cnt };
+
+    while (0 < buffer_i) {
+        auto [wb_seg_lb, wb_seg_rb]{ buffer[--buffer_i] };
+
+        if (wb_seg_lb + 1 < wb_seg_rb) {
+            size_t wb_seg_mb{ (wb_seg_lb + wb_seg_rb) / 2 };
+
+            WBSeg* mid_wb_seg{ wb_segs + wb_seg_mb };
+
+            size_t dst_pivot{ dst_offset + mid_wb_seg->dst_idx };
+            size_t src_pivot{ ref_offset + mid_wb_seg->acc_ref };
+
+            if (dst_pivot <= src_pivot) {
+                buffer[buffer_i++] = { wb_seg_mb, wb_seg_rb };
+                buffer[buffer_i++] = { wb_seg_lb, wb_seg_mb };
+            } else {
+                buffer[buffer_i++] = { wb_seg_lb, wb_seg_mb };
+                buffer[buffer_i++] = { wb_seg_mb, wb_seg_rb };
+            }
+
+            continue;
+        }
+
+        if (wb_segs->beg == ZETA_Core_size_max) {
+            ca->data = wb_segs->data;
+            ca->offset = wb_segs->offset;
+            ca->size = wb_segs->size;
+
+            seq_cntr::RangeAssign(origin, &ca, dst_offset + wb_segs->dst_idx, 0,
+                                  wb_segs->size);
+
+            DataAllocatorLike::Deallocate(data_allocator, ca->data);
+        } else {
+            size_t cur_dst_idx{ dst_offset + wb_segs->dst_idx };
+            size_t cur_ref_beg{ ref_offset + wb_segs->beg };
+
+            if (cur_dst_idx != cur_ref_beg) {
+                seq_cntr::RangeAssign(origin, origin, cur_dst_idx, cur_ref_beg,
+                                      wb_segs->size);
+            }
+        }
+    }
+}
+
+template <CntrTplParamList>
+void WriteBack_LR_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, int write_back_strategy,
+     unsigned long long cost_coeff_read, unsigned long long cost_coeff_write,
+     unsigned long long cost_coeff_insert,
+     unsigned long long cost_coeff_erase) {
+    size_t stride{ cntr->stride };
+
+    size_t size{ GetSize(cntr) };
+
+    auto* origin{ &cntr->origin };
+
+    size_t origin_size{ Origin::GetSize(origin) };
+
+    size_t del_l_cnt;
+    size_t del_r_cnt;
+
+    switch (write_back_strategy) {
+    case WriteBackStrategy::L:
+        del_l_cnt = size - origin_size;
+        del_r_cnt = 0;
+        break;
+
+    case WriteBackStrategy::R:
+        del_l_cnt = 0;
+        del_r_cnt = size - origin_size;
+        break;
+
+    case WriteBackStrategy::LR: {
+        OffsetCntGenericHashTable ght;
+        ght.table_node_alctr = allocator::weak_lifo_allocator;
+
+        generic_hash_table::ops::Init(&ght);
+
+        RecordOffset_(cntr, cntr->root, 0, &ght);
+
+        unsigned long long best_cost{ ZETA_Core_ullong_max };
+
+        del_l_cnt = 0;
+        del_r_cnt = size - origin_size;
+
+        for (;;) {
+            generic_hash_table::Node* ghtn{ generic_hash_table::ops::ExtractAny(
+                &ght) };
+
+            if (ghtn == nullptr) { break; }
+
+            auto* offset_cnt_node{ ZETA_Core_MemberToStruct(OffsetCntNode, ghtn,
+                                                            ghtn) };
+
+            size_t cur_offset{ offset_cnt_node->offset };
+
+            size_t cur_del_l_cnt{ 0 };
+            size_t cur_del_r_cnt{ size - origin_size };
+
+            if (cur_offset <= ZETA_Core_size_max / 2) {
+                cur_del_l_cnt -= cur_offset;
+                cur_del_r_cnt += cur_offset;
+            } else {
+                cur_del_l_cnt += cur_offset;
+                cur_del_r_cnt -= cur_offset;
+            }
+
+            unsigned long long cur_cost{ -(
+                (cost_coeff_read + cost_coeff_write) * offset_cnt_node->cnt) };
+
+            if (cur_del_l_cnt <= ZETA_Core_size_max / 2) {
+                cur_cost += cost_coeff_insert * cur_del_l_cnt;
+            } else {
+                cur_cost += cost_coeff_erase * -cur_del_l_cnt;
+            }
+
+            if (cur_del_r_cnt <= ZETA_Core_size_max / 2) {
+                cur_cost += cost_coeff_insert * cur_del_r_cnt;
+            } else {
+                cur_cost += cost_coeff_erase * -cur_del_r_cnt;
+            }
+
+            if (cur_cost - best_cost < ZETA_Core_ullong_max / 2) {}
+
+            if (cur_cost < best_cost ||
+                (cur_cost == best_cost && cur_del_l_cnt < del_l_cnt)) {
+                best_cost = cur_cost;
+                del_l_cnt = cur_del_l_cnt;
+                del_r_cnt = cur_del_r_cnt;
+            }
+
+            allocator::RefView<value_wrapper::FalseType>::Deallocate(
+                reinterpret_cast<allocator::RefView<value_wrapper::FalseType>*>(
+                    &allocator::weak_lifo_allocator),
+                offset_cnt_node);
+        }
+
+        break;
+    }
+    }
+
+    ZETA_Core_SanitizeAssert(origin_size + del_l_cnt + del_r_cnt == size);
+
+    size_t push_l_cnt;
+    size_t pop_l_cnt;
+
+    size_t push_r_cnt;
+    size_t pop_r_cnt;
+
+    if (del_l_cnt <= ZETA_Core_size_max / 2) {
+        push_l_cnt = del_l_cnt;
+        pop_l_cnt = 0;
+    } else {
+        push_l_cnt = 0;
+        pop_l_cnt = -del_l_cnt;
+    }
+
+    if (del_r_cnt <= ZETA_Core_size_max / 2) {
+        push_r_cnt = del_r_cnt;
+        pop_r_cnt = 0;
+    } else {
+        push_r_cnt = 0;
+        pop_r_cnt = -del_r_cnt;
+    }
+
+    if (0 < push_l_cnt) { SeqCntrPushL(origin, push_l_cnt, nullptr); }
+
+    if (0 < push_r_cnt) { SeqCntrPushR(origin, push_r_cnt, nullptr); }
+
+    size_t segs_cnt{ bin_tree::Count(cntr->root) - 2 };
+
+    auto* wb_segs{ static_cast<WBSeg*>(allocator::SafeAllocate(
+                       &allocator::weak_lifo_allocator, alignof(WBSeg),
+                       sizeof(WBSeg) * (segs_cnt + 1))) +
+                   1 };
+
+    WBSeg* lb_wb_seg{ wb_segs - 1 };
+
+    lb_wb_seg->beg = 0;
+    lb_wb_seg->size = 0;
+
+    lb_wb_seg->dst_idx = pop_l_cnt;
+    lb_wb_seg->acc_ref = pop_l_cnt;
+
+    ToWBSeg_(cntr, cntr->root, wb_segs);
+
+    CircularArray ca{
+        .data = {},
+        .width = origin->width,
+        .stride = stride,
+        .offset = 0,
+        .size = 0,
+        .capacity = cntr->seg_capacity,
+    };
+
+    WriteWBSeg_(cntr, &ca, wb_segs, segs_cnt, 0, push_l_cnt);
+
+    allocator::RefView<value_wrapper::FalseType>::Deallocate(
+        reinterpret_cast<allocator::RefView<value_wrapper::FalseType>*>(
+            &allocator::weak_lifo_allocator),
+        lb_wb_seg);
+
+    if (0 < pop_l_cnt) { SeqCntrPopL(origin, pop_l_cnt); }
+
+    if (0 < pop_r_cnt) { SeqCntrPopR(origin, pop_r_cnt); }
+
+    InitTree_(cntr);
+    RefOrigin_(cntr);
+}
+
+template <CntrTplParamList>
+void WriteBack_Random_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* cntr, unsigned long long cost_coeff_read,
+     unsigned long long cost_coeff_write, unsigned long long cost_coeff_insert,
+     unsigned long long cost_coeff_erase) {
+    auto* origin{ &cntr->origin };
+    size_t origin_size{ SeqCntrGetSize(origin) };
+
+    size_t stride{ cntr->stride };
+    size_t size{ GetSize(cntr) };
+
+    size_t segs_cnt{ bin_tree::Count(cntr->root) - 2 };
+
+    auto* wb_segs{ static_cast<WBSeg*>(allocator::SafeAllocate(
+                       &allocator::weak_lifo_allocator, alignof(WBSeg),
+                       sizeof(WBSeg) * (segs_cnt + 2))) +
+                   1 };
+
+    WBSeg* lb_wb_seg{ wb_segs - 1 };
+
+    lb_wb_seg->beg = 0;
+    lb_wb_seg->size = 0;
+
+    lb_wb_seg->dst_idx = 0;
+    lb_wb_seg->acc_ref = 0;
+
+    auto to_wb_seg_ret{ ToWBSeg_(cntr, cntr->root, wb_segs) };
+
+    {
+        size_t check_ref_segs_cnt{ 0 };
+        size_t check_dat_segs_cnt{ 0 };
+
+        for (size_t i{ 0 }; i < segs_cnt; ++i) {
+            if (wb_segs[i].beg == ZETA_Core_size_max) {
+                ++check_dat_segs_cnt;
+            } else {
+                ++check_ref_segs_cnt;
+            }
+        }
+
+        ZETA_Core_SanitizeAssert(to_wb_seg_ret.first == check_ref_segs_cnt);
+        ZETA_Core_SanitizeAssert(to_wb_seg_ret.second == check_dat_segs_cnt);
+    }
+
+    WBSeg* rb_wb_seg{ wb_segs + segs_cnt };
+
+    rb_wb_seg->beg = origin_size;
+    rb_wb_seg->size = 0;
+
+    rb_wb_seg->dst_idx = size;
+    rb_wb_seg->acc_ref = (rb_wb_seg - 1)->acc_ref;
+
+    size_t ref_segs_cnt = to_wb_seg_ret.ref_segs_cnt;
+
+    CircularArray ca{
+        .data = {},
+        .width = origin->width,
+        .stride = stride,
+        .offset = 0,
+        .size = 0,
+        .capacity = cntr->seg_capacity,
+    };
+
+    if (ref_segs_cnt == 0) {
+        if (origin_size < size) {
+            SeqCntrPopR(origin, size - origin_size);
+        } else if (size < origin_size) {
+            SeqCntrPushR(origin, origin_size - size, nullptr);
+        }
+
+        WriteWBSeg_(cntr, &ca, wb_segs, segs_cnt, 0, 0);
+
+        allocator::RefView<value_wrapper::FalseType>::Deallocate(
+            reinterpret_cast<allocator::RefView<value_wrapper::FalseType>*>(
+                &allocator::weak_lifo_allocator),
+            wb_segs - 1);
+
+        InitTree_(cntr);
+        RefOrigin_(cntr);
+
+        return;
+    }
+
+    unsigned long long cost_coeff_read_write{ cost_coeff_read +
+                                              cost_coeff_write };
+
+    auto* ref_wb_segs{ static_cast<WBSeg**>(allocator::SafeAllocate(
+                           &allocator::weak_lifo_allocator, alignof(WBSeg*),
+                           sizeof(WBSeg*) * (ref_segs_cnt + 2))) +
+                       1 };
+
+    ref_wb_segs[-1] = lb_wb_seg;
+    ref_wb_segs[ref_segs_cnt] = rb_wb_seg;
+
+    for (size_t i{ 0 }, j{ 0 }; j < ref_segs_cnt; ++i) {
+        ZETA_Core_SanitizeAssert(j < ref_segs_cnt);
+
+        WBSeg* wb_seg{ wb_segs + i };
+
+        if (wb_seg->beg != ZETA_Core_size_max) { ref_wb_segs[j++] = wb_seg; }
+    }
+
+    auto* acc_arr{ static_cast<size_t*>(allocator::SafeAllocate(
+        &allocator::weak_lifo_allocator, alignof(size_t),
+        sizeof(size_t) * (ref_segs_cnt + 2))) };
+
+    auto* acc_brr{ static_cast<unsigned long long*>(allocator::SafeAllocate(
+        &allocator::weak_lifo_allocator, alignof(unsigned long long),
+        sizeof(unsigned long long) * (ref_segs_cnt + 1))) };
+
+    acc_arr[0] = 0;
+    acc_brr[0] = 0;
+
+    size_t prv_ref_end{ 0 };
+    size_t prv_dst_end{ 0 };
+
+    for (size_t i{ 1 }; i <= ref_segs_cnt; ++i) {
+        WBSeg* cur_ref_seg{ ref_wb_segs[i - 1] };
+
+        size_t cur_beg{ cur_ref_seg->beg };
+        size_t cur_size{ cur_ref_seg->size };
+        size_t cur_dst_idx{ cur_ref_seg->dst_idx };
+
+        acc_arr[i] = acc_arr[i - 1] + (cur_dst_idx - prv_dst_end) -
+                     (cur_beg - prv_ref_end);
+        acc_brr[i] = acc_brr[i - 1] + cost_coeff_read_write * cur_size;
+
+        prv_ref_end = cur_beg + cur_size;
+        prv_dst_end = cur_dst_idx + cur_size;
+    }
+
+    acc_arr[ref_segs_cnt + 1] = acc_arr[ref_segs_cnt] + (size - prv_dst_end) -
+                                (origin_size - prv_ref_end);
+
+#if ZETA_Core_EnableDebug
+    auto* dp_best_cost{ static_cast<unsigned long long*>(
+        allocator::SafeAllocate(
+            &allocator::weak_lifo_allocator, alignof(unsigned long long),
+            sizeof(unsigned long long) * (ref_segs_cnt + 2))) };
+
+    dp_best_cost[0] = 0;
+#endif
+
+    auto* dp_cost{ static_cast<unsigned long long*>(allocator::SafeAllocate(
+        &allocator::weak_lifo_allocator, alignof(unsigned long long),
+        sizeof(unsigned long long) * (ref_segs_cnt + 2))) };
+
+    auto* dp_prv{ static_cast<size_t*>(allocator::SafeAllocate(
+        &allocator::weak_lifo_allocator, alignof(size_t),
+        sizeof(size_t) * (ref_segs_cnt + 2))) };
+
+    dp_cost[0] = 0;
+    dp_prv[0] = ZETA_Core_size_max;
+
+#if ZETA_Core_EnableDebug
+    for (size_t i{ 1 }; i <= ref_segs_cnt + 1; ++i) {
+        unsigned long long ans_cost{ ZETA_Core_ullong_max };
+
+        for (size_t j{ i }, j_end{ 0 }; j_end < j--;) {
+            size_t sum_arr{ acc_arr[i] - acc_arr[j] };
+
+            unsigned long long cur_cost{ dp_best_cost[j] +
+                                         (sum_arr <= ZETA_Core_size_max / 2
+                                              ? cost_coeff_erase * sum_arr
+                                              : cost_coeff_insert * -sum_arr) +
+                                         acc_brr[i - 1] - acc_brr[j] };
+
+            ans_cost = Min(ans_cost, cur_cost);
+        }
+
+        dp_best_cost[i] = ans_cost;
+    }
+#endif
+
+    for (size_t i{ 1 }; i <= ref_segs_cnt + 1; ++i) {
+        unsigned long long ans_cost{ ZETA_Core_ullong_max };
+        unsigned long long ans_prv{ 0 };
+
+        for (size_t j{ i }, j_end{ Max(8ULL, i) - 8 }; j_end < j--;) {
+            size_t sum_arr{ acc_arr[i] - acc_arr[j] };
+
+            unsigned long long cur_cost{ dp_cost[j] +
+                                         (sum_arr <= ZETA_Core_size_max / 2
+                                              ? cost_coeff_erase * sum_arr
+                                              : cost_coeff_insert * -sum_arr) +
+                                         acc_brr[i - 1] - acc_brr[j] };
+
+            if (cur_cost < ans_cost) {
+                ans_cost = cur_cost;
+                ans_prv = j;
+            }
+        }
+
+        dp_cost[i] = ans_cost;
+        dp_prv[i] = ans_prv;
+    }
+
+#if ZETA_Core_EnableDebug
+    {
+        unsigned long long best_cost{ dp_best_cost[ref_segs_cnt + 1] };
+        unsigned long long better_cost{ dp_cost[ref_segs_cnt + 1] };
+
+        ZETA_Core_DebugAssert(best_cost <= 512 || better_cost <= best_cost * 2);
+    }
+#endif
+
+    void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(origin) };
+
+    unsigned long long check_cost{ 0 };
+
+    for (size_t cur_end{ ref_segs_cnt + 1 }; 0 < cur_end;) {
+        size_t cur_beg{ dp_prv[cur_end] };
+
+        WBSeg* beg_wb_seg{ (ref_wb_segs - 1)[cur_beg] };
+        WBSeg* end_wb_seg{ (ref_wb_segs - 1)[cur_end] };
+
+        size_t src_beg{ beg_wb_seg->beg + beg_wb_seg->size };
+        size_t src_end{ end_wb_seg->beg };
+
+        size_t dst_beg{ beg_wb_seg->dst_idx + beg_wb_seg->size };
+        size_t dst_end{ end_wb_seg->dst_idx };
+
+        size_t dst_size{ dst_end - dst_beg };
+        size_t src_size{ src_end - src_beg };
+
+        {
+            WBSeg* segs_{ beg_wb_seg + 1 };
+            size_t segs_cnt_{ static_cast<size_t>(end_wb_seg - beg_wb_seg) -
+                              1 };
+
+            size_t check_dst_size{ 0 };
+
+            for (size_t i{ 0 }; i < segs_cnt_; ++i) {
+                check_dst_size += segs_[i].size;
+
+                if (segs_[i].beg == ZETA_Core_size_max) { continue; }
+
+                check_cost += cost_coeff_read_write * segs_[i].size;
+            }
+
+            ZETA_Core_SanitizeAssert(dst_size == check_dst_size);
+
+            if (src_size < dst_size) {
+                check_cost += cost_coeff_insert * (dst_size - src_size);
+            }
+
+            if (dst_size < src_size) {
+                check_cost += cost_coeff_erase * (src_size - dst_size);
+            }
+        }
+
+        if (src_size < dst_size) {
+            size_t diff_size{ dst_size - src_size };
+
+            SeqCntrAccess(origin, src_end, origin_cursor, nullptr);
+            SeqCntrInsert(origin, origin_cursor, diff_size);
+
+            src_end += diff_size;
+            src_size += diff_size;
+        }
+
+        WriteWBSeg_(cntr, &ca, beg_wb_seg + 1, end_wb_seg - beg_wb_seg - 1,
+                    src_beg - dst_beg, 0);
+
+        if (dst_size < src_size) {
+            size_t diff_size{ src_size - dst_size };
+
+            SeqCntrAccess(origin, src_end - diff_size, origin_cursor, nullptr);
+
+            SeqCntrErase(origin, origin_cursor, diff_size);
+        }
+
+        cur_end = cur_beg;
+    }
+
+    ZETA_Core_SanitizeAssert(check_cost == dp_cost[ref_segs_cnt + 1]);
+
+    allocator::RefView<value_wrapper::FalseType>::Deallocate(
+        reinterpret_cast<allocator::RefView<value_wrapper::FalseType>*>(
+            &allocator::weak_lifo_allocator),
+        wb_segs - 1);
+    allocator::RefView<value_wrapper::FalseType>::Deallocate(
+        reinterpret_cast<allocator::RefView<value_wrapper::FalseType>*>(
+            &allocator::weak_lifo_allocator),
+        static_cast<void*>(ref_wb_segs - 1));
+
+    allocator::RefView<value_wrapper::FalseType>::Deallocate(
+        reinterpret_cast<allocator::RefView<value_wrapper::FalseType>*>(
+            &allocator::weak_lifo_allocator),
+        acc_arr);
+    allocator::RefView<value_wrapper::FalseType>::Deallocate(
+        reinterpret_cast<allocator::RefView<value_wrapper::FalseType>*>(
+            &allocator::weak_lifo_allocator),
+        acc_brr);
+
+#if ZETA_Core_EnableDebug
+    allocator::RefView<value_wrapper::FalseType>::Deallocate(
+        reinterpret_cast<allocator::RefView<value_wrapper::FalseType>*>(
+            &allocator::weak_lifo_allocator),
+        dp_best_cost);
+#endif
+
+    allocator::RefView<value_wrapper::FalseType>::Deallocate(
+        reinterpret_cast<allocator::RefView<value_wrapper::FalseType>*>(
+            &allocator::weak_lifo_allocator),
+        dp_cost);
+    allocator::RefView<value_wrapper::FalseType>::Deallocate(
+        reinterpret_cast<allocator::RefView<value_wrapper::FalseType>*>(
+            &allocator::weak_lifo_allocator),
+        dp_prv);
+
+    InitTree_(cntr);
+    RefOrigin_(cntr);
+}
+
+}  // namespace detail
+
+template <CntrTplParamList>
+void WriteBack(Cntr<CntrTplArgList>* cntr, int write_back_strategy,
                unsigned long long cost_coeff_read,
                unsigned long long cost_coeff_write,
                unsigned long long cost_coeff_insert,
                unsigned long long cost_coeff_erase) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
-    seq_cntr::SeqCntrRef* origin{ &cntr->origin };
+    auto* origin{ &cntr->origin };
 
     ZETA_Core_DebugAssert(write_back_strategy == WriteBackStrategy::L ||    //
                           write_back_strategy == WriteBackStrategy::R ||    //
@@ -4403,63 +4256,54 @@ void WriteBack(Cntr<CntrTplArgList> cntr, int write_back_strategy,
 
 #endif
 
-// -----------------------------------------------------------------------------
-
-template <CntrTplDefParamList>
-void CopyCursor(void const* cntr_, void* dst_cursor_, void const* src_cursor_) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
-
-    auto src_cursor{ static_cast<Cursor const*>(src_cursor_) };
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
+template <CntrTplParamList>
+void CopyCursor(Cntr<CntrTplArgList> const* cntr, Cursor* dst_cursor,
+                Cursor const* src_cursor) {
     ZETA_Core_DebugAssert(CheckCursor(cntr, src_cursor));
     ZETA_Core_DebugAssert(CheckCursor(cntr, dst_cursor));
 
     *dst_cursor = *src_cursor;
 }
 
-template <CntrTplDefParamList>
-bool AreEqualCursor(void const* cntr, void const* cursor_a,
-                    void const* cursor_b) {
+template <CntrTplParamList>
+bool AreEqualCursor(Cntr<CntrTplArgList> const* cntr, Cursor const* cursor_a,
+                    Cursor const* cursor_b) {
     return GetCursorIdx(cntr, cursor_a) == GetCursorIdx(cntr, cursor_b);
 }
 
-template <CntrTplDefParamList>
-int CompareCursor(void const* cntr, void const* cursor_a,
-                  void const* cursor_b) {
+template <CntrTplParamList>
+int CompareCursor(Cntr<CntrTplArgList> const* cntr, Cursor const* cursor_a,
+                  Cursor const* cursor_b) {
     return compare::Compare(GetCursorIdx(cntr, cursor_a) + 1,
                             GetCursorIdx(cntr, cursor_b) + 1);
 }
 
-template <CntrTplDefParamList>
-size_t GetCursorDist(void const* cntr, void const* cursor_a,
-                     void const* cursor_b) {
+template <CntrTplParamList>
+size_t GetCursorDist(Cntr<CntrTplArgList> const* cntr, Cursor const* cursor_a,
+                     Cursor const* cursor_b) {
     return GetCursorIdx(cntr, cursor_b) - GetCursorIdx(cntr, cursor_a);
 }
 
-template <CntrTplDefParamList>
-size_t GetCursorIdx(void const* cntr_, void const* cursor_) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
-    auto cursor{ static_cast<Cursor const*>(cursor_) };
+template <CntrTplParamList>
+size_t GetCursorIdx(Cntr<CntrTplArgList> const* cntr, Cursor const* cursor) {
     ZETA_Core_DebugAssert(CheckCursor(cntr, cursor));
 
     return cursor->idx;
 }
 
-template <CntrTplDefParamList>
-void CursorStepL(void const* cntr, void* cursor) {
+template <CntrTplParamList>
+void CursorStepL(Cntr<CntrTplArgList> const* cntr, Cursor* cursor) {
     CursorAdvanceL(cntr, cursor, 1);
 }
 
-template <CntrTplDefParamList>
-void CursorStepR(void const* cntr, void* cursor) {
+template <CntrTplParamList>
+void CursorStepR(Cntr<CntrTplArgList> const* cntr, Cursor* cursor) {
     CursorAdvanceR(cntr, cursor, 1);
 }
 
-template <CntrTplDefParamList>
-void CursorAdvanceL(void const* cntr_, void* cursor_, size_t step) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
-    auto cursor{ static_cast<Cursor*>(cursor_) };
+template <CntrTplParamList>
+void CursorAdvanceL(Cntr<CntrTplArgList> const* cntr, Cursor* cursor,
+                    size_t step) {
     ZETA_Core_DebugAssert(CheckCursor(cntr, cursor));
 
     if (step == 0) { return; }
@@ -4486,7 +4330,7 @@ void CursorAdvanceL(void const* cntr_, void* cursor_, size_t step) {
     }
 
     auto [dst_n, dst_seg_idx]{ bin_tree::AdvanceL(
-        tn_opr, n, n_size - 1 - cursor->seg_idx + step) };
+        n, n_size - 1 - cursor->seg_idx + step) };
 
     ZETA_Core_DebugAssert(dst_n != nullptr);
 
@@ -4495,7 +4339,7 @@ void CursorAdvanceL(void const* cntr_, void* cursor_, size_t step) {
 
     if (cntr->lb == dst_n) {
         cursor->seg_idx = 0;
-        cursor->ref = 0;
+        cursor->ref = nullptr;
         return;
     }
 
@@ -4525,10 +4369,9 @@ void CursorAdvanceL(void const* cntr_, void* cursor_, size_t step) {
         circular_array::ops::Access(&ca, cursor->seg_idx, nullptr, nullptr);
 }
 
-template <CntrTplDefParamList>
-void CursorAdvanceR(void const* cntr_, void* cursor_, size_t step) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
-    auto cursor{ static_cast<Cursor*>(cursor_) };
+template <CntrTplParamList>
+void CursorAdvanceR(Cntr<CntrTplArgList> const* cntr, Cursor* cursor,
+                    size_t step) {
     ZETA_Core_DebugAssert(CheckCursor(cntr, cursor));
 
     if (step == 0) { return; }
@@ -4543,8 +4386,8 @@ void CursorAdvanceR(void const* cntr_, void* cursor_, size_t step) {
 
     ZETA_Core_DebugAssert(step <= size - cursor->idx);
 
-    auto [dst_n, dst_seg_idx]{ bin_tree::AdvanceR(tn_opr, cursor->n,
-                                                  cursor->seg_idx + step) };
+    auto [dst_n,
+          dst_seg_idx]{ bin_tree::AdvanceR(cursor->n, cursor->seg_idx + step) };
 
     ZETA_Core_DebugAssert(dst_n != nullptr);
 
@@ -4581,62 +4424,15 @@ void CursorAdvanceR(void const* cntr_, void* cursor_, size_t step) {
 
 // -----------------------------------------------------------------------------
 
-template <CntrTplDefParamList>
-bool CheckCntr(void const* cntr_) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
-    if (!(cntr != nullptr)) { return false; }
-
-#if EnStaging
-    seq_cntr::SeqCntrRef const* origin{ &cntr->origin };
-    if (!origin_opr->CheckCntr(origin)) { return false; }
-    size_t width{ origin->width };
-#else
-    size_t width{ cntr->width };
-#endif
-
-    if (!(0 < width)) { return false; }
-
-    size_t stride{ cntr->stride };
-    if (!(width <= stride)) { return false; }
-
-    size_t seg_capacity{ cntr->seg_capacity };
-    if (!(0 < seg_capacity)) { return false; }
-    if (!(seg_capacity <= ZETA_Core_ushrt_max)) { return false; }
-
-    if (!SegAllocator::CheckAllocator(&cntr->seg_allocator)) { return false; }
-    if (!DataAllocator::CheckAllocator(&cntr->data_allocator)) { return false; }
-
-    return true;
-}
-
-template <CntrTplDefParamList>
-bool CheckCursor(void const* cntr_, void const* cursor_) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
-    if (!CheckCntr(cntr)) { return false; }
-
-    auto cursor{ static_cast<Cursor const*>(cursor_) };
-    if (!(cursor != nullptr)) { return false; }
-
-    Cursor re_cursor;
-    ConstAccess(cntr, cursor->idx, &re_cursor, nullptr);
-
-    if (!(*cursor == re_cursor)) { return false; }
-
-    return true;
-}
-
-// -----------------------------------------------------------------------------
-
-template <CntrTplDefParamList>
-void PrintState(void const* cntr_) {
+template <CntrTplParamList>
+void PrintState(Cntr<CntrTplArgList> const* cntr) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
     PrintState_(cntr, cntr->root);
 }
 
-template <CntrTplDefParamList>
-Stats GetStats(void const* cntr_) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
+template <CntrTplParamList>
+Stats GetStats(Cntr<CntrTplArgList> const* cntr) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
     TreeNode* root{ cntr->root };
@@ -4646,13 +4442,13 @@ Stats GetStats(void const* cntr_) {
     return GetStats_(cntr, cntr->root);
 }
 
-template <CntrTplDefParamList>
-void Sanitize(void const* cntr_, MemRecorder* dst_seg, MemRecorder* dst_data) {
-    auto cntr{ static_cast<Cntr const*>(cntr_) };
+template <CntrTplParamList>
+void Sanitize(Cntr<CntrTplArgList> const* cntr, MemRecorder* dst_seg,
+              MemRecorder* dst_data) {
     ZETA_Core_DebugAssert(CheckCntr(cntr));
 
-    bin_tree::Sanitize(tn_opr, cntr->root);
-    rbtree::Sanitize(tn_opr, nullptr, cntr->root);
+    bin_tree::Sanitize(cntr->root);
+    rbtree::Sanitize(nullptr, cntr->root);
 
 #if ZETA_Core_EnableDebug
     Sanitize_(cntr, dst_seg, dst_data, cntr->root);
@@ -4668,3 +4464,5 @@ void Sanitize(void const* cntr_, MemRecorder* dst_seg, MemRecorder* dst_data) {
 
 #pragma pop_macro("Cntr")
 #pragma pop_macro("EnStagingTernary")
+
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)

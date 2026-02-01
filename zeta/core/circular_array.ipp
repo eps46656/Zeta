@@ -5,9 +5,9 @@
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/meta.hpp>
 #include <zeta/core/seq_cntr.hpp>
 #include <zeta/core/seq_cntr.ipp>
-#include <zeta/core/type_traits.hpp>
 #include <zeta/core/type_wrapper.hpp>
 #include <zeta/core/utils.hpp>
 #include <zeta/core/utils.ipp>
@@ -52,27 +52,32 @@ inline size_t GetLongestContSucr(size_t offset, size_t idx, size_t size,
     return (size <= k || k <= idx) ? size - idx : k - idx;
 }
 
-/*
-template <typename SrcSeqCntr>
-inline void AssignFromSeqCntr(Cntr* cntr, size_t dst_beg, SrcSeqCntr const*
-src_sc, void* src_sc_cursor, size_t cnt) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) ==
-                          CheckResultCode::Success);
+namespace detail {
 
-    ZETA_Core_DebugAssert(src_sc_cursor != nullptr);
+inline void CheckCntr(Cntr const* cntr) {
+    ZETA_Core_DebugAssert(cntr != nullptr);
 
-    if (src_sc->vtable == &seq_GetVTable<SeqCntrView, Cntr>()) {
-        auto const* src_ca_cursor{ static_cast<Cursor const*>(src_sc_cursor) };
+    void* data{ cntr->data };
+    size_t width{ cntr->width };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
 
-        auto const* src_ca{ static_cast<Cntr const*>(src_sc->inst) };
+    ZETA_Core_DebugAssert(0 < width);
+    ZETA_Core_DebugAssert(width <= stride);
+    ZETA_Core_DebugAssert(offset == 0 || offset < capacity);
+    ZETA_Core_DebugAssert(size <= capacity);
+    ZETA_Core_DebugAssert(capacity <= ZETA_Core_max_capacity);
+    ZETA_Core_DebugAssert(data != nullptr || capacity == 0);
+}
 
-        ZETA_Core_DebugAssert(CheckCursor(src_ca, src_ca_cursor)==
-                          CheckResultCode::Success);
+inline void CheckCursor(Cntr const* cntr, Cursor const* cursor) {
+    CheckCntr(cntr);
 
-        AssignFromCircularArray(cntr, dst_beg, src_ca, src_ca_cursor->idx, cnt);
+    ZETA_Core_DebugAssert(cursor != nullptr);
 
-        return;
-    }
+    ZETA_Core_DebugAssert(cntr == cursor->cntr);
 
     void* data{ cntr->data };
     size_t stride{ cntr->stride };
@@ -80,30 +85,20 @@ src_sc, void* src_sc_cursor, size_t cnt) {
     size_t size{ cntr->size };
     size_t capacity{ cntr->capacity };
 
-    size_t idx{ dst_beg };
+    ZETA_Core_DebugAssert(seq_cntr::IsReferable(cursor->idx, 1, size));
 
-    ZETA_Core_DebugAssert(seq_cntr::IsReferable(dst_beg, cnt, size));
-
-    while (0 < cnt) {
-        size_t cur_cnt{ Min(cnt,
-                            GetLongestContSucr(offset, idx, size, capacity)) };
-
-        seq_ConstSeqCntrRef::MemRead(
-            src_seq_cntr, src_seq_cntr_cursor, cur_cnt,
-            ReferElem(data, stride, offset, idx, capacity), stride,
-            src_seq_cntr_cursor);
-
-        idx += cur_cnt;
-        cnt -= cur_cnt;
-    }
+    ZETA_Core_DebugAssert(
+        size <= cursor->idx ||
+        cursor->elem == ReferElem(data, stride, offset, cursor->idx, capacity));
 }
-*/
+
+}  // namespace detail
 
 inline void AssignFromCircularArray(Cntr* dst_cntr, size_t dst_beg,
                                     Cntr const* src_cntr, size_t src_beg,
                                     size_t cnt) {
-    ZETA_Core_DebugAssert(CheckCntr(dst_cntr) == CheckResultCode::Success);
-    ZETA_Core_DebugAssert(CheckCntr(src_cntr) == CheckResultCode::Success);
+    detail::CheckCntr(dst_cntr);
+    detail::CheckCntr(src_cntr);
 
     char* dst_data{ static_cast<char*>(dst_cntr->data) };
     size_t dst_width{ dst_cntr->width };
@@ -182,13 +177,193 @@ VEC_BW_MOVE:
     }
 }
 
+inline void Init(Cntr const* cntr) { detail::CheckCntr(cntr); }
+
+inline void Deinit(Cntr* cntr) { detail::CheckCntr(cntr); }
+
+constexpr size_t GetCursorSize(Cntr const* cntr) {
+    detail::CheckCntr(cntr);
+
+    return sizeof(Cursor);
+}
+
+inline size_t GetWidth(Cntr const* cntr) {
+    detail::CheckCntr(cntr);
+
+    return cntr->width;
+}
+
+inline size_t GetSride(Cntr const* cntr) {
+    detail::CheckCntr(cntr);
+
+    return cntr->stride;
+}
+
+inline size_t GetOffset(Cntr const* cntr) {
+    detail::CheckCntr(cntr);
+
+    return cntr->offset;
+}
+
+inline size_t GetSize(Cntr const* cntr) {
+    detail::CheckCntr(cntr);
+
+    return cntr->size;
+}
+
+inline size_t GetCapacity(Cntr const* cntr) {
+    detail::CheckCntr(cntr);
+
+    return cntr->capacity;
+}
+
+inline void GetLBCursor(Cntr const* cntr, Cursor* dst_cursor) {
+    detail::CheckCntr(cntr);
+
+    if (dst_cursor == nullptr) { return; }
+
+    dst_cursor->cntr = cntr;
+    dst_cursor->idx = static_cast<size_t>(-1);
+    dst_cursor->elem = nullptr;
+}
+
+inline void GetRBCursor(Cntr const* cntr, Cursor* dst_cursor) {
+    detail::CheckCntr(cntr);
+
+    if (dst_cursor == nullptr) { return; }
+
+    dst_cursor->cntr = cntr;
+    dst_cursor->idx = cntr->size;
+    dst_cursor->elem = nullptr;
+}
+
+inline void* PeekL(Cntr* cntr, bool lazy_copy_elem, Cursor* dst_cursor,
+                   void* dst_elem) {
+    detail::CheckCntr(cntr);
+
+    void* data{ cntr->data };
+    size_t width{ cntr->width };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
+
+    void* elem{ 0 < size ? ReferElem(data, stride, offset, 0, capacity)
+                         : nullptr };
+
+    if (dst_cursor != nullptr) {
+        dst_cursor->cntr = cntr;
+        dst_cursor->idx = 0;
+        dst_cursor->elem = elem;
+    }
+
+    if (elem != nullptr && !lazy_copy_elem && dst_elem != nullptr) {
+        MemCopy(dst_elem, elem, width);
+    }
+
+    return elem;
+}
+
+inline void const* PeekL(Cntr const* cntr, bool lazy_copy_elem,
+                         Cursor* dst_cursor, void* dst_elem) {
+    return PeekL(const_cast<Cntr*>(cntr), lazy_copy_elem, dst_cursor, dst_elem);
+}
+
+inline void* PeekR(Cntr* cntr, bool lazy_copy_elem, Cursor* dst_cursor,
+                   void* dst_elem) {
+    detail::CheckCntr(cntr);
+
+    void* data{ cntr->data };
+    size_t width{ cntr->width };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
+
+    void* elem{ 0 < size ? ReferElem(data, stride, offset, size - 1, capacity)
+                         : nullptr };
+
+    if (dst_cursor != nullptr) {
+        dst_cursor->cntr = cntr;
+        dst_cursor->idx = size - 1;
+        dst_cursor->elem = elem;
+    }
+
+    if (elem != nullptr && !lazy_copy_elem && dst_elem != nullptr) {
+        MemCopy(dst_elem, elem, width);
+    }
+
+    return elem;
+}
+
+inline void const* PeekR(Cntr const* cntr, bool lazy_copy_elem,
+                         Cursor* dst_cursor, void* dst_elem) {
+    return PeekR(const_cast<Cntr*>(cntr), lazy_copy_elem, dst_cursor, dst_elem);
+}
+
+inline void* Access(Cntr* cntr, size_t idx, bool lazy_copy_elem,
+                    Cursor* dst_cursor, void* dst_elem) {
+    detail::CheckCntr(cntr);
+
+    void* data{ cntr->data };
+    size_t width{ cntr->width };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
+
+    ZETA_Core_DebugAssert(idx + 1 < size + 2);
+
+    void* elem{ idx < size ? ReferElem(data, stride, offset, idx, capacity)
+                           : nullptr };
+
+    if (dst_cursor != nullptr) {
+        dst_cursor->cntr = cntr;
+        dst_cursor->idx = idx;
+        dst_cursor->elem = elem;
+    }
+
+    if (elem != nullptr && !lazy_copy_elem && dst_elem != nullptr) {
+        MemCopy(dst_elem, elem, width);
+    }
+
+    return elem;
+}
+
+inline void const* Access(Cntr const* cntr, size_t idx, bool lazy_copy_elem,
+                          Cursor* dst_cursor, void* dst_elem) {
+    return Access(const_cast<Cntr*>(cntr), idx, lazy_copy_elem, dst_cursor,
+                  dst_elem);
+}
+
+inline void* Derefer(Cntr* cntr, Cursor const* pos_cursor, bool lazy_copy_elem,
+                     void* dst_elem) {
+    detail::CheckCursor(cntr, pos_cursor);
+
+    void* elem{ pos_cursor->elem };
+
+    if (elem != nullptr && !lazy_copy_elem && dst_elem != nullptr) {
+        MemCopy(dst_elem, elem, cntr->width);
+    }
+
+    return elem;
+}
+
+inline void const* Derefer(Cntr const* cntr, Cursor const* pos_cursor,
+                           bool lazy_copy_elem, void* dst_elem) {
+    return Derefer(const_cast<Cntr*>(cntr), pos_cursor, lazy_copy_elem,
+                   dst_elem);
+}
+
+namespace detail {
+
 template <bool EnWrite, typename ReaderWriter>
-void ReadWrite_(
-    Cntr* cntr, size_t idx, size_t cnt,
-    ReaderWriter&&
-        reader_writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    Cursor* dst_cursor) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
+void ReadWriteCore  // NOLINT(misc-use-internal-linkage)
+    (Cntr* cntr, size_t idx, size_t cnt,
+     ReaderWriter&&
+         reader_writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+     Cursor* dst_cursor) {
+    detail::CheckCntr(cntr);
 
     void* data{ cntr->data };
     size_t stride{ cntr->stride };
@@ -213,196 +388,19 @@ void ReadWrite_(
     if (dst_cursor != nullptr) {
         dst_cursor->cntr = cntr;
         dst_cursor->idx = idx;
-        dst_cursor->ref = idx < size
-                              ? ReferElem(data, stride, offset, idx, capacity)
-                              : nullptr;
+        dst_cursor->elem = idx < size
+                               ? ReferElem(data, stride, offset, idx, capacity)
+                               : nullptr;
     }
 }
 
-inline void Init(Cntr const* cntr) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
-}
-
-inline void Deinit(Cntr* cntr) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
-}
-
-constexpr size_t GetCursorSize(Cntr const* cntr) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
-
-    return sizeof(Cursor);
-}
-
-inline size_t GetWidth(Cntr const* cntr) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
-
-    return cntr->width;
-}
-
-inline size_t GetSride(Cntr const* cntr) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
-
-    return cntr->stride;
-}
-
-inline size_t GetOffset(Cntr const* cntr) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
-
-    return cntr->offset;
-}
-
-inline size_t GetSize(Cntr const* cntr) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
-
-    return cntr->size;
-}
-
-inline size_t GetCapacity(Cntr const* cntr) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
-
-    return cntr->capacity;
-}
-
-inline void GetLBCursor(Cntr const* cntr, Cursor* dst_cursor) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
-
-    if (dst_cursor == nullptr) { return; }
-
-    dst_cursor->cntr = cntr;
-    dst_cursor->idx = static_cast<size_t>(-1);
-    dst_cursor->ref = nullptr;
-}
-
-inline void GetRBCursor(Cntr const* cntr, Cursor* dst_cursor) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
-
-    if (dst_cursor == nullptr) { return; }
-
-    dst_cursor->cntr = cntr;
-    dst_cursor->idx = cntr->size;
-    dst_cursor->ref = nullptr;
-}
-
-inline void* PeekL(Cntr* cntr, Cursor* dst_cursor, void* dst_elem) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
-
-    void* data{ cntr->data };
-    size_t width{ cntr->width };
-    size_t stride{ cntr->stride };
-    size_t offset{ cntr->offset };
-    size_t size{ cntr->size };
-    size_t capacity{ cntr->capacity };
-
-    void* ref{ 0 < size ? ReferElem(data, stride, offset, 0, capacity)
-                        : nullptr };
-
-    if (dst_cursor != nullptr) {
-        dst_cursor->cntr = cntr;
-        dst_cursor->idx = 0;
-        dst_cursor->ref = ref;
-    }
-
-    if (ref != nullptr && dst_elem != nullptr) {
-        MemCopy(dst_elem, ref, width);
-    }
-
-    return ref;
-}
-
-inline void const* PeekL(Cntr const* cntr, Cursor* dst_cursor, void* dst_elem) {
-    return PeekL(const_cast<Cntr*>(cntr), dst_cursor, dst_elem);
-}
-
-inline void* PeekR(Cntr* cntr, Cursor* dst_cursor, void* dst_elem) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
-
-    void* data{ cntr->data };
-    size_t width{ cntr->width };
-    size_t stride{ cntr->stride };
-    size_t offset{ cntr->offset };
-    size_t size{ cntr->size };
-    size_t capacity{ cntr->capacity };
-
-    void* ref{ 0 < size ? ReferElem(data, stride, offset, size - 1, capacity)
-                        : nullptr };
-
-    if (dst_cursor != nullptr) {
-        dst_cursor->cntr = cntr;
-        dst_cursor->idx = size - 1;
-        dst_cursor->ref = ref;
-    }
-
-    if (ref != nullptr && dst_elem != nullptr) {
-        MemCopy(dst_elem, ref, width);
-    }
-
-    return ref;
-}
-
-inline void const* PeekR(Cntr const* cntr, Cursor* dst_cursor, void* dst_elem) {
-    return PeekR(const_cast<Cntr*>(cntr), dst_cursor, dst_elem);
-}
-
-inline void* Access(Cntr* cntr, size_t idx, Cursor* dst_cursor,
-                    void* dst_elem) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
-
-    void* data{ cntr->data };
-    size_t width{ cntr->width };
-    size_t stride{ cntr->stride };
-    size_t offset{ cntr->offset };
-    size_t size{ cntr->size };
-    size_t capacity{ cntr->capacity };
-
-    ZETA_Core_DebugAssert(idx + 1 < size + 2);
-
-    void* ref{ idx < size ? ReferElem(data, stride, offset, idx, capacity)
-                          : nullptr };
-
-    if (dst_cursor != nullptr) {
-        dst_cursor->cntr = cntr;
-        dst_cursor->idx = idx;
-        dst_cursor->ref = ref;
-    }
-
-    if (ref != nullptr && dst_elem != nullptr) {
-        MemCopy(dst_elem, ref, width);
-    }
-
-    return ref;
-}
-
-inline void const* Access(Cntr const* cntr, size_t idx, Cursor* dst_cursor,
-                          void* dst_elem) {
-    return Access(const_cast<Cntr*>(cntr), idx, dst_cursor, dst_elem);
-}
-
-inline void* Derefer(Cntr* cntr, Cursor const* pos_cursor, void* dst_elem) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
-
-    ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor) ==
-                          CheckResultCode::Success);
-
-    void* elem{ pos_cursor->ref };
-
-    if (elem != nullptr && dst_elem != nullptr) {
-        MemCopy(dst_elem, elem, cntr->width);
-    }
-
-    return elem;
-}
-
-inline void const* Derefer(Cntr const* cntr, Cursor const* pos_cursor,
-                           void* dst_elem) {
-    return Derefer(const_cast<Cntr*>(cntr), pos_cursor, dst_elem);
-}
+}  // namespace detail
 
 template <typename Reader>
 void Read(Cntr const* cntr, Cursor const* pos_cursor, size_t cnt,
           Reader&& reader,  // NOLINT(cppcoreguidelines-missing-std-forward)
           Cursor* dst_cursor) {
-    ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor) ==
-                          CheckResultCode::Success);
+    CheckCursor(cntr, pos_cursor);
 
     ReadWrite_<true>(const_cast<Cntr*>(cntr), pos_cursor->idx, cnt, reader,
                      dst_cursor);
@@ -412,8 +410,8 @@ template <typename Writer>
 void Write(Cntr* cntr, Cursor const* pos_cursor, size_t cnt,
            Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
            Cursor* dst_cursor) {
-    ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor) ==
-                          CheckResultCode::Success);
+    CheckCursor(cntr, pos_cursor);
+
     ReadWrite_<true>(cntr, pos_cursor->idx, cnt, writer, dst_cursor);
 }
 
@@ -423,11 +421,10 @@ void ReadWrite(
     ReaderWriter&&
         reader_writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
     Cursor* dst_cursor) {
-    ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor));
+    CheckCursor(cntr, pos_cursor);
+
     ReadWrite_<true>(cntr, pos_cursor->idx, cnt, reader_writer, dst_cursor);
 }
-
-// -----------------------------------------------------------------------------
 
 template <typename ReaderWriter>
 void IdxRead(
@@ -454,13 +451,11 @@ void IdxReadWrite(
     ReadWrite_<false>(cntr, idx, cnt, reader_writer, nullptr);
 }
 
-// -----------------------------------------------------------------------------
-
 template <typename Writer>
 void* PushL(Cntr* cntr, size_t cnt,
             Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
             Cursor* dst_cursor) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
+    detail::CheckCntr(cntr);
 
     void* data{ cntr->data };
     size_t stride{ cntr->stride };
@@ -473,13 +468,13 @@ void* PushL(Cntr* cntr, size_t cnt,
     cntr->offset = offset = (offset < cnt ? offset + capacity : offset) - cnt;
     cntr->size = size += cnt;
 
-    void* ref{ 0 < size ? ReferElem(data, stride, offset, 0, capacity)
-                        : nullptr };
+    void* elem{ 0 < size ? ReferElem(data, stride, offset, 0, capacity)
+                         : nullptr };
 
     if (dst_cursor != nullptr) {
         dst_cursor->cntr = cntr;
         dst_cursor->idx = 0;
-        dst_cursor->ref = ref;
+        dst_cursor->elem = elem;
     }
 
     for (size_t idx{ 0 }; 0 < cnt;) {
@@ -492,14 +487,14 @@ void* PushL(Cntr* cntr, size_t cnt,
         cnt -= cur_cnt;
     }
 
-    return ref;
+    return elem;
 }
 
 template <typename Writer>
 void* PushR(Cntr* cntr, size_t cnt,
             Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
             Cursor* dst_cursor) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
+    detail::CheckCntr(cntr);
 
     void* data{ cntr->data };
     size_t stride{ cntr->stride };
@@ -511,13 +506,13 @@ void* PushR(Cntr* cntr, size_t cnt,
 
     cntr->size = size += cnt;
 
-    void* ref{ 0 < cnt ? ReferElem(data, stride, offset, size - cnt, capacity)
-                       : nullptr };
+    void* elem{ 0 < cnt ? ReferElem(data, stride, offset, size - cnt, capacity)
+                        : nullptr };
 
     if (dst_cursor != nullptr) {
         dst_cursor->cntr = cntr;
         dst_cursor->idx = size - cnt;
-        dst_cursor->ref = ref;
+        dst_cursor->elem = elem;
     }
 
     for (size_t idx{ size - cnt }; 0 < cnt;) {
@@ -531,15 +526,14 @@ void* PushR(Cntr* cntr, size_t cnt,
         idx += cur_cnt;
     }
 
-    return ref;
+    return elem;
 }
 
 template <typename Writer>
 void* Insert(Cntr* cntr, Cursor* pos_cursor, size_t cnt,
              Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
              Cursor* dst_cursor) {
-    ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor) ==
-                          CheckResultCode::Success);
+    CheckCursor(cntr, pos_cursor);
 
     void* data{ cntr->data };
     size_t stride{ cntr->stride };
@@ -547,7 +541,7 @@ void* Insert(Cntr* cntr, Cursor* pos_cursor, size_t cnt,
     size_t size{ cntr->size };
     size_t capacity{ cntr->capacity };
 
-    if (cnt == 0) { return pos_cursor->ref; }
+    if (cnt == 0) { return pos_cursor->elem; }
 
     size_t idx{ pos_cursor->idx };
 
@@ -568,13 +562,13 @@ void* Insert(Cntr* cntr, Cursor* pos_cursor, size_t cnt,
         AssignFromCircularArray(cntr, l_size + cnt, cntr, l_size, r_size);
     }
 
-    void* ref{ ReferElem(data, stride, offset, idx, capacity) };
+    void* elem{ ReferElem(data, stride, offset, idx, capacity) };
 
-    pos_cursor->ref = ref;
+    pos_cursor->elem = elem;
 
     Write(cntr, pos_cursor, cnt, writer, dst_cursor);
 
-    return ref;
+    return elem;
 }
 
 template <typename Writer>
@@ -582,7 +576,7 @@ void* IdxInsert(
     Cntr* cntr, size_t idx, size_t cnt,
     Writer&& writer  // NOLINT(cppcoreguidelines-missing-std-forward)
 ) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
+    detail::CheckCntr(cntr);
 
     void* data{ cntr->data };
     size_t stride{ cntr->stride };
@@ -609,17 +603,15 @@ void* IdxInsert(
         AssignFromCircularArray(cntr, l_size + cnt, cntr, l_size, r_size);
     }
 
-    void* ref{ ReferElem(data, stride, offset, idx, capacity) };
+    void* elem{ ReferElem(data, stride, offset, idx, capacity) };
 
     IdxWrite(cntr, idx, cnt, writer);
 
-    return ref;
+    return elem;
 }
 
-// -----------------------------------------------------------------------------
-
 inline void PopL(Cntr* cntr, size_t cnt) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
+    detail::CheckCntr(cntr);
 
     size_t size{ cntr->size };
     ZETA_Core_DebugAssert(cnt <= size);
@@ -635,7 +627,7 @@ inline void PopL(Cntr* cntr, size_t cnt) {
 }
 
 inline void PopR(Cntr* cntr, size_t cnt) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
+    detail::CheckCntr(cntr);
 
     size_t size{ cntr->size };
     ZETA_Core_DebugAssert(cnt <= size);
@@ -646,21 +638,20 @@ inline void PopR(Cntr* cntr, size_t cnt) {
 }
 
 inline void Erase(Cntr* cntr, Cursor* pos_cursor, size_t cnt) {
-    ZETA_Core_DebugAssert(CheckCursor(cntr, pos_cursor) ==
-                          CheckResultCode::Success);
+    detail::CheckCursor(cntr, pos_cursor);
 
     size_t idx{ pos_cursor->idx };
 
     IdxErase(cntr, idx, cnt);
 
-    pos_cursor->ref = idx < cntr->size
-                          ? ReferElem(cntr->data, cntr->stride, cntr->offset,
-                                      idx, cntr->capacity)
-                          : nullptr;
+    pos_cursor->elem = idx < cntr->size
+                           ? ReferElem(cntr->data, cntr->stride, cntr->offset,
+                                       idx, cntr->capacity)
+                           : nullptr;
 }
 
 inline void IdxErase(Cntr* cntr, size_t idx, size_t cnt) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
+    detail::CheckCntr(cntr);
 
     size_t offset{ cntr->offset };
     size_t size{ cntr->size };
@@ -690,26 +681,21 @@ inline void IdxErase(Cntr* cntr, size_t idx, size_t cnt) {
 }
 
 inline void EraseAll(Cntr* cntr) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
+    detail::CheckCntr(cntr);
 
     cntr->offset = 0;
     cntr->size = 0;
 }
 
-// -----------------------------------------------------------------------------
-
-inline void CopyCursor(Cntr const* cntr, Cursor* dst_cursor,
-                       Cursor const* src_cursor) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
+inline void CopyCursor(Cntr const* cntr, Cursor const* src_cursor,
+                       Cursor* dst_cursor) {
+    detail::CheckCursor(cntr, src_cursor);
 
     ZETA_Core_DebugAssert(dst_cursor != nullptr);
 
-    ZETA_Core_DebugAssert(CheckCursor(cntr, src_cursor) ==
-                          CheckResultCode::Success);
-
     dst_cursor->cntr = cntr;
     dst_cursor->idx = src_cursor->idx;
-    dst_cursor->ref = src_cursor->ref;
+    dst_cursor->elem = src_cursor->elem;
 }
 
 inline bool AreEqualCursor(Cntr const* cntr, Cursor const* cursor_a,
@@ -729,10 +715,7 @@ inline size_t GetCursorDist(Cntr const* cntr, Cursor const* cursor_a,
 }
 
 inline size_t GetCursorIdx(Cntr const* cntr, Cursor const* cursor) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
-
-    ZETA_Core_DebugAssert(CheckCursor(cntr, cursor) ==
-                          CheckResultCode::Success);
+    detail::CheckCursor(cntr, cursor);
 
     return cursor->idx;
 }
@@ -746,16 +729,13 @@ inline void CursorStepR(Cntr const* cntr, Cursor* cursor) {
 }
 
 inline void CursorAdvanceL(Cntr const* cntr, Cursor* cursor, size_t step) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
+    detail::CheckCursor(cntr, cursor);
 
     void* data{ cntr->data };
     size_t stride{ cntr->stride };
     size_t offset{ cntr->offset };
     size_t size{ cntr->size };
     size_t capacity{ cntr->capacity };
-
-    ZETA_Core_DebugAssert(CheckCursor(cntr, cursor) ==
-                          CheckResultCode::Success);
 
     ZETA_Core_DebugAssert(step <= cursor->idx + 1);
 
@@ -763,21 +743,18 @@ inline void CursorAdvanceL(Cntr const* cntr, Cursor* cursor, size_t step) {
 
     cursor->idx = idx;
 
-    cursor->ref =
+    cursor->elem =
         idx < size ? ReferElem(data, stride, offset, idx, capacity) : nullptr;
 }
 
 inline void CursorAdvanceR(Cntr const* cntr, Cursor* cursor, size_t step) {
-    ZETA_Core_DebugAssert(CheckCntr(cntr) == CheckResultCode::Success);
+    detail::CheckCursor(cntr, cursor);
 
     void* data{ cntr->data };
     size_t stride{ cntr->stride };
     size_t offset{ cntr->offset };
     size_t size{ cntr->size };
     size_t capacity{ cntr->capacity };
-
-    ZETA_Core_DebugAssert(CheckCursor(cntr, cursor) ==
-                          CheckResultCode::Success);
 
     ZETA_Core_DebugAssert(step <= size - cursor->idx);
 
@@ -785,84 +762,23 @@ inline void CursorAdvanceR(Cntr const* cntr, Cursor* cursor, size_t step) {
 
     cursor->idx = idx;
 
-    cursor->ref =
+    cursor->elem =
         idx < size ? ReferElem(data, stride, offset, idx, capacity) : nullptr;
-}
-
-// -----------------------------------------------------------------------------
-
-inline int CheckCntr(Cntr const* cntr) {
-    if (!(cntr != nullptr)) { return CheckResultCode::NullCntr; }
-
-    void* data{ cntr->data };
-    size_t width{ cntr->width };
-    size_t stride{ cntr->stride };
-    size_t offset{ cntr->offset };
-    size_t size{ cntr->size };
-    size_t capacity{ cntr->capacity };
-
-    if (!(0 < width)) { return CheckResultCode::ZeroWidth; }
-
-    if (!(width <= stride)) { return CheckResultCode::WidthGreaterThenStride; }
-
-    if (!(offset == 0 || offset < capacity)) {
-        return CheckResultCode::OffsetGreaterThenCapacity;
-    }
-
-    if (!(size <= capacity)) {
-        return CheckResultCode::SizeGreaterThenCapacity;
-    }
-
-    if (!(capacity <= ZETA_Core_max_capacity)) {
-        return CheckResultCode::CapacityGreaterThenMaxCapacity;
-    }
-
-    if (!(data != nullptr || capacity == 0)) {
-        return CheckResultCode::NullDataWithNonZeroCapacity;
-    }
-
-    return CheckResultCode::Success;
-}
-
-inline int CheckCursor(Cntr const* cntr, Cursor const* cursor) {
-    {
-        int rc{ CheckCntr(cntr) };
-        if (rc != CheckResultCode::Success) { return rc; }
-    }
-
-    if (!(cursor != nullptr)) { return CheckResultCode::NullCursor; }
-
-    if (!(cntr == cursor->cntr)) { return CheckResultCode::CntrCursorMismatch; }
-
-    void* data{ cntr->data };
-    size_t stride{ cntr->stride };
-    size_t offset{ cntr->offset };
-    size_t size{ cntr->size };
-    size_t capacity{ cntr->capacity };
-
-    if (!(seq_cntr::IsReferable(cursor->idx, 1, size))) {
-        return CheckResultCode::CursorIdxOutOfRange;
-    }
-
-    if (!(size <= cursor->idx ||
-          cursor->ref ==
-              ReferElem(data, stride, offset, cursor->idx, capacity))) {
-        return CheckResultCode::CursorRefMismatch;
-    };
-
-    return CheckResultCode::Success;
 }
 
 }  // namespace ops
 
-// -----------------------------------------------------------------------------
+constexpr bool SeqCntrView::IsConst(type_wrapper::TypeWrapper<SeqCntrView*>) {
+    return false;
+}
 
-constexpr bool SeqCntrView::IsConst(SeqCntrView*) { return false; }
-
-constexpr bool SeqCntrView::IsConst(SeqCntrView const*) { return true; }
+constexpr bool SeqCntrView::IsConst(
+    type_wrapper::TypeWrapper<SeqCntrView const*>) {
+    return true;
+}
 
 constexpr seq_cntr::AbilityFlag SeqCntrView::GetStaticEnabledAbilityFlag(
-    SeqCntrView*) {
+    type_wrapper::TypeWrapper<SeqCntrView*>) {
     return seq_cntr::AbilityFlagBuilder{
         .GetCursorSize = true,
 
@@ -908,13 +824,14 @@ constexpr seq_cntr::AbilityFlag SeqCntrView::GetStaticEnabledAbilityFlag(
 }
 
 constexpr seq_cntr::AbilityFlag SeqCntrView::GetStaticEnabledAbilityFlag(
-    SeqCntrView const*) {
-    return seq_cntr::non_const_ability_flag &
-           GetStaticEnabledAbilityFlag(static_cast<SeqCntrView*>(nullptr));
+    type_wrapper::TypeWrapper<SeqCntrView const*>) {
+    return GetStaticEnabledAbilityFlag(
+               type_wrapper::TypeWrapper<SeqCntrView*>{}) &
+           seq_cntr::const_ability_flag;
 }
 
 constexpr seq_cntr::AbilityFlag SeqCntrView::GetStaticDisabledAbilityFlag(
-    SeqCntrView const*) {
+    type_wrapper::TypeWrapper<SeqCntrView const*>) {
     return seq_cntr::empty_ability_flag;
 }
 
@@ -957,52 +874,63 @@ void SeqCntrView::GetRBCursor(SeqCntrView const* seq_cntr_view,
                      static_cast<Cursor*>(dst_cursor));
 }
 
-void* SeqCntrView::PeekL(SeqCntrView* seq_cntr_view, void* dst_cursor,
-                         void* dst_elem) {
-    return ops::PeekL(reinterpret_cast<Cntr*>(seq_cntr_view),
+void* SeqCntrView::PeekL(SeqCntrView* seq_cntr_view, bool lazy_copy_elem,
+                         void* dst_cursor, void* dst_elem) {
+    return ops::PeekL(reinterpret_cast<Cntr*>(seq_cntr_view), lazy_copy_elem,
                       static_cast<Cursor*>(dst_cursor), dst_elem);
 }
 
 void const* SeqCntrView::PeekL(SeqCntrView const* seq_cntr_view,
-                               void* dst_cursor, void* dst_elem) {
+                               bool lazy_copy_elem, void* dst_cursor,
+                               void* dst_elem) {
     return ops::PeekL(reinterpret_cast<Cntr const*>(seq_cntr_view),
-                      static_cast<Cursor*>(dst_cursor), dst_elem);
+                      lazy_copy_elem, static_cast<Cursor*>(dst_cursor),
+                      dst_elem);
 }
 
-void* SeqCntrView::PeekR(SeqCntrView* seq_cntr_view, void* dst_cursor,
-                         void* dst_elem) {
-    return ops::PeekR(reinterpret_cast<Cntr*>(seq_cntr_view),
+void* SeqCntrView::PeekR(SeqCntrView* seq_cntr_view, bool lazy_copy_elem,
+                         void* dst_cursor, void* dst_elem) {
+    return ops::PeekR(reinterpret_cast<Cntr*>(seq_cntr_view), lazy_copy_elem,
                       static_cast<Cursor*>(dst_cursor), dst_elem);
 }
 
 void const* SeqCntrView::PeekR(SeqCntrView const* seq_cntr_view,
-                               void* dst_cursor, void* dst_elem) {
+                               bool lazy_copy_elem, void* dst_cursor,
+                               void* dst_elem) {
     return ops::PeekR(reinterpret_cast<Cntr const*>(seq_cntr_view),
-                      static_cast<Cursor*>(dst_cursor), dst_elem);
+                      lazy_copy_elem, static_cast<Cursor*>(dst_cursor),
+                      dst_elem);
 }
 
 void* SeqCntrView::Access(SeqCntrView* seq_cntr_view, size_t idx,
-                          void* dst_cursor, void* dst_elem) {
+                          bool lazy_copy_elem, void* dst_cursor,
+                          void* dst_elem) {
     return ops::Access(reinterpret_cast<Cntr*>(seq_cntr_view), idx,
-                       static_cast<Cursor*>(dst_cursor), dst_elem);
+                       lazy_copy_elem, static_cast<Cursor*>(dst_cursor),
+                       dst_elem);
 }
 
 void const* SeqCntrView::Access(SeqCntrView const* seq_cntr_view, size_t idx,
-                                void* dst_cursor, void* dst_elem) {
+                                bool lazy_copy_elem, void* dst_cursor,
+                                void* dst_elem) {
     return ops::Access(reinterpret_cast<Cntr const*>(seq_cntr_view), idx,
-                       static_cast<Cursor*>(dst_cursor), dst_elem);
+                       lazy_copy_elem, static_cast<Cursor*>(dst_cursor),
+                       dst_elem);
 }
 
 void* SeqCntrView::Derefer(SeqCntrView* seq_cntr_view, void const* pos_cursor,
-                           void* dst_elem) {
+                           bool lazy_copy_elem, void* dst_elem) {
     return ops::Derefer(reinterpret_cast<Cntr*>(seq_cntr_view),
-                        static_cast<Cursor const*>(pos_cursor), dst_elem);
+                        static_cast<Cursor const*>(pos_cursor), lazy_copy_elem,
+                        dst_elem);
 }
 
 void const* SeqCntrView::Derefer(SeqCntrView const* seq_cntr_view,
-                                 void const* pos_cursor, void* dst_elem) {
+                                 void const* pos_cursor, bool lazy_copy_elem,
+                                 void* dst_elem) {
     return ops::Derefer(reinterpret_cast<Cntr const*>(seq_cntr_view),
-                        static_cast<Cursor const*>(pos_cursor), dst_elem);
+                        static_cast<Cursor const*>(pos_cursor), lazy_copy_elem,
+                        dst_elem);
 }
 
 template <typename Reader>
@@ -1086,11 +1014,11 @@ void SeqCntrView::EraseAll(SeqCntrView* seq_cntr_view) {
     ops::EraseAll(reinterpret_cast<Cntr*>(seq_cntr_view));
 }
 
-void SeqCntrView::CopyCursor(SeqCntrView const* seq_cntr_view, void* dst_cursor,
-                             void const* src_cursor) {
+void SeqCntrView::CopyCursor(SeqCntrView const* seq_cntr_view,
+                             void const* src_cursor, void* dst_cursor) {
     ops::CopyCursor(reinterpret_cast<Cntr const*>(seq_cntr_view),
-                    static_cast<Cursor*>(dst_cursor),
-                    static_cast<Cursor const*>(src_cursor));
+                    static_cast<Cursor const*>(src_cursor),
+                    static_cast<Cursor*>(dst_cursor));
 }
 
 bool SeqCntrView::AreEqualCursor(SeqCntrView const* seq_cntr_view,
@@ -1141,5 +1069,53 @@ void SeqCntrView::CursorAdvanceR(SeqCntrView const* seq_cntr_view, void* cursor,
     ops::CursorAdvanceR(reinterpret_cast<Cntr const*>(seq_cntr_view),
                         static_cast<Cursor*>(cursor), step);
 }
+
+namespace ops {
+
+template <typename SrcSeqCntr>
+void AssignFromSeqCntr(Cntr* cntr, size_t dst_beg,
+                       SrcSeqCntr const* src_seq_cntr,
+                       void* src_seq_cntr_cursor, size_t cnt) {
+    detail::CheckCntr(cntr);
+
+    ZETA_Core_DebugAssert(src_seq_cntr_cursor != nullptr);
+
+    if (src_seq_cntr->vtable == &seq_cntr::GetVTable<SeqCntrView>()) {
+        auto const* src_ca_cursor{ static_cast<Cursor const*>(
+            src_seq_cntr_cursor) };
+
+        auto const* src_ca{ static_cast<Cntr const*>(src_seq_cntr->inst) };
+
+        CheckCursor(src_ca, src_ca_cursor);
+
+        AssignFromCircularArray(cntr, dst_beg, src_ca, src_ca_cursor->idx, cnt);
+
+        return;
+    }
+
+    void* data{ cntr->data };
+    size_t stride{ cntr->stride };
+    size_t offset{ cntr->offset };
+    size_t size{ cntr->size };
+    size_t capacity{ cntr->capacity };
+
+    size_t idx{ dst_beg };
+
+    ZETA_Core_DebugAssert(seq_cntr::IsReferable(dst_beg, cnt, size));
+
+    while (0 < cnt) {
+        size_t cur_cnt{ Min(cnt,
+                            GetLongestContSucr(offset, idx, size, capacity)) };
+
+        SrcSeqCntr::Read(src_seq_cntr, src_seq_cntr_cursor, cur_cnt,
+                         ReferElem(data, stride, offset, idx, capacity), stride,
+                         src_seq_cntr_cursor);
+
+        idx += cur_cnt;
+        cnt -= cur_cnt;
+    }
+}
+
+}  // namespace ops
 
 }  // namespace zeta::core::circular_array

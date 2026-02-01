@@ -4,28 +4,16 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/function_ref.hpp>
 #include <zeta/core/hash.hpp>
-#include <zeta/core/type_traits.hpp>
 
 #define ZETA_Core_AreOverlapped(a_beg, a_end, b_beg, b_end) \
     (((a_beg) < (b_end)) && ((b_beg) < (a_end)))
 
 namespace zeta::core {
 
-template <typename T>
-T Declval() {};
-
-// -----------------------------------------------------------------------------
-
-struct Monostate {};
-
-// -----------------------------------------------------------------------------
-
 template <typename T, size_t N>
 struct Array {
     T elems[N];
 };
-
-// -----------------------------------------------------------------------------
 
 template <typename First, typename Second>
 struct Pair {
@@ -118,17 +106,6 @@ bool operator>=(Triplet<XFirst, XSecond, XThird> const& x,
 
 // -----------------------------------------------------------------------------
 
-template <size_t N, typename... Args>
-decltype(auto) GetNth(Args&&... args);
-
-// -----------------------------------------------------------------------------
-
-template <typename T>
-constexpr RemoveRef<T>&& Move(T&& t);
-
-template <typename T>
-constexpr T&& Forward(RemoveRef<T>& t);
-
 template <typename X, typename Y>
 void Swap(X&& x, Y&& y);
 
@@ -216,17 +193,21 @@ Iterator SeqRotate(Iterator beg, Iterator mid, Iterator end);
 // -----------------------------------------------------------------------------
 
 template <typename UnsignedIntegral>
-constexpr UnsignedIntegral UIntCeilDiv(unsigned x, unsigned y);
+constexpr UnsignedIntegral UIntCeilDiv(UnsignedIntegral x, UnsignedIntegral y);
 
 // -----------------------------------------------------------------------------
 
 template <typename UnsignedIntegral>
 constexpr UnsignedIntegral UIntAlignDown(UnsignedIntegral val,
-                                         UnsignedIntegral mod);
+                                         UnsignedIntegral align);
 
 template <typename UnsignedIntegral>
 constexpr UnsignedIntegral UIntAlignUp(UnsignedIntegral val,
-                                       UnsignedIntegral mod);
+                                       UnsignedIntegral align);
+
+// -----------------------------------------------------------------------------
+
+constexpr unsigned long long Power(unsigned long long base, unsigned exp);
 
 // -----------------------------------------------------------------------------
 
@@ -269,18 +250,18 @@ unsigned long long LCM(unsigned long long x, unsigned long long y);
 // -----------------------------------------------------------------------------
 
 template <typename T>
-T* GetInstPtr(T& inst);
+T& GetInstRef(T* inst);
 
 template <typename T>
-T const* GetInstPtr(T const& inst);
-
-template <typename T>
-T* GetInstPtr(T&& inst);
+T& GetInstRef(T& inst);
 
 template <typename T>
 T* GetInstPtr(T* inst);
 
 template <typename T>
-T const* GetInstPtr(T const* inst);
+T* GetInstPtr(T& inst);
+
+template <typename T>
+T* GetInstPtr(T&& inst) = delete;
 
 }  // namespace zeta::core

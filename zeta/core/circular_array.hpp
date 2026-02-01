@@ -1,8 +1,8 @@
 #pragma once
 
 #include <zeta/core/define.hpp>
+#include <zeta/core/meta.hpp>
 #include <zeta/core/seq_cntr.hpp>
-#include <zeta/core/type_traits.hpp>
 #include <zeta/core/type_wrapper.hpp>
 
 namespace zeta::core::circular_array {
@@ -19,7 +19,7 @@ struct Cntr {
 struct Cursor {
     Cntr const* cntr;
     size_t idx;
-    void* ref;
+    void* elem;
 };
 
 namespace ops {
@@ -34,15 +34,12 @@ size_t GetLongestContPred(size_t offset, size_t idx, size_t size,
                           size_t capacity);
 
 template <typename SrcSeqCntr>
-void AssignFromSeqCntr(Cntr* cntr, size_t dst_beg, SrcSeqCntr const* src_sc,
-                       void* src_sc_cursor, size_t cnt);
+void AssignFromSeqCntr(Cntr* cntr, size_t dst_beg,
+                       SrcSeqCntr const* src_seq_cntr,
+                       void* src_seq_cntr_cursor, size_t cnt);
 
 void AssignFromCircularArray(Cntr* dst_cntr, size_t dst_beg,
                              Cntr const* src_cntr, size_t src_beg, size_t cnt);
-
-template <bool EnWrite, typename ReaderWriter>
-void ReadWrite_(Cntr* cntr, size_t idx, size_t cnt,
-                ReaderWriter&& reader_writer, Cursor* dst_cursor);
 
 void Init(Cntr const* cntr);
 
@@ -64,22 +61,29 @@ void GetLBCursor(Cntr const* cntr, Cursor* dst_cursor);
 
 void GetRBCursor(Cntr const* cntr, Cursor* dst_cursor);
 
-void* PeekL(Cntr* cntr, Cursor* dst_cursor, void* dst_elem);
+void* PeekL(Cntr* cntr, bool lazy_copy_elem, Cursor* dst_cursor,
+            void* dst_elem);
 
-void const* PeekL(Cntr const* cntr, Cursor* dst_cursor, void* dst_elem);
+void const* PeekL(Cntr const* cntr, bool lazy_copy_elem, Cursor* dst_cursor,
+                  void* dst_elem);
 
-void* PeekR(Cntr* cntr, Cursor* dst_cursor, void* dst_elem);
+void* PeekR(Cntr* cntr, bool lazy_copy_elem, Cursor* dst_cursor,
+            void* dst_elem);
 
-void const* PeekR(Cntr const* cntr, Cursor* dst_cursor, void* dst_elem);
+void const* PeekR(Cntr const* cntr, bool lazy_copy_elem, Cursor* dst_cursor,
+                  void* dst_elem);
 
-void* Access(Cntr* cntr, size_t idx, Cursor* dst_cursor, void* dst_elem);
+void* Access(Cntr* cntr, size_t idx, bool lazy_copy_elem, Cursor* dst_cursor,
+             void* dst_elem);
 
-void const* Access(Cntr const* cntr, size_t idx, Cursor* dst_cursor,
-                   void* dst_elem);
+void const* Access(Cntr const* cntr, size_t idx, bool lazy_copy_elem,
+                   Cursor* dst_cursor, void* dst_elem);
 
-void* Derefer(Cntr* cntr, Cursor const* pos_cursor, void* dst_elem);
+void* Derefer(Cntr* cntr, Cursor const* pos_cursor, bool lazy_copy_elem,
+              void* dst_elem);
 
-void const* Derefer(Cntr const* cntr, Cursor const* pos_cursor, void* dst_elem);
+void const* Derefer(Cntr const* cntr, Cursor const* pos_cursor,
+                    bool lazy_copy_elem, void* dst_elem);
 
 template <typename Reader>
 void Read(Cntr const* cntr, Cursor const* pos_cursor, size_t cnt,
@@ -126,7 +130,7 @@ void IdxErase(Cntr* cntr, size_t idx, size_t cnt);
 
 void EraseAll(Cntr* cntr);
 
-void CopyCursor(Cntr const* cntr, Cursor* dst_cursor, Cursor const* src_cursor);
+void CopyCursor(Cntr const* cntr, Cursor const* src_cursor, Cursor* dst_cursor);
 
 bool AreEqualCursor(Cntr const* cntr, Cursor const* cursor_a,
                     Cursor const* cursor_b);
@@ -147,48 +151,22 @@ void CursorAdvanceL(Cntr const* cntr, Cursor* cursor, size_t step);
 
 void CursorAdvanceR(Cntr const* cntr, Cursor* cursor, size_t step);
 
-struct CheckResultCode {
-    static constexpr int NumBase{ __COUNTER__ + 1 };
-
-    static constexpr int Success{ __COUNTER__ - NumBase };
-
-    static constexpr int NullCntr{ __COUNTER__ - NumBase };
-    static constexpr int NullCursor{ __COUNTER__ - NumBase };
-
-    static constexpr int ZeroWidth{ __COUNTER__ - NumBase };
-    static constexpr int WidthGreaterThenStride{ __COUNTER__ - NumBase };
-    static constexpr int OffsetGreaterThenCapacity{ __COUNTER__ - NumBase };
-    static constexpr int SizeGreaterThenCapacity{ __COUNTER__ - NumBase };
-    static constexpr int CapacityGreaterThenMaxCapacity{ __COUNTER__ -
-                                                         NumBase };
-    static constexpr int NullDataWithNonZeroCapacity{ __COUNTER__ - NumBase };
-
-    static constexpr int CntrCursorMismatch{ __COUNTER__ - NumBase };
-
-    static constexpr int CursorIdxOutOfRange{ __COUNTER__ - NumBase };
-
-    static constexpr int CursorRefMismatch{ __COUNTER__ - NumBase };
-};
-
-int CheckCntr(Cntr const* cntr);
-
-int CheckCursor(Cntr const* cntr, Cursor const* cursor);
-
 }  // namespace ops
 
 struct SeqCntrView {
-    static constexpr bool IsConst(SeqCntrView*);
+    static constexpr bool IsConst(type_wrapper::TypeWrapper<SeqCntrView*>);
 
-    static constexpr bool IsConst(SeqCntrView const*);
-
-    static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag(
-        SeqCntrView*);
+    static constexpr bool IsConst(
+        type_wrapper::TypeWrapper<SeqCntrView const*>);
 
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag(
-        SeqCntrView const*);
+        type_wrapper::TypeWrapper<SeqCntrView*>);
+
+    static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag(
+        type_wrapper::TypeWrapper<SeqCntrView const*>);
 
     static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag(
-        SeqCntrView const*);
+        type_wrapper::TypeWrapper<SeqCntrView const*>);
 
     static constexpr seq_cntr::AbilityFlag GetDynamicEnabledAbilityFlag(
         SeqCntrView const*);
@@ -212,29 +190,33 @@ struct SeqCntrView {
 
     static void GetRBCursor(SeqCntrView const* seq_cntr_view, void* dst_cursor);
 
-    static void* PeekL(SeqCntrView* seq_cntr_view, void* dst_cursor,
-                       void* dst_elem);
+    static void* PeekL(SeqCntrView* seq_cntr_view, bool lazy_copy_elem,
+                       void* dst_cursor, void* dst_elem);
 
-    static void const* PeekL(SeqCntrView const* seq_cntr_view, void* dst_cursor,
+    static void const* PeekL(SeqCntrView const* seq_cntr_view,
+                             bool lazy_copy_elem, void* dst_cursor,
                              void* dst_elem);
 
-    static void* PeekR(SeqCntrView* seq_cntr_view, void* dst_cursor,
-                       void* dst_elem);
+    static void* PeekR(SeqCntrView* seq_cntr_view, bool lazy_copy_elem,
+                       void* dst_cursor, void* dst_elem);
 
-    static void const* PeekR(SeqCntrView const* seq_cntr_view, void* dst_cursor,
+    static void const* PeekR(SeqCntrView const* seq_cntr_view,
+                             bool lazy_copy_elem, void* dst_cursor,
                              void* dst_elem);
 
     static void* Access(SeqCntrView* seq_cntr_view, size_t idx,
-                        void* dst_cursor, void* dst_elem);
+                        bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
 
     static void const* Access(SeqCntrView const* seq_cntr_view, size_t idx,
-                              void* dst_cursor, void* dst_elem);
+                              bool lazy_copy_elem, void* dst_cursor,
+                              void* dst_elem);
 
     static void* Derefer(SeqCntrView* seq_cntr_view, void const* pos_cursor,
-                         void* dst_elem);
+                         bool lazy_copy_elem, void* dst_elem);
 
     static void const* Derefer(SeqCntrView const* seq_cntr_view,
-                               void const* pos_cursor, void* dst_elem);
+                               void const* pos_cursor, bool lazy_copy_elem,
+                               void* dst_elem);
 
     template <typename Reader>
     static void Read(SeqCntrView const* seq_cntr_view, void const* pos_cursor,
@@ -269,8 +251,8 @@ struct SeqCntrView {
 
     static void EraseAll(SeqCntrView* seq_cntr_view);
 
-    static void CopyCursor(SeqCntrView const* seq_cntr_view, void* dst_cursor,
-                           void const* src_cursor);
+    static void CopyCursor(SeqCntrView const* seq_cntr_view,
+                           void const* src_cursor, void* dst_cursor);
 
     static bool AreEqualCursor(SeqCntrView const* seq_cntr_view,
                                void const* cursor_a, void const* cursor_b);

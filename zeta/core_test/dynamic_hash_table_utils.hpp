@@ -14,24 +14,24 @@
 
 namespace zeta::core_test::dynamic_hash_table_utils {
 
-using AssocCntrRef = core::assoc_cntr::AssocCntrRef;
-using DynamicHashTable = core::DynamicHashTable<
+using AssocCntrRef = core::assoc_cntr::Ref<core::value_wrapper::FalseType>;
+
+namespace DynamicHashTableNS = core::dynamic_hash_table;
+
+using DynamicHashTable = DynamicHashTableNS::Cntr<
     core::assoc_cntr::FnHash, core::assoc_cntr::FnCompare,
-    core::allocator::AllocatorRef, core::allocator::AllocatorRef>;
+    std_allocator::Allocator, std_allocator::Allocator>;
 
 struct DynamicHashTablePack {
-    StdAllocator ght_table_node_allocator;
-    StdAllocator node_allocator;
-
     DynamicHashTable dht;
 };
 
 template <typename Elem>
 AssocCntrRef Create();
 
-void Destroy(AssocCntrRef assoc_cntr);
+void Sanitize(void const* dht);
 
-void Sanitize(AssocCntrRef assoc_cntr);
+void Destroy(void* dht);
 
 // -----------------------------------------------------------------------------
 
@@ -46,56 +46,54 @@ AssocCntrRef Create() {
     pack->dht.ght.node_compare.elem_compare =
         core::compare::TypeErasedCompare<Elem, Elem>;
 
-    pack->dht.ght.table_node_allocator =
-        zeta::core::allocator::MakeAllocatorRef(
-            &pack->ght_table_node_allocator);
+    new (&pack->dht.ght.table_node_alctr) std_allocator::Allocator;
 
-    pack->dht.node_allocator =
-        zeta::core::allocator::MakeAllocatorRef(&pack->node_allocator);
+    new (&pack->dht.node_alctr) std_allocator::Allocator;
 
-    DynamicHashTable::Init(&pack->dht);
+    DynamicHashTableNS::ops::Init(&pack->dht);
 
-    AssocCntrRef assoc_cntr_ref{ zeta::core::assoc_cntr::MakeAssocCntrRef(
-        &pack->dht) };
+    AssocCntrRef assoc_cntr_ref{ zeta::core::assoc_cntr::MakeRef(
+        DynamicHashTableNS::ops::AsAssocCntrView(&pack->dht)) };
 
-    assoc_cntr_utils::AddSanitizeFunc(assoc_cntr_ref.vtable, Sanitize);
+    assoc_cntr_utils::AddSanitizeFunc(&pack->dht, Sanitize);
 
-    assoc_cntr_utils::AddDestroyFunc(assoc_cntr_ref.vtable, Destroy);
+    assoc_cntr_utils::AddDestroyFunc(&pack->dht, Destroy);
 
     return assoc_cntr_ref;
 }
 
-inline void Destroy(AssocCntrRef assoc_cntr) {
-    if (assoc_cntr.inst == nullptr) { return; }
-
-    DynamicHashTablePack* pack{ ZETA_Core_MemberToStruct(
-        DynamicHashTablePack, dht, assoc_cntr.inst) };
-
-    DynamicHashTable::Deinit(&pack->dht);
-
-    std::free(pack);
-}
-
-inline void Sanitize(AssocCntrRef assoc_cntr) {
-    if (assoc_cntr.inst == nullptr) { return; }
+inline void Sanitize(void const* dht_) {
+    auto const* dht{ static_cast<DynamicHashTable const*>(dht_) };
 
 #if ZETA_Core_EnableDebug
-    DynamicHashTablePack* pack{ ZETA_Core_MemberToStruct(
-        DynamicHashTablePack, dht, assoc_cntr.inst) };
+    DynamicHashTablePack* pack{ ZETA_Core_MemberToStruct(DynamicHashTablePack,
+                                                         dht, dht) };
 
     core::MemRecorder* table_recorder{ core::MemRecorder::Create() };
     core::MemRecorder* node_recorder{ core::MemRecorder::Create() };
 
-    DynamicHashTable::Sanitize(&pack->dht, table_recorder, node_recorder);
+    DynamicHashTableNS::ops::Sanitize(&pack->dht, table_recorder,
+                                      node_recorder);
 
-    core::MemRecorder::MatchRecords(pack->ght_table_node_allocator.mem_recorder,
+    core::MemRecorder::MatchRecords(pack->dht.ght.table_node_alctr.mem_recorder,
                                     table_recorder);
-    core::MemRecorder::MatchRecords(pack->node_allocator.mem_recorder,
+    core::MemRecorder::MatchRecords(pack->dht.node_alctr.mem_recorder,
                                     node_recorder);
 
     core::MemRecorder::Destroy(table_recorder);
     core::MemRecorder::Destroy(node_recorder);
 #endif
+}
+
+inline void Destroy(void* dht_) {
+    auto* dht{ static_cast<DynamicHashTable*>(dht_) };
+
+    DynamicHashTablePack* pack{ ZETA_Core_MemberToStruct(DynamicHashTablePack,
+                                                         dht, dht) };
+
+    DynamicHashTableNS::ops::Deinit(dht);
+
+    std::free(pack);
 }
 
 }  // namespace zeta::core_test::dynamic_hash_table_utils

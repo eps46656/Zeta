@@ -14,6 +14,7 @@ using SeqCntrRef = core::seq_cntr::Ref<core::value_wrapper::FalseType>;
 namespace DebugDequeNS = core::debug_deque;
 namespace DebugDequeOps = DebugDequeNS::ops;
 using DebugDeque = DebugDequeNS::Cntr;
+using DebugDequeView = DebugDequeNS::SeqCntrView;
 
 struct Pack {
     DebugDeque debug_deque;
@@ -30,16 +31,14 @@ template <typename Elem>
 SeqCntrRef Create() {
     Pack* pack{ new Pack{} };
 
-    auto dd{ static_cast<DebugDeque*>(&pack->debug_deque) };
+    auto* dd{ static_cast<DebugDeque*>(&pack->debug_deque) };
 
     dd->width = sizeof(Elem);
 
     DebugDequeOps::Init(dd);
 
-    ZETA_Core_PrintVar(pack->debug_deque.deque);
-
     SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr::MakeRef(
-        core::debug_deque::SeqCntrOperator{}, dd) };
+        reinterpret_cast<DebugDequeView*>(dd)) };
 
     seq_cntr_utils::AddSanitizeFunc(dd, Sanitize);
 

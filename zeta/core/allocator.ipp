@@ -4,15 +4,15 @@
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/type_traits.hpp>
+#include <zeta/core/meta.hpp>
 #include <zeta/core/type_wrapper.hpp>
 #include <zeta/core/value_wrapper.hpp>
 
 namespace zeta::core::allocator {
 
-template <typename AllocatorOperator, typename Allocator>
-void CheckContract(AllocatorOperator const& alctr_opr, Allocator* alctr) {
-    constexpr type_wrapper::TypeWrapper<Allocator*> a_ptr_type_wrapper;
+template <typename Allocator>
+void CheckContract(Allocator* alctr) {
+    constexpr type_wrapper::TypeWrapper<Allocator*> allocator_ptr_type_wrapper;
     void* void_ptr{ nullptr };
 
     size_t size_val{ 0 };
@@ -23,17 +23,17 @@ void CheckContract(AllocatorOperator const& alctr_opr, Allocator* alctr) {
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define CheckMethod(method, return_type, ...) \
     ZETA_Core_StaticAssert(                   \
-        IsAnyOf<decltype(alctr_opr.method(__VA_ARGS__)), return_type>);
+        IsAnyOf<decltype(Allocator::method(__VA_ARGS__)), return_type>);
 
-// NOLINTEND(cppcoreguidelines-macro-usage)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define CheckConstMethod(method, return_type, ...) \
     if constexpr (is_const) { CheckMethod(method, return_type, __VA_ARGS__); }
 
     ZETA_Core_StaticAssert(
-        IsAnyOf<decltype(AllocatorOperator::IsConst(a_ptr_type_wrapper)),
+        IsAnyOf<decltype(Allocator::IsConst(allocator_ptr_type_wrapper)),
                 bool>);
 
-    constexpr bool is_const{ AllocatorOperator::IsConst(a_ptr_type_wrapper) };
+    constexpr bool is_const{ Allocator::IsConst(allocator_ptr_type_wrapper) };
 
     CheckConstMethod(  //
         GetAlign,      // method
@@ -43,7 +43,7 @@ void CheckContract(AllocatorOperator const& alctr_opr, Allocator* alctr) {
         alctr          // allocator
     );
 
-    size_t align{ alctr_opr.GetAlign(alctr) };
+    size_t align{ Allocator::GetAlign(alctr) };
 
     ZETA_Core_DebugAssert(0 < align);
     ZETA_Core_DebugAssert(align <= ZETA_Core_ushrt_max);
@@ -70,8 +70,8 @@ void CheckContract(AllocatorOperator const& alctr_opr, Allocator* alctr) {
 #pragma pop_macro("CheckConstMethod")
 }
 
-template <typename AllocatorOperator, typename Allocator>
-constexpr VTable BasicVTableBuilder<AllocatorOperator, Allocator>::Build() {
+template <typename Allocator>
+constexpr VTable BasicVTableBuilder<Allocator>::Build() {
     constexpr VTable table{
         .Allocate = Allocate,
         .Deallocate = Deallocate,
@@ -80,34 +80,28 @@ constexpr VTable BasicVTableBuilder<AllocatorOperator, Allocator>::Build() {
     return table;
 }
 
-template <typename AllocatorOperator, typename Allocator>
-void* BasicVTableBuilder<AllocatorOperator, Allocator>::Allocate(
-    void const* alctr_opr, void* alctr, size_t size) {
-    return static_cast<AllocatorOperator const*>(alctr_opr)->Allocate(
-        static_cast<Allocator*>(alctr), size);
+template <typename Allocator>
+void* BasicVTableBuilder<Allocator>::Allocate(void* alctr, size_t size) {
+    return Allocator::Allocate(static_cast<Allocator*>(alctr), size);
 }
 
-template <typename AllocatorOperator, typename Allocator>
-void BasicVTableBuilder<AllocatorOperator, Allocator>::Deallocate(
-    void const* alctr_opr, void* alctr, void* ptr) {
-    return static_cast<AllocatorOperator const*>(alctr_opr)->Deallocate(
-        static_cast<Allocator*>(alctr), ptr);
+template <typename Allocator>
+void BasicVTableBuilder<Allocator>::Deallocate(void* alctr, void* ptr) {
+    return Allocator::Deallocate(static_cast<Allocator*>(alctr), ptr);
 }
 
 namespace detail {
 
-template <typename AllocatorOperator, typename Allocator>
+template <typename Allocator>
 struct VTableHolder_ {
-    static constexpr VTable vtable{
-        BasicVTableBuilder<AllocatorOperator, Allocator>::Build()
-    };
+    static constexpr VTable vtable{ BasicVTableBuilder<Allocator>::Build() };
 };
 
 }  // namespace detail
 
-template <typename AllocatorOperator, typename Allocator>
+template <typename Allocator>
 constexpr VTable const& GetVTable() {
-    return detail::VTableHolder_<AllocatorOperator, Allocator>::vtable;
+    return detail::VTableHolder_<Allocator>::vtable;
 }
 
 // -----------------------------------------------------------------------------
@@ -116,67 +110,59 @@ constexpr VTable const& GetVTable() {
 #pragma push_macro("CallMethod")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CallMethod_(tmp_method_ptr, method, ...)                            \
-    {                                                                       \
-        auto tmp_method_ptr{ a_ref->vtable->method };                       \
-        ZETA_Core_DebugAssert(tmp_method_ptr != nullptr);                   \
-                                                                            \
-        return tmp_method_ptr(a_ref->alctr_opr, a_ref->alctr, __VA_ARGS__); \
-    }                                                                       \
+#define CallMethod(method, ...)                             \
+    {                                                       \
+        auto* ref{ static_cast<Ref<ConstTag>*>(ref_view) }; \
+                                                            \
+        auto method_ptr{ ref->vtable->method };             \
+        ZETA_Core_DebugAssert(method_ptr != nullptr);       \
+                                                            \
+        return method_ptr(ref->alctr, __VA_ARGS__);         \
+    }                                                       \
     ZETA_Core_StaticAssert(true);
 
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CallMethod(method, ...) \
-    CallMethod_(ZETA_Core_TmpName, method, __VA_ARGS__)
+template <typename ConstTag>
+size_t RefView<ConstTag>::GetAlign(RefView const* ref_view) {
+    auto* ref{ static_cast<Ref<ConstTag>*>(ref_view) };
 
-template <typename IsConst, typename>
-size_t RefOperator::GetAlign(Ref<IsConst> const* a_ref) {
-    ZETA_Core_DebugAssert(CheckAllocator(a_ref));
-
-    return a_ref->align;
+    return ref->align;
 }
 
-inline void* RefOperator::Allocate(Ref<value_wrapper::FalseType>* a_ref,
-                                   size_t size) {
+template <typename ConstTag>
+void* RefView<ConstTag>::Allocate(RefView* ref_view, size_t size) {
     CallMethod(Allocate, size);
 }
 
-inline void RefOperator::Deallocate(Ref<value_wrapper::FalseType>* a_ref,
-                                    void* ptr) {
+template <typename ConstTag>
+void RefView<ConstTag>::Deallocate(RefView* ref_view, void* ptr) {
     CallMethod(Deallocate, ptr);
 }
 
-template <typename AllocatorOperator, typename A>
-auto MakeRef(AllocatorOperator const& alctr_opr, A&& alctr_) {
-    auto* a{ GetInstPtr(Forward<A>(alctr_)) };
+template <typename Allocator>
+auto MakeRef(Allocator* alctr) {
+    CheckContract(alctr);
 
-    using Allocator = RemovePointer<decltype(a)>;
+    return Ref<value_wrapper::StaticValueWrapper<Allocator::IsConst(
+        static_cast<Allocator*>(nullptr))>>{
+        .align = static_cast<unsigned short>(Allocator::GetAlign(alctr)),
+        .vtable = &GetVTable<Allocator>(),
 
-    CheckContract(alctr_opr, a);
-
-    return Ref<value_wrapper::StaticValueWrapper<AllocatorOperator::IsConst(
-        type_wrapper::TypeWrapper<Allocator*>{})>>{
-        .align = static_cast<unsigned short>(AllocatorOperator::GetAlign(a)),
-        .vtable = &GetVTable<AllocatorOperator, Allocator>(),
-
-        .alctr_opr = &alctr_opr,
-        .a = const_cast<void*>(static_cast<void const*>(a)),
+        .alctr = const_cast<void*>(static_cast<void const*>(alctr)),
     };
 }
 
 // -----------------------------------------------------------------------------
 
-template <typename AllcoatorOperaotr, typename Allocator>
-void* SafeAllocate(AllcoatorOperaotr const& alctr_opr, Allocator* alctr,
-                   size_t align, size_t size) {
-    CheckContract(alctr_opr, alctr);
+template <typename Allocator>
+void* SafeAllocate(Allocator* alctr, size_t align, size_t size) {
+    CheckContract(alctr);
 
-    size_t self_align{ alctr_opr.GetAlign(alctr) };
+    size_t self_align{ Allocator::GetAlign(alctr) };
 
     ZETA_Core_DebugAssert(0 < align);
     ZETA_Core_DebugAssert(self_align % align == 0);
 
-    void* ptr{ alctr_opr.Allocate(alctr, size) };
+    void* ptr{ Allocator::Allocate(alctr, size) };
 
     ZETA_Core_DebugAssert(ptr != nullptr);
     ZETA_Core_DebugAssert(__builtin_is_aligned(ptr, self_align));
@@ -187,7 +173,6 @@ void* SafeAllocate(AllcoatorOperaotr const& alctr_opr, Allocator* alctr,
 inline Ref<value_wrapper::FalseType> weak_lifo_allocator{
     .align = 1,
     .vtable = nullptr,
-    .alctr_opr = nullptr,
     .alctr = nullptr,
 };
 

@@ -10,106 +10,99 @@
 #include <zeta/core/utils.hpp>
 #include <zeta/core/utils.ipp>
 
-namespace zeta::core {
+#pragma push_macro("CntrTplParamList")
+#pragma push_macro("CntrTplArgList")
+#pragma push_macro("MLPT_CNTR")
 
-void GenericHashTableNode::Init() { this->n.Init(); }
+#define CntrTplParamList                             \
+    typename NodeHashLike, typename NodeCompareLike, \
+        typename TableNodeAllocatorLike
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TreeNode*
-GenericHashTable<NodeHash, NodeCompare,
-                 TableNodeAllocator>::TreeNodeOperator::GetP(TreeNode* n)
-    const {
-    return n->GetPPtr();
+#define CntrTplArgList NodeHashLike, NodeCompareLike, TableNodeAllocatorLike
+
+#define MLPT_CNTR                                    \
+    multi_level_ptr_table::Cntr<decltype(GetInstPtr( \
+        Declval<TableNodeAllocatorLike&>()))>
+
+namespace zeta::core::generic_hash_table {
+
+constexpr bool TreeNodeView::IsConst(type_wrapper::TypeWrapper<TreeNodeView*>) {
+    return false;
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TreeNode*
-GenericHashTable<NodeHash, NodeCompare,
-                 TableNodeAllocator>::TreeNodeOperator::GetL(TreeNode* n)
-    const {
-    return n->GetLPtr();
+constexpr bool TreeNodeView::IsConst(
+    type_wrapper::TypeWrapper<TreeNodeView const*>) {
+    return true;
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TreeNode*
-GenericHashTable<NodeHash, NodeCompare,
-                 TableNodeAllocator>::TreeNodeOperator::GetR(TreeNode* n)
-    const {
-    return n->GetRPtr();
+constexpr bool TreeNodeView::IsAccSizeEnabled(
+    type_wrapper::TypeWrapper<TreeNodeView const*>) {
+    return false;
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TreeNode const*
-GenericHashTable<NodeHash, NodeCompare,
-                 TableNodeAllocator>::TreeNodeOperator::GetP(TreeNode const* n)
-    const {
-    return n->GetPPtr();
+TreeNodeView* TreeNodeView::GetP(TreeNodeView* n) {
+    return reinterpret_cast<TreeNodeView*>(
+        reinterpret_cast<TreeNode*>(n)->GetPPtr());
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TreeNode const*
-GenericHashTable<NodeHash, NodeCompare,
-                 TableNodeAllocator>::TreeNodeOperator::GetL(TreeNode const* n)
-    const {
-    return n->GetLPtr();
+TreeNodeView* TreeNodeView::GetL(TreeNodeView* n) {
+    return reinterpret_cast<TreeNodeView*>(
+        reinterpret_cast<TreeNode*>(n)->GetLPtr());
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TreeNode const*
-GenericHashTable<NodeHash, NodeCompare,
-                 TableNodeAllocator>::TreeNodeOperator::GetR(TreeNode const* n)
-    const {
-    return n->GetRPtr();
+TreeNodeView* TreeNodeView::GetR(TreeNodeView* n) {
+    return reinterpret_cast<TreeNodeView*>(
+        reinterpret_cast<TreeNode*>(n)->GetRPtr());
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-void GenericHashTable<NodeHash, NodeCompare,
-                      TableNodeAllocator>::TreeNodeOperator::SetP(TreeNode* n,
-                                                                  TreeNode* m)
-    const {
-    n->SetPPtr(m);
+TreeNodeView const* TreeNodeView::GetP(TreeNodeView const* n) {
+    return reinterpret_cast<TreeNodeView const*>(
+        reinterpret_cast<TreeNode const*>(n)->GetPPtr());
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-void GenericHashTable<NodeHash, NodeCompare,
-                      TableNodeAllocator>::TreeNodeOperator::SetL(TreeNode* n,
-                                                                  TreeNode* m)
-    const {
-    n->SetLPtr(m);
+TreeNodeView const* TreeNodeView::GetL(TreeNodeView const* n) {
+    return reinterpret_cast<TreeNodeView const*>(
+        reinterpret_cast<TreeNode const*>(n)->GetLPtr());
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-void GenericHashTable<NodeHash, NodeCompare,
-                      TableNodeAllocator>::TreeNodeOperator::SetR(TreeNode* n,
-                                                                  TreeNode* m)
-    const {
-    n->SetRPtr(m);
+TreeNodeView const* TreeNodeView::GetR(TreeNodeView const* n) {
+    return reinterpret_cast<TreeNodeView const*>(
+        reinterpret_cast<TreeNode const*>(n)->GetRPtr());
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-unsigned int GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::
-    TreeNodeOperator::GetColor(TreeNode* n) const {
-    return n->GetPColor();
+void TreeNodeView::SetP(TreeNodeView* n, TreeNodeView* m) {
+    reinterpret_cast<TreeNode*>(n)->SetPPtr(reinterpret_cast<TreeNode*>(m));
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::
-    TreeNodeOperator::SetColor(TreeNode* n, unsigned int color) const {
-    n->SetPColor(color);
+void TreeNodeView::SetL(TreeNodeView* n, TreeNodeView* m) {
+    reinterpret_cast<TreeNode*>(n)->SetLPtr(reinterpret_cast<TreeNode*>(m));
 }
 
-// -----------------------------------------------------------------------------
+void TreeNodeView::SetR(TreeNodeView* n, TreeNodeView* m) {
+    reinterpret_cast<TreeNode*>(n)->SetRPtr(reinterpret_cast<TreeNode*>(m));
+}
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-size_t
-GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::GetBucketIdx_(
-    unsigned long long hash_code, size_t capacity) {
+unsigned int TreeNodeView::GetColor(TreeNodeView const* n) {
+    return reinterpret_cast<TreeNode const*>(n)->GetPColor();
+}
+
+void TreeNodeView::SetColor(TreeNodeView* n, unsigned int color) {
+    reinterpret_cast<TreeNode*>(n)->SetPColor(color);
+}
+
+void Node::Init() { this->n.Init(); }
+
+namespace ops {
+
+namespace detail {
+
+inline size_t GetBucketIdx  // NOLINT(misc-use-internal-linkage)
+    (unsigned long long hash_code, size_t capacity) {
     return ULLHash(hash_code, 0) % capacity;
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-size_t GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::GetIdx_(
-    unsigned level, size_t const* idxes) {
+inline size_t GetIdx  // NOLINT(misc-use-internal-linkage)
+    (unsigned level, size_t const* idxes) {
     size_t idx{ 0 };
 
     for (unsigned level_i{ level }; 0 < level_i; --level_i) {
@@ -119,18 +112,16 @@ size_t GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::GetIdx_(
     return idx;
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::SetIdxes_(
-    unsigned level, size_t* idxes, size_t idx) {
+inline void SetIdxes  // NOLINT(misc-use-internal-linkage)
+    (unsigned level, size_t* idxes, size_t idx) {
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
         idxes[level_i] = idx % branch_num;
         idx /= branch_num;
     }
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-size_t GenericHashTable<NodeHash, NodeCompare,
-                        TableNodeAllocator>::FindPrvCapacity_(size_t capacity) {
+inline size_t FindPrvCapacity  // NOLINT(misc-use-internal-linkage)
+    (size_t capacity) {
     int len{ sizeof(capacities) / sizeof(capacities[0]) };
 
     if (capacity <= capacities[0]) { return 0; }
@@ -151,9 +142,8 @@ size_t GenericHashTable<NodeHash, NodeCompare,
     return capacities[lb];
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-size_t GenericHashTable<NodeHash, NodeCompare,
-                        TableNodeAllocator>::FindNxtCapacity_(size_t capacity) {
+inline size_t FindNxtCapacity  // NOLINT(misc-use-internal-linkage)
+    (size_t capacity) {
     int len{ sizeof(capacities) / sizeof(capacities[0]) };
 
     int lb{ 0 };
@@ -172,20 +162,21 @@ size_t GenericHashTable<NodeHash, NodeCompare,
     return lb < len ? capacities[lb] : 0;
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-template <typename KeyHash, typename KeyNodeCompare>
-GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Node*
-GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Find_(
-    unsigned long long salt, MLPT* table, size_t capacity, void const* key,
-    KeyHash const& key_hash, KeyNodeCompare const& key_node_compare) {
+template <typename TableNodeAllocatorLike, typename KeyHash,
+          typename KeyNodeCompare>
+Node* FindInTable  // NOLINT(misc-use-internal-linkage)
+    (unsigned long long salt,
+     multi_level_ptr_table::Cntr<TableNodeAllocatorLike>* table,
+     size_t capacity, void const* key, KeyHash const& key_hash,
+     KeyNodeCompare const& key_node_compare) {
     size_t idxes[max_level];
 
-    SetIdxes_(table->level, idxes,
-              GetBucketIdx_(key_hash(key, salt), capacity));
+    SetIdxes(table->level, idxes, GetBucketIdx(key_hash(key, salt), capacity));
 
     TreeNode* target_n{ nullptr };
 
-    void** tmp{ static_cast<void**>(MLPT::Access(table, idxes)) };
+    void** tmp{ static_cast<void**>(
+        multi_level_ptr_table::ops::Access(table, idxes)) };
 
     for (TreeNode* n{
              ({ tmp == nullptr ? nullptr : static_cast<TreeNode*>(*tmp); }) };
@@ -205,16 +196,16 @@ GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Find_(
                                : ZETA_Core_MemberToStruct(Node, n, target_n);
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Insert_(
-    GenericHashTable* ght, unsigned long long salt, MLPT* table,
-    size_t capacity, Node* node) {
+template <CntrTplParamList>
+void InsertToTable  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* ght, unsigned long long salt, MLPT_CNTR* table,
+     size_t capacity, Node* node) {
     size_t idxes[max_level];
 
-    SetIdxes_(table->level, idxes,
-              GetBucketIdx_(ght->node_hash(node, salt), capacity));
+    SetIdxes(table->level, idxes,
+             GetBucketIdx(GetInstRef(ght->node_hash)(node, salt), capacity));
 
-    auto p{ MLPT::Insert(table, idxes) };
+    auto p{ multi_level_ptr_table::ops::Insert(table, idxes) };
 
     void** root_entry{ static_cast<void**>(p.first) };
 
@@ -229,8 +220,8 @@ void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Insert_(
     TreeNode* gt_n{ nullptr };
 
     while (n != nullptr) {
-        int cmp{ ght->node_compare(node,
-                                   ZETA_Core_MemberToStruct(Node, n, n)) };
+        int cmp{ GetInstRef(ght->node_compare)(
+            node, ZETA_Core_MemberToStruct(Node, n, n)) };
 
         if (cmp < 0) {
             gt_n = n;
@@ -241,38 +232,44 @@ void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Insert_(
         }
     }
 
-    *root_entry = rbtree::Insert(tn_opr, le_n, gt_n, &node->n);
+    *root_entry = rbtree::Insert(reinterpret_cast<TreeNodeView*>(le_n),
+                                 reinterpret_cast<TreeNodeView*>(gt_n),
+                                 reinterpret_cast<TreeNodeView*>(&node->n));
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-bool GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TryExtract_(
-    GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>* ght,
-    unsigned long long salt, MLPT* table, size_t capacity, Node* node,
-    TreeNode* root) {
+template <CntrTplParamList>
+bool TryExtractFromTable  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList>* ght, unsigned long long salt, MLPT_CNTR* table,
+     size_t capacity, Node* node, TreeNode* root) {
     if (capacity == 0) { return false; }
 
     size_t idxes[max_level];
 
-    SetIdxes_(table->level, idxes,
-              GetBucketIdx_(ght->node_hash(node, salt), capacity));
+    detail::SetIdxes(
+        table->level, idxes,
+        detail::GetBucketIdx(GetInstRef(ght->node_hash)(node, salt), capacity));
 
-    void** root_entry{ static_cast<void**>(MLPT::Access(table, idxes)) };
+    void** root_entry{ static_cast<void**>(
+        multi_level_ptr_table::ops::Access(table, idxes)) };
 
     if (root_entry == nullptr || *root_entry != root) { return false; }
 
-    void* new_root{ rbtree::Extract(tn_opr, &node->n) };
+    void* new_root{ rbtree::Extract(
+        reinterpret_cast<TreeNodeView*>(&node->n)) };
 
     *root_entry = new_root;
 
-    if (new_root == nullptr) { MLPT::Erase(table, idxes); }
+    if (new_root == nullptr) {
+        multi_level_ptr_table::ops::Erase(table, idxes);
+    }
 
     return true;
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TryTransfer_(
-    GenericHashTable const* ght, MLPT* cur_table, MLPT* nxt_table,
-    size_t quata) {
+template <CntrTplParamList>
+void TryTransfer  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList> const* ght, MLPT_CNTR* cur_table,
+     MLPT_CNTR* nxt_table, size_t quata) {
     if (cur_table->level == 0 || nxt_table->level == 0 ||
         cur_table->size == 0) {
         return;
@@ -284,45 +281,47 @@ void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::TryTransfer_(
 
     for (; 0 < quata && 0 < cur_table->size; --quata) {
         if (root_entry == nullptr) {
-            root_entry = static_cast<void**>(MLPT::FindFirst(cur_table, idxes));
+            root_entry = static_cast<void**>(
+                multi_level_ptr_table::ops::FindFirst(cur_table, idxes));
         }
 
         auto* trans_node{ ZETA_Core_MemberToStruct(Node, n, *root_entry) };
 
-        void* new_root{ rbtree::Extract(tn_opr, &trans_node->n) };
+        void* new_root{ rbtree::Extract(
+            reinterpret_cast<TreeNodeView*>(&trans_node->n)) };
 
         *root_entry = new_root;
 
         if (new_root == nullptr) {
-            MLPT::Erase(cur_table, idxes);
+            multi_level_ptr_table::ops::Erase(cur_table, idxes);
             root_entry = nullptr;
         }
 
-        Insert_(const_cast<GenericHashTable*>(ght), ght->nxt_salt, nxt_table,
-                ght->nxt_capacity, trans_node);
+        InsertToTable(const_cast<Cntr<CntrTplArgList>*>(ght), ght->nxt_salt,
+                      nxt_table, ght->nxt_capacity, trans_node);
     }
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::
-    TryRunPending_(GenericHashTable const* ght_, MLPT* cur_table,
-                   MLPT* nxt_table, size_t quata) {
-    auto ght{ const_cast<GenericHashTable*>(ght_) };
+template <CntrTplParamList>
+void TryRunPending  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList> const* ght_, MLPT_CNTR* cur_table,
+     MLPT_CNTR* nxt_table, size_t quata) {
+    auto ght{ const_cast<Cntr<CntrTplArgList>*>(ght_) };
 
     size_t cur_capacity{ ght->cur_capacity };
     size_t nxt_capacity{ ght->nxt_capacity };
 
-    TryTransfer_(ght, cur_table, nxt_table, quata);
+    TryTransfer(ght, cur_table, nxt_table, quata);
 
     if (nxt_capacity == 0) {
         ght->cur_table_size = cur_table->size;
         ght->cur_table_root = cur_table->root;
 
         if (cur_table->size * 2 < cur_capacity) {
-            ght->nxt_capacity = FindPrvCapacity_(cur_capacity);
+            ght->nxt_capacity = FindPrvCapacity(cur_capacity);
             ght->nxt_salt = GetRandom();
         } else if (cur_capacity * 8 <= ght->size) {
-            ght->nxt_capacity = FindNxtCapacity_(cur_capacity);
+            ght->nxt_capacity = FindNxtCapacity(cur_capacity);
             ght->nxt_salt = GetRandom();
         }
 
@@ -356,12 +355,20 @@ void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::
     ght->nxt_table_root = nullptr;
 }
 
-// -----------------------------------------------------------------------------
+template <CntrTplParamList>
+void CheckCntr  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList> const* ght) {
+    ZETA_Core_DebugAssert(ght != nullptr);
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Init(
-    void* ght_) {
-    auto ght{ static_cast<GenericHashTable*>(ght_) };
+    size_t cur_capacity{ ght->cur_capacity };
+
+    ZETA_Core_DebugAssert(cur_capacity != 0);
+}
+
+}  // namespace detail
+
+template <CntrTplParamList>
+void Init(Cntr<CntrTplArgList>* ght) {
     ZETA_Core_DebugAssert(ght != nullptr);
 
     ght->cur_salt = GetRandom();
@@ -376,278 +383,272 @@ void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Init(
     ght->nxt_capacity = 0;
 
     ght->size = 0;
-
-    TableNodeAllocator::CheckAllocator(&ght->table_node_allocator);
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Deinit(
-    void* ght) {
+template <CntrTplParamList>
+void Deinit(Cntr<CntrTplArgList>* ght) {
     ExtractAll(ght);
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-size_t GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::GetSize(
-    void const* ght_) {
-    auto ght{ static_cast<GenericHashTable const*>(ght_) };
-    ZETA_Core_DebugAssert(CheckCntr(ght));
+template <CntrTplParamList>
+size_t GetSize(Cntr<CntrTplArgList> const* ght) {
+    detail::CheckCntr(ght);
 
     return ght->size;
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-bool GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Contain(
-    void const* ght_, void const* node_) {
-    auto ght{ static_cast<GenericHashTable const*>(ght_) };
-    ZETA_Core_DebugAssert(CheckCntr(ght));
-
-    auto const* node{ static_cast<Node const*>(node_) };
+template <CntrTplParamList>
+bool Contain(Cntr<CntrTplArgList> const* ght, Node const* node) {
+    detail::CheckCntr(ght);
 
     if (node == nullptr) { return false; }
 
     size_t cur_capacity{ ght->cur_capacity };
     size_t nxt_capacity{ ght->nxt_capacity };
 
-    MLPT cur_table{
+    MLPT_CNTR cur_table{
         .level = CeilLog(cur_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->cur_table_size,
         .root = ght->cur_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(
+            const_cast<Cntr<CntrTplArgList>*>(ght)->table_node_alctr),
     };
 
-    MLPT nxt_table{
+    MLPT_CNTR nxt_table{
         .level = CeilLog(nxt_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->nxt_table_size,
         .root = ght->nxt_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(
+            const_cast<Cntr<CntrTplArgList>*>(ght)->table_node_alctr),
     };
 
-    TreeNode const* root{ bin_tree::GetMostP(tn_opr, &node->n).first };
+    TreeNode const* root{ reinterpret_cast<TreeNode const*>(
+        bin_tree::GetMostP(reinterpret_cast<TreeNodeView const*>(&node->n))
+            .first) };
 
     size_t idxes[max_level];
 
-    SetIdxes_(cur_table.level, idxes,
-              GetBucketIdx_(ght->node_hash(node, ght->cur_salt), cur_capacity));
+    detail::SetIdxes(
+        cur_table.level, idxes,
+        detail::GetBucketIdx(GetInstRef(ght->node_hash)(node, ght->cur_salt),
+                             cur_capacity));
 
-    void** root_entry{ static_cast<void**>(MLPT::Access(&cur_table, idxes)) };
+    void** root_entry{ static_cast<void**>(
+        multi_level_ptr_table::ops::Access(&cur_table, idxes)) };
 
     bool ret{ root_entry != nullptr && *root_entry == root };
 
     if (!ret && 0 < nxt_capacity) {
-        SetIdxes_(
+        detail::SetIdxes(
             nxt_table.level, idxes,
-            GetBucketIdx_(ght->node_hash(node, ght->nxt_salt), nxt_capacity));
+            detail::GetBucketIdx(
+                GetInstRef(ght->node_hash)(node, ght->nxt_salt), nxt_capacity));
 
-        root_entry = static_cast<void**>(MLPT::Access(&nxt_table, idxes));
+        root_entry = static_cast<void**>(
+            multi_level_ptr_table::ops::Access(&nxt_table, idxes));
 
         ret = root_entry != nullptr && *root_entry == root;
     }
 
-    TryRunPending_(ght, &cur_table, &nxt_table, 4);
+    detail::TryRunPending(ght, &cur_table, &nxt_table, 4);
 
     return ret;
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-template <typename KeyHash, typename KeyNodeCompare>
-void* GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Find(
-    void const* ght_, void const* key, KeyHash const& key_hash,
-    KeyNodeCompare const& key_node_compare) {
-    auto ght{ static_cast<GenericHashTable const*>(ght_) };
-    ZETA_Core_DebugAssert(CheckCntr(ght));
+template <CntrTplParamList, typename KeyHash, typename KeyNodeCompare>
+Node* Find(Cntr<CntrTplArgList> const* ght, void const* key,
+           KeyHash const& key_hash, KeyNodeCompare const& key_node_compare) {
+    detail::CheckCntr(ght);
 
     size_t cur_capacity{ ght->cur_capacity };
     size_t nxt_capacity{ ght->nxt_capacity };
 
-    MLPT cur_table{
+    MLPT_CNTR cur_table{
         .level = CeilLog(cur_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->cur_table_size,
         .root = ght->cur_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(
+            const_cast<Cntr<CntrTplArgList>*>(ght)->table_node_alctr),
     };
 
-    MLPT nxt_table{
+    MLPT_CNTR nxt_table{
         .level = CeilLog(nxt_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->nxt_table_size,
         .root = ght->nxt_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(
+            const_cast<Cntr<CntrTplArgList>*>(ght)->table_node_alctr),
     };
 
-    void* ret{ nxt_capacity == 0
-                   ? nullptr
-                   : Find_(ght->nxt_salt, &nxt_table, nxt_capacity, key,
-                           key_hash, key_node_compare) };
+    Node* ret{ nxt_capacity == 0 ? nullptr
+                                 : detail::FindInTable(
+                                       ght->nxt_salt, &nxt_table, nxt_capacity,
+                                       key, key_hash, key_node_compare) };
 
     if (ret == nullptr) {
-        ret = Find_(ght->cur_salt, &cur_table, cur_capacity, key, key_hash,
-                    key_node_compare);
+        ret = detail::FindInTable(ght->cur_salt, &cur_table, cur_capacity, key,
+                                  key_hash, key_node_compare);
     }
 
-    TryRunPending_(ght, &cur_table, &nxt_table, 4);
+    detail::TryRunPending(ght, &cur_table, &nxt_table, 4);
 
     return ret;
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Insert(
-    void* ght_, void* node_) {
-    auto ght{ static_cast<GenericHashTable*>(ght_) };
-    ZETA_Core_DebugAssert(CheckCntr(ght));
+template <CntrTplParamList>
+void Insert(Cntr<CntrTplArgList>* ght, Node* node) {
+    detail::CheckCntr(ght);
 
-    auto* node{ static_cast<Node*>(node_) };
     ZETA_Core_DebugAssert(node != nullptr);
 
     size_t cur_capacity{ ght->cur_capacity };
     size_t nxt_capacity{ ght->nxt_capacity };
 
-    MLPT cur_table{
+    MLPT_CNTR cur_table{
         .level = CeilLog(cur_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->cur_table_size,
         .root = ght->cur_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(ght->table_node_alctr),
     };
 
-    MLPT nxt_table{
+    MLPT_CNTR nxt_table{
         .level = CeilLog(nxt_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->nxt_table_size,
         .root = ght->nxt_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(ght->table_node_alctr),
     };
 
     if (0 < nxt_capacity) {
-        Insert_(ght, ght->nxt_salt, &nxt_table, nxt_capacity, node);
+        detail::InsertToTable(ght, ght->nxt_salt, &nxt_table, nxt_capacity,
+                              node);
     } else {
-        Insert_(ght, ght->cur_salt, &cur_table, cur_capacity, node);
+        detail::InsertToTable(ght, ght->cur_salt, &cur_table, cur_capacity,
+                              node);
     }
 
     ++ght->size;
 
-    TryRunPending_(ght, &cur_table, &nxt_table, 4);
+    detail::TryRunPending(ght, &cur_table, &nxt_table, 4);
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Extract(
-    void* ght_, void* node_) {
-    auto ght{ static_cast<GenericHashTable*>(ght_) };
-    ZETA_Core_DebugAssert(CheckCntr(ght));
+template <CntrTplParamList>
+void Extract(Cntr<CntrTplArgList>* ght, Node* node) {
+    detail::CheckCntr(ght);
 
-    auto* node{ static_cast<Node*>(node_) };
     ZETA_Core_DebugAssert(node != nullptr);
 
     size_t cur_capacity{ ght->cur_capacity };
     size_t nxt_capacity{ ght->nxt_capacity };
 
-    MLPT cur_table{
+    MLPT_CNTR cur_table{
         .level = CeilLog(cur_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->cur_table_size,
         .root = ght->cur_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(ght->table_node_alctr),
     };
 
-    MLPT nxt_table{
+    MLPT_CNTR nxt_table{
         .level = CeilLog(nxt_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->nxt_table_size,
         .root = ght->nxt_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(ght->table_node_alctr),
     };
 
-    TreeNode* root{ bin_tree::GetMostP(tn_opr, &node->n).first };
+    TreeNode* root{ reinterpret_cast<TreeNode*>(
+        bin_tree::GetMostP(reinterpret_cast<TreeNodeView*>(&node->n)).first) };
 
-    if (!TryExtract_(ght, ght->cur_salt, &cur_table, cur_capacity, node,
-                     root) &&
-        !TryExtract_(ght, ght->nxt_salt, &nxt_table, nxt_capacity, node,
-                     root)) {
+    if (!detail::TryExtractFromTable(ght, ght->cur_salt, &cur_table,
+                                     cur_capacity, node, root) &&
+        !detail::TryExtractFromTable(ght, ght->nxt_salt, &nxt_table,
+                                     nxt_capacity, node, root)) {
         ZETA_Core_DebugAssert(false);
     }
 
     --ght->size;
 
-    TryRunPending_(ght, &cur_table, &nxt_table, 4);
+    detail::TryRunPending(ght, &cur_table, &nxt_table, 4);
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-void* GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::ExtractAny(
-    void* ght_) {
-    auto ght{ static_cast<GenericHashTable*>(ght_) };
-    ZETA_Core_DebugAssert(CheckCntr(ght));
+template <CntrTplParamList>
+Node* ExtractAny(Cntr<CntrTplArgList>* ght) {
+    detail::CheckCntr(ght);
 
     if (ght->size == 0) { return nullptr; }
 
     size_t cur_capacity{ ght->cur_capacity };
     size_t nxt_capacity{ ght->nxt_capacity };
 
-    MLPT cur_table{
+    MLPT_CNTR cur_table{
         .level = CeilLog(cur_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->cur_table_size,
         .root = ght->cur_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(ght->table_node_alctr),
     };
 
-    MLPT nxt_table{
+    MLPT_CNTR nxt_table{
         .level = CeilLog(nxt_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->nxt_table_size,
         .root = ght->nxt_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(ght->table_node_alctr),
     };
 
     size_t idxes[max_level];
 
     void** root_entry{ static_cast<void**>(
-        MLPT::FindFirst(&cur_table, idxes)) };
+        multi_level_ptr_table::ops::FindFirst(&cur_table, idxes)) };
 
     auto* node{ ZETA_Core_MemberToStruct(Node, n, *root_entry) };
 
-    void* new_root{ rbtree::Extract(tn_opr, &node->n) };
+    void* new_root{ rbtree::Extract(&node->n) };
 
     *root_entry = new_root;
 
-    if (new_root == nullptr) { MLPT::Erase(&cur_table, idxes); }
+    if (new_root == nullptr) {
+        multi_level_ptr_table::ops::Erase(&cur_table, idxes);
+    }
 
     --ght->size;
 
-    TryRunPending_(ght, &cur_table, &nxt_table, 4);
+    TryRunPending(ght, &cur_table, &nxt_table, 4);
 
     return node;
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::ExtractAll(
-    void* ght_) {
-    auto ght{ static_cast<GenericHashTable*>(ght_) };
-    ZETA_Core_DebugAssert(CheckCntr(ght));
+template <CntrTplParamList>
+void ExtractAll(Cntr<CntrTplArgList>* ght) {
+    detail::CheckCntr(ght);
 
     size_t cur_capacity{ ght->cur_capacity };
     size_t nxt_capacity{ ght->nxt_capacity };
 
-    MLPT cur_table{
+    MLPT_CNTR cur_table{
         .level = CeilLog(cur_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->cur_table_size,
         .root = ght->cur_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(ght->table_node_alctr),
     };
 
-    MLPT nxt_table{
+    MLPT_CNTR nxt_table{
         .level = CeilLog(nxt_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->nxt_table_size,
         .root = ght->nxt_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(ght->table_node_alctr),
     };
 
-    MLPT::Deinit(&cur_table);
+    multi_level_ptr_table::ops::Deinit(&cur_table);
 
-    if (0 < nxt_capacity) { MLPT::Deinit(&nxt_table); }
+    if (0 < nxt_capacity) { multi_level_ptr_table::ops::Deinit(&nxt_table); }
 
     ght->cur_salt = GetRandom();
 
@@ -662,64 +663,59 @@ void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::ExtractAll(
     ght->size = 0;
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-bool GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::RunPending(
-    void* ght_, size_t quata) {
-    auto ght{ static_cast<GenericHashTable*>(ght_) };
-    ZETA_Core_DebugAssert(CheckCntr(ght));
+template <CntrTplParamList>
+bool RunPending(Cntr<CntrTplArgList>* ght, size_t quata) {
+    detail::CheckCntr(ght);
 
     size_t cur_capacity{ ght->cur_capacity };
     size_t nxt_capacity{ ght->nxt_capacity };
 
     if (nxt_capacity == 0) { return false; }
 
-    MLPT cur_table{
+    MLPT_CNTR cur_table{
         .level = CeilLog(cur_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->cur_table_size,
         .root = ght->cur_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(ght->table_node_alctr),
     };
 
-    MLPT nxt_table{
+    MLPT_CNTR nxt_table{
         .level = CeilLog(nxt_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->nxt_table_size,
         .root = ght->nxt_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(ght->table_node_alctr),
     };
 
-    TryRunPending_(ght, &cur_table, &nxt_table, GetMaxOf(4ULL, quata));
+    TryRunPending(ght, &cur_table, &nxt_table, GetMaxOf(4ULL, quata));
 
     return 0 < nxt_capacity;
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-unsigned long long
-GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::GetEffFactor(
-    void const* ght_) {
-    auto ght{ static_cast<GenericHashTable*>(ght_) };
-    ZETA_Core_DebugAssert(CheckCntr(ght));
+template <CntrTplParamList>
+unsigned long long GetEffFactor(Cntr<CntrTplArgList> const* ght) {
+    detail::CheckCntr(ght);
 
     if (ght->size == 0) { return 0; }
 
     size_t cur_capacity{ ght->cur_capacity };
     size_t nxt_capacity{ ght->nxt_capacity };
 
-    MLPT cur_table{
+    MLPT_CNTR cur_table{
         .level = CeilLog(cur_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->cur_table_size,
         .root = ght->cur_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(ght->table_node_alctr),
     };
 
-    MLPT nxt_table{
+    MLPT_CNTR nxt_table{
         .level = CeilLog(nxt_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->nxt_table_size,
         .root = ght->nxt_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(ght->table_node_alctr),
     };
 
     unsigned long long total_height{ 0 };
@@ -728,64 +724,54 @@ GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::GetEffFactor(
 
     if (0 < cur_capacity) {
         void** root_entry{ static_cast<void**>(
-            MLPT::FindFirst(&cur_table, idxes)) };
+            multi_level_ptr_table::ops::FindFirst(&cur_table, idxes)) };
 
         while (root_entry != nullptr) {
             size_t tree_size{ bin_tree::Count(
-                tn_opr, static_cast<TreeNode*>(*root_entry)) };
+                static_cast<TreeNodeView*>(*root_entry)) };
 
             total_height += CeilLog2(tree_size) * tree_size;
 
-            root_entry =
-                static_cast<void**>(MLPT::FindNext(&cur_table, idxes, false));
+            root_entry = static_cast<void**>(
+                multi_level_ptr_table::ops::FindNext(&cur_table, idxes, false));
         }
     }
 
     if (0 < nxt_capacity) {
         void** root_entry{ static_cast<void**>(
-            MLPT::FindFirst(&nxt_table, idxes)) };
+            multi_level_ptr_table::ops::FindFirst(&nxt_table, idxes)) };
 
         while (root_entry != nullptr) {
             size_t tree_size{ bin_tree::Count(
-                tn_opr, static_cast<TreeNode*>(*root_entry)) };
+                static_cast<TreeNodeView*>(*root_entry)) };
 
             total_height += CeilLog2(tree_size) * tree_size;
 
-            root_entry =
-                static_cast<void**>(MLPT::FindNext(&nxt_table, idxes, false));
+            root_entry = static_cast<void**>(
+                multi_level_ptr_table::ops::FindNext(&nxt_table, idxes, false));
         }
     }
 
     return total_height * 1'000'000 / ght->size;
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-bool GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::CheckCntr(
-    void const* ght_) {
-    auto ght{ static_cast<GenericHashTable const*>(ght_) };
-    if (!(ght != nullptr)) { return false; }
+namespace detail {
 
-    size_t cur_capacity{ ght->cur_capacity };
+struct SanitizeTreeRet {
+    size_t cnt;
+    TreeNode* most_l_n;
+    TreeNode* most_r_n;
+};
 
-    if (!(cur_capacity != 0)) { return false; }
-
-    if (!TableNodeAllocator::CheckAllocator(&ght->table_node_allocator)) {
-        return false;
-    }
-
-    return true;
-}
-
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::SanitizeTreeRet
-GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::SanitizeTree_(
-    GenericHashTable const* ght, MemRecorder* dst_node, unsigned long long salt,
-    size_t capacity, size_t bucket_idx, TreeNode* n) {
+template <CntrTplParamList>
+SanitizeTreeRet SanitizeTree  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList> const* ght, MemRecorder* dst_node,
+     unsigned long long salt, size_t capacity, size_t bucket_idx, TreeNode* n) {
     if (n == nullptr) { return { 0, nullptr, nullptr }; }
 
     auto* node{ ZETA_Core_MemberToStruct(Node, n, n) };
 
-    ZETA_Core_DebugAssert(GetBucketIdx_(ght->node_hash(node, salt), capacity) ==
+    ZETA_Core_DebugAssert(GetBucketIdx(ght->node_hash(node, salt), capacity) ==
                           bucket_idx);
 
     if (dst_node != nullptr) {
@@ -795,11 +781,11 @@ GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::SanitizeTree_(
     TreeNode* nl{ node->n.GetLPtr() };
     TreeNode* nr{ node->n.GetRPtr() };
 
-    SanitizeTreeRet l_ret{ SanitizeTree_(ght, dst_node, salt, capacity,
-                                         bucket_idx, nl) };
+    SanitizeTreeRet l_ret{ SanitizeTree(ght, dst_node, salt, capacity,
+                                        bucket_idx, nl) };
 
-    SanitizeTreeRet r_ret{ SanitizeTree_(ght, dst_node, salt, capacity,
-                                         bucket_idx, nr) };
+    SanitizeTreeRet r_ret{ SanitizeTree(ght, dst_node, salt, capacity,
+                                        bucket_idx, nr) };
 
     SanitizeTreeRet ret{
         .cnt = l_ret.cnt + 1 + r_ret.cnt,
@@ -808,7 +794,7 @@ GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::SanitizeTree_(
     };
 
     if (nl != nullptr) {
-        int cmp{ ght->node_compare(
+        int cmp{ GetInstRef(ght->node_compare)(
             ZETA_Core_MemberToStruct(Node, n, l_ret.most_r_n), node) };
 
         ZETA_Core_DebugAssert(cmp <= 0);
@@ -817,7 +803,7 @@ GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::SanitizeTree_(
     }
 
     if (nr != nullptr) {
-        int cmp{ ght->node_compare(
+        int cmp{ GetInstRef(ght->node_compare)(
             node, ZETA_Core_MemberToStruct(Node, n, r_ret.most_l_n)) };
 
         ZETA_Core_DebugAssert(cmp <= 0);
@@ -828,34 +814,41 @@ GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::SanitizeTree_(
     return ret;
 }
 
-template <typename NodeHash, typename NodeCompare, typename TableNodeAllocator>
-void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Sanitize(
-    void const* ght_, MemRecorder* dst_table_node, MemRecorder* dst_node) {
-    auto ght{ static_cast<GenericHashTable const*>(ght_) };
-    ZETA_Core_DebugAssert(CheckCntr(ght));
+}  // namespace detail
+
+template <CntrTplParamList>
+void Sanitize(Cntr<CntrTplArgList> const* ght, MemRecorder* dst_table_node,
+              MemRecorder* dst_node) {
+    detail::CheckCntr(ght);
 
     size_t cur_capacity{ ght->cur_capacity };
     size_t nxt_capacity{ ght->nxt_capacity };
 
-    MLPT cur_table{
+    MLPT_CNTR cur_table{
         .level = CeilLog(cur_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->cur_table_size,
         .root = ght->cur_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(
+            const_cast<Cntr<CntrTplArgList>*>(ght)->table_node_alctr),
     };
 
-    MLPT nxt_table{
+    MLPT_CNTR nxt_table{
         .level = CeilLog(nxt_capacity, branch_num),
         .branch_nums = branch_nums.elems,
         .size = ght->nxt_table_size,
         .root = ght->nxt_table_root,
-        .nav_node_allocator = ght->table_node_allocator,
+        .nav_node_alctr = GetInstPtr(
+            const_cast<Cntr<CntrTplArgList>*>(ght)->table_node_alctr),
     };
 
-    if (0 < cur_capacity) { MLPT::Sanitize(&cur_table, dst_table_node); }
+    if (0 < cur_capacity) {
+        multi_level_ptr_table::ops::Sanitize(&cur_table, dst_table_node);
+    }
 
-    if (0 < nxt_capacity) { MLPT::Sanitize(&nxt_table, dst_table_node); }
+    if (0 < nxt_capacity) {
+        multi_level_ptr_table::ops::Sanitize(&nxt_table, dst_table_node);
+    }
 
     size_t total_size{ 0 };
 
@@ -863,39 +856,45 @@ void GenericHashTable<NodeHash, NodeCompare, TableNodeAllocator>::Sanitize(
 
     if (0 < cur_capacity) {
         void** root_entry{ static_cast<void**>(
-            MLPT::FindFirst(&cur_table, idxes)) };
+            multi_level_ptr_table::ops::FindFirst(&cur_table, idxes)) };
 
         while (root_entry != nullptr) {
             total_size +=
-                bin_tree::Count(tn_opr, static_cast<TreeNode*>(*root_entry));
+                bin_tree::Count(static_cast<TreeNodeView*>(*root_entry));
 
-            SanitizeTree_(ght, dst_node, ght->cur_salt, cur_capacity,
-                          GetIdx_(cur_table.level, idxes),
-                          static_cast<TreeNode*>(*root_entry));
+            detail::SanitizeTree(ght, dst_node, ght->cur_salt, cur_capacity,
+                                 detail::GetIdx(cur_table.level, idxes),
+                                 static_cast<TreeNode*>(*root_entry));
 
-            root_entry =
-                static_cast<void**>(MLPT::FindNext(&cur_table, idxes, false));
+            root_entry = static_cast<void**>(
+                multi_level_ptr_table::ops::FindNext(&cur_table, idxes, false));
         }
     }
 
     if (0 < nxt_capacity) {
         void** root_entry{ static_cast<void**>(
-            MLPT::FindFirst(&nxt_table, idxes)) };
+            multi_level_ptr_table::ops::FindFirst(&nxt_table, idxes)) };
 
         while (root_entry != nullptr) {
             total_size +=
-                bin_tree::Count(tn_opr, static_cast<TreeNode*>(*root_entry));
+                bin_tree::Count(static_cast<TreeNodeView*>(*root_entry));
 
-            SanitizeTree_(ght, dst_node, ght->nxt_salt, nxt_capacity,
-                          GetIdx_(nxt_table.level, idxes),
-                          static_cast<TreeNode*>(*root_entry));
+            detail::SanitizeTree(ght, dst_node, ght->nxt_salt, nxt_capacity,
+                                 detail::GetIdx(nxt_table.level, idxes),
+                                 static_cast<TreeNode*>(*root_entry));
 
-            root_entry =
-                static_cast<void**>(MLPT::FindNext(&nxt_table, idxes, false));
+            root_entry = static_cast<void**>(
+                multi_level_ptr_table::ops::FindNext(&nxt_table, idxes, false));
         }
     }
 
     ZETA_Core_DebugAssert(ght->size == total_size);
 }
 
-}  // namespace zeta::core
+}  // namespace ops
+
+}  // namespace zeta::core::generic_hash_table
+
+#pragma pop_macro("CntrTplParamList")
+#pragma pop_macro("CntrTplArgList")
+#pragma pop_macro("MLPT_CNTR")

@@ -25,7 +25,8 @@
 
 using SeqCntrRef =
     zeta::core::seq_cntr::Ref<zeta::core::value_wrapper::FalseType>;
-using SeqCntrRefOperator = zeta::core::seq_cntr::RefOperator;
+using SeqCntrRefView =
+    zeta::core::seq_cntr::RefView<zeta::core::value_wrapper::FalseType>;
 
 using PODValue = zeta::core_test::PODValue;
 
@@ -35,6 +36,12 @@ namespace debug_deque_utils = zeta::core_test::debug_deque_utils;
 // namespace seg_vector_utils = zeta::core_test::seg_vector_utils;
 // namespace staging_seg_vector_utils =
 // zeta::core_test::staging_seg_vector_utils;
+
+using CircularArray = zeta::core::circular_array::Cntr;
+using CircularArrayView = zeta::core::circular_array::SeqCntrView;
+
+using DebugDeque = zeta::core::debug_deque::Cntr;
+using DebugDequeView = zeta::core::debug_deque::SeqCntrView;
 
 void test_seq_cntr() {
     unsigned random_seed{ static_cast<unsigned>(time(nullptr)) };
@@ -55,8 +62,8 @@ void test_seq_cntr() {
 
     size_t origin_size{ 1024 * 1024 };
 
-    seq_cntr_utils::SyncRandomInit<PODValue, SeqCntrRef>({ &seq_cntr_a_origin },
-                                                         origin_size);
+    seq_cntr_utils::SyncRandomInit<PODValue, SeqCntrRefView>(
+        { reinterpret_cast<SeqCntrRefView*>(&seq_cntr_a_origin) }, origin_size);
 
     SeqCntrRef seq_cntr_a{ debug_deque_utils::Create<PODValue>() };
 
@@ -82,8 +89,9 @@ void test_seq_cntr() {
         // zeta::core::SeqCntr_Assign(seq_cntr_a, seq_cntr_a_origin);
         // zeta::core::SeqCntr_Assign(seq_cntr_b, seq_cntr_a_origin);
 
-        seq_cntr_utils::DoRandomOperations<PODValue, SeqCntrRef>(
-            { &seq_cntr_a, &seq_cntr_b },
+        seq_cntr_utils::DoRandomOperations<PODValue, SeqCntrRefView>(
+            { reinterpret_cast<SeqCntrRefView*>(&seq_cntr_a),
+              reinterpret_cast<SeqCntrRefView*>(&seq_cntr_b) },
 
             256,  // iter_cnt
 
@@ -103,10 +111,11 @@ void test_seq_cntr() {
         );
     }
 
-    seq_cntr_utils::Destroy(&seq_cntr_a);
-    seq_cntr_utils::Destroy(&seq_cntr_b);
+    seq_cntr_utils::Destroy(reinterpret_cast<SeqCntrRefView*>(&seq_cntr_a));
+    seq_cntr_utils::Destroy(reinterpret_cast<SeqCntrRefView*>(&seq_cntr_b));
 
-    seq_cntr_utils::Destroy(&seq_cntr_a_origin);
+    seq_cntr_utils::Destroy(
+        reinterpret_cast<SeqCntrRefView*>(&seq_cntr_a_origin));
 }
 
 /*

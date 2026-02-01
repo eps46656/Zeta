@@ -5,7 +5,7 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/hash.hpp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/type_traits.hpp>
+#include <zeta/core/meta.hpp>
 #include <zeta/core/utils.hpp>
 
 namespace zeta::core {
@@ -129,72 +129,11 @@ bool operator>=(Triplet<XFirst, XSecond, XThird> const& x,
 
 // -----------------------------------------------------------------------------
 
-namespace detail {
-
-template <size_t N>
-struct GetNth_ {
-    template <typename Arg0, typename Arg1, typename Arg2, typename Arg3,
-              typename... Args>
-    static decltype(auto) Get(Arg0&&, Arg1&&, Arg2&&, Arg3&&, Args&&... args) {
-        return GetNth_<N - 4>::Get(Forward<Args>(args)...);
-    }
-};
-
-template <>
-struct GetNth_<0> {
-    template <typename Arg0, typename... Args>
-    static decltype(auto) Get(Arg0&& x, Args&&...) {
-        return Forward<Arg0>(x);
-    }
-};
-
-template <>
-struct GetNth_<1> {
-    template <typename Arg0, typename Arg1, typename... Args>
-    static decltype(auto) Get(Arg0&&, Arg1&& x, Args&&...) {
-        return Forward<Arg1>(x);
-    }
-};
-
-template <>
-struct GetNth_<2> {
-    template <typename Arg0, typename Arg1, typename Arg2, typename... Args>
-    static decltype(auto) Get(Arg0&&, Arg1&&, Arg2&& x, Args&&...) {
-        return Forward<Arg2>(x);
-    }
-};
-
-template <>
-struct GetNth_<3> {
-    template <typename Arg0, typename Arg1, typename Arg2, typename Arg3,
-              typename... Args>
-    static decltype(auto) Get(Arg0&&, Arg1&&, Arg2&&, Arg3&& x, Args&&...) {
-        return Forward<Arg3>(x);
-    }
-};
-
-}  // namespace detail
-
-template <size_t N, typename... Args>
-decltype(auto) GetNth(Args&&... args) {
-    static_assert(N < 1 + sizeof...(Args));
-    return detail::GetNth_<N>::Get(Forward<Args>(args)...);
-}
-
-// -----------------------------------------------------------------------------
-
-template <typename T>
-constexpr RemoveRef<T>&& Move(T&& t) {
-    return static_cast<RemoveRef<T>&&>(t);
-}
-
-template <typename T>
-constexpr T&& Forward(RemoveRef<T>& t) {
-    return static_cast<T&&>(t);
-}
-
 template <typename X, typename Y>
-void Swap(X&& x, Y&& y) {
+void Swap(X&& x  // NOLINT(cppcoreguidelines-missing-std-forward)
+          ,
+          Y&& y  // NOLINT(cppcoreguidelines-missing-std-forward)
+) {
     if (&x == &y) { return; }
     auto tmp{ Move(x) };
     x = Move(y);
@@ -351,7 +290,7 @@ Pair<Node*, size_t> GetMostLink(Node* n, GetLinkFunc const& get_link) {
 
 // -----------------------------------------------------------------------------
 
-inline int Compare(void const* a, void const* b, size_t size) {
+inline int MemCompare(void const* a, void const* b, size_t size) {
     if (a == b || size == 0) { return 0; }
 
     ZETA_Core_DebugAssert(a != nullptr);
@@ -361,8 +300,8 @@ inline int Compare(void const* a, void const* b, size_t size) {
 }
 
 inline void MemSwap(void* x_, void* y_, size_t size) {
-    auto x{ static_cast<char*>(x_) };
-    auto y{ static_cast<char*>(y_) };
+    auto* x{ static_cast<char*>(x_) };
+    auto* y{ static_cast<char*>(y_) };
 
     if (x == y || size == 0) { return; }
 
@@ -391,7 +330,7 @@ inline void MemMove(void* dst, void const* src, size_t size) {
 }
 
 inline void* MemRotate(void* data_, size_t l_size, size_t r_size) {
-    auto data{ static_cast<char*>(data_) };
+    auto* data{ static_cast<char*>(data_) };
 
     if (l_size == 0 && r_size == 0) { return data; }
 
@@ -418,7 +357,7 @@ inline unsigned long long MemHash(void const* data_, size_t size,
     constexpr unsigned long long fnv_offset_basis{ 14695981039346656037ULL };
     constexpr unsigned long long fnv_prime{ 1099511628211ULL };
 
-    auto data{ static_cast<unsigned char const*>(data_) };
+    auto const* data{ static_cast<unsigned char const*>(data_) };
     ZETA_Core_DebugAssert(data != nullptr);
 
     unsigned long long ret{ fnv_offset_basis };
@@ -434,8 +373,8 @@ inline unsigned long long MemHash(void const* data_, size_t size,
 
 inline int ElemCompare(void const* a_, void const* b_, size_t width,
                        size_t a_stride, size_t b_stride, size_t cnt) {
-    auto a{ static_cast<char const*>(a_) };
-    auto b{ static_cast<char const*>(b_) };
+    auto const* a{ static_cast<char const*>(a_) };
+    auto const* b{ static_cast<char const*>(b_) };
 
     ZETA_Core_DebugAssert(0 < width);
     ZETA_Core_DebugAssert(width <= a_stride);
@@ -445,11 +384,11 @@ inline int ElemCompare(void const* a_, void const* b_, size_t width,
 
     if (width == a_stride && width == b_stride) {
         ZETA_Core_PrintCurPos;
-        return Compare(a, b, width * cnt);
+        return MemCompare(a, b, width * cnt);
     }
 
     for (; 0 < cnt; a += a_stride, b += b_stride, --cnt) {
-        int cmp{ Compare(a, b, width) };
+        int cmp{ MemCompare(a, b, width) };
 
         if (cmp != 0) {
             ZETA_Core_PrintVar(cmp);
@@ -462,8 +401,8 @@ inline int ElemCompare(void const* a_, void const* b_, size_t width,
 
 inline void ElemCopy(void* dst_, void const* src_, size_t width,
                      size_t dst_stride, size_t src_stride, size_t cnt) {
-    auto dst{ static_cast<char*>(dst_) };
-    auto src{ static_cast<char const*>(src_) };
+    auto* dst{ static_cast<char*>(dst_) };
+    auto const* src{ static_cast<char const*>(src_) };
 
     if (dst == src || cnt == 0) { return; }
 
@@ -487,7 +426,7 @@ inline void ElemCopy(void* dst_, void const* src_, size_t width,
 inline unsigned long long ElemHash(void const* data_, size_t width,
                                    size_t stride, size_t cnt,
                                    unsigned long long salt) {
-    auto data{ static_cast<unsigned char const*>(data_) };
+    auto const* data{ static_cast<unsigned char const*>(data_) };
 
     ZETA_Core_DebugAssert(data != nullptr);
     ZETA_Core_DebugAssert(0 < width);
@@ -507,8 +446,8 @@ inline unsigned long long ElemHash(void const* data_, size_t width,
 
 inline void ElemMove(void* dst_, void const* src_, size_t width,
                      size_t dst_stride, size_t src_stride, size_t cnt) {
-    auto dst{ static_cast<char*>(dst_) };
-    auto src{ static_cast<char const*>(src_) };
+    auto* dst{ static_cast<char*>(dst_) };
+    auto const* src{ static_cast<char const*>(src_) };
 
     ZETA_Core_DebugAssert(width <= dst_stride);
     ZETA_Core_DebugAssert(width <= src_stride);
@@ -558,10 +497,10 @@ inline void ElemMove(void* dst_, void const* src_, size_t width,
 
     size_t buffer_capacity{ static_cast<size_t>(FloorLog2(cnt)) + 4 };
 
-    auto begs{ static_cast<size_t*>(__builtin_alloca_with_align(
+    auto* begs{ static_cast<size_t*>(__builtin_alloca_with_align(
         sizeof(size_t) * buffer_capacity, __CHAR_BIT__ * alignof(size_t))) };
 
-    auto cnts{ static_cast<size_t*>(__builtin_alloca_with_align(
+    auto* cnts{ static_cast<size_t*>(__builtin_alloca_with_align(
         sizeof(size_t) * buffer_capacity, __CHAR_BIT__ * alignof(size_t))) };
 
     size_t buffer_i{ 0 };
@@ -617,7 +556,7 @@ inline void ElemMove(void* dst_, void const* src_, size_t width,
 
 inline void* ElemRotate(void* data_, size_t width, size_t stride, size_t l_size,
                         size_t r_size) {
-    auto data{ static_cast<char*>(data_) };
+    auto* data{ static_cast<char*>(data_) };
 
     if (width == stride) {
         return MemRotate(data, stride * l_size, stride * r_size);
@@ -731,8 +670,7 @@ constexpr UnsignedIntegral UIntAlignUp(UnsignedIntegral val,
 
 // -----------------------------------------------------------------------------
 
-inline constexpr unsigned long long Power(unsigned long long base,
-                                          unsigned exp) {
+constexpr unsigned long long Power(unsigned long long base, unsigned exp) {
     if (base == 0) { return 0; }
 
     if (__builtin_popcountll(base) == 1) {
@@ -806,7 +744,7 @@ constexpr int FindPrevOne(unsigned long long val, int pos) {
 
     if (pos <= 0) { return -1; }
 
-    val &= ~0ULL >> (ZETA_Core_ullong_width - pos);
+    val &= ~0ULL >> static_cast<unsigned>(ZETA_Core_ullong_width - pos);
 
     return val == 0 ? -1 : ZETA_Core_ullong_width - 1 - __builtin_clzll(val);
 }
@@ -817,7 +755,7 @@ constexpr int FindNextOne(unsigned long long val, int pos) {
 
     if (ZETA_Core_ullong_width - 1 <= pos) { return -1; }
 
-    val &= ~0ULL << (pos + 1);
+    val &= ~0ULL << static_cast<unsigned>(pos + 1);
 
     return val == 0 ? -1 : __builtin_ctzll(val);
 }
@@ -828,8 +766,13 @@ inline unsigned long long GCD(unsigned long long x, unsigned long long y) {
     if (x == 0) { return Max(1ULL, y); }
 
     for (;;) {
-        if ((y %= x) == 0) { return x; }
-        if ((x %= y) == 0) { return y; }
+        if ((y %= x) == 0) {  // NOLINT(bugprone-assignment-in-if-condition)
+            return x;
+        }
+
+        if ((x %= y) == 0) {  // NOLINT(bugprone-assignment-in-if-condition)
+            return y;
+        }
     }
 }
 
@@ -841,13 +784,13 @@ inline unsigned long long LCM(unsigned long long x, unsigned long long y) {
 // -----------------------------------------------------------------------------
 
 template <typename T>
-T* GetInstPtr(T& inst) {
-    return &inst;
+T& GetInstRef(T* inst) {
+    return *inst;
 }
 
 template <typename T>
-T* GetInstPtr(T&& inst) {
-    return &inst;
+T& GetInstRef(T& inst) {
+    return inst;
 }
 
 template <typename T>
@@ -856,8 +799,8 @@ T* GetInstPtr(T* inst) {
 }
 
 template <typename T>
-T const* GetInstPtr(T const* inst) {
-    return inst;
+T* GetInstPtr(T& inst) {
+    return &inst;
 }
 
 }  // namespace zeta::core

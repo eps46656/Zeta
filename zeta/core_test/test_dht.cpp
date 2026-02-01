@@ -21,6 +21,11 @@
 
 namespace zeta::core_test {
 
+using AssocCntrRef = core::assoc_cntr::Ref<core::value_wrapper::FalseType>;
+
+using AssocCntrRefView =
+    zeta::core::assoc_cntr::RefView<zeta::core::value_wrapper::FalseType>;
+
 void main1() {
     unsigned random_seed{ static_cast<unsigned>(time(nullptr)) };
     unsigned fixed_seed{ 1729615114 };
@@ -38,18 +43,16 @@ void main1() {
 
     using Elem = core::Pair<unsigned long long, unsigned long long>;
 
-    core::assoc_cntr::AssocCntrRef assoc_cntr_a{
-        debug_hash_table_utils::Create<Elem>()
-    };
+    AssocCntrRef assoc_cntr_a{ debug_hash_table_utils::Create<Elem>() };
 
-    core::assoc_cntr::AssocCntrRef assoc_cntr_b{
-        dynamic_hash_table_utils::Create<Elem>()
-    };
+    AssocCntrRef assoc_cntr_b{ dynamic_hash_table_utils::Create<Elem>() };
 
     std::shared_ptr<void> cursor;
 
-    std::vector<core::assoc_cntr::AssocCntrRef> assoc_cntrs{ assoc_cntr_a,
-                                                             assoc_cntr_b };
+    std::vector<AssocCntrRefView*> assoc_cntrs{
+        reinterpret_cast<AssocCntrRefView*>(&assoc_cntr_a),
+        reinterpret_cast<AssocCntrRefView*>(&assoc_cntr_b)
+    };
 
     std::unordered_set<Elem, core::hash::CppStdHash<Elem>,
                        core::compare::CppStdEqualTo<Elem, Elem>>
@@ -85,30 +88,31 @@ void main1() {
     for (unsigned long long _{ 0 }; _ < 4; ++_) {
         for (unsigned long long i{ 0 }; i < 128; ++i) {
             ZETA_Core_PrintVar(i);
-            assoc_cntr_utils::SyncInsert<Elem>(assoc_cntrs,
-                                               GenerateUniqueElem());
-            assoc_cntr_utils::Equal<Elem>(assoc_cntrs);
+            assoc_cntr_utils::SyncInsert(assoc_cntrs, GenerateUniqueElem());
+            assoc_cntr_utils::Equal<AssocCntrRefView, Elem>(assoc_cntrs);
         }
 
         for (size_t p{ 0 }; p < 4; ++p) {
             for (unsigned long long i{ 0 }; i < 32; ++i) {
                 ZETA_Core_PrintVar(i);
-                ZETA_Core_DebugAssert(assoc_cntr_utils::SyncInsert<Elem>(
+                ZETA_Core_DebugAssert(assoc_cntr_utils::SyncInsert(
                     assoc_cntrs, GenerateUniqueElem()));
-                assoc_cntr_utils::Equal<Elem>(assoc_cntrs);
+                assoc_cntr_utils::Equal<AssocCntrRefView, Elem>(assoc_cntrs);
             }
 
             for (unsigned long long i{ 0 }; i < 32; ++i) {
                 ZETA_Core_PrintVar(i);
-                ZETA_Core_DebugAssert(assoc_cntr_utils::SyncErase<Elem>(
+                ZETA_Core_DebugAssert(assoc_cntr_utils::SyncErase(
                     assoc_cntrs, PopRecordedElem()));
-                assoc_cntr_utils::Equal<Elem>(assoc_cntrs);
+                assoc_cntr_utils::Equal<AssocCntrRefView, Elem>(assoc_cntrs);
             }
         }
     }
 
-    assoc_cntr_utils::Destroy(assoc_cntr_a);
-    assoc_cntr_utils::Destroy(assoc_cntr_b);
+    assoc_cntr_utils::Destroy(
+        reinterpret_cast<AssocCntrRefView*>(&assoc_cntr_a));
+    assoc_cntr_utils::Destroy(
+        reinterpret_cast<AssocCntrRefView*>(&assoc_cntr_b));
 }
 
 }  // namespace zeta::core_test

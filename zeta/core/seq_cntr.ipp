@@ -5,8 +5,8 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/function_ref.ipp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/meta.hpp>
 #include <zeta/core/seq_cntr.hpp>
-#include <zeta/core/type_traits.hpp>
 #include <zeta/core/type_wrapper.hpp>
 #include <zeta/core/utils.ipp>
 #include <zeta/core/value_wrapper.hpp>
@@ -69,6 +69,8 @@ template <typename SeqCntr>
 void CheckContract(SeqCntr* cntr) {
     constexpr type_wrapper::TypeWrapper<SeqCntr*> cntr_ptr_type_wrapper;
 
+    bool bool_val{ false };
+
     void* void_ptr{ nullptr };
     void const* const_void_ptr{ nullptr };
 
@@ -100,9 +102,10 @@ void CheckContract(SeqCntr* cntr) {
         CheckMethod(method, return_type, __VA_ARGS__)                    \
     }
 
-    ZETA_Core_StaticAssert(IsAnyOf<decltype(SeqCntr::IsConst()), bool>);
+    ZETA_Core_StaticAssert(
+        IsAnyOf<decltype(SeqCntr::IsConst(cntr_ptr_type_wrapper)), bool>);
 
-    constexpr bool is_const{ SeqCntr::IsConst() };
+    constexpr bool is_const{ SeqCntr::IsConst(cntr_ptr_type_wrapper) };
 
     using elem_ptr_t = Conditional<is_const, void const*, void*>;
 
@@ -166,8 +169,8 @@ void CheckContract(SeqCntr* cntr) {
     );
 
     CheckConstMethodOp(  //
-        GetLBCursor,     // ability
-        GetLBCursor,     // method
+        GetRBCursor,     // ability
+        GetRBCursor,     // method
                          //
         TypeAny,         // return void
                          //
@@ -182,6 +185,7 @@ void CheckContract(SeqCntr* cntr) {
         elem_ptr_t,      // elem(returned)
                          //
         cntr,            // inst
+        bool_val,        // lazy_copy_elem
         void_ptr,        // dst_cursor(optional)
         void_ptr         // mem(optional)
     );
@@ -190,9 +194,10 @@ void CheckContract(SeqCntr* cntr) {
         PeekR,           // ability
         PeekR,           // method
                          //
-        void*,           // return, elem
+        elem_ptr_t,      // return, elem
                          //
         cntr,            // inst
+        bool_val,        // lazy_copy_elem
         void_ptr,        // dst_cursor, optional
         void_ptr         // mem, optional
     );
@@ -201,10 +206,11 @@ void CheckContract(SeqCntr* cntr) {
         Access,          // ability
         Access,          // method
                          //
-        void*,           // elem(returned)
+        elem_ptr_t,      // elem(returned)
                          //
         cntr,            // inst
         size_val,        // idx
+        bool_val,        // lazy_copy_elem
         void_ptr,        // dst_cursor, optional
         void_ptr         // mem, optional
     );
@@ -213,10 +219,11 @@ void CheckContract(SeqCntr* cntr) {
         Derefer,         // ability
         Derefer,         // method
                          //
-        void*,           // return, elem
+        elem_ptr_t,      // return, elem
                          //
         cntr,            // inst
         const_void_ptr,  // pos_cursor
+        bool_val,        // lazy_copy_elem
         void_ptr         // mem, optional
     );
 
@@ -344,8 +351,8 @@ void CheckContract(SeqCntr* cntr) {
         TypeAny,         // return void
                          //
         cntr,            // inst
-        void_ptr,        // dst_cursor
-        const_void_ptr   // src_cursor
+        const_void_ptr,  // src_cursor
+        void_ptr         // dst_cursor
     );
 
     CheckConstMethodOp(  //
@@ -441,7 +448,8 @@ void CheckContract(SeqCntr* cntr) {
 template <typename SeqCntr>
 constexpr VTable BasicVTableBuilder<SeqCntr>::Build() {
     constexpr AbilityFlag static_disabled_ability_flag{
-        SeqCntr::GetStaticDisabledAbilityFlag()
+        SeqCntr::GetStaticDisabledAbilityFlag(
+            type_wrapper::TypeWrapper<SeqCntr*>{})
     };
 
 #pragma push_macro("F")
@@ -505,7 +513,7 @@ constexpr VTable BasicVTableBuilder<SeqCntr>::Build() {
 }
 
 template <typename SeqCntr>
-constexpr size_t BasicVTableBuilder<SeqCntr>::GetSize(void* cntr) {
+size_t BasicVTableBuilder<SeqCntr>::GetSize(void* cntr) {
     return SeqCntr::GetSize(static_cast<SeqCntr*>(cntr));
 }
 
@@ -515,218 +523,204 @@ constexpr size_t BasicVTableBuilder<SeqCntr>::GetCapacity(void* cntr) {
 }
 
 template <typename SeqCntr>
-constexpr void BasicVTableBuilder<SeqCntr>::GetLBCursor(void* cntr,
-                                                        void* dst_cursor) {
+void BasicVTableBuilder<SeqCntr>::GetLBCursor(void* cntr, void* dst_cursor) {
     return SeqCntr::GetLBCursor(static_cast<SeqCntr*>(cntr), dst_cursor);
 }
 
 template <typename SeqCntr>
-constexpr void BasicVTableBuilder<SeqCntr>::GetRBCursor(void* cntr,
-                                                        void* dst_cursor) {
+void BasicVTableBuilder<SeqCntr>::GetRBCursor(void* cntr, void* dst_cursor) {
     return SeqCntr::GetRBCursor(static_cast<SeqCntr*>(cntr), dst_cursor);
 }
 
 template <typename SeqCntr>
-constexpr void* BasicVTableBuilder<SeqCntr>::PeekL(void* cntr, void* dst_cursor,
-                                                   void* dst_elem) {
-    return SeqCntr::PeekL(static_cast<SeqCntr*>(cntr), dst_cursor, dst_elem);
+void* BasicVTableBuilder<SeqCntr>::PeekL(void* cntr, bool lazy_copy_elem,
+                                         void* dst_cursor, void* dst_elem) {
+    return SeqCntr::PeekL(static_cast<SeqCntr*>(cntr), lazy_copy_elem,
+                          dst_cursor, dst_elem);
 }
 
 template <typename SeqCntr>
-constexpr void* BasicVTableBuilder<SeqCntr>::PeekR(void* cntr, void* dst_cursor,
-                                                   void* dst_elem) {
-    return SeqCntr::PeekR(static_cast<SeqCntr*>(cntr), dst_cursor, dst_elem);
+void* BasicVTableBuilder<SeqCntr>::PeekR(void* cntr, bool lazy_copy_elem,
+                                         void* dst_cursor, void* dst_elem) {
+    return SeqCntr::PeekR(static_cast<SeqCntr*>(cntr), lazy_copy_elem,
+                          dst_cursor, dst_elem);
 }
 
 template <typename SeqCntr>
-constexpr void* BasicVTableBuilder<SeqCntr>::Access(void* cntr, size_t idx,
-                                                    void* dst_cursor,
-                                                    void* dst_elem) {
+void* BasicVTableBuilder<SeqCntr>::Access(void* cntr, size_t idx,
+                                          bool lazy_copy_elem, void* dst_cursor,
+                                          void* dst_elem) {
     return SeqCntr::Access(static_cast<SeqCntr*>(cntr), idx, dst_cursor,
-                           dst_elem);
+                           lazy_copy_elem, dst_elem);
 }
 
 template <typename SeqCntr>
-constexpr void* BasicVTableBuilder<SeqCntr>::Derefer(void* cntr,
-                                                     void const* pos_cursor,
-                                                     void* dst_elem) {
-    return SeqCntr::Derefer(static_cast<SeqCntr*>(cntr), pos_cursor, dst_elem);
+void* BasicVTableBuilder<SeqCntr>::Derefer(void* cntr, void const* pos_cursor,
+                                           bool lazy_copy_elem,
+                                           void* dst_elem) {
+    return SeqCntr::Derefer(static_cast<SeqCntr*>(cntr), pos_cursor,
+                            lazy_copy_elem, dst_elem);
 }
 
 template <typename SeqCntr>
-constexpr void BasicVTableBuilder<SeqCntr>::FnRead(void* cntr,
-                                                   void const* pos_cursor,
-                                                   size_t cnt, FnReader reader,
-                                                   void* dst_cursor) {
+void BasicVTableBuilder<SeqCntr>::FnRead(void* cntr, void const* pos_cursor,
+                                         size_t cnt, FnReader reader,
+                                         void* dst_cursor) {
     return SeqCntr::Read(static_cast<SeqCntr*>(cntr), pos_cursor, cnt, reader,
                          dst_cursor);
 }
 
 template <typename SeqCntr>
-constexpr void BasicVTableBuilder<SeqCntr>::FnWrite(void* cntr,
-                                                    void* pos_cursor,
-                                                    size_t cnt, FnWriter writer,
-                                                    void* dst_cursor) {
+void BasicVTableBuilder<SeqCntr>::FnWrite(void* cntr, void* pos_cursor,
+                                          size_t cnt, FnWriter writer,
+                                          void* dst_cursor) {
     return SeqCntr::Write(static_cast<SeqCntr*>(cntr), pos_cursor, cnt, writer,
                           dst_cursor);
 }
 
 template <typename SeqCntr>
-constexpr void BasicVTableBuilder<SeqCntr>::FnReadWrite(
-    void* cntr, void* pos_cursor, size_t cnt, FnReaderWriter reader_writer,
-    void* dst_cursor) {
+void BasicVTableBuilder<SeqCntr>::FnReadWrite(void* cntr, void* pos_cursor,
+                                              size_t cnt,
+                                              FnReaderWriter reader_writer,
+                                              void* dst_cursor) {
     return SeqCntr::ReadWrite(static_cast<SeqCntr*>(cntr), pos_cursor, cnt,
                               reader_writer, dst_cursor);
 }
 
 template <typename SeqCntr>
-constexpr void BasicVTableBuilder<SeqCntr>::MemRead(void* cntr,
-                                                    void const* pos_cursor,
-                                                    size_t cnt,
-                                                    MemReader reader,
-                                                    void* dst_cursor) {
+void BasicVTableBuilder<SeqCntr>::MemRead(void* cntr, void const* pos_cursor,
+                                          size_t cnt, MemReader reader,
+                                          void* dst_cursor) {
     return SeqCntr::Read(static_cast<SeqCntr*>(cntr), pos_cursor, cnt, reader,
                          dst_cursor);
 }
 
 template <typename SeqCntr>
-constexpr void BasicVTableBuilder<SeqCntr>::MemWrite(void* cntr,
-                                                     void* pos_cursor,
-                                                     size_t cnt,
-                                                     MemWriter writer,
-                                                     void* dst_cursor) {
+void BasicVTableBuilder<SeqCntr>::MemWrite(void* cntr, void* pos_cursor,
+                                           size_t cnt, MemWriter writer,
+                                           void* dst_cursor) {
     return SeqCntr::Write(static_cast<SeqCntr*>(cntr), pos_cursor, cnt, writer,
                           dst_cursor);
 }
 
 template <typename SeqCntr>
-constexpr void* BasicVTableBuilder<SeqCntr>::FnPushL(void* cntr, size_t cnt,
-                                                     FnWriter writer,
-                                                     void* dst_cursor) {
+void* BasicVTableBuilder<SeqCntr>::FnPushL(void* cntr, size_t cnt,
+                                           FnWriter writer, void* dst_cursor) {
     return SeqCntr::PushL(static_cast<SeqCntr*>(cntr), cnt, writer, dst_cursor);
 }
 
 template <typename SeqCntr>
-constexpr void* BasicVTableBuilder<SeqCntr>::FnPushR(void* cntr, size_t cnt,
-                                                     FnWriter writer,
-                                                     void* dst_cursor) {
+void* BasicVTableBuilder<SeqCntr>::FnPushR(void* cntr, size_t cnt,
+                                           FnWriter writer, void* dst_cursor) {
     return SeqCntr::PushR(static_cast<SeqCntr*>(cntr), cnt, writer, dst_cursor);
 }
 
 template <typename SeqCntr>
-constexpr void* BasicVTableBuilder<SeqCntr>::FnInsert(void* cntr,
-                                                      void* pos_cursor,
-                                                      size_t cnt,
-                                                      FnWriter writer,
-                                                      void* dst_cursor) {
+void* BasicVTableBuilder<SeqCntr>::FnInsert(void* cntr, void* pos_cursor,
+                                            size_t cnt, FnWriter writer,
+                                            void* dst_cursor) {
     return SeqCntr::Insert(static_cast<SeqCntr*>(cntr), pos_cursor, cnt, writer,
                            dst_cursor);
 }
 
 template <typename SeqCntr>
-constexpr void* BasicVTableBuilder<SeqCntr>::MemPushL(void* cntr, size_t cnt,
-                                                      MemWriter writer,
-                                                      void* dst_cursor) {
+void* BasicVTableBuilder<SeqCntr>::MemPushL(void* cntr, size_t cnt,
+                                            MemWriter writer,
+                                            void* dst_cursor) {
     return SeqCntr::PushL(static_cast<SeqCntr*>(cntr), cnt, writer, dst_cursor);
 }
 
 template <typename SeqCntr>
-constexpr void* BasicVTableBuilder<SeqCntr>::MemPushR(void* cntr, size_t cnt,
-                                                      MemWriter writer,
-                                                      void* dst_cursor) {
+void* BasicVTableBuilder<SeqCntr>::MemPushR(void* cntr, size_t cnt,
+                                            MemWriter writer,
+                                            void* dst_cursor) {
     return SeqCntr::PushR(static_cast<SeqCntr*>(cntr), cnt, writer, dst_cursor);
 }
 
 template <typename SeqCntr>
-constexpr void* BasicVTableBuilder<SeqCntr>::MemInsert(void* cntr,
-                                                       void* pos_cursor,
-                                                       size_t cnt,
-                                                       MemWriter writer,
-                                                       void* dst_cursor) {
+void* BasicVTableBuilder<SeqCntr>::MemInsert(void* cntr, void* pos_cursor,
+                                             size_t cnt, MemWriter writer,
+                                             void* dst_cursor) {
     return SeqCntr::Insert(static_cast<SeqCntr*>(cntr), pos_cursor, cnt, writer,
                            dst_cursor);
 }
 
 template <typename SeqCntr>
-constexpr void BasicVTableBuilder<SeqCntr>::PopL(void* cntr, size_t cnt) {
+void BasicVTableBuilder<SeqCntr>::PopL(void* cntr, size_t cnt) {
     return SeqCntr::PopL(static_cast<SeqCntr*>(cntr), cnt);
 }
 
 template <typename SeqCntr>
-constexpr void BasicVTableBuilder<SeqCntr>::PopR(void* cntr, size_t cnt) {
+void BasicVTableBuilder<SeqCntr>::PopR(void* cntr, size_t cnt) {
     return SeqCntr::PopR(static_cast<SeqCntr*>(cntr), cnt);
 }
 
 template <typename SeqCntr>
-constexpr void BasicVTableBuilder<SeqCntr>::Erase(void* cntr, void* pos_cursor,
-                                                  size_t cnt) {
+void BasicVTableBuilder<SeqCntr>::Erase(void* cntr, void* pos_cursor,
+                                        size_t cnt) {
     return SeqCntr::Erase(static_cast<SeqCntr*>(cntr), pos_cursor, cnt);
 }
 
 template <typename SeqCntr>
-constexpr void BasicVTableBuilder<SeqCntr>::EraseAll(void* cntr) {
+void BasicVTableBuilder<SeqCntr>::EraseAll(void* cntr) {
     return SeqCntr::EraseAll(static_cast<SeqCntr*>(cntr));
 }
 
 template <typename SeqCntr>
-constexpr void BasicVTableBuilder<SeqCntr>::CopyCursor(void* cntr,
-                                                       void* dst_cursor,
-                                                       void const* src_cursor) {
-    return SeqCntr::CopyCursor(static_cast<SeqCntr*>(cntr), dst_cursor,
-                               src_cursor);
+void BasicVTableBuilder<SeqCntr>::CopyCursor(void* cntr, void const* src_cursor,
+                                             void* dst_cursor) {
+    return SeqCntr::CopyCursor(static_cast<SeqCntr*>(cntr), src_cursor,
+                               dst_cursor);
 }
 
 template <typename SeqCntr>
-constexpr bool BasicVTableBuilder<SeqCntr>::AreEqualCursor(
-    void* cntr, void const* cursor_a, void const* cursor_b) {
+bool BasicVTableBuilder<SeqCntr>::AreEqualCursor(void* cntr,
+                                                 void const* cursor_a,
+                                                 void const* cursor_b) {
     return SeqCntr::AreEqualCursor(static_cast<SeqCntr*>(cntr), cursor_a,
                                    cursor_b);
 }
 
 template <typename SeqCntr>
-constexpr int BasicVTableBuilder<SeqCntr>::CompareCursor(void* cntr,
-                                                         void const* cursor_a,
-                                                         void const* cursor_b) {
+int BasicVTableBuilder<SeqCntr>::CompareCursor(void* cntr, void const* cursor_a,
+                                               void const* cursor_b) {
     return SeqCntr::CompareCursor(static_cast<SeqCntr*>(cntr), cursor_a,
                                   cursor_b);
 }
 
 template <typename SeqCntr>
-constexpr size_t BasicVTableBuilder<SeqCntr>::GetCursorDist(
-    void* cntr, void const* cursor_a, void const* cursor_b) {
+size_t BasicVTableBuilder<SeqCntr>::GetCursorDist(void* cntr,
+                                                  void const* cursor_a,
+                                                  void const* cursor_b) {
     return SeqCntr::GetCursorDist(static_cast<SeqCntr*>(cntr), cursor_a,
                                   cursor_b);
 }
 
 template <typename SeqCntr>
-constexpr size_t BasicVTableBuilder<SeqCntr>::GetCursorIdx(void* cntr,
-                                                           void const* cursor) {
+size_t BasicVTableBuilder<SeqCntr>::GetCursorIdx(void* cntr,
+                                                 void const* cursor) {
     return SeqCntr::GetCursorIdx(static_cast<SeqCntr*>(cntr), cursor);
 }
 
 template <typename SeqCntr>
-constexpr void BasicVTableBuilder<SeqCntr>::CursorStepL(void* cntr,
-                                                        void* cursor) {
+void BasicVTableBuilder<SeqCntr>::CursorStepL(void* cntr, void* cursor) {
     return SeqCntr::CursorStepL(static_cast<SeqCntr*>(cntr), cursor);
 }
 
 template <typename SeqCntr>
-constexpr void BasicVTableBuilder<SeqCntr>::CursorStepR(void* cntr,
-                                                        void* cursor) {
+void BasicVTableBuilder<SeqCntr>::CursorStepR(void* cntr, void* cursor) {
     return SeqCntr::CursorStepR(static_cast<SeqCntr*>(cntr), cursor);
 }
 
 template <typename SeqCntr>
-constexpr void BasicVTableBuilder<SeqCntr>::CursorAdvanceL(void* cntr,
-                                                           void* cursor,
-                                                           size_t step) {
+void BasicVTableBuilder<SeqCntr>::CursorAdvanceL(void* cntr, void* cursor,
+                                                 size_t step) {
     return SeqCntr::CursorAdvanceL(static_cast<SeqCntr*>(cntr), cursor, step);
 }
 
 template <typename SeqCntr>
-constexpr void BasicVTableBuilder<SeqCntr>::CursorAdvanceR(void* cntr,
-                                                           void* cursor,
-                                                           size_t step) {
+void BasicVTableBuilder<SeqCntr>::CursorAdvanceR(void* cntr, void* cursor,
+                                                 size_t step) {
     return SeqCntr::CursorAdvanceR(static_cast<SeqCntr*>(cntr), cursor, step);
 }
 
@@ -753,357 +747,343 @@ constexpr VTable const& GetVTable() {
 #pragma push_macro("CallMethod")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CallMethod_(tmp_method_ptr, ability, method, ...)             \
-    {                                                                 \
-        ZETA_Core_DebugAssert(                                        \
-            TestAbility(ref->dynamic_enabled_ability_flag, ability)); \
-                                                                      \
-        auto tmp_method_ptr{ ref->vtable->method };                   \
-        ZETA_Core_DebugAssert(tmp_method_ptr != nullptr);             \
-                                                                      \
-        return tmp_method_ptr(ref->cntr, __VA_ARGS__);                \
-    }                                                                 \
+#define CallMethod(ability, method, ...)                                    \
+    {                                                                       \
+        auto ref{ reinterpret_cast<                                         \
+            Conditional<core::IsConst<RemovePointer<decltype(ref_view)>>,   \
+                        Ref<ConstTag> const*, Ref<ConstTag>*>>(ref_view) }; \
+                                                                            \
+        ZETA_Core_DebugAssert(                                              \
+            TestAbility(ref->dynamic_enabled_ability_flag, ability));       \
+                                                                            \
+        auto method_ptr{ ref->vtable->method };                             \
+        ZETA_Core_DebugAssert(method_ptr != nullptr);                       \
+                                                                            \
+        return method_ptr(ref->cntr, __VA_ARGS__);                          \
+    }                                                                       \
     ZETA_Core_StaticAssert(true);
 
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CallMethod(ability, method, ...) \
-    CallMethod_(ZETA_Core_TmpName, ability, method, __VA_ARGS__)
-
-template <typename IsConst_, typename>
-constexpr bool RefOperator::IsConst(type_wrapper::TypeWrapper<Ref<IsConst_>*>) {
-    return IsConst_::value;
+template <typename ConstTag>
+constexpr bool RefView<ConstTag>::IsConst(type_wrapper::TypeWrapper<RefView*>) {
+    return ConstTag::value;
 }
 
-template <typename IsConst_, typename>
-constexpr bool RefOperator::IsConst(
-    type_wrapper::TypeWrapper<Ref<IsConst_> const*>) {
-    return IsConst_::value;
+template <typename ConstTag>
+constexpr bool RefView<ConstTag>::IsConst(
+    type_wrapper::TypeWrapper<RefView const*>) {
+    return false;
 }
 
-template <typename IsConst, typename>
-constexpr AbilityFlag RefOperator::GetStaticEnabledAbilityFlag(
-    type_wrapper::TypeWrapper<Ref<IsConst>*>) {
+template <typename ConstTag>
+constexpr AbilityFlag RefView<ConstTag>::GetStaticEnabledAbilityFlag(
+    type_wrapper::TypeWrapper<RefView const*>) {
     return empty_ability_flag;
 }
 
-template <typename IsConst, typename>
-constexpr AbilityFlag RefOperator::GetStaticEnabledAbilityFlag(
-    type_wrapper::TypeWrapper<Ref<IsConst> const*>) {
+template <typename ConstTag>
+constexpr AbilityFlag RefView<ConstTag>::GetStaticDisabledAbilityFlag(
+    type_wrapper::TypeWrapper<RefView*>) {
     return empty_ability_flag;
 }
 
-template <typename IsConst, typename>
-constexpr AbilityFlag RefOperator::GetStaticDisabledAbilityFlag(
-    type_wrapper::TypeWrapper<Ref<IsConst>*>) {
-    return empty_ability_flag;
-}
-
-template <typename IsConst, typename>
-constexpr AbilityFlag RefOperator::GetStaticDisabledAbilityFlag(
-    type_wrapper::TypeWrapper<Ref<IsConst> const*>) {
+template <typename ConstTag>
+constexpr AbilityFlag RefView<ConstTag>::GetStaticDisabledAbilityFlag(
+    type_wrapper::TypeWrapper<RefView const*>) {
     return non_const_ability_flag;
 }
 
-template <typename IsConst, typename>
-AbilityFlag RefOperator::GetDynamicEnabledAbilityFlag(Ref<IsConst>* ref) {
-    if constexpr (IsConst::value) {
-        return ref->dynamic_enabled_ability_flag;
-    } else {
-        constexpr AbilityFlag static_ability_flag{
-            GetStaticEnabledAbilityFlag(
-                type_wrapper::TypeWrapper<Ref<IsConst> const*>{}) |
-            GetStaticDisabledAbilityFlag(
-                type_wrapper::TypeWrapper<Ref<IsConst> const*>{})
-        };
+template <typename ConstTag>
+AbilityFlag RefView<ConstTag>::GetDynamicEnabledAbilityFlag(RefView* ref_view) {
+    auto ref{ reinterpret_cast<Ref<ConstTag>*>(ref_view) };
 
-        return ~static_ability_flag & ref->dynamic_enabled_ability_flag;
-    }
+    return ref->dynamic_enabled_ability_flag;
 }
 
-template <typename IsConst, typename>
-AbilityFlag RefOperator::GetDynamicEnabledAbilityFlag(Ref<IsConst> const* ref) {
-    if constexpr (IsConst::value) {
-        return ref->dynamic_enabled_ability_flag;
-    } else {
-        constexpr AbilityFlag static_ability_flag{
-            GetStaticEnabledAbilityFlag(
-                type_wrapper::TypeWrapper<Ref<IsConst> const*>{}) |
-            GetStaticDisabledAbilityFlag(
-                type_wrapper::TypeWrapper<Ref<IsConst> const*>{})
-        };
-
-        return ~static_ability_flag & ref->dynamic_enabled_ability_flag;
-    }
+template <typename ConstTag>
+AbilityFlag RefView<ConstTag>::GetDynamicEnabledAbilityFlag(
+    RefView const* ref_view) {
+    return non_const_ability_flag &
+           GetDynamicEnabledAbilityFlag(const_cast<RefView*>(ref_view));
 }
 
-template <typename IsConst, typename>
-AbilityFlag RefOperator::GetDynamicDisabledAbilityFlag(Ref<IsConst>* ref) {
-    if constexpr (IsConst::value) {
-        return ref->dynamic_disabled_ability_flag;
-    } else {
-        constexpr AbilityFlag static_ability_flag{
-            GetStaticEnabledAbilityFlag(
-                type_wrapper::TypeWrapper<Ref<IsConst> const*>{}) |
-            GetStaticDisabledAbilityFlag(
-                type_wrapper::TypeWrapper<Ref<IsConst> const*>{})
-        };
+template <typename ConstTag>
+AbilityFlag RefView<ConstTag>::GetDynamicDisabledAbilityFlag(
+    RefView* ref_view) {
+    auto ref{ reinterpret_cast<Ref<ConstTag>*>(ref_view) };
 
-        return ~static_ability_flag & ref->dynamic_disabled_ability_flag;
-    }
+    return ref->dynamic_disabled_ability_flag;
 }
 
-template <typename IsConst, typename>
-AbilityFlag RefOperator::GetDynamicDisabledAbilityFlag(
-    Ref<IsConst> const* ref) {
-    if constexpr (IsConst::value) {
-        return ref->dynamic_disabled_ability_flag;
-    } else {
-        constexpr AbilityFlag static_ability_flag{
-            GetStaticEnabledAbilityFlag(
-                type_wrapper::TypeWrapper<Ref<IsConst> const*>{}) |
-            GetStaticDisabledAbilityFlag(
-                type_wrapper::TypeWrapper<Ref<IsConst> const*>{})
-        };
-
-        return ~static_ability_flag & ref->dynamic_disabled_ability_flag;
-    }
+template <typename ConstTag>
+AbilityFlag RefView<ConstTag>::GetDynamicDisabledAbilityFlag(
+    RefView const* ref_view) {
+    return const_ability_flag &
+           GetDynamicDisabledAbilityFlag(const_cast<RefView*>(ref_view));
 }
 
-template <typename IsConst, typename>
-size_t RefOperator::GetCursorSize(Ref<IsConst> const* ref) {
+template <typename ConstTag>
+size_t RefView<ConstTag>::GetCursorSize(RefView const* ref_view) {
+    auto ref{ reinterpret_cast<Ref<ConstTag> const*>(ref_view) };
+
     return ref->cursor_size;
 }
 
-template <typename IsConst, typename>
-size_t RefOperator::GetWidth(Ref<IsConst> const* ref) {
+template <typename ConstTag>
+size_t RefView<ConstTag>::GetWidth(RefView const* ref_view) {
+    auto ref{ reinterpret_cast<Ref<ConstTag> const*>(ref_view) };
+
     return ref->width;
 }
 
-template <typename IsConst, typename>
-size_t RefOperator::GetSize(Ref<IsConst> const* ref) {
+template <typename ConstTag>
+size_t RefView<ConstTag>::GetSize(RefView const* ref_view) {
     CallMethod(GetSize, GetSize);
 }
 
-template <typename IsConst, typename>
-size_t RefOperator::GetCapacity(Ref<IsConst> const* ref) {
+template <typename ConstTag>
+size_t RefView<ConstTag>::GetCapacity(RefView const* ref_view) {
     CallMethod(GetCapacity, GetCapacity);
 }
 
-template <typename IsConst, typename>
-void RefOperator::GetLBCursor(Ref<IsConst> const* ref, void* dst_cursor) {
+template <typename ConstTag>
+void RefView<ConstTag>::GetLBCursor(RefView const* ref_view, void* dst_cursor) {
     CallMethod(GetLBCursor, GetLBCursor, dst_cursor);
 }
 
-template <typename IsConst, typename>
-void RefOperator::GetRBCursor(Ref<IsConst> const* ref, void* dst_cursor) {
+template <typename ConstTag>
+void RefView<ConstTag>::GetRBCursor(RefView const* ref_view, void* dst_cursor) {
     CallMethod(GetRBCursor, GetRBCursor, dst_cursor);
 }
 
-template <typename IsConst, typename>
-Conditional<IsConst::value, void const*, void*> RefOperator::PeekL(
-    Ref<IsConst>* ref, void* dst_cursor, void* dst_elem) {
-    CallMethod(PeekL, PeekL, dst_cursor, dst_elem);
+template <typename ConstTag>
+Conditional<ConstTag::value, void const*, void*> RefView<ConstTag>::PeekL(
+    RefView* ref_view, bool lazy_copy_elem, void* dst_cursor, void* dst_elem) {
+    CallMethod(PeekL, PeekL, lazy_copy_elem, dst_cursor, dst_elem);
 }
 
-template <typename IsConst, typename>
-void const* RefOperator::PeekL(Ref<IsConst> const* ref, void* dst_cursor,
-                               void* dst_elem) {
-    CallMethod(PeekL, PeekL, dst_cursor, dst_elem);
+template <typename ConstTag>
+void const* RefView<ConstTag>::PeekL(RefView const* ref_view,
+                                     bool lazy_copy_elem, void* dst_cursor,
+                                     void* dst_elem) {
+    CallMethod(PeekL, PeekL, lazy_copy_elem, dst_cursor, dst_elem);
 }
 
-template <typename IsConst, typename>
-Conditional<IsConst::value, void const*, void*> RefOperator::PeekR(
-    Ref<IsConst>* ref, void* dst_cursor, void* dst_elem) {
+template <typename ConstTag>
+Conditional<ConstTag::value, void const*, void*> RefView<ConstTag>::PeekR(
+    RefView* ref_view, void* dst_cursor, void* dst_elem) {
     CallMethod(PeekR, PeekR, dst_cursor, dst_elem);
 }
 
-template <typename IsConst, typename>
-void const* RefOperator::PeekR(Ref<IsConst> const* ref, void* dst_cursor,
-                               void* dst_elem) {
+template <typename ConstTag>
+void const* RefView<ConstTag>::PeekR(RefView const* ref_view, void* dst_cursor,
+                                     void* dst_elem) {
     CallMethod(PeekR, PeekR, dst_cursor, dst_elem);
 }
 
-template <typename IsConst, typename>
-Conditional<IsConst::value, void const*, void*> RefOperator::Access(
-    Ref<IsConst>* ref, size_t idx, void* dst_cursor, void* dst_elem) {
-    CallMethod(Access, Access, idx, dst_cursor, dst_elem);
+template <typename ConstTag>
+Conditional<ConstTag::value, void const*, void*> RefView<ConstTag>::Access(
+    RefView* ref_view, size_t idx, bool lazy_copy_elem, void* dst_cursor,
+    void* dst_elem) {
+    CallMethod(Access, Access, idx, lazy_copy_elem, dst_cursor, dst_elem);
 }
 
-template <typename IsConst, typename>
-void const* RefOperator::Access(Ref<IsConst> const* ref, size_t idx,
-                                void* dst_cursor, void* dst_elem) {
-    CallMethod(Access, Access, idx, dst_cursor, dst_elem);
+template <typename ConstTag>
+void const* RefView<ConstTag>::Access(RefView const* ref_view, size_t idx,
+                                      bool lazy_copy_elem, void* dst_cursor,
+                                      void* dst_elem) {
+    CallMethod(Access, Access, idx, lazy_copy_elem, dst_cursor, dst_elem);
 }
 
-template <typename IsConst, typename>
-Conditional<IsConst::value, void const*, void*> RefOperator::Derefer(
-    Ref<IsConst>* ref, void const* pos_cursor, void* dst_elem) {
+template <typename ConstTag>
+Conditional<ConstTag::value, void const*, void*> RefView<ConstTag>::Derefer(
+    RefView* ref_view, void const* pos_cursor, void* dst_elem) {
     CallMethod(Derefer, Derefer, pos_cursor, dst_elem);
 }
 
-template <typename IsConst, typename>
-void const* RefOperator::Derefer(Ref<IsConst> const* ref,
-                                 void const* pos_cursor, void* dst_elem) {
-    CallMethod(Derefer, Derefer, pos_cursor, dst_elem);
+template <typename ConstTag>
+void const* RefView<ConstTag>::Derefer(RefView const* ref_view,
+                                       void const* pos_cursor,
+                                       bool lazy_copy_elem, void* dst_elem) {
+    CallMethod(Derefer, Derefer, pos_cursor, lazy_copy_elem, dst_elem);
 }
 
-template <typename IsConst, typename Reader, typename>
-void RefOperator::Read(Ref<IsConst> const* ref, void const* pos_cursor,
-                       size_t cnt, Reader&& reader, void* dst_cursor) {
-    CallMethod(Read, FnRead, pos_cursor, cnt, Forward<Reader>(reader),
+template <typename ConstTag>
+template <typename Reader>
+void RefView<ConstTag>::Read(
+    RefView const* ref_view, void const* pos_cursor, size_t cnt,
+    Reader&& reader,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    CallMethod(Read, FnRead, pos_cursor, cnt, reader, dst_cursor);
+}
+
+template <typename ConstTag>
+template <typename Writer, typename>
+void RefView<ConstTag>::Write(
+    RefView* ref_view, void* pos_cursor, size_t cnt,
+    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    CallMethod(Write, FnWrite, pos_cursor, cnt, writer, dst_cursor);
+}
+
+template <typename ConstTag>
+template <typename ReaderWriter, typename>
+void RefView<ConstTag>::ReadWrite(
+    RefView* ref_view, void* pos_cursor, size_t cnt,
+    ReaderWriter&&
+        reader_writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    CallMethod(ReadWrite, FnReadWrite, pos_cursor, cnt, reader_writer,
                dst_cursor);
 }
 
-template <typename Writer>
-void RefOperator::Write(Ref<value_wrapper::FalseType>* ref, void* pos_cursor,
-                        size_t cnt, Writer&& writer, void* dst_cursor) {
-    CallMethod(Write, FnWrite, pos_cursor, cnt, Forward<Writer>(writer),
-               dst_cursor);
-}
-
-template <typename ReaderWriter>
-void RefOperator::ReadWrite(Ref<value_wrapper::FalseType>* ref,
-                            void* pos_cursor, size_t cnt,
-                            ReaderWriter&& reader_writer, void* dst_cursor) {
-    CallMethod(ReadWrite, FnReadWrite, pos_cursor, cnt,
-               Forward<ReaderWriter>(reader_writer), dst_cursor);
-}
-
-template <typename IsConst, typename>
-void RefOperator::Read(Ref<IsConst> const* ref, void const* pos_cursor,
-                       size_t cnt, MemReader reader, void* dst_cursor) {
+template <typename ConstTag>
+void RefView<ConstTag>::Read(RefView const* ref_view, void const* pos_cursor,
+                             size_t cnt, MemReader reader, void* dst_cursor) {
     CallMethod(Read, MemRead, pos_cursor, cnt, reader, dst_cursor);
 }
 
-void RefOperator::Write(Ref<value_wrapper::FalseType>* ref, void* pos_cursor,
-                        size_t cnt, MemWriter writer, void* dst_cursor) {
+template <typename ConstTag>
+template <typename, typename>
+void RefView<ConstTag>::Write(RefView* ref_view, void* pos_cursor, size_t cnt,
+                              MemWriter writer, void* dst_cursor) {
     CallMethod(Write, MemWrite, pos_cursor, cnt, writer, dst_cursor);
 }
 
+template <typename ConstTag>
 template <typename Writer>
-void* RefOperator::PushL(Ref<value_wrapper::FalseType>* ref, size_t cnt,
-                         Writer&& writer, void* dst_cursor) {
-    CallMethod(PushL, FnPushL, cnt, Forward<Writer>(writer), dst_cursor);
+void* RefView<ConstTag>::PushL(
+    RefView* ref_view, size_t cnt,
+    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    CallMethod(PushL, FnPushL, cnt, writer, dst_cursor);
 }
 
+template <typename ConstTag>
 template <typename Writer>
-void* RefOperator::PushR(Ref<value_wrapper::FalseType>* ref, size_t cnt,
-                         Writer&& writer, void* dst_cursor) {
-    CallMethod(PushR, FnPushR, cnt, Forward<Writer>(writer), dst_cursor);
+void* RefView<ConstTag>::PushR(
+    RefView* ref_view, size_t cnt,
+    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    CallMethod(PushR, FnPushR, cnt, writer, dst_cursor);
 }
 
+template <typename ConstTag>
 template <typename Writer>
-void* RefOperator::Insert(Ref<value_wrapper::FalseType>* ref, void* pos_cursor,
-                          size_t cnt, Writer&& writer, void* dst_cursor) {
-    CallMethod(Insert, FnInsert, pos_cursor, cnt, Forward<Writer>(writer),
-               dst_cursor);
+void* RefView<ConstTag>::Insert(
+    RefView* ref_view, void* pos_cursor, size_t cnt,
+    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    CallMethod(Insert, FnInsert, pos_cursor, cnt, writer, dst_cursor);
 }
 
-void* RefOperator::PushL(Ref<value_wrapper::FalseType>* ref, size_t cnt,
-                         MemWriter writer, void* dst_cursor) {
+template <typename ConstTag>
+template <typename, typename>
+void* RefView<ConstTag>::PushL(RefView* ref_view, size_t cnt, MemWriter writer,
+                               void* dst_cursor) {
     CallMethod(PushL, MemPushL, cnt, writer, dst_cursor);
 }
 
-void* RefOperator::PushR(Ref<value_wrapper::FalseType>* ref, size_t cnt,
-                         MemWriter writer, void* dst_cursor) {
+template <typename ConstTag>
+template <typename, typename>
+void* RefView<ConstTag>::PushR(RefView* ref_view, size_t cnt, MemWriter writer,
+                               void* dst_cursor) {
     CallMethod(PushR, MemPushR, cnt, writer, dst_cursor);
 }
 
-void* RefOperator::Insert(Ref<value_wrapper::FalseType>* ref, void* pos_cursor,
-                          size_t cnt, MemWriter writer, void* dst_cursor) {
+template <typename ConstTag>
+template <typename, typename>
+void* RefView<ConstTag>::Insert(RefView* ref_view, void* pos_cursor, size_t cnt,
+                                MemWriter writer, void* dst_cursor) {
     CallMethod(Insert, MemInsert, pos_cursor, cnt, writer, dst_cursor);
 }
 
-void RefOperator::PopL(Ref<value_wrapper::FalseType>* ref, size_t cnt) {
+template <typename ConstTag>
+void RefView<ConstTag>::PopL(RefView* ref_view, size_t cnt) {
     CallMethod(PopL, PopL, cnt);
 }
 
-void RefOperator::PopR(Ref<value_wrapper::FalseType>* ref, size_t cnt) {
+template <typename ConstTag>
+void RefView<ConstTag>::PopR(RefView* ref_view, size_t cnt) {
     CallMethod(PopR, PopR, cnt);
 }
 
-void RefOperator::Erase(Ref<value_wrapper::FalseType>* ref, void* pos_cursor,
-                        size_t cnt) {
+template <typename ConstTag>
+void RefView<ConstTag>::Erase(RefView* ref_view, void* pos_cursor, size_t cnt) {
     CallMethod(Erase, Erase, pos_cursor, cnt);
 }
 
-void RefOperator::EraseAll(Ref<value_wrapper::FalseType>* ref) {
+template <typename ConstTag>
+void RefView<ConstTag>::EraseAll(RefView* ref_view) {
     CallMethod(EraseAll, EraseAll);
 }
 
-template <typename IsConst, typename>
-void RefOperator::CopyCursor(Ref<IsConst> const* ref, void* dst_cursor,
-                             void const* src_cursor) {
-    CallMethod(CopyCursor, CopyCursor, dst_cursor, src_cursor);
+template <typename ConstTag>
+void RefView<ConstTag>::CopyCursor(RefView const* ref_view,
+                                   void const* src_cursor, void* dst_cursor) {
+    CallMethod(CopyCursor, CopyCursor, src_cursor, dst_cursor);
 }
 
-template <typename IsConst, typename>
-bool RefOperator::AreEqualCursor(Ref<IsConst> const* ref, void const* cursor_a,
-                                 void const* cursor_b) {
+template <typename ConstTag>
+bool RefView<ConstTag>::AreEqualCursor(RefView const* ref_view,
+                                       void const* cursor_a,
+                                       void const* cursor_b) {
     CallMethod(AreEqualCursor, AreEqualCursor, cursor_a, cursor_b);
 }
 
-template <typename IsConst, typename>
-int RefOperator::CompareCursor(Ref<IsConst> const* ref, void const* cursor_a,
-                               void const* cursor_b) {
+template <typename ConstTag>
+int RefView<ConstTag>::CompareCursor(RefView const* ref_view,
+                                     void const* cursor_a,
+                                     void const* cursor_b) {
     CallMethod(CompareCursor, CompareCursor, cursor_a, cursor_b);
 }
 
-template <typename IsConst, typename>
-size_t RefOperator::GetCursorDist(Ref<IsConst> const* ref, void const* cursor_a,
-                                  void const* cursor_b) {
+template <typename ConstTag>
+size_t RefView<ConstTag>::GetCursorDist(RefView const* ref_view,
+                                        void const* cursor_a,
+                                        void const* cursor_b) {
     CallMethod(GetCursorDist, GetCursorDist, cursor_a, cursor_b);
 }
 
-template <typename IsConst, typename>
-size_t RefOperator::GetCursorIdx(Ref<IsConst> const* ref, void const* cursor) {
+template <typename ConstTag>
+size_t RefView<ConstTag>::GetCursorIdx(RefView const* ref_view,
+                                       void const* cursor) {
     CallMethod(GetCursorIdx, GetCursorIdx, cursor);
 }
 
-template <typename IsConst, typename>
-void RefOperator::CursorStepL(Ref<IsConst> const* ref, void* cursor) {
+template <typename ConstTag>
+void RefView<ConstTag>::CursorStepL(RefView const* ref_view, void* cursor) {
     CallMethod(CursorStepL, CursorStepL, cursor);
 }
 
-template <typename IsConst, typename>
-void RefOperator::CursorStepR(Ref<IsConst> const* ref, void* cursor) {
+template <typename ConstTag>
+void RefView<ConstTag>::CursorStepR(RefView const* ref_view, void* cursor) {
     CallMethod(CursorStepR, CursorStepR, cursor);
 }
 
-template <typename IsConst, typename>
-void RefOperator::CursorAdvanceL(Ref<IsConst> const* ref, void* cursor,
-                                 size_t step) {
+template <typename ConstTag>
+void RefView<ConstTag>::CursorAdvanceL(RefView const* ref_view, void* cursor,
+                                       size_t step) {
     CallMethod(CursorAdvanceL, CursorAdvanceL, cursor, step);
 }
 
-template <typename IsConst, typename>
-void RefOperator::CursorAdvanceR(Ref<IsConst> const* ref, void* cursor,
-                                 size_t step) {
+template <typename ConstTag>
+void RefView<ConstTag>::CursorAdvanceR(RefView const* ref_view, void* cursor,
+                                       size_t step) {
     CallMethod(CursorAdvanceR, CursorAdvanceR, cursor, step);
 }
 
 #pragma pop_macro("CallMethod")
 
-template <typename RefType, typename>
-void RefOperator::CheckCntr(RefType* ref) {
+template <typename ConstTag>
+void RefView<ConstTag>::CheckCntr(RefView* ref_view) {
+    auto ref{ reinterpret_cast<Ref<ConstTag>>(ref_view) };
+
     ZETA_Core_DebugAssert(ref != nullptr);
     ZETA_Core_DebugAssert(0 < ref->width);
     ZETA_Core_DebugAssert(ref->vtable != nullptr);
     ZETA_Core_DebugAssert(ref->cntr != nullptr);
 
-    constexpr AbilityFlag static_enabled_ability_flag{
-        GetStaticEnabledAbilityFlag(type_wrapper::TypeWrapper<RefType*>{})
-    };
-
-    AbilityFlag static_disabled_ability_flag{ GetStaticDisabledAbilityFlag(
-        type_wrapper::TypeWrapper<RefType*>{}) };
-
-    CheckAbilityFlags(static_enabled_ability_flag, static_disabled_ability_flag,
-                      ref->dynamic_enabled_ability_flag,
-                      ref->dynamic_disabled_ability_flag);
-
-    AbilityFlag enabled_ability_flag{ static_enabled_ability_flag |
-                                      ref->dynamic_enabled_ability_flag };
+    AbilityFlag enabled_ability_flag{ ref->dynamic_enabled_ability_flag };
 
 #pragma push_macro("CheckMethod")
 
@@ -1158,28 +1138,27 @@ void RefOperator::CheckCntr(RefType* ref) {
 #pragma pop_macro("CheckMethod")
 }
 
-template <typename SC>
-auto MakeRef(SC&& cntr_) {
-    auto cntr{ GetInstPtr(Forward<SC>(cntr_)) };
-
-    using SeqCntr = RemovePointer<decltype(cntr)>;
-
+template <typename SeqCntr>
+auto MakeRef(SeqCntr* cntr) {
     CheckContract(cntr);
 
     size_t cursor_size{ SeqCntr::GetCursorSize(cntr) };
     ZETA_Core_DebugAssert(cursor_size <= ZETA_Core_ushrt_max);
 
-    return Ref<value_wrapper::StaticValueWrapper<SeqCntr::IsConst()>>{
+    constexpr type_wrapper::TypeWrapper<SeqCntr*> cntr_ptr_type_wrapper;
+
+    return Ref<value_wrapper::StaticValueWrapper<SeqCntr::IsConst(
+        cntr_ptr_type_wrapper)>>{
         .cursor_size = static_cast<unsigned short>(cursor_size),
 
         .width = SeqCntr::GetWidth(cntr),
         .capacity = SeqCntr::GetCapacity(cntr),
 
         .dynamic_enabled_ability_flag =
-            SeqCntr::GetStaticEnabledAbilityFlag() |
+            SeqCntr::GetStaticEnabledAbilityFlag(cntr_ptr_type_wrapper) |
             SeqCntr::GetDynamicEnabledAbilityFlag(cntr),
         .dynamic_disabled_ability_flag =
-            SeqCntr::GetStaticDisabledAbilityFlag() |
+            SeqCntr::GetStaticDisabledAbilityFlag(cntr_ptr_type_wrapper) |
             SeqCntr::GetDynamicDisabledAbilityFlag(cntr),
 
         .vtable = &GetVTable<SeqCntr>(),

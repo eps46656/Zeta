@@ -6,7 +6,7 @@
 #include <zeta/core/debug_utils.hpp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/type_traits.hpp>
+#include <zeta/core/meta.hpp>
 
 #pragma push_macro("Format")
 

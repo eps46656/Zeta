@@ -2,7 +2,7 @@
 
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/type_traits.hpp>
+#include <zeta/core/meta.hpp>
 #include <zeta/core/utils.hpp>
 #include <zeta/core/value_wrapper.hpp>
 
@@ -62,10 +62,10 @@ void SetPtrColor(SignedIntegral& rel_color_ptr, size_t align, void const* base,
 
 // -----------------------------------------------------------------------------
 
-template <typename LinkType, typename EnColor>
+template <typename LinkType, typename ColorTag>
 struct AugPtrTpl;
 
-template <typename LinkType, typename EnColor>
+template <typename LinkType, typename ColorTag>
 struct AugPtrTpl {
     ZETA_Core_StaticAssert(!IsConst<LinkType>);
     ZETA_Core_StaticAssert(!IsRef<LinkType>);
@@ -74,10 +74,9 @@ struct AugPtrTpl {
                            IsSignedIntegral<RemoveVolatile<LinkType>>);
 
     ZETA_Core_StaticAssert(
-        IsAnyOf<EnColor, value_wrapper::StaticValueWrapper<true>,
-                value_wrapper::StaticValueWrapper<false>>);
+        IsAnyOf<ColorTag, value_wrapper::TrueType, value_wrapper::FalseType>);
 
-    static constexpr bool EnRelLink{
+    static constexpr bool IsRelLink{
         !IsAnyOf<RemoveVolatile<LinkType>, void*>
     };
 
@@ -86,13 +85,13 @@ struct AugPtrTpl {
     // -------------------------------------------------------------------------
 
     template <typename _ = void,
-              typename = EnableIf<!EnRelLink && !EnColor::value, _>>
+              typename = EnableIf<!IsRelLink && !ColorTag::value, _>>
     void* GetPtr() const;
 
-    template <typename _ = void, typename = EnableIf<!EnRelLink, _>>
+    template <typename _ = void, typename = EnableIf<!IsRelLink, _>>
     void* GetPtr(size_t align) const;
 
-    template <typename _ = void, typename = EnableIf<!EnColor::value, _>>
+    template <typename _ = void, typename = EnableIf<!ColorTag::value, _>>
     void* GetPtr(void const* base) const;
 
     void* GetPtr(size_t align, void const* base) const;
@@ -100,22 +99,22 @@ struct AugPtrTpl {
     // -------------------------------------------------------------------------
 
     template <typename _ = void,
-              typename = EnableIf<!EnRelLink && EnColor::value, _>>
+              typename = EnableIf<!IsRelLink && ColorTag::value, _>>
     unsigned GetColor(size_t align) const;
 
-    template <typename _ = void, typename = EnableIf<EnColor::value, _>>
+    template <typename _ = void, typename = EnableIf<ColorTag::value, _>>
     unsigned GetColor(size_t align, void const* base) const;
 
     // -------------------------------------------------------------------------
 
     template <typename _ = void,
-              typename = EnableIf<!EnRelLink && !EnColor::value, _>>
+              typename = EnableIf<!IsRelLink && !ColorTag::value, _>>
     void SetPtr(void* ptr);
 
-    template <typename _ = void, typename = EnableIf<!EnRelLink, _>>
+    template <typename _ = void, typename = EnableIf<!IsRelLink, _>>
     void SetPtr(size_t align, void* ptr);
 
-    template <typename _ = void, typename = EnableIf<!EnColor::value, _>>
+    template <typename _ = void, typename = EnableIf<!ColorTag::value, _>>
     void SetPtr(void const* base, void* ptr);
 
     void SetPtr(size_t align, void const* base, void* ptr);
@@ -123,17 +122,17 @@ struct AugPtrTpl {
     // -------------------------------------------------------------------------
 
     template <typename _ = void,
-              typename = EnableIf<!EnRelLink && EnColor::value, _>>
+              typename = EnableIf<!IsRelLink && ColorTag::value, _>>
     void SetColor(size_t align, unsigned color);
 
-    template <typename _ = void, typename = EnableIf<EnColor::value, _>>
+    template <typename _ = void, typename = EnableIf<ColorTag::value, _>>
     void SetColor(size_t align, void const* base, unsigned color);
 
     template <typename _ = void,
-              typename = EnableIf<!EnRelLink && EnColor::value, _>>
+              typename = EnableIf<!IsRelLink && ColorTag::value, _>>
     void SetPtrColor(size_t align, void* ptr, unsigned color);
 
-    template <typename _ = void, typename = EnableIf<EnColor::value, _>>
+    template <typename _ = void, typename = EnableIf<ColorTag::value, _>>
     void SetPtrColor(size_t align, void const* base, void* ptr, unsigned color);
 };
 

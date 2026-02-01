@@ -1,7 +1,7 @@
 #pragma once
 
 #include <zeta/core/define.hpp>
-#include <zeta/core/type_traits.hpp>
+#include <zeta/core/meta.hpp>
 #include <zeta/core/utils.hpp>
 
 #define ZETA_Core_uchar_width (__CHAR_BIT__)

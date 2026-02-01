@@ -2,6 +2,30 @@
 #error "EnData is not defined."
 #endif
 
+#pragma push_macro("Skip")
+
+#if EnData
+
+#if defined(ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_data_table)
+#define Skip 1
+#else
+#define ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_data_table
+#define Skip 0
+#endif
+
+#else
+
+#if defined(ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_ptr_table)
+#define Skip 1
+#else
+#define ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_ptr_table
+#define Skip 0
+#endif
+
+#endif
+
+#if !Skip
+
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
@@ -9,25 +33,21 @@
 #include <zeta/core/utils.hpp>
 
 #pragma push_macro("NameSpace")
-#pragma push_macro("TplParamList")
+#pragma push_macro("TplDeclParamList")
 #pragma push_macro("TplArgList")
 
 #if EnData
 
 #define NameSpace multi_level_data_table
-#define TplParamList                                              \
-    typename NavNodeAllocatorOperator, typename NavNodeAllocator, \
-        typename DataNodeAllocatorOperator, typename DataNodeAllocator
-#define TplArgList                                                         \
-    NavNodeAllocatorOperator, NavNodeAllocator, DataNodeAllocatorOperator, \
-        DataNodeAllocator
+#define TplDeclParamList \
+    typename NavNodeAllocatorLike, typename DataNodeAllocatorLike
+#define TplArgList NavNodeAllocatorLike, DataNodeAllocatorLike
 
 #else
 
 #define NameSpace multi_level_ptr_table
-#define TplParamList \
-    typename NavNodeAllocatorOperator, typename NavNodeAllocator
-#define TplArgList NavNodeAllocatorOperator, NavNodeAllocator
+#define TplDeclParamList typename NavNodeAllocatorLike
+#define TplArgList NavNodeAllocatorLike
 
 #endif
 
@@ -42,7 +62,7 @@ constexpr unsigned max_branch_num{ ZETA_Core_ullong_width };
 
 struct NavNode;
 
-template <TplParamList>
+template <TplDeclParamList>
 struct Cntr;
 
 // -----------------------------------------------------------------------------
@@ -54,7 +74,7 @@ struct NavNode {
 
 ZETA_Core_StaticAssert(offsetof(NavNode, active_map) == 0);
 
-template <TplParamList>
+template <TplDeclParamList>
 struct Cntr {
     unsigned level;
 
@@ -68,61 +88,21 @@ struct Cntr {
 
     void* root;
 
-    NavNodeAllocatorOperator const* nav_node_alctr_opr;
-    NavNodeAllocator* nav_node_alctr;
+    NavNodeAllocatorLike nav_node_alctr;
 
 #if EnData
-    DataNodeAllocatorOperator const* data_node_alctr_opr;
-    DataNodeAllocator* data_node_alctr;
+    DataNodeAllocatorLike data_node_alctr;
 #endif
 };
 
 namespace ops {
-
-constexpr bool TestActiveMap_(unsigned long long active_map, unsigned idx);
-
-template <typename NavNodeAllocatorOperator, typename NavNodeAllocator>
-void* AllocateNavNode_(size_t branch_num,
-                       NavNodeAllocatorOperator const& nav_node_alctr_opr,
-                       NavNodeAllocator* nav_node_alctr);
-
-template <typename NavNodeAllocatorOperator, typename NavNodeAllocator>
-void DeallocateNavNode_(NavNodeAllocatorOperator const& nav_node_alctr_opr,
-                        NavNodeAllocator* node_alctr, void* node);
-
-#if EnData
-size_t CalcDataNodeSize_(size_t stride, size_t branch_num);
-
-template <typename DataNodeAllocatorOperator, typename DataNodeAllocator>
-void* AllocateDataNode_(size_t stride, size_t branch_num,
-                        DataNodeAllocatorOperator const& data_node_alctr_opr,
-                        DataNodeAllocator* data_node_alctr);
-
-template <typename DataNodeAllocatorOperator, typename DataNodeAllocator>
-void DeallocateDataNode_(size_t stride, size_t branch_num,
-                         DataNodeAllocatorOperator const& data_node_alctr_opr,
-                         DataNodeAllocator* data_node_alctr, void* node);
-#endif
-
-template <TplParamList>
-void EraseAll_(Cntr<TplArgList>* cntr, void* node, unsigned level_i);
-
-size_t Sanitize_(MemRecorder* dst_nav_node,
-#if EnData
-                 MemRecorder* dst_data_node,
-#endif
-                 unsigned level_i, unsigned short const* branch_nums,
-#if EnData
-                 size_t stride,
-#endif
-                 void* node);
 
 /**
  * @brief Initialize the cntr.
  *
  * @param cntr The target cntr.
  */
-template <TplParamList>
+template <TplDeclParamList>
 void Init(Cntr<TplArgList>* cntr);
 
 /**
@@ -130,7 +110,7 @@ void Init(Cntr<TplArgList>* cntr);
  *
  * @param cntr The target cntr.
  */
-template <TplParamList>
+template <TplDeclParamList>
 void Deinit(Cntr<TplArgList>* cntr);
 
 /**
@@ -139,7 +119,7 @@ void Deinit(Cntr<TplArgList>* cntr);
  *
  * @param cntr The target cntr.
  */
-template <TplParamList>
+template <TplDeclParamList>
 size_t GetSize(Cntr<TplArgList>* cntr);
 
 /**
@@ -148,7 +128,7 @@ size_t GetSize(Cntr<TplArgList>* cntr);
  *
  * @param cntr The target cntr.
  */
-template <TplParamList>
+template <TplDeclParamList>
 size_t GetCapacity(Cntr<TplArgList>* cntr);
 
 /**
@@ -160,13 +140,13 @@ size_t GetCapacity(Cntr<TplArgList>* cntr);
  * @return The reference of target entry. If the it is not inserted, return
  * nullptr.
  */
-template <TplParamList>
+template <TplDeclParamList>
 void* Access(Cntr<TplArgList>* cntr, size_t* idxes);
 
-template <TplParamList>
+template <TplDeclParamList>
 void* FindFirst(Cntr<TplArgList>* cntr, size_t* dst_idxes);
 
-template <TplParamList>
+template <TplDeclParamList>
 void* FindLast(Cntr<TplArgList>* cntr, size_t* dst_idxes);
 
 /**
@@ -177,7 +157,7 @@ void* FindLast(Cntr<TplArgList>* cntr, size_t* dst_idxes);
  *
  * @return The reference of target entry.
  */
-template <TplParamList>
+template <TplDeclParamList>
 void* FindPrev(Cntr<TplArgList>* cntr, size_t* idxes, bool included);
 
 /**
@@ -188,7 +168,7 @@ void* FindPrev(Cntr<TplArgList>* cntr, size_t* idxes, bool included);
  *
  * @return The reference of target entry.
  */
-template <TplParamList>
+template <TplDeclParamList>
 void* FindNext(Cntr<TplArgList>* cntr, size_t* idxes, bool included);
 
 /**
@@ -200,7 +180,7 @@ void* FindNext(Cntr<TplArgList>* cntr, size_t* idxes, bool included);
  *
  * @return The reference of target entry.
  */
-template <TplParamList>
+template <TplDeclParamList>
 Pair<void*, bool> Insert(Cntr<TplArgList>* cntr, size_t* idxes);
 
 /**
@@ -211,7 +191,7 @@ Pair<void*, bool> Insert(Cntr<TplArgList>* cntr, size_t* idxes);
  *
  * @return The reference of target entry.
  */
-template <TplParamList>
+template <TplDeclParamList>
 bool Erase(Cntr<TplArgList>* cntr, size_t* idxes);
 
 /**
@@ -219,16 +199,10 @@ bool Erase(Cntr<TplArgList>* cntr, size_t* idxes);
  *
  * @param cntr The target cntr.
  */
-template <TplParamList>
+template <TplDeclParamList>
 void EraseAll(Cntr<TplArgList>* cntr);
 
-template <TplParamList>
-void Check(Cntr<TplArgList>* cntr);
-
-template <TplParamList>
-void CheckIdxes(Cntr<TplArgList>* cntr, size_t const* idxes);
-
-template <TplParamList>
+template <TplDeclParamList>
 void Sanitize(Cntr<TplArgList>* cntr, MemRecorder* dst_nav_node
 #if EnData
               ,
@@ -242,4 +216,8 @@ void Sanitize(Cntr<TplArgList>* cntr, MemRecorder* dst_nav_node
 
 #pragma pop_macro("NameSpace")
 #pragma pop_macro("TplArgList")
-#pragma pop_macro("TplParamList")
+#pragma pop_macro("TplDeclParamList")
+
+#endif
+
+#pragma pop_macro("Skip")

@@ -4,8 +4,8 @@
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/meta.hpp>
 #include <zeta/core/ptr_utils.hpp>
-#include <zeta/core/type_traits.hpp>
 
 namespace zeta::core::ptr_utils {
 
@@ -131,128 +131,128 @@ void SetPtrColor(SignedIntegral& rel_color_ptr, size_t align, void const* base,
 
 // -----------------------------------------------------------------------------
 
-template <typename LinkType, typename EnColor>
+template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void* AugPtrTpl<LinkType, EnColor>::GetPtr() const {
+void* AugPtrTpl<LinkType, ColorTag>::GetPtr() const {
     return this->link;
 }
 
-template <typename LinkType, typename EnColor>
+template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void* AugPtrTpl<LinkType, EnColor>::GetPtr(size_t align) const {
-    if constexpr (EnColor::value) {
+void* AugPtrTpl<LinkType, ColorTag>::GetPtr(size_t align) const {
+    if constexpr (ColorTag::value) {
         return color_ptr::GetPtr(this->link, align);
     } else {
         return this->GetPtr();
     }
 }
 
-template <typename LinkType, typename EnColor>
+template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void* AugPtrTpl<LinkType, EnColor>::GetPtr(void const* base) const {
-    if constexpr (EnRelLink) {
+void* AugPtrTpl<LinkType, ColorTag>::GetPtr(void const* base) const {
+    if constexpr (IsRelLink) {
         return rel_ptr::GetPtr(this->link, base);
     } else {
         return this->GetPtr();
     }
 }
 
-template <typename LinkType, typename EnColor>
-void* AugPtrTpl<LinkType, EnColor>::GetPtr(size_t align,
-                                           void const* base) const {
-    if constexpr (!EnRelLink) {
+template <typename LinkType, typename ColorTag>
+void* AugPtrTpl<LinkType, ColorTag>::GetPtr(size_t align,
+                                            void const* base) const {
+    if constexpr (!IsRelLink) {
         return this->GetPtr(align);
-    } else if constexpr (!EnColor::value) {
+    } else if constexpr (!ColorTag::value) {
         return this->GetPtr(base);
     } else {
         return rel_color_ptr::GetPtr(this->link, align, base);
     }
 }
 
-template <typename LinkType, typename EnColor>
+template <typename LinkType, typename ColorTag>
 template <typename, typename>
-unsigned AugPtrTpl<LinkType, EnColor>::GetColor(size_t align) const {
+unsigned AugPtrTpl<LinkType, ColorTag>::GetColor(size_t align) const {
     return color_ptr::GetColor(this->link, align);
 }
 
-template <typename LinkType, typename EnColor>
+template <typename LinkType, typename ColorTag>
 template <typename, typename>
-unsigned AugPtrTpl<LinkType, EnColor>::GetColor(size_t align,
-                                                void const* base) const {
-    if constexpr (EnRelLink) {
+unsigned AugPtrTpl<LinkType, ColorTag>::GetColor(size_t align,
+                                                 void const* base) const {
+    if constexpr (IsRelLink) {
         return rel_color_ptr::GetColor(this->link, align, base);
     } else {
         return this->GetColor(align);
     }
 }
 
-template <typename LinkType, typename EnColor>
+template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void AugPtrTpl<LinkType, EnColor>::SetPtr(void* ptr) {
+void AugPtrTpl<LinkType, ColorTag>::SetPtr(void* ptr) {
     this->link = ptr;
 }
 
-template <typename LinkType, typename EnColor>
+template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void AugPtrTpl<LinkType, EnColor>::SetPtr(size_t align, void* ptr) {
-    if constexpr (EnColor::value) {
+void AugPtrTpl<LinkType, ColorTag>::SetPtr(size_t align, void* ptr) {
+    if constexpr (ColorTag::value) {
         color_ptr::SetPtr(this->link, align, ptr);
     } else {
         this->SetPtr(ptr);
     }
 }
 
-template <typename LinkType, typename EnColor>
+template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void AugPtrTpl<LinkType, EnColor>::SetPtr(void const* base, void* ptr) {
-    if constexpr (EnRelLink) {
+void AugPtrTpl<LinkType, ColorTag>::SetPtr(void const* base, void* ptr) {
+    if constexpr (IsRelLink) {
         rel_ptr::SetPtr(this->link, base, ptr);
     } else {
         this->SetPtr(ptr);
     }
 }
 
-template <typename LinkType, typename EnColor>
-void AugPtrTpl<LinkType, EnColor>::SetPtr(size_t align, void const* base,
-                                          void* ptr) {
-    if constexpr (!EnRelLink) {
+template <typename LinkType, typename ColorTag>
+void AugPtrTpl<LinkType, ColorTag>::SetPtr(size_t align, void const* base,
+                                           void* ptr) {
+    if constexpr (!IsRelLink) {
         this->SetPtr(align, ptr);
-    } else if constexpr (!EnColor::value) {
+    } else if constexpr (!ColorTag::value) {
         this->SetPtr(base, ptr);
     } else {
         rel_color_ptr::SetPtr(this->link, align, base, ptr);
     }
 }
 
-template <typename LinkType, typename EnColor>
+template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void AugPtrTpl<LinkType, EnColor>::SetColor(size_t align, unsigned color) {
+void AugPtrTpl<LinkType, ColorTag>::SetColor(size_t align, unsigned color) {
     color_ptr::SetColor(this->link, align, color);
 }
 
-template <typename LinkType, typename EnColor>
+template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void AugPtrTpl<LinkType, EnColor>::SetColor(size_t align, void const* base,
-                                            unsigned color) {
-    if constexpr (EnRelLink) {
+void AugPtrTpl<LinkType, ColorTag>::SetColor(size_t align, void const* base,
+                                             unsigned color) {
+    if constexpr (IsRelLink) {
         rel_color_ptr::SetColor(this->link, align, base, color);
     } else {
         this->SetColor(align, color);
     }
 }
 
-template <typename LinkType, typename EnColor>
+template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void AugPtrTpl<LinkType, EnColor>::SetPtrColor(size_t align, void* ptr,
-                                               unsigned color) {
+void AugPtrTpl<LinkType, ColorTag>::SetPtrColor(size_t align, void* ptr,
+                                                unsigned color) {
     color_ptr::SetPtrColor(this->link, align, ptr, color);
 }
 
-template <typename LinkType, typename EnColor>
+template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void AugPtrTpl<LinkType, EnColor>::SetPtrColor(size_t align, void const* base,
-                                               void* ptr, unsigned color) {
-    if constexpr (EnRelLink) {
+void AugPtrTpl<LinkType, ColorTag>::SetPtrColor(size_t align, void const* base,
+                                                void* ptr, unsigned color) {
+    if constexpr (IsRelLink) {
         rel_color_ptr::SetPtrColor(this->link, align, base, ptr, color);
     } else {
         this->SetPtrColor(align, ptr, color);

@@ -2,7 +2,7 @@
 
 #include <zeta/core/compare.hpp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/type_traits.hpp>
+#include <zeta/core/meta.hpp>
 
 namespace zeta::core::compare {
 

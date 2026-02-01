@@ -10,282 +10,251 @@
 #include <zeta/core/mem_check_utils.hpp>
 #include <zeta/core/utils.ipp>
 
-namespace zeta::core {
+#pragma push_macro("CntrTplParamList")
+#pragma push_macro("CntrTplArgList")
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-unsigned long long DynamicHashTable<
-    ElemHash, ElemCompare, NodeAllocator,
-    TableNodeAllocator>::NodeHash::operator()(GenericHashTableNode const* ghtn,
-                                              unsigned long long salt) const {
+#define CntrTplParamList                                                     \
+    typename ElemHashLike, typename ElemCompareLike, typename NodeAllocator, \
+        typename TableNodeAllocatorLike
+
+#define CntrTplArgList \
+    ElemHashLike, ElemCompareLike, NodeAllocator, TableNodeAllocatorLike
+
+namespace zeta::core::dynamic_hash_table {
+
+template <typename ElemHashLike>
+unsigned long long NodeHash<ElemHashLike>::operator()(
+    generic_hash_table::Node const* ghtn, unsigned long long salt) const {
     return this->elem_hash(ZETA_Core_MemberToStruct(Node, ghtn, ghtn)->data,
                            salt);
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-int DynamicHashTable<ElemHash, ElemCompare, NodeAllocator, TableNodeAllocator>::
-    NodeCompare::operator()(GenericHashTableNode const* ghtn_x,
-                            GenericHashTableNode const* ghtn_y) const {
+template <typename ElemCompareLike>
+int NodeCompare<ElemCompareLike>::operator()(
+    generic_hash_table::Node const* ghtn_x,
+    generic_hash_table::Node const* ghtn_y) const {
     return this->elem_compare(
         ZETA_Core_MemberToStruct(Node, ghtn, ghtn_x)->data,
         ZETA_Core_MemberToStruct(Node, ghtn, ghtn_y)->data);
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                      TableNodeAllocator>::Init(void* dht_) {
-    auto dht{ static_cast<DynamicHashTable*>(dht_) };
-    ZETA_Core_DebugAssert(dht != nullptr);
-
-    ZETA_Core_DebugAssert(0 < dht->width);
-
-    dht->width = UIntAlignUp(dht->width, alignof(Node));
-
-    NodeAllocator::CheckAllocator(&dht->node_allocator);
-
-    dht->lln = static_cast<LListNode*>(allocator::SafeAllocate(
-        &dht->node_allocator, alignof(LListNode), sizeof(LListNode)));
-
-    dht->lln->Init();
-
-    GenericHashTableImpl::Init(&dht->ght);
+void Node::Init() {
+    this->lln.Init();
+    this->ghtn.Init();
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                      TableNodeAllocator>::Deinit(void* dht_) {
-    auto dht{ static_cast<DynamicHashTable*>(dht_) };
-    ZETA_Core_DebugAssert(CheckCntr(dht));
+namespace ops {
 
-    DynamicHashTable::EraseAll(dht);
+namespace detail {
 
-    GenericHashTableImpl::Deinit(&dht->ght);
+template <CntrTplParamList>
+void CheckCntr(Cntr<CntrTplArgList> const* cntr) {
+    ZETA_Core_DebugAssert(cntr != nullptr);
 
-    NodeAllocator::Deallocate(&dht->node_allocator, dht->lln);
+    size_t width{ cntr->width };
+
+    ZETA_Core_DebugAssert(0 < width);
+
+    ZETA_Core_DebugAssert(width % alignof(Node) == 0);
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-assoc_cntr::AssocCntrAbilityFlagType DynamicHashTable<
-    ElemHash, ElemCompare, NodeAllocator,
-    TableNodeAllocator>::GetDynamicEnabledAbilityFlag(void const* dht_) {
-    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
-    ZETA_Core_DebugAssert(CheckCntr(dht));
-    return dynamic_ability_flag;
+template <CntrTplParamList>
+void CheckCursor(Cntr<CntrTplArgList> const* cntr, Cursor const* cursor) {
+    CheckCntr(cntr);
+
+    ZETA_Core_DebugAssert(cursor != nullptr);
+
+    ZETA_Core_DebugAssert(cursor->cntr == cntr);
+
+    if (cntr->lln != cursor->lln) {
+        ZETA_Core_DebugAssert(generic_hash_table::ops::Contain(
+            &cntr->ght,
+            &ZETA_Core_MemberToStruct(Node, lln, cursor->lln)->ghtn));
+    }
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-assoc_cntr::AssocCntrAbilityFlagType DynamicHashTable<
-    ElemHash, ElemCompare, NodeAllocator,
-    TableNodeAllocator>::GetDynamicDisabledAbilityFlag(void const* dht_) {
-    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
-    ZETA_Core_DebugAssert(CheckCntr(dht));
-    return dynamic_ability_flag;
+}  // namespace detail
+
+template <CntrTplParamList>
+void Init(Cntr<CntrTplArgList>* cntr) {
+    ZETA_Core_DebugAssert(cntr != nullptr);
+
+    ZETA_Core_DebugAssert(0 < cntr->width);
+
+    cntr->width = UIntAlignUp(cntr->width, alignof(Node));
+
+    cntr->lln = static_cast<LListNode*>(allocator::SafeAllocate(
+        &cntr->node_alctr, alignof(LListNode), sizeof(LListNode)));
+
+    cntr->lln->Init();
+
+    generic_hash_table::ops::Init(&cntr->ght);
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-size_t DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                        TableNodeAllocator>::GetCursorSize(void const* dht_) {
-    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
-    ZETA_Core_DebugAssert(CheckCntr(dht));
+template <CntrTplParamList>
+void Deinit(Cntr<CntrTplArgList>* cntr) {
+    detail::CheckCntr(cntr);
+
+    EraseAll(cntr);
+
+    generic_hash_table::ops::Deinit(&cntr->ght);
+
+    NodeAllocator::Deallocate(&cntr->node_alctr, cntr->lln);
+}
+
+template <CntrTplParamList>
+size_t GetCursorSize(Cntr<CntrTplArgList> const* cntr) {
+    detail::CheckCntr(cntr);
 
     return sizeof(Cursor);
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-size_t DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                        TableNodeAllocator>::GetWidth(void const* dht_) {
-    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
-    ZETA_Core_DebugAssert(CheckCntr(dht));
+template <CntrTplParamList>
+size_t GetWidth(Cntr<CntrTplArgList> const* cntr) {
+    detail::CheckCntr(cntr);
 
-    return dht->width;
+    return cntr->width;
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-size_t DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                        TableNodeAllocator>::GetSize(void const* dht_) {
-    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
-    ZETA_Core_DebugAssert(CheckCntr(dht));
+template <CntrTplParamList>
+size_t GetSize(Cntr<CntrTplArgList> const* cntr) {
+    detail::CheckCntr(cntr);
 
-    return GenericHashTableImpl::GetSize(&dht->ght);
+    return generic_hash_table::ops::GetSize(&cntr->ght);
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-size_t DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                        TableNodeAllocator>::GetCapacity(void const* dht_) {
-    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
-    ZETA_Core_DebugAssert(CheckCntr(dht));
+template <CntrTplParamList>
+size_t GetCapacity(Cntr<CntrTplArgList> const* cntr) {
+    detail::CheckCntr(cntr);
 
     return ZETA_Core_max_capacity;
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                      TableNodeAllocator>::GetLBCursor(void const* dht_,
-                                                       void* dst_cursor_) {
-    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
-    ZETA_Core_DebugAssert(CheckCntr(dht));
-
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
+template <CntrTplParamList>
+void GetLBCursor(Cntr<CntrTplArgList> const* cntr, Cursor* dst_cursor) {
+    detail::CheckCntr(cntr);
 
     if (dst_cursor == nullptr) { return; }
 
-    dst_cursor->dht = dht;
-    dst_cursor->lln = dht->lln;
+    dst_cursor->cntr = cntr;
+    dst_cursor->lln = cntr->lln;
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                      TableNodeAllocator>::GetRBCursor(void const* dht_,
-                                                       void* dst_cursor_) {
-    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
-    ZETA_Core_DebugAssert(CheckCntr(dht));
-
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
+template <CntrTplParamList>
+void GetRBCursor(Cntr<CntrTplArgList> const* cntr, Cursor* dst_cursor) {
+    detail::CheckCntr(cntr);
 
     if (dst_cursor == nullptr) { return; }
 
-    dst_cursor->dht = dht;
-    dst_cursor->lln = dht->lln;
+    dst_cursor->cntr = cntr;
+    dst_cursor->lln = cntr->lln;
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void* DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                       TableNodeAllocator>::PeekL(void* dht_, void* dst_cursor_,
-                                                  void* dst_elem) {
-    auto dht{ static_cast<DynamicHashTable*>(dht_) };
-    ZETA_Core_DebugAssert(CheckCntr(dht));
-
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
+template <CntrTplParamList>
+void* PeekL(Cntr<CntrTplArgList>* cntr, bool lazy_copy_elem, Cursor* dst_cursor,
+            void* dst_elem) {
+    detail::CheckCntr(cntr);
 
     Cursor cursor{
-        .dht = dht,
-        .lln = dht->lln->GetRPtr(),
+        .cntr = cntr,
+        .lln = cntr->lln->GetRPtr(),
     };
 
     if (dst_cursor != nullptr) {
-        dst_cursor->dht = cursor.dht;
+        dst_cursor->cntr = cursor.cntr;
         dst_cursor->lln = cursor.lln;
     }
 
-    void* elem{ dht->lln == cursor.lln
-                    ? nullptr
-                    : ZETA_Core_MemberToStruct(Node, lln, cursor.lln)->data };
+    if (cntr->lln == cursor.lln) { return nullptr; }
 
-    if (dst_elem != nullptr && elem != nullptr) {
-        MemCopy(dst_elem, elem, dht->width);
+    void* elem{ ZETA_Core_MemberToStruct(Node, lln, cursor.lln)->data };
+
+    if (!lazy_copy_elem && dst_elem != nullptr) {
+        MemCopy(dst_elem, elem, cntr->width);
     }
 
     return elem;
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void const* DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                             TableNodeAllocator>::ConstPeekL(void const* dht,
-                                                             void* dst_cursor,
-                                                             void* dst_elem) {
-    return PeekL(const_cast<void*>(dht), dst_cursor, dst_elem);
+template <CntrTplParamList>
+void const* PeekL(Cntr<CntrTplArgList> const* cntr, bool lazy_copy_elem,
+                  Cursor* dst_cursor, void* dst_elem) {
+    return PeekL(const_cast<Cntr<CntrTplArgList>*>(cntr), lazy_copy_elem,
+                 dst_cursor, dst_elem);
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void* DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                       TableNodeAllocator>::PeekR(void* dht_, void* dst_cursor_,
-                                                  void* dst_elem) {
-    auto dht{ static_cast<DynamicHashTable*>(dht_) };
-    ZETA_Core_DebugAssert(CheckCntr(dht));
-
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
+template <CntrTplParamList>
+void* PeekR(Cntr<CntrTplArgList>* cntr, bool lazy_copy_elem, Cursor* dst_cursor,
+            void* dst_elem) {
+    detail::CheckCntr(cntr);
 
     Cursor cursor{
-        .dht = dht,
-        .lln = dht->lln->GetLPtr(),
+        .cntr = cntr,
+        .lln = cntr->lln->GetLPtr(),
     };
 
     if (dst_cursor != nullptr) {
-        dst_cursor->dht = cursor.dht;
+        dst_cursor->cntr = cursor.cntr;
         dst_cursor->lln = cursor.lln;
     }
 
-    void* elem{ dht->lln == cursor.lln
-                    ? nullptr
-                    : ZETA_Core_MemberToStruct(Node, lln, cursor.lln)->data };
+    if (cntr->lln == cursor.lln) { return nullptr; }
 
-    if (dst_elem != nullptr && elem != nullptr) {
-        MemCopy(dst_elem, elem, dht->width);
+    void* elem{ ZETA_Core_MemberToStruct(Node, lln, cursor.lln)->data };
+
+    if (!lazy_copy_elem && dst_elem != nullptr) {
+        MemCopy(dst_elem, elem, cntr->width);
     }
 
     return elem;
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void const* DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                             TableNodeAllocator>::ConstPeekR(void const* dht,
-                                                             void* dst_cursor,
-                                                             void* dst_elem) {
-    return PeekR(const_cast<void*>(dht), dst_cursor, dst_elem);
+template <CntrTplParamList>
+void const* PeekR(Cntr<CntrTplArgList> const* cntr, bool lazy_copy_elem,
+                  Cursor* dst_cursor, void* dst_elem) {
+    return PeekR(const_cast<Cntr<CntrTplArgList>*>(cntr), lazy_copy_elem,
+                 dst_cursor, dst_elem);
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void* DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                       TableNodeAllocator>::Refer(void* dht_,
-                                                  void const* pos_cursor_) {
-    auto dht{ static_cast<DynamicHashTable*>(dht_) };
-    auto pos_cursor{ static_cast<Cursor const*>(pos_cursor_) };
-    ZETA_Core_DebugAssert(CheckCursor(dht, pos_cursor));
+template <CntrTplParamList>
+void* Derefer(Cntr<CntrTplArgList>* cntr, Cursor const* pos_cursor,
+              bool lazy_copy_elem, void* dst_elem) {
+    detail::CheckCursor(cntr, pos_cursor);
 
-    return dht->lln == pos_cursor->lln
-               ? nullptr
-               : ZETA_Core_MemberToStruct(Node, lln, pos_cursor->lln)->data;
+    if (cntr->lln == pos_cursor->lln) { return nullptr; }
+
+    void* elem{ ZETA_Core_MemberToStruct(Node, lln, pos_cursor->lln)->data };
+
+    if (!lazy_copy_elem && dst_elem != nullptr) {
+        MemCopy(dst_elem, elem, cntr->width);
+    }
+
+    return elem;
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void const*
-DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                 TableNodeAllocator>::ConstRefer(void const* dht,
-                                                 void const* pos_cursor) {
-    return Refer(const_cast<void*>(dht), pos_cursor);
+template <CntrTplParamList>
+void const* Derefer(Cntr<CntrTplArgList> const* cntr, Cursor const* pos_cursor,
+                    bool lazy_copy_elem, void* dst_elem) {
+    return Derefer(const_cast<Cntr<CntrTplArgList>*>(cntr), pos_cursor,
+                   lazy_copy_elem, dst_elem);
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-template <typename KeyHash, typename KeyElemCompare>
-void* DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                       TableNodeAllocator>::TplFind(void* dht_, void const* key,
-                                                    KeyHash const& key_hash,
-                                                    KeyElemCompare const&
-                                                        key_elem_compare,
-                                                    void* dst_cursor_) {
-    auto dht{ static_cast<DynamicHashTable*>(dht_) };
-    ZETA_Core_DebugAssert(CheckCntr(dht));
+template <CntrTplParamList, typename KeyHash, typename KeyElemCompare>
+void* Find(Cntr<CntrTplArgList>* cntr, void const* key, KeyHash const& key_hash,
+           KeyElemCompare const& key_elem_compare, bool lazy_copy_elem,
+           Cursor* dst_cursor, void* dst_elem) {
+    detail::CheckCntr(cntr);
 
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
-    void* ghtn{ GenericHashTableImpl::Find(
-        &dht->ght, key, key_hash, [&](void const* key, void const* ghtn) {
+    void* ghtn{ generic_hash_table::ops::Find(
+        &cntr->ght, key, key_hash, [&](void const* key, void const* ghtn) {
             return key_elem_compare(
                 key, ZETA_Core_MemberToStruct(Node, ghtn, ghtn)->data);
         }) };
 
     if (ghtn == nullptr) {
         if (dst_cursor != nullptr) {
-            dst_cursor->dht = dht;
-            dst_cursor->lln = dht->lln;
+            dst_cursor->cntr = cntr;
+            dst_cursor->lln = cntr->lln;
         }
 
         return nullptr;
@@ -294,91 +263,94 @@ void* DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
     Node* node{ ZETA_Core_MemberToStruct(Node, ghtn, ghtn) };
 
     if (dst_cursor != nullptr) {
-        dst_cursor->dht = dht;
+        dst_cursor->cntr = cntr;
         dst_cursor->lln = &node->lln;
+    }
+
+    if (!lazy_copy_elem && dst_elem != nullptr) {
+        MemCopy(dst_elem, node->data, cntr->width);
     }
 
     return node->data;
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-template <typename Key, typename KeyHash, typename KeyElemCompare>
-void const* DynamicHashTable<
-    ElemHash, ElemCompare, NodeAllocator,
-    TableNodeAllocator>::ConstTplFind(void const* dht, Key const& key,
-                                      KeyHash const& key_hash,
-                                      KeyElemCompare const& key_elem_compare,
-                                      void* dst_cursor) {
-    return TplFind(const_cast<void*>(dht), key, key_hash, key_elem_compare,
-                   dst_cursor);
+template <CntrTplParamList, typename KeyHash, typename KeyElemCompare>
+void const* Find(Cntr<CntrTplArgList> const* cntr, void const* key,
+                 KeyHash const& key_hash,
+                 KeyElemCompare const& key_elem_compare, bool lazy_copy_elem,
+                 Cursor* dst_cursor, void* dst_elem) {
+    return Find(const_cast<Cntr<CntrTplArgList>*>(cntr), key, key_hash,
+                key_elem_compare, lazy_copy_elem, dst_cursor, dst_elem);
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void* DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                       TableNodeAllocator>::FnFind(void* dht, void const* key,
-                                                   FnHash const& key_hash,
-                                                   FnCompare const&
-                                                       key_elem_compare,
-                                                   void* dst_cursor) {
-    return TplFind(dht, key, key_hash, key_elem_compare, dst_cursor);
-}
-
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void const* DynamicHashTable<
-    ElemHash, ElemCompare, NodeAllocator,
-    TableNodeAllocator>::ConstFnFind(void const* dht, void const* key,
-                                     FnHash const& key_hash,
-                                     FnCompare const& key_elem_compare,
-                                     void* dst_cursor) {
-    return ConstTplFind(dht, key, key_hash, key_elem_compare, dst_cursor);
-}
-
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void* DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                       TableNodeAllocator>::Insert(void* dht_, void const* elem,
-                                                   void* dst_cursor_) {
-    auto dht{ static_cast<DynamicHashTable*>(dht_) };
-    ZETA_Core_DebugAssert(CheckCntr(dht));
-
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
+template <CntrTplParamList>
+void* Insert(Cntr<CntrTplArgList>* cntr, void const* elem, Cursor* dst_cursor) {
+    detail::CheckCntr(cntr);
 
     ZETA_Core_DebugAssert(elem != nullptr);
 
-    Node* node{ static_cast<Node*>(
-        allocator::SafeAllocate(&dht->node_allocator, alignof(Node),
-                                offsetof(Node, data[dht->width]))) };
+    Node* node{ static_cast<Node*>(allocator::SafeAllocate(
+        &cntr->node_alctr, alignof(Node), offsetof(Node, data[cntr->width]))) };
 
-    node->lln.Init();
-    node->ghtn.Init();
+    node->Init();
 
-    MemCopy(node->data, elem, dht->width);
+    MemCopy(node->data, elem, cntr->width);
 
-    GenericHashTableImpl::Insert(&dht->ght, &node->ghtn);
+    generic_hash_table::ops::Insert(&cntr->ght, &node->ghtn);
 
-    llist::InsertL(lln_opr, dht->lln, &node->lln);
+    llist::InsertL(cntr->lln->AsView(), node->lln.AsView());
 
     if (dst_cursor != nullptr) {
-        dst_cursor->dht = dht;
+        dst_cursor->cntr = cntr;
         dst_cursor->lln = &node->lln;
     }
 
     return node->data;
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                      TableNodeAllocator>::Erase(void* dht_,
-                                                 void* pos_cursor_) {
-    auto dht{ static_cast<DynamicHashTable*>(dht_) };
-    auto pos_cursor{ static_cast<Cursor*>(pos_cursor_) };
-    ZETA_Core_DebugAssert(CheckCursor(dht, pos_cursor));
+template <CntrTplParamList>
+void PopL(Cntr<CntrTplArgList>* cntr, size_t cnt) {
+    detail::CheckCntr(cntr);
 
-    ZETA_Core_DebugAssert(dht->lln != pos_cursor->lln);
+    ZETA_Core_DebugAssert(cnt <= GetSize(cntr));
+
+    for (; 0 < cnt; --cnt) {
+        LListNode* lln{ cntr->lln->GetRPtr() };
+
+        Node* node{ ZETA_Core_MemberToStruct(Node, lln, lln) };
+
+        llist::Extract(lln->AsView());
+
+        generic_hash_table::ops::Extract(&cntr->ght, &node->ghtn);
+
+        NodeAllocator::Deallocate(&cntr->node_alctr, node);
+    }
+}
+
+template <CntrTplParamList>
+void PopR(Cntr<CntrTplArgList>* cntr, size_t cnt) {
+    detail::CheckCntr(cntr);
+
+    ZETA_Core_DebugAssert(cnt <= GetSize(cntr));
+
+    for (; 0 < cnt; --cnt) {
+        LListNode* lln{ cntr->lln->GetLPtr() };
+
+        Node* node{ ZETA_Core_MemberToStruct(Node, lln, lln) };
+
+        llist::Extract(lln->AsView());
+
+        generic_hash_table::ops::Extract(&cntr->ght, &node->ghtn);
+
+        NodeAllocator::Deallocate(&cntr->node_alctr, node);
+    }
+}
+
+template <CntrTplParamList>
+void Erase(Cntr<CntrTplArgList>* cntr, Cursor* pos_cursor) {
+    detail::CheckCursor(cntr, pos_cursor);
+
+    ZETA_Core_DebugAssert(cntr->lln != pos_cursor->lln);
 
     LListNode* lln{ pos_cursor->lln };
 
@@ -386,177 +358,87 @@ void DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
 
     Node* node{ ZETA_Core_MemberToStruct(Node, lln, lln) };
 
-    llist::Extract(lln_opr, &node->lln);
+    llist::Extract(node->lln.AsView());
 
-    GenericHashTableImpl::Extract(&dht->ght, &node->ghtn);
+    generic_hash_table::ops::Extract(&cntr->ght, &node->ghtn);
 
-    NodeAllocator::Deallocate(&dht->node_allocator, node);
+    NodeAllocator::Deallocate(&cntr->node_alctr, node);
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                      TableNodeAllocator>::EraseAll(void* dht_) {
-    auto dht{ static_cast<DynamicHashTable*>(dht_) };
-    ZETA_Core_DebugAssert(dht);
+template <CntrTplParamList>
+void EraseAll(Cntr<CntrTplArgList>* cntr) {
+    ZETA_Core_DebugAssert(cntr);
 
     for (;;) {
-        LListNode* nxt_lln{ dht->lln->GetRPtr() };
+        LListNode* nxt_lln{ cntr->lln->GetRPtr() };
 
-        if (nxt_lln == dht->lln) { break; }
+        if (nxt_lln == cntr->lln) { break; }
 
         Node* nxt_node{ ZETA_Core_MemberToStruct(Node, lln, nxt_lln) };
 
-        llist::Extract(lln_opr, nxt_lln);
+        llist::Extract(nxt_lln->AsView());
 
-        GenericHashTableImpl::Extract(&dht->ght, &nxt_node->ghtn);
+        generic_hash_table::ops::Extract(&cntr->ght, &nxt_node->ghtn);
 
-        NodeAllocator::Deallocate(&dht->node_allocator, nxt_node);
+        NodeAllocator::Deallocate(&cntr->node_alctr, nxt_node);
     }
 }
 
-// -----------------------------------------------------------------------------
+template <CntrTplParamList>
+void CopyCursor(Cntr<CntrTplArgList> const* cntr, Cursor const* src_cursor,
+                Cursor* dst_cursor) {
+    detail::CheckCursor(cntr, src_cursor);
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                      TableNodeAllocator>::CopyCursor(void const* dht_,
-                                                      void const* cursor_,
-                                                      void* dst_cursor_) {
-    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
-    auto cursor{ static_cast<Cursor const*>(cursor_) };
-    ZETA_Core_DebugAssert(CheckCursor(dht, cursor));
-
-    auto dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
-    *dst_cursor = *cursor;
+    *dst_cursor = *src_cursor;
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-bool DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                      TableNodeAllocator>::AreEqualCursor(void const* dht_,
-                                                          void const* cursor_a_,
-                                                          void const*
-                                                              cursor_b_) {
-    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
-
-    auto cursor_a{ static_cast<Cursor const*>(cursor_a_) };
-    auto cursor_b{ static_cast<Cursor const*>(cursor_b_) };
-
-    ZETA_Core_DebugAssert(CheckCursor(dht, cursor_a));
-    ZETA_Core_DebugAssert(CheckCursor(dht, cursor_b));
+template <CntrTplParamList>
+bool AreEqualCursor(Cntr<CntrTplArgList> const* cntr, Cursor const* cursor_a,
+                    Cursor const* cursor_b) {
+    detail::CheckCursor(cntr, cursor_a);
+    detail::CheckCursor(cntr, cursor_b);
 
     return cursor_a->lln == cursor_b->lln;
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                      TableNodeAllocator>::CursorStepL(void const* dht_,
-                                                       void* cursor_) {
-    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
-    auto cursor{ static_cast<Cursor*>(cursor_) };
-    ZETA_Core_DebugAssert(CheckCursor(dht, cursor));
+template <CntrTplParamList>
+void CursorStepL(Cntr<CntrTplArgList> const* cntr, Cursor* cursor) {
+    detail::CheckCursor(cntr, cursor);
 
     cursor->lln = cursor->lln->GetLPtr();
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                      TableNodeAllocator>::CursorStepR(void const* dht_,
-                                                       void* cursor_) {
-    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
-    auto cursor{ static_cast<Cursor*>(cursor_) };
-    ZETA_Core_DebugAssert(CheckCursor(dht, cursor));
+template <CntrTplParamList>
+void CursorStepR(Cntr<CntrTplArgList> const* cntr, Cursor* cursor) {
+    detail::CheckCursor(cntr, cursor);
 
     cursor->lln = cursor->lln->GetRPtr();
 }
 
-// -----------------------------------------------------------------------------
+template <CntrTplParamList>
+unsigned long long GetEffFactor(Cntr<CntrTplArgList>* cntr) {
+    detail::CheckCntr(cntr);
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-bool DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                      TableNodeAllocator>::CheckCntr(void const* dht_) {
-    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
-
-    if (!(dht != nullptr)) { return false; }
-
-    size_t width{ dht->width };
-
-    if (!(0 < width)) { return false; }
-
-    if (!(width % alignof(Node) == 0)) { return false; }
-
-    if (!NodeAllocator::CheckAllocator(&dht->node_allocator)) { return false; }
-
-    if (!GenericHashTableImpl::CheckCntr(&dht->ght)) { return false; }
-
-    return true;
+    return GetEffFactor(&cntr->ght);
 }
 
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-bool DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                      TableNodeAllocator>::CheckCursor(void const* dht_,
-                                                       void const* cursor_) {
-    auto dht{ static_cast<DynamicHashTable const*>(dht_) };
-
-    if (!CheckCntr(dht)) { return false; }
-
-    auto cursor{ static_cast<Cursor const*>(cursor_) };
-
-    if (!(cursor != nullptr)) { return false; }
-
-    if (!(cursor->dht == dht)) { return false; }
-
-    if (dht->lln == cursor->lln) { return true; }
-
-    if (!(GenericHashTableImpl::Contain(
-            &dht->ght,
-            &ZETA_Core_MemberToStruct(Node, lln, cursor->lln)->ghtn))) {
-        return false;
-    }
-
-    return true;
-}
-
-// -----------------------------------------------------------------------------
-
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-unsigned long long
-DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                 TableNodeAllocator>::GetEffFactor(void* dht_) {
-    auto dht{ static_cast<DynamicHashTable*>(dht_) };
-    ZETA_Core_DebugAssert(dht);
-
-    return GenericHashTableImpl::GetEffFactor(&dht->ght);
-}
-
-template <typename ElemHash, typename ElemCompare, typename NodeAllocator,
-          typename TableNodeAllocator>
-void DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
-                      TableNodeAllocator>::Sanitize(void* dht_,
-                                                    MemRecorder* dst_table,
-                                                    MemRecorder* dst_node) {
-    auto dht{ static_cast<DynamicHashTable*>(dht_) };
-    ZETA_Core_DebugAssert(CheckCntr(dht));
+template <CntrTplParamList>
+void Sanitize(Cntr<CntrTplArgList>* cntr, MemRecorder* dst_table,
+              MemRecorder* dst_node) {
+    detail::CheckCntr(cntr);
 
     MemRecorder* htn_records{ MemRecorder::Create() };
 
-    GenericHashTableImpl::Sanitize(&dht->ght, dst_table, htn_records);
+    generic_hash_table::ops::Sanitize(&cntr->ght, dst_table, htn_records);
 
-    MemRecorder::Record(dst_node, dht->lln, sizeof(LListNode));
+    MemRecorder::Record(dst_node, cntr->lln, sizeof(LListNode));
 
-    size_t node_size{ offsetof(Node, data[dht->width]) };
+    size_t node_size{ offsetof(Node, data[cntr->width]) };
 
-    for (LListNode* lln{ dht->lln };;) {
+    for (LListNode* lln{ cntr->lln };;) {
         lln = lln->GetRPtr();
 
-        if (lln == dht->lln) { break; }
+        if (lln == cntr->lln) { break; }
 
         Node* node{ ZETA_Core_MemberToStruct(Node, lln, lln) };
 
@@ -570,4 +452,305 @@ void DynamicHashTable<ElemHash, ElemCompare, NodeAllocator,
     MemRecorder::Destroy(htn_records);
 }
 
-}  // namespace zeta::core
+template <CntrTplParamList>
+AssocCntrView<CntrTplArgList>* AsAssocCntrView(Cntr<CntrTplArgList>* cntr) {
+    return reinterpret_cast<AssocCntrView<CntrTplArgList>*>(cntr);
+}
+
+}  // namespace ops
+
+template <CntrTplParamList>
+constexpr bool AssocCntrView<CntrTplArgList>::IsConst(
+    type_wrapper::TypeWrapper<AssocCntrView<CntrTplArgList>*>) {
+    return false;
+}
+
+template <CntrTplParamList>
+constexpr bool AssocCntrView<CntrTplArgList>::IsConst(
+    type_wrapper::TypeWrapper<AssocCntrView<CntrTplArgList> const*>) {
+    return false;
+}
+
+template <CntrTplParamList>
+constexpr assoc_cntr::AbilityFlag
+AssocCntrView<CntrTplArgList>::GetStaticEnabledAbilityFlag(
+    type_wrapper::TypeWrapper<AssocCntrView<CntrTplArgList>*>) {
+    return assoc_cntr::AbilityFlagBuilder{
+        .GetCursorSize = true,
+        .GetWidth = true,
+        .GetSize = true,
+        .GetCapacity = true,
+        .GetLBCursor = true,
+        .GetRBCursor = true,
+        .PeekL = true,
+        .PeekR = true,
+        .Derefer = true,
+        .Find = true,
+        .Insert = true,
+        .PopL = true,
+        .PopR = true,
+        .Erase = true,
+        .EraseAll = true,
+        .CopyCursor = true,
+        .AreEqualCursor = true,
+        .CompareCursor = false,
+        .GetCursorDist = false,
+        .GetCursorIdx = false,
+        .CursorStepL = true,
+        .CursorStepR = true,
+        .CursorAdvanceL = false,
+        .CursorAdvanceR = false,
+    }();
+}
+
+template <CntrTplParamList>
+constexpr assoc_cntr::AbilityFlag
+AssocCntrView<CntrTplArgList>::GetStaticEnabledAbilityFlag(
+    type_wrapper::TypeWrapper<AssocCntrView<CntrTplArgList> const*>) {
+    return GetStaticEnabledAbilityFlag(
+               type_wrapper::TypeWrapper<AssocCntrView<CntrTplArgList>*>()) &
+           assoc_cntr::const_ability_flag;
+}
+
+template <CntrTplParamList>
+constexpr assoc_cntr::AbilityFlag
+AssocCntrView<CntrTplArgList>::GetStaticDisabledAbilityFlag(
+    type_wrapper::TypeWrapper<AssocCntrView<CntrTplArgList>*>) {
+    return assoc_cntr::AbilityFlagBuilder{
+        .GetCursorSize = false,
+        .GetWidth = false,
+        .GetSize = false,
+        .GetCapacity = false,
+        .GetLBCursor = false,
+        .GetRBCursor = false,
+        .PeekL = false,
+        .PeekR = false,
+        .Derefer = false,
+        .Find = false,
+        .Insert = false,
+        .PopL = false,
+        .PopR = false,
+        .Erase = false,
+        .EraseAll = false,
+        .CopyCursor = false,
+        .AreEqualCursor = false,
+        .CompareCursor = true,
+        .GetCursorDist = true,
+        .GetCursorIdx = true,
+        .CursorStepL = false,
+        .CursorStepR = false,
+        .CursorAdvanceL = true,
+        .CursorAdvanceR = true,
+    }();
+}
+
+template <CntrTplParamList>
+constexpr assoc_cntr::AbilityFlag
+AssocCntrView<CntrTplArgList>::GetStaticDisabledAbilityFlag(
+    type_wrapper::TypeWrapper<AssocCntrView const*>) {
+    return GetStaticDisabledAbilityFlag(
+               type_wrapper::TypeWrapper<Cntr<CntrTplArgList>*>()) |
+           assoc_cntr::const_ability_flag;
+}
+
+template <CntrTplParamList>
+constexpr assoc_cntr::AbilityFlag
+AssocCntrView<CntrTplArgList>::GetDynamicEnabledAbilityFlag(
+    AssocCntrView const*) {
+    return assoc_cntr::empty_ability_flag;
+}
+
+template <CntrTplParamList>
+constexpr assoc_cntr::AbilityFlag
+AssocCntrView<CntrTplArgList>::GetDynamicDisabledAbilityFlag(
+    AssocCntrView const*) {
+    return assoc_cntr::empty_ability_flag;
+}
+
+template <CntrTplParamList>
+constexpr size_t AssocCntrView<CntrTplArgList>::GetCursorSize(
+    AssocCntrView const* cntr_view) {
+    return ops::GetCursorSize(
+        reinterpret_cast<Cntr<CntrTplArgList> const*>(cntr_view));
+}
+
+template <CntrTplParamList>
+size_t AssocCntrView<CntrTplArgList>::GetWidth(AssocCntrView const* cntr_view) {
+    return ops::GetWidth(
+        reinterpret_cast<Cntr<CntrTplArgList> const*>(cntr_view));
+}
+
+template <CntrTplParamList>
+size_t AssocCntrView<CntrTplArgList>::GetSize(AssocCntrView const* cntr_view) {
+    return ops::GetSize(
+        reinterpret_cast<Cntr<CntrTplArgList> const*>(cntr_view));
+}
+
+template <CntrTplParamList>
+size_t AssocCntrView<CntrTplArgList>::GetCapacity(
+    AssocCntrView const* cntr_view) {
+    return ops::GetCapacity(
+        reinterpret_cast<Cntr<CntrTplArgList> const*>(cntr_view));
+}
+
+template <CntrTplParamList>
+void AssocCntrView<CntrTplArgList>::GetLBCursor(AssocCntrView const* cntr_view,
+                                                void* dst_cursor) {
+    return ops::GetLBCursor(
+        reinterpret_cast<Cntr<CntrTplArgList> const*>(cntr_view),
+        static_cast<Cursor*>(dst_cursor));
+}
+
+template <CntrTplParamList>
+void AssocCntrView<CntrTplArgList>::GetRBCursor(AssocCntrView const* cntr_view,
+                                                void* dst_cursor) {
+    return ops::GetRBCursor(
+        reinterpret_cast<Cntr<CntrTplArgList> const*>(cntr_view),
+        static_cast<Cursor*>(dst_cursor));
+}
+
+template <CntrTplParamList>
+void* AssocCntrView<CntrTplArgList>::PeekL(AssocCntrView* cntr_view,
+                                           bool lazy_copy_elem,
+                                           void* dst_cursor, void* dst_elem) {
+    return ops::PeekL(reinterpret_cast<Cntr<CntrTplArgList>*>(cntr_view),
+                      lazy_copy_elem, static_cast<Cursor*>(dst_cursor),
+                      dst_elem);
+}
+
+template <CntrTplParamList>
+void const* AssocCntrView<CntrTplArgList>::PeekL(AssocCntrView const* cntr_view,
+                                                 bool lazy_copy_elem,
+                                                 void* dst_cursor,
+                                                 void* dst_elem) {
+    return ops::PeekL(reinterpret_cast<Cntr<CntrTplArgList> const*>(cntr_view),
+                      lazy_copy_elem, static_cast<Cursor*>(dst_cursor),
+                      dst_elem);
+}
+
+template <CntrTplParamList>
+void* AssocCntrView<CntrTplArgList>::PeekR(AssocCntrView* cntr_view,
+                                           bool lazy_copy_elem,
+                                           void* dst_cursor, void* dst_elem) {
+    return ops::PeekR(reinterpret_cast<Cntr<CntrTplArgList>*>(cntr_view),
+                      lazy_copy_elem, static_cast<Cursor*>(dst_cursor),
+                      dst_elem);
+}
+
+template <CntrTplParamList>
+void const* AssocCntrView<CntrTplArgList>::PeekR(AssocCntrView const* cntr_view,
+                                                 bool lazy_copy_elem,
+                                                 void* dst_cursor,
+                                                 void* dst_elem) {
+    return ops::PeekR(reinterpret_cast<Cntr<CntrTplArgList> const*>(cntr_view),
+                      lazy_copy_elem, static_cast<Cursor*>(dst_cursor),
+                      dst_elem);
+}
+
+template <CntrTplParamList>
+void* AssocCntrView<CntrTplArgList>::Derefer(AssocCntrView* cntr_view,
+                                             void const* pos_cursor,
+                                             bool lazy_copy_elem,
+                                             void* dst_elem) {
+    return ops::Derefer(reinterpret_cast<Cntr<CntrTplArgList>*>(cntr_view),
+                        static_cast<Cursor const*>(pos_cursor), lazy_copy_elem,
+                        dst_elem);
+}
+
+template <CntrTplParamList>
+void const* AssocCntrView<CntrTplArgList>::Derefer(
+    AssocCntrView const* cntr_view, void const* pos_cursor, bool lazy_copy_elem,
+    void* dst_elem) {
+    return ops::Derefer(
+        reinterpret_cast<Cntr<CntrTplArgList> const*>(cntr_view),
+        static_cast<Cursor const*>(pos_cursor), lazy_copy_elem, dst_elem);
+}
+
+template <CntrTplParamList>
+template <typename KeyHash, typename KeyElemCompare>
+void* AssocCntrView<CntrTplArgList>::Find(
+    AssocCntrView* cntr_view, void const* key, KeyHash const& key_hash,
+    KeyElemCompare const& key_elem_compare, bool lazy_copy_elem,
+    void* dst_cursor, void* dst_elem) {
+    return ops::Find(reinterpret_cast<Cntr<CntrTplArgList>*>(cntr_view), key,
+                     key_hash, key_elem_compare, lazy_copy_elem,
+                     static_cast<Cursor*>(dst_cursor), dst_elem);
+}
+
+template <CntrTplParamList>
+template <typename KeyHash, typename KeyElemCompare>
+void const* AssocCntrView<CntrTplArgList>::Find(
+    AssocCntrView const* cntr_view, void const* key, KeyHash const& key_hash,
+    KeyElemCompare const& key_elem_compare, bool lazy_copy_elem,
+    void* dst_cursor, void* dst_elem) {
+    return ops::Find(reinterpret_cast<Cntr<CntrTplArgList> const*>(cntr_view),
+                     key, key_hash, key_elem_compare, lazy_copy_elem,
+                     static_cast<Cursor*>(dst_cursor), dst_elem);
+}
+
+template <CntrTplParamList>
+void* AssocCntrView<CntrTplArgList>::Insert(AssocCntrView* cntr_view,
+                                            void const* elem,
+                                            void* dst_cursor) {
+    return ops::Insert(reinterpret_cast<Cntr<CntrTplArgList>*>(cntr_view), elem,
+                       static_cast<Cursor*>(dst_cursor));
+}
+
+template <CntrTplParamList>
+void AssocCntrView<CntrTplArgList>::PopL(AssocCntrView* cntr_view, size_t cnt) {
+    return ops::PopL(reinterpret_cast<Cntr<CntrTplArgList>*>(cntr_view), cnt);
+}
+
+template <CntrTplParamList>
+void AssocCntrView<CntrTplArgList>::PopR(AssocCntrView* cntr_view, size_t cnt) {
+    return ops::PopR(reinterpret_cast<Cntr<CntrTplArgList>*>(cntr_view), cnt);
+}
+
+template <CntrTplParamList>
+void AssocCntrView<CntrTplArgList>::Erase(AssocCntrView* cntr_view,
+                                          void* pos_cursor) {
+    return ops::Erase(reinterpret_cast<Cntr<CntrTplArgList>*>(cntr_view),
+                      static_cast<Cursor*>(pos_cursor));
+}
+
+template <CntrTplParamList>
+void AssocCntrView<CntrTplArgList>::EraseAll(AssocCntrView* cntr_view) {
+    return ops::EraseAll(reinterpret_cast<Cntr<CntrTplArgList>*>(cntr_view));
+}
+
+template <CntrTplParamList>
+void AssocCntrView<CntrTplArgList>::CopyCursor(AssocCntrView const* cntr_view,
+                                               void const* cursor,
+                                               void* dst_cursor) {
+    return ops::CopyCursor(
+        reinterpret_cast<Cntr<CntrTplArgList> const*>(cntr_view),
+        static_cast<Cursor const*>(cursor), static_cast<Cursor*>(dst_cursor));
+}
+
+template <CntrTplParamList>
+bool AssocCntrView<CntrTplArgList>::AreEqualCursor(
+    AssocCntrView const* cntr_view, void const* cursor_a,
+    void const* cursor_b) {
+    return ops::AreEqualCursor(
+        reinterpret_cast<Cntr<CntrTplArgList> const*>(cntr_view),
+        static_cast<Cursor const*>(cursor_a),
+        static_cast<Cursor const*>(cursor_b));
+}
+
+template <CntrTplParamList>
+void AssocCntrView<CntrTplArgList>::CursorStepL(AssocCntrView const* cntr_view,
+                                                void* cursor) {
+    return ops::CursorStepL(
+        reinterpret_cast<Cntr<CntrTplArgList> const*>(cntr_view),
+        static_cast<Cursor*>(cursor));
+}
+
+template <CntrTplParamList>
+void AssocCntrView<CntrTplArgList>::CursorStepR(AssocCntrView const* cntr_view,
+                                                void* cursor) {
+    return ops::CursorStepR(
+        reinterpret_cast<Cntr<CntrTplArgList> const*>(cntr_view),
+        static_cast<Cursor*>(cursor));
+}
+
+}  // namespace zeta::core::dynamic_hash_table

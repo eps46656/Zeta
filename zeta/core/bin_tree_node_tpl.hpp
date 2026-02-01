@@ -2,35 +2,34 @@
 
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/meta.hpp>
 #include <zeta/core/ptr_utils.hpp>
-#include <zeta/core/type_traits.hpp>
 #include <zeta/core/utils.hpp>
 #include <zeta/core/value_wrapper.hpp>
 
 namespace zeta::core {
 
-template <typename LinkType, typename EnPColor, typename EnLColor,
+template <typename LinkType, typename PColorTag, typename EnLColor,
           typename EnRColor, typename EnAccSize>
 struct BinTreeNodeTpl;
 
 // -----------------------------------------------------------------------------
 
-template <typename LinkType, typename EnPColor, typename EnLColor,
-          typename EnRColor, typename EnAccSize>
+template <typename LinkType, typename PColorTag, typename LColorTag,
+          typename RColorTag, typename AccSizeTag>
 struct BinTreeNodeTpl {
     ZETA_Core_StaticAssert(
-        IsAnyOf<EnAccSize, value_wrapper::StaticValueWrapper<true>,
-                value_wrapper::StaticValueWrapper<false>>);
+        IsAnyOf<AccSizeTag, value_wrapper::TrueType, value_wrapper::FalseType>);
 
-    ptr_utils::AugPtrTpl<LinkType, EnPColor> p;
-    ptr_utils::AugPtrTpl<LinkType, EnLColor> l;
-    ptr_utils::AugPtrTpl<LinkType, EnRColor> r;
+    ptr_utils::AugPtrTpl<LinkType, PColorTag> p;
+    ptr_utils::AugPtrTpl<LinkType, LColorTag> l;
+    ptr_utils::AugPtrTpl<LinkType, RColorTag> r;
 
-    static constexpr bool EnRelLink{
-        ptr_utils::AugPtrTpl<LinkType, EnPColor>::EnRelLink
+    static constexpr bool IsRelLink{
+        ptr_utils::AugPtrTpl<LinkType, PColorTag>::IsRelLink
     };
 
-    Conditional<EnAccSize::value, size_t, Monostate> acc_size;
+    Conditional<AccSizeTag::value, size_t, Monostate> acc_size;
 
     void Init();
 
@@ -54,10 +53,10 @@ struct BinTreeNodeTpl {
     void SetLColor(unsigned color);
     void SetRColor(unsigned color);
 
-    template <typename _ = void, typename = EnableIf<EnAccSize::value, _>>
+    template <typename _ = void, typename = EnableIf<AccSizeTag::value, _>>
     size_t GetAccSize() const;
 
-    template <typename _ = void, typename = EnableIf<EnAccSize::value, _>>
+    template <typename _ = void, typename = EnableIf<AccSizeTag::value, _>>
     void SetAccSize(size_t acc_size);
 }
 #if ZETA_Core_ullong_width == 32

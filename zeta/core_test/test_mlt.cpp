@@ -17,9 +17,7 @@ struct MultiLevelPtrTableMap {
 
     zeta::core_test::std_allocator::Allocator nav_node_alctr;
 
-    MLPT::Cntr<zeta::core_test::std_allocator::AllocatorOperator,
-               zeta::core_test::std_allocator::Allocator>
-        mlpt;
+    MLPT::Cntr<zeta::core_test::std_allocator::Allocator> mlpt;
 
     MultiLevelPtrTableMap() {
         ZETA_Core_PrintCurPos;
@@ -39,7 +37,7 @@ struct MultiLevelPtrTableMap {
 
         this->mlpt.branch_nums = this->branch_nums;
 
-        this->mlpt.nav_node_alctr = &this->nav_node_alctr;
+        new (&this->nav_node_alctr) decltype(this->nav_node_alctr);
 
         MLPT::ops::Init(&this->mlpt);
 
@@ -76,7 +74,7 @@ struct MultiLevelPtrTableMap {
         MLPT::ops::Sanitize(&this->mlpt, nav_node_mem_recorder);
 
         zeta::core::MemRecorder::MatchRecords(
-            this->mlpt.nav_node_alctr->mem_recorder, nav_node_mem_recorder);
+            this->mlpt.nav_node_alctr.mem_recorder, nav_node_mem_recorder);
 
         zeta::core::MemRecorder::Destroy(nav_node_mem_recorder);
     }
@@ -164,9 +162,7 @@ struct MultiLevelDataTableMap {
 
     unsigned short branch_nums[MLDT::max_level];
 
-    MLDT::Cntr<zeta::core_test::std_allocator::AllocatorOperator,
-               zeta::core_test::std_allocator::Allocator,
-               zeta::core_test::std_allocator::AllocatorOperator,
+    MLDT::Cntr<zeta::core_test::std_allocator::Allocator,
                zeta::core_test::std_allocator::Allocator>
         mldt;
 
@@ -188,8 +184,8 @@ struct MultiLevelDataTableMap {
 
         this->mldt.stride = sizeof(T);
 
-        this->mldt.nav_node_alctr = &this->nav_node_alctr;
-        this->mldt.data_node_alctr = &this->dat_node_alctr;
+        new (&this->mldt.nav_node_alctr) decltype(this->mldt.nav_node_alctr);
+        new (&this->mldt.data_node_alctr) decltype(this->mldt.data_node_alctr);
 
         MLDT::ops::Init(&this->mldt);
 

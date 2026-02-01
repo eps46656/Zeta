@@ -4,132 +4,152 @@
 #include <zeta/core/llist_node_tpl.hpp>
 #include <zeta/core/ptr_utils.ipp>
 
+#define TplDefParamList \
+    typename LinkType, typename LColorTag, typename RColorTag
+
+#define TplParamList LinkType, LColorTag, RColorTag
+
 namespace zeta::core {
 
-template <typename LinkType, typename EnLColor, typename EnRColor>
-void LListNodeTpl<LinkType, EnLColor, EnRColor>::Init() {
-    if constexpr (EnLColor::value) {
+template <TplDefParamList>
+void LListNodeTpl<TplParamList>::Init() {
+    if constexpr (LColorTag::value) {
         this->l.SetPtrColor(alignof(LListNodeTpl), this, this, 0);
     } else {
         this->l.SetPtr(alignof(LListNodeTpl), this, this);
     }
 
-    if constexpr (EnRColor::value) {
+    if constexpr (RColorTag::value) {
         this->r.SetPtrColor(alignof(LListNodeTpl), this, this, 0);
     } else {
         this->r.SetPtr(alignof(LListNodeTpl), this, this);
     }
 }
 
-// -----------------------------------------------------------------------------
-
-template <typename LinkType, typename EnLColor, typename EnRColor>
-LListNodeTpl<LinkType, EnLColor, EnRColor>*
-LListNodeTpl<LinkType, EnLColor, EnRColor>::GetLPtr() {
+template <TplDefParamList>
+LListNodeTpl<TplParamList>* LListNodeTpl<TplParamList>::GetLPtr() {
     return static_cast<LListNodeTpl*>(
         this->l.GetPtr(alignof(LListNodeTpl), this));
 }
 
-template <typename LinkType, typename EnLColor, typename EnRColor>
-LListNodeTpl<LinkType, EnLColor, EnRColor>*
-LListNodeTpl<LinkType, EnLColor, EnRColor>::GetRPtr() {
+template <TplDefParamList>
+LListNodeTpl<TplParamList>* LListNodeTpl<TplParamList>::GetRPtr() {
     return static_cast<LListNodeTpl*>(
         this->r.GetPtr(alignof(LListNodeTpl), this));
 }
 
-// -----------------------------------------------------------------------------
-
-template <typename LinkType, typename EnLColor, typename EnRColor>
-LListNodeTpl<LinkType, EnLColor, EnRColor> const*
-LListNodeTpl<LinkType, EnLColor, EnRColor>::GetLPtr() const {
+template <TplDefParamList>
+LListNodeTpl<TplParamList> const* LListNodeTpl<TplParamList>::GetLPtr() const {
     return const_cast<LListNodeTpl*>(this)->GetLPtr();
 }
 
-template <typename LinkType, typename EnLColor, typename EnRColor>
-LListNodeTpl<LinkType, EnLColor, EnRColor> const*
-LListNodeTpl<LinkType, EnLColor, EnRColor>::GetRPtr() const {
+template <TplDefParamList>
+LListNodeTpl<TplParamList> const* LListNodeTpl<TplParamList>::GetRPtr() const {
     return const_cast<LListNodeTpl*>(this)->GetRPtr();
 }
 
-// -----------------------------------------------------------------------------
-
-template <typename LinkType, typename EnLColor, typename EnRColor>
-int LListNodeTpl<LinkType, EnLColor, EnRColor>::GetLColor() const {
+template <TplDefParamList>
+int LListNodeTpl<TplParamList>::GetLColor() const {
     return this->l.GetColor(alignof(LListNodeTpl), this);
 }
 
-template <typename LinkType, typename EnLColor, typename EnRColor>
-int LListNodeTpl<LinkType, EnLColor, EnRColor>::GetRColor() const {
+template <TplDefParamList>
+int LListNodeTpl<TplParamList>::GetRColor() const {
     return this->r.GetColor(alignof(LListNodeTpl), this);
 }
 
-// -----------------------------------------------------------------------------
-
-template <typename LinkType, typename EnLColor, typename EnRColor>
-void LListNodeTpl<LinkType, EnLColor, EnRColor>::SetLPtr(LListNodeTpl* m) {
+template <TplDefParamList>
+void LListNodeTpl<TplParamList>::SetLPtr(LListNodeTpl* m) {
     ZETA_Core_DebugAssert(m != nullptr);
 
     this->l.SetPtr(alignof(LListNodeTpl), this, m);
 }
 
-template <typename LinkType, typename EnLColor, typename EnRColor>
-void LListNodeTpl<LinkType, EnLColor, EnRColor>::SetRPtr(LListNodeTpl* m) {
+template <TplDefParamList>
+void LListNodeTpl<TplParamList>::SetRPtr(LListNodeTpl* m) {
     ZETA_Core_DebugAssert(m != nullptr);
 
     this->r.SetPtr(alignof(LListNodeTpl), this, m);
 }
 
-// -----------------------------------------------------------------------------
-
-template <typename LinkType, typename EnLColor, typename EnRColor>
-void LListNodeTpl<LinkType, EnLColor, EnRColor>::SetLColor(int color) {
+template <TplDefParamList>
+void LListNodeTpl<TplParamList>::SetLColor(int color) {
     this->l.SetColor(alignof(LListNodeTpl), this, color);
 }
 
-template <typename LinkType, typename EnLColor, typename EnRColor>
-void LListNodeTpl<LinkType, EnLColor, EnRColor>::SetRColor(int color) {
+template <TplDefParamList>
+void LListNodeTpl<TplParamList>::SetRColor(int color) {
     this->r.SetColor(alignof(LListNodeTpl), this, color);
 }
 
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+template <TplDefParamList>
+LListNodeTplView<TplParamList>* LListNodeTpl<TplParamList>::AsView() {
+    return reinterpret_cast<LListNodeTplView<TplParamList>*>(this);
+}
+
+template <TplDefParamList>
+LListNodeTplView<TplParamList> const* LListNodeTpl<TplParamList>::AsView()
+    const {
+    return reinterpret_cast<LListNodeTplView<TplParamList> const*>(this);
+}
+
 // -----------------------------------------------------------------------------
 
-template <typename LinkType, typename EnLColor, typename EnRColor>
-constexpr bool LListNodeTplOperator::IsConst(
-    LListNodeTpl<LinkType, EnLColor, EnRColor>*) {
+template <TplDefParamList>
+constexpr bool LListNodeTplView<TplParamList>::IsConst(
+    type_wrapper::TypeWrapper<LListNodeTplView*>) {
     return false;
 }
 
-template <typename LinkType, typename EnLColor, typename EnRColor>
-constexpr bool LListNodeTplOperator::IsConst(
-    LListNodeTpl<LinkType, EnLColor, EnRColor> const*) {
+template <TplDefParamList>
+constexpr bool LListNodeTplView<TplParamList>::IsConst(
+    type_wrapper::TypeWrapper<LListNodeTplView const*>) {
     return true;
 }
 
-// -----------------------------------------------------------------------------
-
-template <typename LinkType, typename EnLColor, typename EnRColor>
-LListNodeTpl<LinkType, EnLColor, EnRColor>* LListNodeTplOperator::GetL(
-    LListNodeTpl<LinkType, EnLColor, EnRColor>* n) {
-    return n->GetLPtr();
+template <TplDefParamList>
+LListNodeTplView<TplParamList>* LListNodeTplView<TplParamList>::GetL(
+    LListNodeTplView* n_) {
+    auto n{ reinterpret_cast<LListNodeTpl<TplParamList>*>(n_) };
+    return reinterpret_cast<LListNodeTplView*>(n->GetLPtr());
 }
 
-template <typename LinkType, typename EnLColor, typename EnRColor>
-LListNodeTpl<LinkType, EnLColor, EnRColor>* LListNodeTplOperator::GetR(
-    LListNodeTpl<LinkType, EnLColor, EnRColor>* n) {
-    return n->GetRPtr();
+template <TplDefParamList>
+LListNodeTplView<TplParamList> const* LListNodeTplView<TplParamList>::GetL(
+    LListNodeTplView const* n_) {
+    auto n{ reinterpret_cast<LListNodeTpl<TplParamList> const*>(n_) };
+    return reinterpret_cast<LListNodeTplView const*>(n->GetLPtr());
 }
 
-template <typename LinkType, typename EnLColor, typename EnRColor>
-void LListNodeTplOperator::SetL(LListNodeTpl<LinkType, EnLColor, EnRColor>* n,
-                                LListNodeTpl<LinkType, EnLColor, EnRColor>* m) {
+template <TplDefParamList>
+LListNodeTplView<TplParamList>* LListNodeTplView<TplParamList>::GetR(
+    LListNodeTplView* n_) {
+    auto n{ reinterpret_cast<LListNodeTpl<TplParamList>*>(n_) };
+    return reinterpret_cast<LListNodeTplView*>(n->GetRPtr());
+}
+
+template <TplDefParamList>
+LListNodeTplView<TplParamList> const* LListNodeTplView<TplParamList>::GetR(
+    LListNodeTplView const* n_) {
+    auto n{ reinterpret_cast<LListNodeTpl<TplParamList> const*>(n_) };
+    return reinterpret_cast<LListNodeTplView const*>(n->GetRPtr());
+}
+
+template <TplDefParamList>
+void LListNodeTplView<TplParamList>::SetL(LListNodeTplView* n_,
+                                          LListNodeTplView* m_) {
+    auto n{ reinterpret_cast<LListNodeTpl<TplParamList>*>(n_) };
+    auto m{ reinterpret_cast<LListNodeTpl<TplParamList>*>(m_) };
+
     n->SetLPtr(m);
 }
 
-template <typename LinkType, typename EnLColor, typename EnRColor>
-void LListNodeTplOperator::SetR(LListNodeTpl<LinkType, EnLColor, EnRColor>* n,
-                                LListNodeTpl<LinkType, EnLColor, EnRColor>* m) {
+template <TplDefParamList>
+void LListNodeTplView<TplParamList>::SetR(LListNodeTplView* n_,
+                                          LListNodeTplView* m_) {
+    auto n{ reinterpret_cast<LListNodeTpl<TplParamList>*>(n_) };
+    auto m{ reinterpret_cast<LListNodeTpl<TplParamList>*>(m_) };
+
     n->SetRPtr(m);
 }
 

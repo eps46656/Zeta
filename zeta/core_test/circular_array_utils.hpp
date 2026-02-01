@@ -15,6 +15,7 @@ using SeqCntrRef = core::seq_cntr::Ref<core::value_wrapper::FalseType>;
 namespace CircularArrayNS = core::circular_array;
 namespace CircularArrayOps = CircularArrayNS::ops;
 using CircularArray = CircularArrayNS::Cntr;
+using CircularArrayView = CircularArrayNS::SeqCntrView;
 
 template <typename Elem>
 SeqCntrRef Create(size_t stride, size_t capacity);
@@ -28,7 +29,7 @@ SeqCntrRef Create(size_t stride, size_t capacity) {
     ZETA_Core_DebugAssert(sizeof(Elem) <= stride);
     ZETA_Core_DebugAssert(stride % alignof(Elem) == 0);
 
-    auto ca{ static_cast<CircularArray*>(std::malloc(sizeof(CircularArray))) };
+    auto* ca{ static_cast<CircularArray*>(std::malloc(sizeof(CircularArray))) };
 
     ca->data = std::malloc(stride * capacity);
     ca->width = sizeof(Elem);
@@ -37,7 +38,8 @@ SeqCntrRef Create(size_t stride, size_t capacity) {
     ca->size = 0;
     ca->capacity = capacity;
 
-    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr::MakeRef(ca) };
+    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr::MakeRef(
+        reinterpret_cast<CircularArrayView*>(ca)) };
 
     seq_cntr_utils::AddSanitizeFunc(ca, Sanitize);
 
@@ -56,10 +58,6 @@ inline void Destroy(void* ca_) {
     delete ca;
 }
 
-inline void Sanitize(void const* ca_) {
-    CircularArray const* ca{ static_cast<CircularArray const*>(ca_) };
-
-    if (ca == nullptr) { return; }
-}
+inline void Sanitize(void const*) {}
 
 }  // namespace zeta::core_test::circular_array_utils

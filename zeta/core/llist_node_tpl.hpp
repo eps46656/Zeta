@@ -3,22 +3,26 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/ptr_utils.hpp>
+#include <zeta/core/type_wrapper.hpp>
 #include <zeta/core/utils.hpp>
 
 namespace zeta::core {
 
-template <typename LinkType, typename EnLColor, typename EnRColor>
+template <typename LinkType, typename LColorTag, typename RColorTag>
 struct LListNodeTpl;
+
+template <typename LinkType, typename LColorTag, typename RColorTag>
+struct LListNodeTplView;
 
 // -----------------------------------------------------------------------------
 
-template <typename LinkType, typename EnLColor, typename EnRColor>
+template <typename LinkType, typename LColorTag, typename RColorTag>
 struct LListNodeTpl {
-    ptr_utils::AugPtrTpl<LinkType, EnLColor> l;
-    ptr_utils::AugPtrTpl<LinkType, EnRColor> r;
+    ptr_utils::AugPtrTpl<LinkType, LColorTag> l;
+    ptr_utils::AugPtrTpl<LinkType, RColorTag> r;
 
-    static constexpr bool EnRelLink{
-        ptr_utils::AugPtrTpl<LinkType, EnLColor>::EnRelLink
+    static constexpr bool IsRelLink{
+        ptr_utils::AugPtrTpl<LinkType, LColorTag>::IsRelLink
     };
 
     void Init();
@@ -37,6 +41,9 @@ struct LListNodeTpl {
 
     void SetLColor(int color);
     void SetRColor(int color);
+
+    LListNodeTplView<LinkType, LColorTag, RColorTag>* AsView();
+    LListNodeTplView<LinkType, LColorTag, RColorTag> const* AsView() const;
 }
 #if ZETA_Core_ullong_width == 32
 __attribute__((aligned(4)));
@@ -46,29 +53,24 @@ __attribute__((aligned(8)));
 #error "Unsupported architecture."
 #endif
 
-struct LListNodeTplOperator {
-    template <typename LinkType, typename EnLColor, typename EnRColor>
-    static constexpr bool IsConst(LListNodeTpl<LinkType, EnLColor, EnRColor>*);
+template <typename LinkType, typename LColorTag, typename RColorTag>
+struct LListNodeTplView {
+    static constexpr bool IsConst(type_wrapper::TypeWrapper<LListNodeTplView*>);
 
-    template <typename LinkType, typename EnLColor, typename EnRColor>
     static constexpr bool IsConst(
-        LListNodeTpl<LinkType, EnLColor, EnRColor> const*);
+        type_wrapper::TypeWrapper<LListNodeTplView const*>);
 
-    template <typename LinkType, typename EnLColor, typename EnRColor>
-    static LListNodeTpl<LinkType, EnLColor, EnRColor>* GetL(
-        LListNodeTpl<LinkType, EnLColor, EnRColor>* n);
+    static LListNodeTplView* GetL(LListNodeTplView* n);
 
-    template <typename LinkType, typename EnLColor, typename EnRColor>
-    static LListNodeTpl<LinkType, EnLColor, EnRColor>* GetR(
-        LListNodeTpl<LinkType, EnLColor, EnRColor>* n);
+    static LListNodeTplView const* GetL(LListNodeTplView const* n);
 
-    template <typename LinkType, typename EnLColor, typename EnRColor>
-    static void SetL(LListNodeTpl<LinkType, EnLColor, EnRColor>* n,
-                     LListNodeTpl<LinkType, EnLColor, EnRColor>* m);
+    static LListNodeTplView* GetR(LListNodeTplView* n);
 
-    template <typename LinkType, typename EnLColor, typename EnRColor>
-    static void SetR(LListNodeTpl<LinkType, EnLColor, EnRColor>* n,
-                     LListNodeTpl<LinkType, EnLColor, EnRColor>* m);
+    static LListNodeTplView const* GetR(LListNodeTplView const* n);
+
+    static void SetL(LListNodeTplView* n, LListNodeTplView* m);
+
+    static void SetR(LListNodeTplView* n, LListNodeTplView* m);
 };
 
 }  // namespace zeta::core

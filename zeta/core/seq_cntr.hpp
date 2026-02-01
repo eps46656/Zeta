@@ -4,7 +4,7 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/function_ref.hpp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/type_traits.hpp>
+#include <zeta/core/meta.hpp>
 #include <zeta/core/type_wrapper.hpp>
 #include <zeta/core/utils.hpp>
 #include <zeta/core/value_wrapper.hpp>
@@ -229,6 +229,9 @@ constexpr AbilityFlag const_ability_flag{ AbilityFlagBuilder{
 ZETA_Core_StaticAssert((non_const_ability_flag & const_ability_flag) ==
                        empty_ability_flag);
 
+ZETA_Core_StaticAssert((non_const_ability_flag | const_ability_flag) ==
+                       full_ability_flag);
+
 bool CheckAbilityFlags(AbilityFlag static_enabled_ability_flag,
                        AbilityFlag static_disabled_ability_flag,
                        AbilityFlag dynamic_enabled_ability_flag,
@@ -265,13 +268,17 @@ struct VTable {
 
     void (*GetRBCursor)(void* cntr, void* dst_cursor);
 
-    void* (*PeekL)(void* cntr, void* dst_cursor, void* dst_elem);
+    void* (*PeekL)(void* cntr, bool lazy_copy_elem, void* dst_cursor,
+                   void* dst_elem);
 
-    void* (*PeekR)(void* cntr, void* dst_cursor, void* dst_elem);
+    void* (*PeekR)(void* cntr, bool lazy_copy_elem, void* dst_cursor,
+                   void* dst_elem);
 
-    void* (*Access)(void* cntr, size_t idx, void* dst_cursor, void* dst_elem);
+    void* (*Access)(void* cntr, size_t idx, bool lazy_copy_elem,
+                    void* dst_cursor, void* dst_elem);
 
-    void* (*Derefer)(void* cntr, void const* pos_cursor, void* dst_elem);
+    void* (*Derefer)(void* cntr, void const* pos_cursor, bool lazy_copy_elem,
+                     void* dst_elem);
 
     void (*FnRead)(void* cntr, void const* pos_cursor, size_t cnt,
                    FnReader reader, void* dst_cursor);
@@ -312,7 +319,7 @@ struct VTable {
 
     void (*EraseAll)(void* cntr);
 
-    void (*CopyCursor)(void* cntr, void* dst_cursor, void const* src_cursor);
+    void (*CopyCursor)(void* cntr, void const* src_cursor, void* dst_cursor);
 
     bool (*AreEqualCursor)(void* cntr, void const* cursor_a,
                            void const* cursor_b);
@@ -334,92 +341,92 @@ struct VTable {
     void (*CursorAdvanceR)(void* cntr, void* cursor, size_t step);
 };
 
-template <typename SeqCntrType>
+template <typename SeqCntr>
 struct BasicVTableBuilder {
     static constexpr VTable Build();
 
-    static constexpr size_t GetSize(void* cntr);
+    static size_t GetSize(void* cntr);
 
     static constexpr size_t GetCapacity(void* cntr);
 
-    static constexpr void GetLBCursor(void* cntr, void* dst_cursor);
+    static void GetLBCursor(void* cntr, void* dst_cursor);
 
-    static constexpr void GetRBCursor(void* cntr, void* dst_cursor);
+    static void GetRBCursor(void* cntr, void* dst_cursor);
 
-    static constexpr void* PeekL(void* cntr, void* dst_cursor, void* dst_elem);
+    static void* PeekL(void* cntr, bool lazy_copy_elem, void* dst_cursor,
+                       void* dst_elem);
 
-    static constexpr void* PeekR(void* cntr, void* dst_cursor, void* dst_elem);
+    static void* PeekR(void* cntr, bool lazy_copy_elem, void* dst_cursor,
+                       void* dst_elem);
 
-    static constexpr void* Access(void* cntr, size_t idx, void* dst_cursor,
-                                  void* dst_elem);
+    static void* Access(void* cntr, size_t idx, bool lazy_copy_elem,
+                        void* dst_cursor, void* dst_elem);
 
-    static constexpr void* Derefer(void* cntr, void const* pos_cursor,
-                                   void* dst_elem);
+    static void* Derefer(void* cntr, void const* pos_cursor,
+                         bool lazy_copy_elem, void* dst_elem);
 
-    static constexpr void FnRead(void* cntr, void const* pos_cursor, size_t cnt,
-                                 FnReader reader, void* dst_cursor);
+    static void FnRead(void* cntr, void const* pos_cursor, size_t cnt,
+                       FnReader reader, void* dst_cursor);
 
-    static constexpr void FnWrite(void* cntr, void* pos_cursor, size_t cnt,
-                                  FnWriter writer, void* dst_cursor);
+    static void FnWrite(void* cntr, void* pos_cursor, size_t cnt,
+                        FnWriter writer, void* dst_cursor);
 
-    static constexpr void FnReadWrite(void* cntr, void* pos_cursor, size_t cnt,
-                                      FnReaderWriter reader_writer,
-                                      void* dst_cursor);
+    static void FnReadWrite(void* cntr, void* pos_cursor, size_t cnt,
+                            FnReaderWriter reader_writer, void* dst_cursor);
 
-    static constexpr void MemRead(void* cntr, void const* pos_cursor,
-                                  size_t cnt, MemReader reader,
-                                  void* dst_cursor);
+    static void MemRead(void* cntr, void const* pos_cursor, size_t cnt,
+                        MemReader reader, void* dst_cursor);
 
-    static constexpr void MemWrite(void* cntr, void* pos_cursor, size_t cnt,
-                                   MemWriter writer, void* dst_cursor);
+    static void MemWrite(void* cntr, void* pos_cursor, size_t cnt,
+                         MemWriter writer, void* dst_cursor);
 
-    static constexpr void* FnPushL(void* cntr, size_t cnt, FnWriter writer,
-                                   void* dst_cursor);
+    static void* FnPushL(void* cntr, size_t cnt, FnWriter writer,
+                         void* dst_cursor);
 
-    static constexpr void* FnPushR(void* cntr, size_t cnt, FnWriter writer,
-                                   void* dst_cursor);
+    static void* FnPushR(void* cntr, size_t cnt, FnWriter writer,
+                         void* dst_cursor);
 
-    static constexpr void* FnInsert(void* cntr, void* pos_cursor, size_t cnt,
-                                    FnWriter writer, void* dst_cursor);
+    static void* FnInsert(void* cntr, void* pos_cursor, size_t cnt,
+                          FnWriter writer, void* dst_cursor);
 
-    static constexpr void* MemPushL(void* cntr, size_t cnt, MemWriter writer,
-                                    void* dst_cursor);
+    static void* MemPushL(void* cntr, size_t cnt, MemWriter writer,
+                          void* dst_cursor);
 
-    static constexpr void* MemPushR(void* cntr, size_t cnt, MemWriter writer,
-                                    void* dst_cursor);
+    static void* MemPushR(void* cntr, size_t cnt, MemWriter writer,
+                          void* dst_cursor);
 
-    static constexpr void* MemInsert(void* cntr, void* pos_cursor, size_t cnt,
-                                     MemWriter writer, void* dst_cursor);
+    static void* MemInsert(void* cntr, void* pos_cursor, size_t cnt,
+                           MemWriter writer, void* dst_cursor);
 
-    static constexpr void PopL(void* cntr, size_t cnt);
+    static void PopL(void* cntr, size_t cnt);
 
-    static constexpr void PopR(void* cntr, size_t cnt);
+    static void PopR(void* cntr, size_t cnt);
 
-    static constexpr void Erase(void* cntr, void* pos_cursor, size_t cnt);
+    static void Erase(void* cntr, void* pos_cursor, size_t cnt);
 
-    static constexpr void EraseAll(void* cntr);
+    static void EraseAll(void* cntr);
 
-    static constexpr void CopyCursor(void* cntr, void* dst_cursor,
-                                     void const* src_cursor);
+    static void CopyCursor(void* cntr, void const* src_cursor,
+                           void* dst_cursor);
 
-    static constexpr bool AreEqualCursor(void* cntr, void const* cursor_a,
-                                         void const* cursor_b);
+    static bool AreEqualCursor(void* cntr, void const* cursor_a,
+                               void const* cursor_b);
 
-    static constexpr int CompareCursor(void* cntr, void const* cursor_a,
-                                       void const* cursor_b);
+    static int CompareCursor(void* cntr, void const* cursor_a,
+                             void const* cursor_b);
 
-    static constexpr size_t GetCursorDist(void* cntr, void const* cursor_a,
-                                          void const* cursor_b);
+    static size_t GetCursorDist(void* cntr, void const* cursor_a,
+                                void const* cursor_b);
 
-    static constexpr size_t GetCursorIdx(void* cntr, void const* cursor);
+    static size_t GetCursorIdx(void* cntr, void const* cursor);
 
-    static constexpr void CursorStepL(void* cntr, void* cursor);
+    static void CursorStepL(void* cntr, void* cursor);
 
-    static constexpr void CursorStepR(void* cntr, void* cursor);
+    static void CursorStepR(void* cntr, void* cursor);
 
-    static constexpr void CursorAdvanceL(void* cntr, void* cursor, size_t step);
+    static void CursorAdvanceL(void* cntr, void* cursor, size_t step);
 
-    static constexpr void CursorAdvanceR(void* cntr, void* cursor, size_t step);
+    static void CursorAdvanceR(void* cntr, void* cursor, size_t step);
 };
 
 template <typename SeqCntr>
@@ -430,12 +437,10 @@ struct VTableBuilder {
 template <typename SeqCntr>
 constexpr VTable const& GetVTable();
 
-template <typename IsConst>
+template <typename ConstTag>
 struct Ref {
-    // -------------------------------------------------------------------------
-
     ZETA_Core_StaticAssert(
-        IsAnyOf<IsConst, value_wrapper::FalseType, value_wrapper::TrueType>);
+        IsAnyOf<ConstTag, value_wrapper::FalseType, value_wrapper::TrueType>);
 
     unsigned short cursor_size;
 
@@ -450,17 +455,158 @@ struct Ref {
     void* cntr;
 };
 
-#pragma push_macro("TplDecl")
+template <typename ConstTag>
+struct RefView {
+    ZETA_Core_StaticAssert(
+        IsAnyOf<ConstTag, value_wrapper::FalseType, value_wrapper::TrueType>);
 
-#define TplDecl                                                              \
-    template <typename IsConst,                                              \
-              typename = EnableIf<IsAnyOf<IsConst, value_wrapper::FalseType, \
-                                          value_wrapper::TrueType>>>
+    static constexpr bool IsConst(type_wrapper::TypeWrapper<RefView*>);
 
-#pragma pop_macro("TplDecl")
+    static constexpr bool IsConst(type_wrapper::TypeWrapper<RefView const*>);
 
-template <typename SC>
-auto MakeRef(SC&& cntr_);
+    static constexpr AbilityFlag GetStaticEnabledAbilityFlag(
+        type_wrapper::TypeWrapper<RefView*>);
+
+    static constexpr AbilityFlag GetStaticEnabledAbilityFlag(
+        type_wrapper::TypeWrapper<RefView const*>);
+
+    static constexpr AbilityFlag GetStaticDisabledAbilityFlag(
+        type_wrapper::TypeWrapper<RefView*>);
+
+    static constexpr AbilityFlag GetStaticDisabledAbilityFlag(
+        type_wrapper::TypeWrapper<RefView const*>);
+
+    static AbilityFlag GetDynamicEnabledAbilityFlag(RefView*);
+
+    static AbilityFlag GetDynamicEnabledAbilityFlag(RefView const*);
+
+    static AbilityFlag GetDynamicDisabledAbilityFlag(RefView*);
+
+    static AbilityFlag GetDynamicDisabledAbilityFlag(RefView const*);
+
+    static size_t GetCursorSize(RefView const*);
+
+    static size_t GetWidth(RefView const* ref_view);
+
+    static size_t GetSride(RefView const* ref_view);
+
+    static size_t GetOffset(RefView const* ref_view);
+
+    static size_t GetSize(RefView const* ref_view);
+
+    static size_t GetCapacity(RefView const* ref_view);
+
+    static void GetLBCursor(RefView const* ref_view, void* dst_cursor);
+
+    static void GetRBCursor(RefView const* ref_view, void* dst_cursor);
+
+    static Conditional<ConstTag::value, void const*, void*> PeekL(
+        RefView* ref_view, bool lazy_copy_elem, void* dst_cursor,
+        void* dst_elem);
+
+    static void const* PeekL(RefView const* ref_view, bool lazy_copy_elem,
+                             void* dst_cursor, void* dst_elem);
+
+    static Conditional<ConstTag::value, void const*, void*> PeekR(
+        RefView* ref_view, void* dst_cursor, void* dst_elem);
+
+    static void const* PeekR(RefView const* ref_view, void* dst_cursor,
+                             void* dst_elem);
+
+    static Conditional<ConstTag::value, void const*, void*> Access(
+        RefView* ref_view, size_t idx, bool lazy_copy_elem, void* dst_cursor,
+        void* dst_elem);
+
+    static void const* Access(RefView const* ref_view, size_t idx,
+                              bool lazy_copy_elem, void* dst_cursor,
+                              void* dst_elem);
+
+    static Conditional<ConstTag::value, void const*, void*> Derefer(
+        RefView* ref_view, void const* pos_cursor, void* dst_elem);
+
+    static void const* Derefer(RefView const* ref_view, void const* pos_cursor,
+                               bool lazy_copy_elem, void* dst_elem);
+
+    template <typename Reader>
+    static void Read(RefView const* ref_view, void const* pos_cursor,
+                     size_t cnt, Reader&& reader, void* dst_cursor);
+
+    template <typename Writer, typename = EnableIf<!ConstTag::value>>
+    static void Write(RefView* ref_view, void* pos_cursor, size_t cnt,
+                      Writer&& writer, void* dst_cursor);
+
+    template <typename ReaderWriter, typename = EnableIf<!ConstTag::value>>
+    static void ReadWrite(RefView* ref_view, void* pos_cursor, size_t cnt,
+                          ReaderWriter&& reader_writer, void* dst_cursor);
+
+    static void Read(RefView const* ref_view, void const* pos_cursor,
+                     size_t cnt, MemReader reader, void* dst_cursor);
+
+    template <typename _, typename = EnableIf<!ConstTag::value, _>>
+    static void Write(RefView* ref_view, void* pos_cursor, size_t cnt,
+                      MemWriter writer, void* dst_cursor);
+
+    template <typename Writer>
+    static void* PushL(RefView* ref_view, size_t cnt, Writer&& writer,
+                       void* dst_cursor);
+
+    template <typename _, typename = EnableIf<!ConstTag::value, _>>
+    static void* PushL(RefView* ref_view, size_t cnt, MemWriter writer,
+                       void* dst_cursor);
+
+    template <typename Writer>
+    static void* PushR(RefView* ref_view, size_t cnt, Writer&& writer,
+                       void* dst_cursor);
+
+    template <typename _, typename = EnableIf<!ConstTag::value, _>>
+    static void* PushR(RefView* ref_view, size_t cnt, MemWriter writer,
+                       void* dst_cursor);
+
+    template <typename Writer>
+    static void* Insert(RefView* ref_view, void* pos_cursor, size_t cnt,
+                        Writer&& writer, void* dst_cursor);
+
+    template <typename _, typename = EnableIf<!ConstTag::value, _>>
+    static void* Insert(RefView* ref_view, void* pos_cursor, size_t cnt,
+                        MemWriter writer, void* dst_cursor);
+
+    static void PopL(RefView* ref_view, size_t cnt);
+
+    static void PopR(RefView* ref_view, size_t cnt);
+
+    static void Erase(RefView* ref_view, void* pos_cursor, size_t cnt);
+
+    static void EraseAll(RefView* ref_view);
+
+    static void CopyCursor(RefView const* ref_view, void const* src_cursor,
+                           void* dst_cursor);
+
+    static bool AreEqualCursor(RefView const* ref_view, void const* cursor_a,
+                               void const* cursor_b);
+
+    static int CompareCursor(RefView const* ref_view, void const* cursor_a,
+                             void const* cursor_b);
+
+    static size_t GetCursorDist(RefView const* ref_view, void const* cursor_a,
+                                void const* cursor_b);
+
+    static size_t GetCursorIdx(RefView const* ref_view, void const* cursor);
+
+    static void CursorStepL(RefView const* ref_view, void* cursor);
+
+    static void CursorStepR(RefView const* ref_view, void* cursor);
+
+    static void CursorAdvanceL(RefView const* ref_view, void* cursor,
+                               size_t step);
+
+    static void CursorAdvanceR(RefView const* ref_view, void* cursor,
+                               size_t step);
+
+    static void CheckCntr(RefView* ref);
+};
+
+template <typename SeqCntr>
+auto MakeRef(SeqCntr* cntr);
 
 constexpr bool IsReferable(size_t idx, size_t cnt, size_t size);
 

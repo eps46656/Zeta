@@ -11,9 +11,15 @@
 
 namespace zeta::core_test::debug_hash_table_utils {
 
-using AssocCntrRef = core::assoc_cntr::AssocCntrRef;
-using DebugHashTable =
-    core::DebugHashTable<core::assoc_cntr::FnHash, core::assoc_cntr::FnCompare>;
+using AssocCntrRef = core::assoc_cntr::Ref<core::value_wrapper::FalseType>;
+
+namespace DebugHashTableNS = core::debug_hash_table;
+namespace DebugHashTableOps = DebugHashTableNS::ops;
+using DebugHashTable = DebugHashTableNS::Cntr<core::assoc_cntr::FnHash,
+                                              core::assoc_cntr::FnCompare>;
+using DebugHashTableView =
+    DebugHashTableNS::AssocCntrView<core::assoc_cntr::FnHash,
+                                    core::assoc_cntr::FnCompare>;
 
 struct DebugHashTablePack {
     DebugHashTable debug_ht;
@@ -22,9 +28,9 @@ struct DebugHashTablePack {
 template <typename Elem>
 AssocCntrRef Create();
 
-void Destroy(AssocCntrRef assoc_cntr);
+void Sanitize(void const*);
 
-void Sanitize(AssocCntrRef assoc_cntr);
+void Destroy(void* dht);
 
 // -----------------------------------------------------------------------------
 
@@ -34,36 +40,30 @@ AssocCntrRef Create() {
 
     pack->debug_ht.width = sizeof(Elem);
 
-    pack->debug_ht.elem_key_hash.elem_hash = core::hash::TypeErasedHash<Elem>;
+    pack->debug_ht.elem_key_hash_proxy.elem_hash =
+        core::hash::TypeErasedHash<Elem>;
 
-    pack->debug_ht.elem_key_eq.elem_compare =
+    pack->debug_ht.elem_key_eq_proxy.elem_compare =
         core::compare::TypeErasedCompare<Elem, Elem>;
 
-    DebugHashTable::Init(&pack->debug_ht);
+    DebugHashTableOps::Init(&pack->debug_ht);
 
-    AssocCntrRef assoc_cntr_ref{ zeta::core::assoc_cntr::MakeAssocCntrRef(
-        &pack->debug_ht) };
+    AssocCntrRef assoc_cntr_ref{ zeta::core::assoc_cntr::MakeRef(
+        reinterpret_cast<DebugHashTableView*>(&pack->debug_ht)) };
 
-    assoc_cntr_utils::AddSanitizeFunc(assoc_cntr_ref.vtable, Sanitize);
+    assoc_cntr_utils::AddSanitizeFunc(&pack->debug_ht, Sanitize);
 
-    assoc_cntr_utils::AddDestroyFunc(assoc_cntr_ref.vtable, Destroy);
+    assoc_cntr_utils::AddDestroyFunc(&pack->debug_ht, Destroy);
 
     return assoc_cntr_ref;
 }
 
-void Destroy(AssocCntrRef assoc_cntr) {
-    if (assoc_cntr.inst == nullptr) { return; }
+inline void Sanitize(void const*) {}
 
-    DebugHashTablePack* pack{ ZETA_Core_MemberToStruct(
-        DebugHashTablePack, debug_ht, assoc_cntr.inst) };
+inline void Destroy(void* dht_) {
+    DebugHashTable* dht{ static_cast<DebugHashTable*>(dht_) };
 
-    DebugHashTable::Deinit(&pack->debug_ht);
-
-    std::free(pack);
-}
-
-inline void Sanitize(AssocCntrRef assoc_cntr) {
-    if (assoc_cntr.inst == nullptr) { return; }
+    DebugHashTableOps::Deinit(dht);
 }
 
 }  // namespace zeta::core_test::debug_hash_table_utils
