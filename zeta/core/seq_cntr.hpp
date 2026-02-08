@@ -451,9 +451,6 @@ struct Ref {
     void* cntr;
 
     static constexpr AbilityFlag GetStaticEnabledAbilityFlag(
-        type_wrapper::TypeWrapper<Ref*>);
-
-    static constexpr AbilityFlag GetStaticEnabledAbilityFlag(
         type_wrapper::TypeWrapper<Ref const*>);
 
     static constexpr AbilityFlag GetStaticDisabledAbilityFlag(

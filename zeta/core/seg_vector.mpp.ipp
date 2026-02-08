@@ -3129,24 +3129,20 @@ void Reset(Cntr<CntrTplArgList>* cntr) {
 namespace detail {
 
 template <typename OriginLike>
-constexpr bool IsStagingSegVector_F_  // NOLINT(misc-use-internal-linkage)
-    (CntrCore<OriginLike>*) {
+constexpr bool IsStagingSegVectorPtr_F_  // NOLINT(misc-use-internal-linkage)
+    (CntrCore<OriginLike> const volatile*) {
     return true;
 }
 
-constexpr bool IsStagingSegVector_F_  // NOLINT(misc-use-internal-linkage)
+constexpr bool IsStagingSegVectorPtr_F_  // NOLINT(misc-use-internal-linkage)
     (void*) {
     return false;
 }
 
 template <typename T>
-constexpr bool IsStagingSegVector_{ IsStagingSegVector_F_(
-    static_cast<T*>(nullptr)) };
-
-template <typename T>
 constexpr bool IsStagingSegVectorPtr_{ []() {
     ZETA_Core_StaticAssert(IsPointer<T>);
-    return IsStagingSegVector_F_(static_cast<T>(nullptr));
+    return IsStagingSegVectorPtr_F_(static_cast<T>(nullptr));
 } };
 
 template <typename T>
@@ -3352,8 +3348,30 @@ void Collapse(Cntr<CntrTplArgList>* cntr) {
     detail::CheckCntr_(cntr);
 
     auto* origin{ GetInstPtr_(cntr->origin) };
+    using Origin = RemovePointer<decltype(origin)>;
+
+    constexpr bool origin_like_is_pointer{ IsPointer<Origin> };
+
+    constexpr bool origin_like_is_ref{ IsAnyOf<OriginLike, seq_cntr::Ref> };
+
+    constexpr bool origin_like_is_ref_ptr{
+        origin_like_is_pointer &&
+        IsAnyOf<RemoveCVRef<RemovePointer<OriginLike>>, seq_cntr::Ref*>
+    };
+
+    constexpr bool origin_like_is_cntr_ptr{
+        detail::IsStagingSegVectorPtr_<OriginLike>()
+    };
 
     //
+
+    if constexpr (origin_like_is_ref || origin_like_is_ref_ptr) {
+        // TODO
+        // Check ref's vtable if sv's vtable
+    } else if constexpr (origin_like_is_cntr_ptr) {
+    } else {
+        ZETA_Core_StaticAssert(false);
+    }
 
     cntr->origin = origin_cntr->origin;
 
