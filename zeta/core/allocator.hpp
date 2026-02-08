@@ -7,8 +7,8 @@
 
 namespace zeta::core::allocator {
 
-template <typename Allocator>
-void CheckContract(Allocator* alctr);
+template <typename AllocatorLike>
+void CheckContract(AllocatorLike&& alctr);
 
 struct VTable {
     template <typename Allocator>
@@ -36,51 +36,39 @@ struct VTableBuilder {
 template <typename Allocator>
 constexpr VTable const& GetVTable();
 
-template <typename ConstTag>
 struct Ref {
-    ZETA_Core_StaticAssert(
-        IsAnyOf<ConstTag, value_wrapper::FalseType, value_wrapper::TrueType>);
-
     unsigned short align;
 
     VTable const* vtable;
 
     void* alctr;
+
+    static size_t GetAlign(Ref const* ref_view);
+
+    static void* Allocate(Ref* ref_view, size_t size);
+
+    static void Deallocate(Ref* ref_view, void* ptr);
 };
 
-#pragma push_macro("TplDecl")
+namespace ops {
 
-#define TplDecl                                                               \
-    template <typename ConstTag,                                              \
-              typename = EnableIf<IsAnyOf<ConstTag, value_wrapper::FalseType, \
-                                          value_wrapper::TrueType>>>
+template <typename AllocatorLike>
+size_t GetAlign(AllocatorLike&& alctr);
 
-template <typename ConstTag>
-struct RefView {
-    ZETA_Core_StaticAssert(
-        IsAnyOf<ConstTag, value_wrapper::FalseType, value_wrapper::TrueType>);
+template <typename AllocatorLike>
+void* Allocate(AllocatorLike&& alctr, size_t size);
 
-    static constexpr bool IsConst(RefView*);
+template <typename AllocatorLike>
+void Deallocate(AllocatorLike&& alctr, void* ptr);
 
-    static constexpr bool IsConst(RefView const*);
+template <typename AllocatorLike>
+void* SafeAllocate(AllocatorLike&& alctr, size_t align, size_t size);
 
-    static size_t GetAlign(RefView const* ref_view);
+template <typename AllocatorLike>
+Ref MakeRef(AllocatorLike&& alctr);
 
-    static void* Allocate(RefView* ref_view, size_t size);
+}  // namespace ops
 
-    static void Deallocate(RefView* ref_view, void* ptr);
-};
-
-template <typename Allocator>
-auto MakeRef(Allocator* alctr);
-
-// -----------------------------------------------------------------------------
-
-template <typename Allocator>
-void* SafeAllocate(Allocator* alctr, size_t align, size_t size);
-
-// -----------------------------------------------------------------------------
-
-extern Ref<value_wrapper::FalseType> weak_lifo_allocator;
+extern Ref weak_lifo_allocator;
 
 }  // namespace zeta::core::allocator

@@ -49,10 +49,7 @@ inline void Sanitize(void const* sc) {
     iter->second(sc);
 }
 
-template <typename ConstTag>
-void Sanitize(core::seq_cntr::RefView<ConstTag> const* sc) {
-    Sanitize(reinterpret_cast<core::seq_cntr::Ref<ConstTag> const*>(sc)->cntr);
-}
+inline void Sanitize(core::seq_cntr::Ref const* sc) { Sanitize(sc->cntr); }
 
 // -----------------------------------------------------------------------------
 
@@ -82,10 +79,7 @@ inline void Destroy(void* sc) {
     iter->second(sc);
 }
 
-template <typename ConstTag>
-void Destroy(core::seq_cntr::RefView<ConstTag>* sc) {
-    Destroy(reinterpret_cast<core::seq_cntr::Ref<ConstTag>*>(sc)->cntr);
-}
+inline void Destroy(core::seq_cntr::Ref* sc) { Destroy(sc->cntr); }
 
 // -----------------------------------------------------------------------------
 
@@ -98,7 +92,7 @@ void Read_(SeqCntrView* sc, size_t idx, size_t cnt, void* dst,
 
     ZETA_Core_DebugAssert(cnt <= size);
 
-    SeqCntrView::Access(sc, idx, pos_cursor, nullptr);
+    SeqCntrView::Access(sc, idx, true, pos_cursor, nullptr);
 
     Sanitize(sc);
 
@@ -162,7 +156,7 @@ void Write_(SeqCntrView* sc, size_t idx, size_t cnt, void const* src,
 
     ZETA_Core_DebugAssert(cnt <= size);
 
-    SeqCntrView::Access(sc, idx, pos_cursor, nullptr);
+    SeqCntrView::Access(sc, idx, true, pos_cursor, nullptr);
 
     Sanitize(sc);
 
@@ -271,7 +265,7 @@ template <typename SeqCntrView, typename Writer>
 void Insert(SeqCntrView* sc, size_t idx, size_t cnt, Writer&& writer) {
     void* pos_cursor{ ZETA_Core_SeqCntr_AllocaCursor(sc) };
 
-    SeqCntrView::Access(sc, idx, pos_cursor, nullptr);
+    SeqCntrView::Access(sc, idx, true, pos_cursor, nullptr);
 
     Sanitize(sc);
 
@@ -312,7 +306,7 @@ void Erase(SeqCntrView* sc, size_t idx, size_t cnt) {
 
     void* pos_cursor{ ZETA_Core_SeqCntr_AllocaCursor(sc) };
 
-    SeqCntrView::Access(sc, idx, pos_cursor, nullptr);
+    SeqCntrView::Access(sc, idx, true, pos_cursor, nullptr);
 
     Sanitize(sc);
 
@@ -336,7 +330,7 @@ void Erase(SeqCntrView* sc, size_t idx, size_t cnt) {
 
     Sanitize(sc);
 
-    SeqCntrView::PeekL(sc, pos_cursor, nullptr);
+    SeqCntrView::PeekL(sc, true, pos_cursor, nullptr);
 
     Sanitize(sc);
 
@@ -379,8 +373,8 @@ void CheckCursor(SeqCntrView* sc, size_t max_op_size) {
         size_t idx_a{ static_cast<size_t>(GetRandomInt<long long>(-1, size)) };
         size_t idx_b{ static_cast<size_t>(GetRandomInt<long long>(-1, size)) };
 
-        SeqCntrView::Access(sc, idx_a, cursor_a, nullptr);
-        SeqCntrView::Access(sc, idx_b, cursor_b, nullptr);
+        SeqCntrView::Access(sc, idx_a, true, cursor_a, nullptr);
+        SeqCntrView::Access(sc, idx_b, true, cursor_b, nullptr);
 
         ZETA_Core_DebugAssert(SeqCntrView::GetCursorIdx(sc, cursor_a) == idx_a);
         ZETA_Core_DebugAssert(SeqCntrView::GetCursorIdx(sc, cursor_b) == idx_b);
@@ -397,7 +391,7 @@ void CheckCursor(SeqCntrView* sc, size_t max_op_size) {
 
         // ---------------------------------------------------------------------
 
-        SeqCntrView::Access(sc, idx_a, cursor_c, nullptr);
+        SeqCntrView::Access(sc, idx_a, true, cursor_c, nullptr);
 
         if (idx_a + 1 <= idx_b + 1) {
             SeqCntrView::CursorAdvanceR(sc, cursor_c, idx_b - idx_a);
@@ -409,7 +403,7 @@ void CheckCursor(SeqCntrView* sc, size_t max_op_size) {
 
         // ---------------------------------------------------------------------
 
-        SeqCntrView::Access(sc, idx_b, cursor_c, nullptr);
+        SeqCntrView::Access(sc, idx_b, true, cursor_c, nullptr);
 
         if (idx_a + 1 <= idx_b + 1) {
             SeqCntrView::CursorAdvanceL(sc, cursor_c, idx_b - idx_a);
@@ -663,8 +657,8 @@ void SyncCompare2_(SeqCntrA* sc_a, SeqCntrB* sc_b) {
 
     // -------------------------------------------------------------------------
 
-    SeqCntrA::PeekL(sc_a, cursor_a, nullptr);
-    SeqCntrB::PeekL(sc_b, cursor_b, nullptr);
+    SeqCntrA::PeekL(sc_a, true, cursor_a, nullptr);
+    SeqCntrB::PeekL(sc_b, true, cursor_b, nullptr);
 
     for (size_t i{ 0 }; i < size_a; ++i) {
         ZETA_Core_DebugAssert(SeqCntrA::GetCursorIdx(sc_a, cursor_a) == i);
@@ -697,8 +691,8 @@ void SyncCompare2_(SeqCntrA* sc_a, SeqCntrB* sc_b) {
 
     // -------------------------------------------------------------------------
 
-    SeqCntrA::PeekR(sc_a, cursor_a, nullptr);
-    SeqCntrB::PeekR(sc_b, cursor_b, nullptr);
+    SeqCntrA::PeekR(sc_a, true, cursor_a, nullptr);
+    SeqCntrB::PeekR(sc_b, true, cursor_b, nullptr);
 
     for (size_t i{ size_a }; 0 < i--;) {
         ZETA_Core_DebugAssert(SeqCntrA::GetCursorIdx(sc_a, cursor_a) == i);

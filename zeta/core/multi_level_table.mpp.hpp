@@ -58,14 +58,10 @@ constexpr unsigned max_level{ 12 };
 constexpr unsigned min_branch_num{ 2 };
 constexpr unsigned max_branch_num{ ZETA_Core_ullong_width };
 
-// -----------------------------------------------------------------------------
-
 struct NavNode;
 
 template <TplDeclParamList>
 struct Cntr;
-
-// -----------------------------------------------------------------------------
 
 struct NavNode {
     unsigned long long active_map;

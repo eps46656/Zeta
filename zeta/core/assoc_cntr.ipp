@@ -18,6 +18,8 @@
 
 namespace zeta::core::assoc_cntr {
 
+namespace ops {
+
 inline bool CheckAbilityFlags(AbilityFlag static_enabled_ability_flag,
                               AbilityFlag static_disabled_ability_flag,
                               AbilityFlag dynamic_enabled_ability_flag,
@@ -49,8 +51,6 @@ inline bool CheckAbilityFlags(AbilityFlag static_enabled_ability_flag,
            full_ability_flag;
 }
 
-// -----------------------------------------------------------------------------
-
 template <typename AssocCntr>
 void CheckContract(AssocCntr* cntr) {
     constexpr type_wrapper::TypeWrapper<AssocCntr*> cntr_ptr_type_wrapper;
@@ -70,7 +70,6 @@ void CheckContract(AssocCntr* cntr) {
 
 #pragma push_macro("CheckMethod")
 #pragma push_macro("CheckMethodOp")
-#pragma push_macro("CheckConstMethodOp")
 
     // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define CheckMethod(method, return_type, ...) \
@@ -80,22 +79,8 @@ void CheckContract(AssocCntr* cntr) {
     // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define CheckMethodOp(ability, method, return_type, ...)                 \
     if constexpr (!TestAbility(static_disabled_ability_flag, ability)) { \
-        ZETA_Core_StaticAssert(!is_const);                               \
         CheckMethod(method, return_type, __VA_ARGS__)                    \
     }
-
-    // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CheckConstMethodOp(ability, method, return_type, ...)            \
-    if constexpr (!TestAbility(static_disabled_ability_flag, ability)) { \
-        CheckMethod(method, return_type, __VA_ARGS__)                    \
-    }
-
-    ZETA_Core_StaticAssert(
-        IsAnyOf<decltype(AssocCntr::IsConst(cntr_ptr_type_wrapper)), bool>);
-
-    constexpr bool is_const{ AssocCntr::IsConst(cntr_ptr_type_wrapper) };
-
-    using elem_ptr_t = Conditional<is_const, void const*, void*>;
 
     ZETA_Core_StaticAssert(
         IsAnyOf<decltype(AssocCntr::GetStaticEnabledAbilityFlag(
@@ -119,45 +104,45 @@ void CheckContract(AssocCntr* cntr) {
         AssocCntr::GetStaticDisabledAbilityFlag(cntr_ptr_type_wrapper)
     };
 
-    CheckConstMethodOp(  //
-        GetCursorSize,   // ability
-        GetCursorSize,   // method
+    CheckMethodOp(      //
+        GetCursorSize,  // ability
+        GetCursorSize,  // method
 
         size_t,  // return cursor size
 
         cntr  // inst
     );
 
-    CheckConstMethodOp(  //
-        GetWidth,        // ability
-        GetWidth,        // method
+    CheckMethodOp(  //
+        GetWidth,   // ability
+        GetWidth,   // method
 
         size_t,  // return number of elments
 
         cntr  // inst
     );
 
-    CheckConstMethodOp(  //
-        GetSize,         // ability
-        GetSize,         // method
+    CheckMethodOp(  //
+        GetSize,    // ability
+        GetSize,    // method
 
         size_t,  // return number of elments
 
         cntr  // inst
     );
 
-    CheckConstMethodOp(  //
-        GetCapacity,     // ability
-        GetCapacity,     // method
+    CheckMethodOp(    //
+        GetCapacity,  // ability
+        GetCapacity,  // method
 
         size_t,  // return maximum number of elements can be stored
 
         cntr  // inst
     );
 
-    CheckConstMethodOp(  //
-        GetLBCursor,     // ability
-        GetLBCursor,     // method
+    CheckMethodOp(    //
+        GetLBCursor,  // ability
+        GetLBCursor,  // method
 
         TypeAny,  // return void
 
@@ -165,45 +150,45 @@ void CheckContract(AssocCntr* cntr) {
         void_ptr  // cursor
     );
 
-    CheckConstMethodOp(  //
-        GetRBCursor,     // ability
-        GetRBCursor,     // method
-                         //
-        TypeAny,         // return void
-                         //
-        cntr,            // inst
-        void_ptr         // cursor
+    CheckMethodOp(    //
+        GetRBCursor,  // ability
+        GetRBCursor,  // method
+                      //
+        TypeAny,      // return void
+                      //
+        cntr,         // inst
+        void_ptr      // cursor
     );
 
-    CheckConstMethodOp(  //
-        PeekL,           // ability
-        PeekL,           // method
-                         //
-        elem_ptr_t,      // elem(returned)
-                         //
-        cntr,            // inst
-        bool_val,        // lazy_copy_elem
-        void_ptr,        // dst_cursor(optional)
-        void_ptr         // mem(optional)
+    CheckMethodOp(  //
+        PeekL,      // ability
+        PeekL,      // method
+                    //
+        void*,      // elem(returned)
+                    //
+        cntr,       // inst
+        bool_val,   // lazy_copy_elem
+        void_ptr,   // dst_cursor(optional)
+        void_ptr    // mem(optional)
     );
 
-    CheckConstMethodOp(  //
-        PeekR,           // ability
-        PeekR,           // method
-                         //
-        void*,           // return, elem
-                         //
-        cntr,            // inst
-        bool_val,        // lazy_copy_elem
-        void_ptr,        // dst_cursor, optional
-        void_ptr         // mem, optional
+    CheckMethodOp(  //
+        PeekR,      // ability
+        PeekR,      // method
+                    //
+        void*,      // return, elem
+                    //
+        cntr,       // inst
+        bool_val,   // lazy_copy_elem
+        void_ptr,   // dst_cursor, optional
+        void_ptr    // mem, optional
     );
 
-    CheckConstMethodOp(  //
+    CheckMethodOp(       //
         Derefer,         // ability
         Derefer,         // method
                          //
-        elem_ptr_t,      // return, elem
+        void*,           // return, elem
                          //
         cntr,            // inst
         const_void_ptr,  // pos_cursor
@@ -211,11 +196,11 @@ void CheckContract(AssocCntr* cntr) {
         void_ptr         // mem, optional
     );
 
-    CheckConstMethodOp(    //
+    CheckMethodOp(         //
         Find,              // ability
         Find,              // method
                            //
-        elem_ptr_t,        // return, elem
+        void*,             // return, elem
                            //
         cntr,              // inst
         const_void_ptr,    // key
@@ -262,9 +247,9 @@ void CheckContract(AssocCntr* cntr) {
         Erase,      // method
                     //
         TypeAny,    // return void
-                  //
-        cntr,     // inst
-        void_ptr  // pos_cursor
+                    //
+        cntr,       // inst
+        void_ptr    // pos_cursor
     );
 
     CheckMethodOp(  //
@@ -276,7 +261,7 @@ void CheckContract(AssocCntr* cntr) {
         cntr        // inst
     );
 
-    CheckConstMethodOp(  //
+    CheckMethodOp(       //
         CopyCursor,      // ability
         CopyCursor,      // method
                          //
@@ -287,7 +272,7 @@ void CheckContract(AssocCntr* cntr) {
         void_ptr         // dst_cursor
     );
 
-    CheckConstMethodOp(  //
+    CheckMethodOp(       //
         AreEqualCursor,  // ability
         AreEqualCursor,  // method
                          //
@@ -298,7 +283,7 @@ void CheckContract(AssocCntr* cntr) {
         const_void_ptr   // cursor_b
     );
 
-    CheckConstMethodOp(  //
+    CheckMethodOp(       //
         CompareCursor,   // ability
         CompareCursor,   // method
                          //
@@ -309,7 +294,7 @@ void CheckContract(AssocCntr* cntr) {
         const_void_ptr   // cursor_b
     );
 
-    CheckConstMethodOp(  //
+    CheckMethodOp(       //
         GetCursorDist,   // ability
         GetCursorDist,   // method
                          //
@@ -320,37 +305,37 @@ void CheckContract(AssocCntr* cntr) {
         const_void_ptr   // cursor_b
     );
 
-    CheckConstMethodOp(  //
-        GetCursorIdx,    // ability
-        GetCursorIdx,    // method
-                         //
-        size_t,          // return size_t
-                         //
-        cntr,            // inst
-        const_void_ptr   // cursor
+    CheckMethodOp(      //
+        GetCursorIdx,   // ability
+        GetCursorIdx,   // method
+                        //
+        size_t,         // return size_t
+                        //
+        cntr,           // inst
+        const_void_ptr  // cursor
     );
 
-    CheckConstMethodOp(  //
-        CursorStepL,     // ability
-        CursorStepL,     // method
-                         //
-        TypeAny,         // return void
-                         //
-        cntr,            // inst
-        void_ptr         // cursor
+    CheckMethodOp(    //
+        CursorStepL,  // ability
+        CursorStepL,  // method
+                      //
+        TypeAny,      // return void
+                      //
+        cntr,         // inst
+        void_ptr      // cursor
     );
 
-    CheckConstMethodOp(  //
-        CursorStepR,     // ability
-        CursorStepR,     // method
-                         //
-        TypeAny,         // return void
-                         //
-        cntr,            // inst
-        void_ptr         // cursor
+    CheckMethodOp(    //
+        CursorStepR,  // ability
+        CursorStepR,  // method
+                      //
+        TypeAny,      // return void
+                      //
+        cntr,         // inst
+        void_ptr      // cursor
     );
 
-    CheckConstMethodOp(  //
+    CheckMethodOp(       //
         CursorAdvanceL,  // ability
         CursorAdvanceL,  // method
                          //
@@ -361,7 +346,7 @@ void CheckContract(AssocCntr* cntr) {
         size_val         // step
     );
 
-    CheckConstMethodOp(  //
+    CheckMethodOp(       //
         CursorAdvanceR,  // ability
         CursorAdvanceR,  // method
                          //
@@ -374,8 +359,9 @@ void CheckContract(AssocCntr* cntr) {
 
 #pragma pop_macro("CheckMethod")
 #pragma pop_macro("CheckMethodOp")
-#pragma pop_macro("CheckConstMethodOp")
 }
+
+}  // namespace ops
 
 template <typename AssocCntr>
 constexpr VTable BasicVTableBuilder<AssocCntr>::Build() {
@@ -597,262 +583,148 @@ constexpr VTable const& GetVTable() {
 #pragma push_macro("CallMethod")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CallMethod(ability, method, ...)                                    \
-    {                                                                       \
-        auto ref{ reinterpret_cast<                                         \
-            Conditional<core::IsConst<RemovePointer<decltype(ref_view)>>,   \
-                        Ref<ConstTag> const*, Ref<ConstTag>*>>(ref_view) }; \
-                                                                            \
-        ZETA_Core_DebugAssert(                                              \
-            TestAbility(ref->dynamic_enabled_ability_flag, ability));       \
-                                                                            \
-        auto method_ptr{ ref->vtable->method };                             \
-        ZETA_Core_DebugAssert(method_ptr != nullptr);                       \
-                                                                            \
-        return method_ptr(ref->cntr, __VA_ARGS__);                          \
-    }                                                                       \
+#define CallMethod(ability, method, ...)                              \
+    {                                                                 \
+        ZETA_Core_DebugAssert(                                        \
+            TestAbility(ref->dynamic_enabled_ability_flag, ability)); \
+                                                                      \
+        auto method_ptr{ ref->vtable->method };                       \
+        ZETA_Core_DebugAssert(method_ptr != nullptr);                 \
+                                                                      \
+        return method_ptr(ref->cntr, __VA_ARGS__);                    \
+    }                                                                 \
     ZETA_Core_StaticAssert(true);
 
-template <typename ConstTag>
-constexpr bool RefView<ConstTag>::IsConst(type_wrapper::TypeWrapper<RefView*>) {
-    return ConstTag::value;
-}
-
-template <typename ConstTag>
-constexpr bool RefView<ConstTag>::IsConst(
-    type_wrapper::TypeWrapper<RefView const*>) {
-    return false;
-}
-
-template <typename ConstTag>
-constexpr AbilityFlag RefView<ConstTag>::GetStaticEnabledAbilityFlag(
-    type_wrapper::TypeWrapper<RefView const*>) {
+constexpr AbilityFlag Ref::GetStaticEnabledAbilityFlag(
+    type_wrapper::TypeWrapper<Ref const*>) {
     return empty_ability_flag;
 }
 
-template <typename ConstTag>
-constexpr AbilityFlag RefView<ConstTag>::GetStaticDisabledAbilityFlag(
-    type_wrapper::TypeWrapper<RefView*>) {
+constexpr AbilityFlag Ref::GetStaticDisabledAbilityFlag(
+    type_wrapper::TypeWrapper<Ref*>) {
     return empty_ability_flag;
 }
 
-template <typename ConstTag>
-constexpr AbilityFlag RefView<ConstTag>::GetStaticDisabledAbilityFlag(
-    type_wrapper::TypeWrapper<RefView const*>) {
+constexpr AbilityFlag Ref::GetStaticDisabledAbilityFlag(
+    type_wrapper::TypeWrapper<Ref const*>) {
     return non_const_ability_flag;
 }
 
-template <typename ConstTag>
-AbilityFlag RefView<ConstTag>::GetDynamicEnabledAbilityFlag(RefView* ref_view) {
-    auto ref{ reinterpret_cast<Ref<ConstTag>*>(ref_view) };
-
+AbilityFlag Ref::GetDynamicEnabledAbilityFlag(Ref* ref) {
     return ref->dynamic_enabled_ability_flag;
 }
 
-template <typename ConstTag>
-AbilityFlag RefView<ConstTag>::GetDynamicEnabledAbilityFlag(
-    RefView const* ref_view) {
+AbilityFlag Ref::GetDynamicEnabledAbilityFlag(Ref const* ref) {
     return non_const_ability_flag &
-           GetDynamicEnabledAbilityFlag(const_cast<RefView*>(ref_view));
+           GetDynamicEnabledAbilityFlag(const_cast<Ref*>(ref));
 }
 
-template <typename ConstTag>
-AbilityFlag RefView<ConstTag>::GetDynamicDisabledAbilityFlag(
-    RefView* ref_view) {
-    auto ref{ reinterpret_cast<Ref<ConstTag>*>(ref_view) };
-
+AbilityFlag Ref::GetDynamicDisabledAbilityFlag(Ref* ref) {
     return ref->dynamic_disabled_ability_flag;
 }
 
-template <typename ConstTag>
-AbilityFlag RefView<ConstTag>::GetDynamicDisabledAbilityFlag(
-    RefView const* ref_view) {
+AbilityFlag Ref::GetDynamicDisabledAbilityFlag(Ref const* ref) {
     return const_ability_flag &
-           GetDynamicDisabledAbilityFlag(const_cast<RefView*>(ref_view));
+           GetDynamicDisabledAbilityFlag(const_cast<Ref*>(ref));
 }
 
-template <typename ConstTag>
-size_t RefView<ConstTag>::GetCursorSize(RefView const* ref_view) {
-    auto ref{ reinterpret_cast<Ref<ConstTag> const*>(ref_view) };
+size_t Ref::GetCursorSize(Ref const* ref) { return ref->cursor_size; }
 
-    return ref->cursor_size;
-}
+size_t Ref::GetWidth(Ref const* ref) { return ref->width; }
 
-template <typename ConstTag>
-size_t RefView<ConstTag>::GetWidth(RefView const* ref_view) {
-    auto ref{ reinterpret_cast<Ref<ConstTag> const*>(ref_view) };
+size_t Ref::GetSize(Ref const* ref) { CallMethod(GetSize, GetSize); }
 
-    return ref->width;
-}
-
-template <typename ConstTag>
-size_t RefView<ConstTag>::GetSize(RefView const* ref_view) {
-    CallMethod(GetSize, GetSize);
-}
-
-template <typename ConstTag>
-size_t RefView<ConstTag>::GetCapacity(RefView const* ref_view) {
+size_t Ref::GetCapacity(Ref const* ref) {
     CallMethod(GetCapacity, GetCapacity);
 }
 
-template <typename ConstTag>
-void RefView<ConstTag>::GetLBCursor(RefView const* ref_view, void* dst_cursor) {
+void Ref::GetLBCursor(Ref const* ref, void* dst_cursor) {
     CallMethod(GetLBCursor, GetLBCursor, dst_cursor);
 }
 
-template <typename ConstTag>
-void RefView<ConstTag>::GetRBCursor(RefView const* ref_view, void* dst_cursor) {
+void Ref::GetRBCursor(Ref const* ref, void* dst_cursor) {
     CallMethod(GetRBCursor, GetRBCursor, dst_cursor);
 }
 
-template <typename ConstTag>
-Conditional<ConstTag::value, void const*, void*> RefView<ConstTag>::PeekL(
-    RefView* ref_view, bool lazy_copy_elem, void* dst_cursor, void* dst_elem) {
+void* Ref::PeekL(Ref const* ref, bool lazy_copy_elem, void* dst_cursor,
+                 void* dst_elem) {
     CallMethod(PeekL, PeekL, lazy_copy_elem, dst_cursor, dst_elem);
 }
 
-template <typename ConstTag>
-void const* RefView<ConstTag>::PeekL(RefView const* ref_view,
-                                     bool lazy_copy_elem, void* dst_cursor,
-                                     void* dst_elem) {
-    CallMethod(PeekL, PeekL, lazy_copy_elem, dst_cursor, dst_elem);
-}
-
-template <typename ConstTag>
-Conditional<ConstTag::value, void const*, void*> RefView<ConstTag>::PeekR(
-    RefView* ref_view, bool lazy_copy_elem, void* dst_cursor, void* dst_elem) {
+void* Ref::PeekR(Ref const* ref, bool lazy_copy_elem, void* dst_cursor,
+                 void* dst_elem) {
     CallMethod(PeekR, PeekR, lazy_copy_elem, dst_cursor, dst_elem);
 }
 
-template <typename ConstTag>
-void const* RefView<ConstTag>::PeekR(RefView const* ref_view,
-                                     bool lazy_copy_elem, void* dst_cursor,
-                                     void* dst_elem) {
-    CallMethod(PeekR, PeekR, lazy_copy_elem, dst_cursor, dst_elem);
-}
-
-template <typename ConstTag>
-Conditional<ConstTag::value, void const*, void*> RefView<ConstTag>::Derefer(
-    RefView* ref_view, void const* pos_cursor, bool lazy_copy_elem,
-    void* dst_elem) {
+void* Ref::Derefer(Ref const* ref, void const* pos_cursor, bool lazy_copy_elem,
+                   void* dst_elem) {
     CallMethod(Derefer, Derefer, pos_cursor, lazy_copy_elem, dst_elem);
 }
 
-template <typename ConstTag>
-void const* RefView<ConstTag>::Derefer(RefView const* ref_view,
-                                       void const* pos_cursor,
-                                       bool lazy_copy_elem, void* dst_elem) {
-    CallMethod(Derefer, Derefer, pos_cursor, lazy_copy_elem, dst_elem);
-}
-
-template <typename ConstTag>
 template <typename KeyHash, typename KeyElemCompare>
-Conditional<ConstTag::value, void const*, void*> RefView<ConstTag>::Find(
-    RefView* ref_view, void const* key, KeyHash const& key_hash,
-    KeyElemCompare const& key_elem_compare, bool lazy_copy_elem,
-    void* dst_cursor, void* dst_elem) {
+void* Ref::Find(Ref const* ref, void const* key, KeyHash const& key_hash,
+                KeyElemCompare const& key_elem_compare, bool lazy_copy_elem,
+                void* dst_cursor, void* dst_elem) {
     CallMethod(Find, FnFind, key, key_hash, key_elem_compare, lazy_copy_elem,
                dst_cursor, dst_elem);
 }
 
-template <typename ConstTag>
-template <typename KeyHash, typename KeyElemCompare>
-void const* RefView<ConstTag>::Find(RefView const* ref_view, void const* key,
-                                    KeyHash const& key_hash,
-                                    KeyElemCompare const& key_elem_compare,
-                                    bool lazy_copy_elem, void* dst_cursor,
-                                    void* dst_elem) {
-    CallMethod(Find, FnFind, key, key_hash, key_elem_compare, lazy_copy_elem,
-               dst_cursor, dst_elem);
-}
-
-template <typename ConstTag>
-void* RefView<ConstTag>::Insert(RefView* ref_view, void const* elem,
-                                void* dst_cursor) {
+void* Ref::Insert(Ref* ref, void const* elem, void* dst_cursor) {
     CallMethod(Insert, FnInsert, elem, dst_cursor);
 }
 
-template <typename ConstTag>
-void RefView<ConstTag>::PopL(RefView* ref_view, size_t cnt) {
-    CallMethod(PopL, PopL, cnt);
-}
+void Ref::PopL(Ref* ref, size_t cnt) { CallMethod(PopL, PopL, cnt); }
 
-template <typename ConstTag>
-void RefView<ConstTag>::PopR(RefView* ref_view, size_t cnt) {
-    CallMethod(PopR, PopR, cnt);
-}
+void Ref::PopR(Ref* ref, size_t cnt) { CallMethod(PopR, PopR, cnt); }
 
-template <typename ConstTag>
-void RefView<ConstTag>::Erase(RefView* ref_view, void* pos_cursor) {
+void Ref::Erase(Ref* ref, void* pos_cursor) {
     CallMethod(Erase, Erase, pos_cursor);
 }
 
-template <typename ConstTag>
-void RefView<ConstTag>::EraseAll(RefView* ref_view) {
-    CallMethod(EraseAll, EraseAll);
-}
+void Ref::EraseAll(Ref* ref) { CallMethod(EraseAll, EraseAll); }
 
-template <typename ConstTag>
-void RefView<ConstTag>::CopyCursor(RefView const* ref_view,
-                                   void const* src_cursor, void* dst_cursor) {
+void Ref::CopyCursor(Ref const* ref, void const* src_cursor, void* dst_cursor) {
     CallMethod(CopyCursor, CopyCursor, src_cursor, dst_cursor);
 }
 
-template <typename ConstTag>
-bool RefView<ConstTag>::AreEqualCursor(RefView const* ref_view,
-                                       void const* cursor_a,
-                                       void const* cursor_b) {
+bool Ref::AreEqualCursor(Ref const* ref, void const* cursor_a,
+                         void const* cursor_b) {
     CallMethod(AreEqualCursor, AreEqualCursor, cursor_a, cursor_b);
 }
 
-template <typename ConstTag>
-int RefView<ConstTag>::CompareCursor(RefView const* ref_view,
-                                     void const* cursor_a,
-                                     void const* cursor_b) {
+int Ref::CompareCursor(Ref const* ref, void const* cursor_a,
+                       void const* cursor_b) {
     CallMethod(CompareCursor, CompareCursor, cursor_a, cursor_b);
 }
 
-template <typename ConstTag>
-size_t RefView<ConstTag>::GetCursorDist(RefView const* ref_view,
-                                        void const* cursor_a,
-                                        void const* cursor_b) {
+size_t Ref::GetCursorDist(Ref const* ref, void const* cursor_a,
+                          void const* cursor_b) {
     CallMethod(GetCursorDist, GetCursorDist, cursor_a, cursor_b);
 }
 
-template <typename ConstTag>
-size_t RefView<ConstTag>::GetCursorIdx(RefView const* ref_view,
-                                       void const* cursor) {
+size_t Ref::GetCursorIdx(Ref const* ref, void const* cursor) {
     CallMethod(GetCursorIdx, GetCursorIdx, cursor);
 }
 
-template <typename ConstTag>
-void RefView<ConstTag>::CursorStepL(RefView const* ref_view, void* cursor) {
+void Ref::CursorStepL(Ref const* ref, void* cursor) {
     CallMethod(CursorStepL, CursorStepL, cursor);
 }
 
-template <typename ConstTag>
-void RefView<ConstTag>::CursorStepR(RefView const* ref_view, void* cursor) {
+void Ref::CursorStepR(Ref const* ref, void* cursor) {
     CallMethod(CursorStepR, CursorStepR, cursor);
 }
 
-template <typename ConstTag>
-void RefView<ConstTag>::CursorAdvanceL(RefView const* ref_view, void* cursor,
-                                       size_t step) {
+void Ref::CursorAdvanceL(Ref const* ref, void* cursor, size_t step) {
     CallMethod(CursorAdvanceL, CursorAdvanceL, cursor, step);
 }
 
-template <typename ConstTag>
-void RefView<ConstTag>::CursorAdvanceR(RefView const* ref_view, void* cursor,
-                                       size_t step) {
+void Ref::CursorAdvanceR(Ref const* ref, void* cursor, size_t step) {
     CallMethod(CursorAdvanceR, CursorAdvanceR, cursor, step);
 }
 
 #pragma pop_macro("CallMethod")
 
-template <typename ConstTag>
-void RefView<ConstTag>::CheckCntr(RefView* ref_view) {
-    auto ref{ reinterpret_cast<Ref<ConstTag>>(ref_view) };
-
+void Ref::CheckCntr(Ref* ref) {
     ZETA_Core_DebugAssert(ref != nullptr);
     ZETA_Core_DebugAssert(0 < ref->width);
     ZETA_Core_DebugAssert(ref->vtable != nullptr);
@@ -879,7 +751,7 @@ void RefView<ConstTag>::CheckCntr(RefView* ref_view) {
     CheckMethod(PeekR, PeekR);
     CheckMethod(Derefer, Derefer);
 
-    CheckMethod(Find, Find);
+    CheckMethod(Find, FnFind);
     CheckMethod(Insert, FnInsert);
 
     CheckMethod(PopL, PopL);
@@ -900,8 +772,222 @@ void RefView<ConstTag>::CheckCntr(RefView* ref_view) {
 #pragma pop_macro("CheckMethod")
 }
 
-template <typename AssocCntr>
-auto MakeRef(AssocCntr* cntr) {
+namespace ops {
+
+#pragma push_macro("CallMethod")
+
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define CallMethod(ability, method, ...)                                       \
+    {                                                                          \
+        auto* cntr{ GetInstPtr(Forward<AssocCntrLike>(cntr_)) };               \
+        using AssocCntr = RemovePointer<decltype(cntr)>;                       \
+                                                                               \
+        CheckContract(cntr);                                                   \
+                                                                               \
+        constexpr type_wrapper::TypeWrapper<AssocCntr*> cntr_ptr_type_wrapper; \
+                                                                               \
+        constexpr AbilityFlag static_enabled_ability_flag{                     \
+            AssocCntr::GetStaticEnabledAbilityFlag(cntr_ptr_type_wrapper)      \
+        };                                                                     \
+                                                                               \
+        constexpr AbilityFlag static_disabled_ability_flag{                    \
+            AssocCntr::GetStaticDisabledAbilityFlag(cntr_ptr_type_wrapper)     \
+        };                                                                     \
+                                                                               \
+        if constexpr (TestAbility(static_enabled_ability_flag,                 \
+                                  AbilityEnum::ability)) {                     \
+            return AssocCntr::method(cntr, __VA_ARGS__);                       \
+        } else if constexpr (TestAbility(static_disabled_ability_flag,         \
+                                         AbilityEnum::ability)) {              \
+            ZETA_Core_StaticAssert(false);                                     \
+        } else {                                                               \
+            AbilityFlag dynamic_enabled_ability_flag{                          \
+                AssocCntr::GetDynamicEnabledAbilityFlag(cntr)                  \
+            };                                                                 \
+                                                                               \
+            ZETA_Core_DebugAssert(TestAbility(dynamic_enabled_ability_flag,    \
+                                              AbilityEnum::ability));          \
+                                                                               \
+            return AssocCntr::method(cntr, __VA_ARGS__);                       \
+        }                                                                      \
+    }                                                                          \
+    ZETA_Core_StaticAssert(true);
+
+template <typename AssocCntrLike>
+constexpr AbilityFlag GetStaticEnabledAbilityFlag(
+    type_wrapper::TypeWrapper<AssocCntrLike>) {
+    using AssocCntr =
+        RemovePointer<decltype(GetInstPtr(Declval<AssocCntrLike>()))>;
+
+    constexpr type_wrapper::TypeWrapper<AssocCntr*> cntr_ptr_type_wrapper;
+
+    return AssocCntr::GetStaticEnabledAbilityFlag(cntr_ptr_type_wrapper);
+}
+
+template <typename AssocCntrLike>
+constexpr AbilityFlag GetStaticDisabledAbilityFlag(
+    type_wrapper::TypeWrapper<AssocCntrLike>) {
+    using AssocCntr =
+        RemovePointer<decltype(GetInstPtr(Declval<AssocCntrLike>()))>;
+
+    constexpr type_wrapper::TypeWrapper<AssocCntr*> cntr_ptr_type_wrapper;
+
+    return AssocCntr::GetStaticDisabledAbilityFlag(cntr_ptr_type_wrapper);
+}
+
+template <typename AssocCntrLike>
+AbilityFlag GetDynamicEnabledAbilityFlag(AssocCntrLike&& cntr_) {
+    auto* cntr{ GetInstPtr(Forward<AssocCntrLike>(cntr_)) };
+    using AssocCntr = RemovePointer<decltype(cntr)>;
+
+    return AssocCntr::GetDynamicEnabledAbilityFlag(cntr);
+}
+
+template <typename AssocCntrLike>
+AbilityFlag GetDynamicDisabledAbilityFlag(AssocCntrLike&& cntr_) {
+    auto* cntr{ GetInstPtr(Forward<AssocCntrLike>(cntr_)) };
+    using AssocCntr = RemovePointer<decltype(cntr)>;
+
+    return AssocCntr::GetDynamicDisabledAbilityFlag(cntr);
+}
+
+template <typename AssocCntrLike>
+decltype(auto) GetCursorSize(AssocCntrLike&& cntr_) {
+    CallMethod(GetCursorSize, GetCursorSize);
+}
+
+template <typename AssocCntrLike>
+size_t GetWidth(AssocCntrLike&& cntr_) {
+    CallMethod(GetWidth, GetWidth);
+}
+
+template <typename AssocCntrLike>
+size_t GetSize(AssocCntrLike&& cntr_) {
+    CallMethod(GetSize, GetSize);
+}
+
+template <typename AssocCntrLike>
+decltype(auto) GetCapacity(AssocCntrLike&& cntr_) {
+    CallMethod(GetCapacity, GetCapacity);
+}
+
+template <typename AssocCntrLike>
+void GetLBCursor(AssocCntrLike&& cntr_, void* dst_cursor) {
+    CallMethod(GetLBCursor, GetLBCursor, dst_cursor);
+}
+
+template <typename AssocCntrLike>
+void GetRBCursor(AssocCntrLike&& cntr_, void* dst_cursor) {
+    CallMethod(GetRBCursor, GetRBCursor, dst_cursor);
+}
+
+template <typename AssocCntrLike>
+void* PeekL(AssocCntrLike&& cntr_, bool lazy_copy_elem, void* dst_cursor,
+            void* dst_elem) {
+    CallMethod(PeekL, PeekL, lazy_copy_elem, dst_cursor, dst_elem);
+}
+
+template <typename AssocCntrLike>
+void* PeekR(AssocCntrLike&& cntr_, bool lazy_copy_elem, void* dst_cursor,
+            void* dst_elem) {
+    CallMethod(PeekR, PeekR, lazy_copy_elem, dst_cursor, dst_elem);
+}
+
+template <typename AssocCntrLike>
+void* Derefer(AssocCntrLike&& cntr_, void const* pos_cursor,
+              bool lazy_copy_elem, void* dst_elem) {
+    CallMethod(Derefer, Derefer, pos_cursor, lazy_copy_elem, dst_elem);
+}
+
+template <typename AssocCntrLike, typename KeyHash, typename KeyElemCompare>
+void* Find(AssocCntrLike&& cntr_, void const* key, KeyHash const& key_hash,
+           KeyElemCompare const& key_elem_compare, bool lazy_copy_elem,
+           void* dst_cursor, void* dst_elem) {
+    CallMethod(Find, FnFind, key, key_hash, key_elem_compare, lazy_copy_elem,
+               dst_cursor, dst_elem);
+}
+
+template <typename AssocCntrLike>
+void* Insert(AssocCntrLike&& cntr_, void const* elem, void* dst_cursor) {
+    CallMethod(Insert, FnInsert, elem, dst_cursor);
+}
+
+template <typename AssocCntrLike>
+void PopL(AssocCntrLike&& cntr_, size_t cnt) {
+    CallMethod(PopL, PopL, cnt);
+}
+
+template <typename AssocCntrLike>
+void PopR(AssocCntrLike&& cntr_, size_t cnt) {
+    CallMethod(PopR, PopR, cnt);
+}
+
+template <typename AssocCntrLike>
+void Erase(AssocCntrLike&& cntr_, void* pos_cursor) {
+    CallMethod(Erase, Erase, pos_cursor);
+}
+
+template <typename AssocCntrLike>
+void EraseAll(AssocCntrLike&& cntr_) {
+    CallMethod(EraseAll, EraseAll);
+}
+
+template <typename AssocCntrLike>
+void CopyCursor(AssocCntrLike&& cntr_, void const* src_cursor,
+                void* dst_cursor) {
+    CallMethod(CopyCursor, CopyCursor, src_cursor, dst_cursor);
+}
+
+template <typename AssocCntrLike>
+bool AreEqualCursor(AssocCntrLike&& cntr_, void const* cursor_a,
+                    void const* cursor_b) {
+    CallMethod(AreEqualCursor, AreEqualCursor, cursor_a, cursor_b);
+}
+
+template <typename AssocCntrLike>
+int CompareCursor(AssocCntrLike&& cntr_, void const* cursor_a,
+                  void const* cursor_b) {
+    CallMethod(CompareCursor, CompareCursor, cursor_a, cursor_b);
+}
+
+template <typename AssocCntrLike>
+size_t GetCursorDist(AssocCntrLike&& cntr_, void const* cursor_a,
+                     void const* cursor_b) {
+    CallMethod(GetCursorDist, GetCursorDist, cursor_a, cursor_b);
+}
+
+template <typename AssocCntrLike>
+size_t GetCursorIdx(AssocCntrLike&& cntr_, void const* cursor) {
+    CallMethod(GetCursorIdx, GetCursorIdx, cursor);
+}
+
+template <typename AssocCntrLike>
+void CursorStepL(AssocCntrLike&& cntr_, void* cursor) {
+    CallMethod(CursorStepL, CursorStepL, cursor);
+}
+
+template <typename AssocCntrLike>
+void CursorStepR(AssocCntrLike&& cntr_, void* cursor) {
+    CallMethod(CursorStepR, CursorStepR, cursor);
+}
+
+template <typename AssocCntrLike>
+void CursorAdvanceL(AssocCntrLike&& cntr_, void* cursor, size_t step) {
+    CallMethod(CursorAdvanceL, CursorAdvanceL, cursor, step);
+}
+
+template <typename AssocCntrLike>
+void CursorAdvanceR(AssocCntrLike&& cntr_, void* cursor, size_t step) {
+    CallMethod(CursorAdvanceR, CursorAdvanceR, cursor, step);
+}
+
+#pragma pop_macro("CallMethod")
+
+template <typename AssocCntrLike>
+Ref MakeRef(AssocCntrLike&& cntr_) {
+    auto* cntr{ GetInstPtr(Forward<AssocCntrLike>(cntr_)) };
+    using AssocCntr = RemovePointer<AssocCntrLike>;
+
     CheckContract(cntr);
 
     size_t cursor_size{ AssocCntr::GetCursorSize(cntr) };
@@ -909,8 +995,7 @@ auto MakeRef(AssocCntr* cntr) {
 
     constexpr type_wrapper::TypeWrapper<AssocCntr*> cntr_ptr_type_wrapper;
 
-    return Ref<value_wrapper::StaticValueWrapper<AssocCntr::IsConst(
-        cntr_ptr_type_wrapper)>>{
+    return {
         .cursor_size = static_cast<unsigned short>(cursor_size),
 
         .width = AssocCntr::GetWidth(cntr),
@@ -928,5 +1013,7 @@ auto MakeRef(AssocCntr* cntr) {
         .cntr = const_cast<void*>(static_cast<void const*>(cntr)),
     };
 }
+
+}  // namespace ops
 
 }  // namespace zeta::core::assoc_cntr

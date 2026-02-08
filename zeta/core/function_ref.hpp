@@ -48,9 +48,10 @@ struct FunctionRef<Ret(Args...)> {
                 Ret (*contextual_func)(void const* context, Args... args));
 
     template <typename Callable>
-    FunctionRef(Callable& callable);  // NOLINT(
-                                      // google-explicit-constructor,
-                                      // hicpp-explicit-conversions)
+    FunctionRef  // NOLINT(
+                 // google-explicit-constructor,
+                 // hicpp-explicit-conversions)
+        (Callable& callable);
 
     // -------------------------------------------------------------------------
 

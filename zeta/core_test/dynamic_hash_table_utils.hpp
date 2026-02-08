@@ -14,7 +14,7 @@
 
 namespace zeta::core_test::dynamic_hash_table_utils {
 
-using AssocCntrRef = core::assoc_cntr::Ref<core::value_wrapper::FalseType>;
+using AssocCntrRef = core::assoc_cntr::Ref;
 
 namespace DynamicHashTableNS = core::dynamic_hash_table;
 
@@ -52,7 +52,7 @@ AssocCntrRef Create() {
 
     DynamicHashTableNS::ops::Init(&pack->dht);
 
-    AssocCntrRef assoc_cntr_ref{ zeta::core::assoc_cntr::MakeRef(
+    AssocCntrRef assoc_cntr_ref{ zeta::core::assoc_cntr::ops::MakeRef(
         DynamicHashTableNS::ops::AsAssocCntrView(&pack->dht)) };
 
     assoc_cntr_utils::AddSanitizeFunc(&pack->dht, Sanitize);

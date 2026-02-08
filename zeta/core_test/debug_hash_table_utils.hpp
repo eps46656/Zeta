@@ -11,7 +11,7 @@
 
 namespace zeta::core_test::debug_hash_table_utils {
 
-using AssocCntrRef = core::assoc_cntr::Ref<core::value_wrapper::FalseType>;
+using AssocCntrRef = core::assoc_cntr::Ref;
 
 namespace DebugHashTableNS = core::debug_hash_table;
 namespace DebugHashTableOps = DebugHashTableNS::ops;
@@ -48,7 +48,7 @@ AssocCntrRef Create() {
 
     DebugHashTableOps::Init(&pack->debug_ht);
 
-    AssocCntrRef assoc_cntr_ref{ zeta::core::assoc_cntr::MakeRef(
+    AssocCntrRef assoc_cntr_ref{ zeta::core::assoc_cntr::ops::MakeRef(
         reinterpret_cast<DebugHashTableView*>(&pack->debug_ht)) };
 
     assoc_cntr_utils::AddSanitizeFunc(&pack->debug_ht, Sanitize);

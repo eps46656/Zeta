@@ -35,13 +35,7 @@ inline void Sanitize(void* ac) {
     iter->second(ac);
 }
 
-template <typename ConstTag>
-void Sanitize(core::assoc_cntr::RefView<ConstTag> const* ac) {
-    Sanitize(
-        reinterpret_cast<core::assoc_cntr::Ref<ConstTag> const*>(ac)->cntr);
-}
-
-// -----------------------------------------------------------------------------
+inline void Sanitize(core::assoc_cntr::Ref const* ac) { Sanitize(ac->cntr); }
 
 inline auto& GetDestroyFuncs() {
     static std::unordered_map<void*, void (*)(void* sc)> instance;
@@ -69,12 +63,7 @@ inline void Destroy(void* ac) {
     iter->second(ac);
 }
 
-template <typename ConstTag>
-void Destroy(core::assoc_cntr::RefView<ConstTag>* ac) {
-    Destroy(reinterpret_cast<core::assoc_cntr::Ref<ConstTag>*>(ac)->cntr);
-}
-
-// -----------------------------------------------------------------------------
+inline void Destroy(core::assoc_cntr::Ref* ac) { Destroy(ac->cntr); }
 
 template <typename AssocCntr, typename Key, typename Elem>
 Elem* Find(AssocCntr* ac, Key const& key) {

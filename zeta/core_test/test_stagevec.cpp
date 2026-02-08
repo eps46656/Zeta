@@ -23,10 +23,7 @@
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-using SeqCntrRef =
-    zeta::core::seq_cntr::Ref<zeta::core::value_wrapper::FalseType>;
-using SeqCntrRefView =
-    zeta::core::seq_cntr::RefView<zeta::core::value_wrapper::FalseType>;
+using SeqCntrRef = zeta::core::seq_cntr::Ref;
 
 using PODValue = zeta::core_test::PODValue;
 
@@ -62,8 +59,8 @@ void test_seq_cntr() {
 
     size_t origin_size{ 1024 * 1024 };
 
-    seq_cntr_utils::SyncRandomInit<PODValue, SeqCntrRefView>(
-        { reinterpret_cast<SeqCntrRefView*>(&seq_cntr_a_origin) }, origin_size);
+    seq_cntr_utils::SyncRandomInit<PODValue, SeqCntrRef>({ &seq_cntr_a_origin },
+                                                         origin_size);
 
     SeqCntrRef seq_cntr_a{ debug_deque_utils::Create<PODValue>() };
 
@@ -89,9 +86,8 @@ void test_seq_cntr() {
         // zeta::core::SeqCntr_Assign(seq_cntr_a, seq_cntr_a_origin);
         // zeta::core::SeqCntr_Assign(seq_cntr_b, seq_cntr_a_origin);
 
-        seq_cntr_utils::DoRandomOperations<PODValue, SeqCntrRefView>(
-            { reinterpret_cast<SeqCntrRefView*>(&seq_cntr_a),
-              reinterpret_cast<SeqCntrRefView*>(&seq_cntr_b) },
+        seq_cntr_utils::DoRandomOperations<PODValue, SeqCntrRef>(
+            { &seq_cntr_a, &seq_cntr_b },
 
             256,  // iter_cnt
 
@@ -111,11 +107,10 @@ void test_seq_cntr() {
         );
     }
 
-    seq_cntr_utils::Destroy(reinterpret_cast<SeqCntrRefView*>(&seq_cntr_a));
-    seq_cntr_utils::Destroy(reinterpret_cast<SeqCntrRefView*>(&seq_cntr_b));
+    seq_cntr_utils::Destroy(&seq_cntr_a);
+    seq_cntr_utils::Destroy(&seq_cntr_b);
 
-    seq_cntr_utils::Destroy(
-        reinterpret_cast<SeqCntrRefView*>(&seq_cntr_a_origin));
+    seq_cntr_utils::Destroy(&seq_cntr_a_origin);
 }
 
 /*

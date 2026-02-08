@@ -83,8 +83,8 @@ void Init(Cntr<CntrTplArgList>* cntr) {
 
     cntr->width = UIntAlignUp(cntr->width, alignof(Node));
 
-    cntr->lln = static_cast<LListNode*>(allocator::SafeAllocate(
-        &cntr->node_alctr, alignof(LListNode), sizeof(LListNode)));
+    cntr->lln = static_cast<LListNode*>(allocator::ops::SafeAllocate(
+        cntr->node_alctr, alignof(LListNode), sizeof(LListNode)));
 
     cntr->lln->Init();
 
@@ -99,7 +99,7 @@ void Deinit(Cntr<CntrTplArgList>* cntr) {
 
     generic_hash_table::ops::Deinit(&cntr->ght);
 
-    NodeAllocator::Deallocate(&cntr->node_alctr, cntr->lln);
+    allocator::ops::Deallocate(cntr->node_alctr, cntr->lln);
 }
 
 template <CntrTplParamList>
@@ -289,8 +289,8 @@ void* Insert(Cntr<CntrTplArgList>* cntr, void const* elem, Cursor* dst_cursor) {
 
     ZETA_Core_DebugAssert(elem != nullptr);
 
-    Node* node{ static_cast<Node*>(allocator::SafeAllocate(
-        &cntr->node_alctr, alignof(Node), offsetof(Node, data[cntr->width]))) };
+    Node* node{ static_cast<Node*>(allocator::ops::SafeAllocate(
+        cntr->node_alctr, alignof(Node), offsetof(Node, data[cntr->width]))) };
 
     node->Init();
 
@@ -323,7 +323,7 @@ void PopL(Cntr<CntrTplArgList>* cntr, size_t cnt) {
 
         generic_hash_table::ops::Extract(&cntr->ght, &node->ghtn);
 
-        NodeAllocator::Deallocate(&cntr->node_alctr, node);
+        allocator::ops::Deallocate(cntr->node_alctr, node);
     }
 }
 
@@ -342,7 +342,7 @@ void PopR(Cntr<CntrTplArgList>* cntr, size_t cnt) {
 
         generic_hash_table::ops::Extract(&cntr->ght, &node->ghtn);
 
-        NodeAllocator::Deallocate(&cntr->node_alctr, node);
+        allocator::ops::Deallocate(cntr->node_alctr, node);
     }
 }
 
@@ -362,7 +362,7 @@ void Erase(Cntr<CntrTplArgList>* cntr, Cursor* pos_cursor) {
 
     generic_hash_table::ops::Extract(&cntr->ght, &node->ghtn);
 
-    NodeAllocator::Deallocate(&cntr->node_alctr, node);
+    allocator::ops::Deallocate(cntr->node_alctr, node);
 }
 
 template <CntrTplParamList>
@@ -380,7 +380,7 @@ void EraseAll(Cntr<CntrTplArgList>* cntr) {
 
         generic_hash_table::ops::Extract(&cntr->ght, &nxt_node->ghtn);
 
-        NodeAllocator::Deallocate(&cntr->node_alctr, nxt_node);
+        allocator::ops::Deallocate(cntr->node_alctr, nxt_node);
     }
 }
 

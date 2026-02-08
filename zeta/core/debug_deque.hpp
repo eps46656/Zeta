@@ -38,25 +38,17 @@ void GetLBCursor(Cntr const* cntr, Cursor* dst_cursor);
 
 void GetRBCursor(Cntr const* cntr, Cursor* dst_cursor);
 
-void* PeekL(Cntr* cntr, Cursor* dst_cursor, void* dst_elem);
+void* PeekL(Cntr const* cntr, bool lazy_cpy_elem, Cursor* dst_cursor,
+            void* dst_elem);
 
-void const* PeekL(Cntr const* cntr, Cursor* dst_cursor, void* dst_elem);
+void* PeekR(Cntr const* cntr, bool lazy_cpy_elem, Cursor* dst_cursor,
+            void* dst_elem);
 
-void* PeekR(Cntr* cntr, Cursor* dst_cursor, void* dst_elem);
+void* Access(Cntr const* cntr, size_t idx, bool lazy_copy_elem,
+             Cursor* dst_cursor, void* dst_elem);
 
-void const* PeekR(Cntr const* cntr, Cursor* dst_cursor, void* dst_elem);
-
-void* Access(Cntr* cntr, size_t idx, bool lazy_copy_elem, Cursor* dst_cursor,
-             void* dst_elem);
-
-void const* Access(Cntr const* cntr, size_t idx, bool lazy_copy_elem,
-                   Cursor* dst_cursor, void* dst_elem);
-
-void* Derefer(Cntr* cntr, Cursor const* pos_cursor, bool lazy_copy_elem,
+void* Derefer(Cntr const* cntr, Cursor const* pos_cursor, bool lazy_copy_elem,
               void* dst_elem);
-
-void const* Derefer(Cntr const* cntr, Cursor const* pos_cursor,
-                    bool lazy_copy_elem, void* dst_elem);
 
 template <typename Reader>
 void Read(Cntr const* cntr, Cursor const* pos_cursor, size_t cnt,
@@ -112,11 +104,6 @@ void CursorAdvanceR(Cntr const* cntr, Cursor* cursor, size_t step);
 }  // namespace ops
 
 struct SeqCntrView {
-    static constexpr bool IsConst(type_wrapper::TypeWrapper<SeqCntrView*>);
-
-    static constexpr bool IsConst(
-        type_wrapper::TypeWrapper<SeqCntrView const*>);
-
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag(
         type_wrapper::TypeWrapper<SeqCntrView*>);
 
@@ -148,31 +135,18 @@ struct SeqCntrView {
 
     static void GetRBCursor(SeqCntrView const* seq_cntr_view, void* dst_cursor);
 
-    static void* PeekL(SeqCntrView* seq_cntr_view, void* dst_cursor,
-                       void* dst_elem);
+    static void* PeekL(SeqCntrView const* seq_cntr_view, bool lazy_cpy_elem,
+                       void* dst_cursor, void* dst_elem);
 
-    static void const* PeekL(SeqCntrView const* seq_cntr_view, void* dst_cursor,
-                             void* dst_elem);
+    static void* PeekR(SeqCntrView const* seq_cntr_view, bool lazy_cpy_elem,
+                       void* dst_cursor, void* dst_elem);
 
-    static void* PeekR(SeqCntrView* seq_cntr_view, void* dst_cursor,
-                       void* dst_elem);
-
-    static void const* PeekR(SeqCntrView const* seq_cntr_view, void* dst_cursor,
-                             void* dst_elem);
-
-    static void* Access(SeqCntrView* seq_cntr_view, size_t idx,
+    static void* Access(SeqCntrView const* seq_cntr_view, size_t idx,
                         bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
 
-    static void const* Access(SeqCntrView const* seq_cntr_view, size_t idx,
-                              bool lazy_copy_elem, void* dst_cursor,
-                              void* dst_elem);
-
-    static void* Derefer(SeqCntrView* seq_cntr_view, void const* pos_cursor,
-                         bool lazy_copy_elem, void* dst_elem);
-
-    static void const* Derefer(SeqCntrView const* seq_cntr_view,
-                               void const* pos_cursor, bool lazy_copy_elem,
-                               void* dst_elem);
+    static void* Derefer(SeqCntrView const* seq_cntr_view,
+                         void const* pos_cursor, bool lazy_copy_elem,
+                         void* dst_elem);
 
     template <typename Reader>
     static void Read(SeqCntrView const* seq_cntr_view, void const* pos_cursor,

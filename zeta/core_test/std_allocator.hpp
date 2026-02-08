@@ -32,15 +32,6 @@ struct Allocator {
 #endif
     }
 
-    static constexpr bool IsConst(core::type_wrapper::TypeWrapper<Allocator*>) {
-        return false;
-    }
-
-    static constexpr bool IsConst(
-        core::type_wrapper::TypeWrapper<Allocator const*>) {
-        return true;
-    }
-
     static size_t GetAlign(Allocator const* std_allocator) {
         Check(std_allocator);
         return alignof(max_align_t);
@@ -78,18 +69,7 @@ struct Allocator {
     }
 };
 
-// -----------------------------------------------------------------------------
-
 struct AllocatorView {
-    static constexpr bool IsConst(core::type_wrapper::TypeWrapper<Allocator*>) {
-        return false;
-    }
-
-    static constexpr bool IsConst(
-        core::type_wrapper::TypeWrapper<Allocator const*>) {
-        return true;
-    }
-
     static size_t GetAlign(Allocator* /* a */) { return alignof(max_align_t); }
 
     static void* Allocate(Allocator* a, size_t size) {

@@ -1,5 +1,14 @@
+#if ZETA_Core_Editing
+
+#pragma push_macro("EnData")
+#define EnData 1
+
+#else
+
 #if !defined(EnData)
 #error "EnData is not defined."
+#endif
+
 #endif
 
 #include <zeta/core/allocator.ipp>
@@ -37,7 +46,8 @@ namespace ops {
 namespace detail {
 
 template <TplParamList>
-void Check_(Cntr<TplArgList>* cntr) {
+void Check_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<TplArgList>* cntr) {
     ZETA_Core_DebugAssert(cntr != nullptr);
 
     unsigned level{ cntr->level };
@@ -55,7 +65,8 @@ void Check_(Cntr<TplArgList>* cntr) {
 }
 
 template <TplParamList>
-void CheckIdxes_(Cntr<TplArgList>* cntr, size_t const* idxes) {
+void CheckIdxes_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<TplArgList>* cntr, size_t const* idxes) {
     Check_(cntr);
 
     ZETA_Core_DebugAssert(idxes != nullptr);
@@ -68,15 +79,17 @@ void CheckIdxes_(Cntr<TplArgList>* cntr, size_t const* idxes) {
     }
 }
 
-constexpr bool TestActiveMap_(unsigned long long active_map, unsigned idx) {
+constexpr bool TestActiveMap_  // NOLINT(misc-use-internal-linkage)
+    (unsigned long long active_map, unsigned idx) {
     return (active_map & (1ULL << (idx))) != 0;
 }
 
 template <typename NavNodeAllocator>
-void* AllocateNavNode_(size_t branch_num, NavNodeAllocator* nav_node_alctr) {
+void* AllocateNavNode_  // NOLINT(misc-use-internal-linkage)
+    (size_t branch_num, NavNodeAllocator* nav_node_alctr) {
     auto* nav_node{ static_cast<NavNode*>(
-        allocator::SafeAllocate(nav_node_alctr, alignof(NavNode),
-                                offsetof(NavNode, ptrs[branch_num]))) };
+        allocator::ops::SafeAllocate(nav_node_alctr, alignof(NavNode),
+                                     offsetof(NavNode, ptrs[branch_num]))) };
 
     nav_node->active_map = 0;
 
@@ -84,24 +97,26 @@ void* AllocateNavNode_(size_t branch_num, NavNodeAllocator* nav_node_alctr) {
 }
 
 template <typename NavNodeAllocator>
-void DeallocateNavNode_(NavNodeAllocator* node_alctr, void* node) {
-    NavNodeAllocator::Deallocate(
+void DeallocateNavNode_  // NOLINT(misc-use-internal-linkage)
+    (NavNodeAllocator* node_alctr, void* node) {
+    allocator::ops::Deallocate(
         node_alctr, ZETA_Core_MemberToStruct(NavNode, active_map, node));
 }
 
 #if EnData
 
-inline size_t CalcDataNodeSize_(size_t stride, size_t branch_num) {
+inline size_t CalcDataNodeSize_  // NOLINT(misc-use-internal-linkage)
+    (size_t stride, size_t branch_num) {
     return UIntAlignUp(stride * branch_num + sizeof(unsigned long long),
                        alignof(unsigned long long));
 }
 
 template <typename DataNodeAllocator>
-void* AllocateDataNode_(size_t stride, size_t branch_num,
-                        DataNodeAllocator* data_node_alctr) {
+void* AllocateDataNode_  // NOLINT(misc-use-internal-linkage)
+    (size_t stride, size_t branch_num, DataNodeAllocator* data_node_alctr) {
     size_t data_node_size{ CalcDataNodeSize_(stride, branch_num) };
 
-    void* data_node{ static_cast<char*>(allocator::SafeAllocate(
+    void* data_node{ static_cast<char*>(allocator::ops::SafeAllocate(
                          data_node_alctr, alignof(unsigned long long),
                          data_node_size)) +
                      (data_node_size - sizeof(unsigned long long)) };
@@ -112,9 +127,10 @@ void* AllocateDataNode_(size_t stride, size_t branch_num,
 }
 
 template <typename DataNodeAllocator>
-void DeAllocateDataNode_(size_t stride, size_t branch_num,
-                         DataNodeAllocator* data_node_alctr, void* node) {
-    DataNodeAllocator::Deallocate(
+void DeAllocateDataNode_  // NOLINT(misc-use-internal-linkage)
+    (size_t stride, size_t branch_num, DataNodeAllocator* data_node_alctr,
+     void* node) {
+    allocator::ops::Deallocate(
         data_node_alctr,
         static_cast<char*>(node) - (CalcDataNodeSize_(stride, branch_num) -
                                     sizeof(unsigned long long)));
@@ -123,8 +139,6 @@ void DeAllocateDataNode_(size_t stride, size_t branch_num,
 #endif
 
 }  // namespace detail
-
-// -----------------------------------------------------------------------------
 
 template <TplParamList>
 void Init(Cntr<TplArgList>* cntr) {
@@ -629,7 +643,8 @@ bool Erase(Cntr<TplArgList>* cntr, size_t* idxes) {
 namespace detail {
 
 template <TplParamList>
-void EraseAllRecursive_(Cntr<TplArgList>* cntr, void* node, unsigned level_i) {
+void EraseAllRecursive_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<TplArgList>* cntr, void* node, unsigned level_i) {
 #if EnData
     unsigned branch_num{ cntr->branch_nums[level_i] };
     size_t stride{ cntr->stride };
@@ -680,16 +695,18 @@ void EraseAll(Cntr<TplArgList>* cntr) {
 
 namespace detail {
 
-inline size_t SanitizeRecursive_(MemRecorder* dst_nav_node,
+inline size_t SanitizeRecursive_  // NOLINT(
+                                  // misc-no-recursion,
+                                  // misc-use-internal-linkage)
+    (MemRecorder* dst_nav_node,
 #if EnData
-                                 MemRecorder* dst_data_node,
+     MemRecorder* dst_data_node,
 #endif
-                                 unsigned level_i,
-                                 unsigned short const* branch_nums,
+     unsigned level_i, unsigned short const* branch_nums,
 #if EnData
-                                 size_t stride,
+     size_t stride,
 #endif
-                                 void* node) {
+     void* node) {
     ZETA_Core_DebugAssert(*static_cast<unsigned long long*>(node) != 0);
 
     size_t cur_cnt{ static_cast<size_t>(
@@ -789,3 +806,9 @@ void Sanitize(Cntr<TplArgList>* cntr, MemRecorder* dst_nav_node
 #pragma pop_macro("NameSpace")
 #pragma pop_macro("TplParamList")
 #pragma pop_macro("TplArgList")
+
+#if ZETA_Core_Editing
+
+#pragma pop_macro("EnData")
+
+#endif

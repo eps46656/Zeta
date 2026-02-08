@@ -22,8 +22,6 @@ void SetPtrColor(void*& color_ptr, size_t align, void* ptr, unsigned color);
 
 }  // namespace color_ptr
 
-// -----------------------------------------------------------------------------
-
 namespace rel_ptr {
 
 template <typename SignedIntegral>
@@ -33,8 +31,6 @@ template <typename SignedIntegral>
 void SetPtr(SignedIntegral& rel_ptr, void const* base, void* ptr);
 
 }  // namespace rel_ptr
-
-// -----------------------------------------------------------------------------
 
 namespace rel_color_ptr {
 
@@ -60,8 +56,6 @@ void SetPtrColor(SignedIntegral& rel_color_ptr, size_t align, void const* base,
 
 }  // namespace rel_color_ptr
 
-// -----------------------------------------------------------------------------
-
 template <typename LinkType, typename ColorTag>
 struct AugPtrTpl;
 
@@ -82,8 +76,6 @@ struct AugPtrTpl {
 
     LinkType link;
 
-    // -------------------------------------------------------------------------
-
     template <typename _ = void,
               typename = EnableIf<!IsRelLink && !ColorTag::value, _>>
     void* GetPtr() const;
@@ -96,16 +88,12 @@ struct AugPtrTpl {
 
     void* GetPtr(size_t align, void const* base) const;
 
-    // -------------------------------------------------------------------------
-
     template <typename _ = void,
               typename = EnableIf<!IsRelLink && ColorTag::value, _>>
     unsigned GetColor(size_t align) const;
 
     template <typename _ = void, typename = EnableIf<ColorTag::value, _>>
     unsigned GetColor(size_t align, void const* base) const;
-
-    // -------------------------------------------------------------------------
 
     template <typename _ = void,
               typename = EnableIf<!IsRelLink && !ColorTag::value, _>>
@@ -118,8 +106,6 @@ struct AugPtrTpl {
     void SetPtr(void const* base, void* ptr);
 
     void SetPtr(size_t align, void const* base, void* ptr);
-
-    // -------------------------------------------------------------------------
 
     template <typename _ = void,
               typename = EnableIf<!IsRelLink && ColorTag::value, _>>
