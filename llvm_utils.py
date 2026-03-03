@@ -92,10 +92,10 @@ def print_cmd(cmd: typing.Iterable[str]):
 
 
 @beartype.beartype
-def get_including_pairs(
+def parse_ast(
     src: utils.PathLike,
     args: list[str],
-) -> set[tuple[pathlib.Path, pathlib.Path]]:
+) -> clang.cindex.TranslationUnit:
     src = utils.to_canon_path(src, solve_symlink=True)
 
     assert src.is_file(), src.as_posix()
@@ -114,6 +114,13 @@ def get_including_pairs(
         print(f"{src=}")
         raise e
 
+    return tu
+
+
+@beartype.beartype
+def get_including_pairs(
+    tu: clang.cindex.TranslationUnit
+) -> set[tuple[pathlib.Path, pathlib.Path]]:
     return {
         (
             utils.to_canon_path(
@@ -127,12 +134,15 @@ def get_including_pairs(
 
 @beartype.beartype
 def get_include_files(
-    src: utils.PathLike,
-    args: list[str],
+    tu: clang.cindex.TranslationUnit
 ) -> set[pathlib.Path]:
+    src = utils.to_canon_path(tu.spelling, solve_symlink=True)
+
+    print(f"{src=}")
+
     include_files: set[pathlib.Path] = set()
 
-    for from_file, to_file in get_including_pairs(src, args):
+    for from_file, to_file in get_including_pairs(tu):
         from_file = utils.to_canon_path(from_file, solve_symlink=True)
         to_file = utils.to_canon_path(to_file, solve_symlink=True)
 
@@ -231,6 +241,7 @@ class LLVMCompiler:
             "-Wall",
             "-Wextra",
             "-Werror",
+            "-Wmissing-prototypes",
 
             f"-O{self.opt_type}",
         ]
@@ -365,25 +376,12 @@ class LLVMCompiler:
             "--language", get_clang_lang(lang),
         ]
 
-    def get_including_pairs(
+    def parse_ast(
         self,
         src: utils.PathLike,
         lang: utils.Language,
-        *,
-        cache_file: typing.Optional[pathlib.Path] = None,
-    ) -> list[tuple[pathlib.Path, pathlib.Path]]:
-        return get_including_pairs(
-            src,
-            self.get_compile_args(lang),
-            cache_file=cache_file,
-        )
-
-    def get_including_pairs(
-        self,
-        src: utils.PathLike,
-        lang: utils.Language,
-    ) -> set[pathlib.Path]:
-        return get_including_pairs(
+    ) -> clang.cindex.TranslationUnit:
+        return parse_ast(
             src,
             [
                 *self.compile_args[lang.base],
@@ -391,20 +389,34 @@ class LLVMCompiler:
                 "--language", get_clang_lang(lang),
             ],
         )
+
+    def get_including_pairs(
+        self,
+        src: utils.PathLike,
+        lang: utils.Language,
+    ) -> set[pathlib.Path]:
+        return get_including_pairs(parse_ast(
+            src,
+            [
+                *self.compile_args[lang.base],
+                f"-fsyntax-only",
+                "--language", get_clang_lang(lang),
+            ],
+        ))
 
     def get_including_files_(
         self,
         src: utils.PathLike,
         lang: utils.Language,
     ) -> set[pathlib.Path]:
-        return get_include_files(
+        return get_include_files(parse_ast(
             src,
             [
                 *self.compile_args[lang.base],
                 f"-fsyntax-only",
                 "--language", get_clang_lang(lang),
             ],
-        )
+        ))
 
     def get_including_files(
         self,

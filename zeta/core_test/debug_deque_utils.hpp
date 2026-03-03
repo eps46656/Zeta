@@ -10,11 +10,10 @@
 
 namespace zeta::core_test::debug_deque_utils {
 
-using SeqCntrRef = core::seq_cntr::Ref;
+using SeqCntrRef = core::seq_cntr_ref::Ref;
 namespace DebugDequeNS = core::debug_deque;
 namespace DebugDequeOps = DebugDequeNS::ops;
 using DebugDeque = DebugDequeNS::Cntr;
-using DebugDequeView = DebugDequeNS::SeqCntrView;
 
 struct Pack {
     DebugDeque debug_deque;
@@ -37,8 +36,7 @@ SeqCntrRef Create() {
 
     DebugDequeOps::Init(dd);
 
-    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr::ops::MakeRef(
-        reinterpret_cast<DebugDequeView*>(dd)) };
+    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::ops::MakeRef(dd) };
 
     seq_cntr_utils::AddSanitizeFunc(dd, Sanitize);
 

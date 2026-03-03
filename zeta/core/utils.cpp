@@ -2,7 +2,7 @@
 #include <zeta/core/integral.hpp>
 #include <zeta/core/utils.ipp>
 
-namespace zeta::core {
+namespace zeta::core::utils {
 
 unsigned long long ULLHash(unsigned long long x, unsigned long long salt) {
     x ^= salt;
@@ -83,4 +83,4 @@ int Choose3(bool cond0, bool cond1, bool cond2,
     }
 }
 
-}  // namespace zeta::core
+}  // namespace zeta::core::utils

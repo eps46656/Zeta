@@ -167,6 +167,7 @@ class Builder:
                 else build_node.get_deps()
 
             if len(cur_deps) == 0:
+                print(f"skip a {cur_path}")
                 skipped_build_units.add(cur_path)
                 ready_build_units.add(cur_path)
                 continue
@@ -178,14 +179,16 @@ class Builder:
             max_dep_mtimes = max(mtimes[dep] for dep in cur_deps)
 
             if not rebuild and max_dep_mtimes <= mtimes[cur_path]:
+                print(f"skip {cur_path}")
+
                 skipped_build_units.add(cur_path)
                 ready_build_units.add(cur_path)
 
                 continue
 
-            if build_node.build_unit is None:
-                mtimes[cur_path] = max_dep_mtimes + 1e-3
+            mtimes[cur_path] = max_dep_mtimes + 1e-3
 
+            if build_node.build_unit is None:
                 skipped_build_units.add(cur_path)
                 ready_build_units.add(cur_path)
 
@@ -203,8 +206,6 @@ class Builder:
 
             assert cur_path.exists(), \
                 f"Unit {cur_path} does not exist after building."
-
-            mtimes[cur_path] = cur_path.stat().st_mtime
 
             finished_build_units.add(cur_path)
             ready_build_units.add(cur_path)

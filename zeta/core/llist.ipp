@@ -6,184 +6,199 @@
 #include <zeta/core/meta.hpp>
 #include <zeta/core/type_wrapper.hpp>
 
-namespace zeta::core::llist {
+namespace zeta::core {
 
 template <typename LListNode>
-void CheckContract() {
-    constexpr type_wrapper::TypeWrapper<LListNode*> lln_ptr_type_wrapper;
+constexpr bool llist::ops::IsConst() {
+    return Traits<LListNode>::IsConst();
+}
 
-    LListNode* n{ nullptr };
+template <typename LListNode>
+constexpr LListNode* llist::ops::GetL(LListNode* n) {
+    return Traits<LListNode>::GetL(n);
+}
+
+template <typename LListNode>
+constexpr LListNode* llist::ops::GetR(LListNode* n) {
+    return Traits<LListNode>::GetR(n);
+}
+
+template <typename LListNode>
+void llist::ops::SetL(LListNode* n, LListNode* m) {
+    ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
+    Traits<LListNode>::SetL(n, m);
+}
+
+template <typename LListNode>
+void llist::ops::SetR(LListNode* n, LListNode* m) {
+    ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
+    Traits<LListNode>::SetR(n, m);
+}
+
+template <typename LListNode>
+void llist::ops::CheckContract() {
+    LListNode* lln{ nullptr };
+
+    constexpr bool is_const{ (IsConst<LListNode>)() };
 
 #pragma push_macro("CheckMethod")
-
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CheckMethod(method, return_type, ...) \
-    ZETA_Core_StaticAssert(                   \
-        IsAnyOf<decltype(LListNode::method(__VA_ARGS__)), return_type>)
+#define CheckMethod(method, ...) \
+    ZETA_Core_Unused([=]() { ops::method<LListNode>(__VA_ARGS__); })
 
-    CheckMethod(GetL, LListNode*, n);
-    CheckMethod(GetR, LListNode*, n);
+    CheckMethod(GetL, lln);
+    CheckMethod(GetR, lln);
 
-    CheckMethod(IsConst, TypeAny, lln_ptr_type_wrapper);
-
-    if constexpr (!LListNode::IsConst(lln_ptr_type_wrapper)) {
-        CheckMethod(SetL, TypeAny, n, n);
-        CheckMethod(SetR, TypeAny, n, n);
+    if constexpr (!is_const) {
+        CheckMethod(SetL, lln, lln);
+        CheckMethod(SetR, lln, lln);
     }
 }
 
-// -----------------------------------------------------------------------------
-
 template <typename LListNode>
-size_t Count(LListNode* n) {
-    CheckContract<LListNode>();
+size_t llist::ops::Count(LListNode* n) {
+    (CheckContract<LListNode>)();
 
     if (n == nullptr) { return 0; }
 
     size_t ret{ 1 };
 
-    for (LListNode* m{ n }; (m = LListNode::GetR(n)) != n;) { ++ret; }
+    for (LListNode* m{ n }; (m = (GetR)(n)) != n;) { ++ret; }
 
     return ret;
 }
 
 template <typename LListNode>
-void InsertL(LListNode* n, LListNode* m) {
-    CheckContract<LListNode>();
+void llist::ops::InsertL(LListNode* n, LListNode* m) {
+    (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(
-        !LListNode::IsConst(type_wrapper::TypeWrapper<LListNode*>{}));
+    ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
 
     ZETA_Core_DebugAssert(n != nullptr);
     ZETA_Core_DebugAssert(m != nullptr);
 
-    ZETA_Core_DebugAssert(LListNode::GetL(m) == m);
-    ZETA_Core_DebugAssert(LListNode::GetR(m) == m);
+    ZETA_Core_DebugAssert((GetL)(m) == m);
+    ZETA_Core_DebugAssert((GetR)(m) == m);
 
-    LListNode* nl{ LListNode::GetL(n) };
+    LListNode* nl{ (GetL)(n) };
     LListNode* nr{ n };
 
-    LListNode::SetR(nl, m);
-    LListNode::SetL(m, nl);
+    (SetR)(nl, m);
+    (SetL)(m, nl);
 
-    LListNode::SetR(m, nr);
-    LListNode::SetL(nr, m);
+    (SetR)(m, nr);
+    (SetL)(nr, m);
 }
 
 template <typename LListNode>
-void InsertR(LListNode* n, LListNode* m) {
-    CheckContract<LListNode>();
+void llist::ops::InsertR(LListNode* n, LListNode* m) {
+    (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(
-        !LListNode::IsConst(type_wrapper::TypeWrapper<LListNode*>{}));
+    ZETA_Core_StaticAssert(!LListNode::IsConst());
 
     ZETA_Core_DebugAssert(n != nullptr);
     ZETA_Core_DebugAssert(m != nullptr);
 
-    ZETA_Core_DebugAssert(LListNode::GetL(m) == m);
-    ZETA_Core_DebugAssert(LListNode::GetR(m) == m);
+    ZETA_Core_DebugAssert((GetL)(m) == m);
+    ZETA_Core_DebugAssert((GetR)(m) == m);
 
     LListNode* nl{ n };
-    LListNode* nr{ LListNode::GetR(n) };
+    LListNode* nr{ (GetR)(n) };
 
-    LListNode::SetR(nl, m);
-    LListNode::SetL(m, nl);
+    (SetR)(nl, m);
+    (SetL)(m, nl);
 
-    LListNode::SetR(m, nr);
-    LListNode::SetL(nr, m);
+    (SetR)(m, nr);
+    (SetL)(nr, m);
 }
 
 template <typename LListNode>
-void Extract(LListNode* n) {
-    CheckContract<LListNode>();
+void llist::ops::Extract(LListNode* n) {
+    (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(
-        !LListNode::IsConst(type_wrapper::TypeWrapper<LListNode*>{}));
+    ZETA_Core_StaticAssert(!LListNode::IsConst());
 
     ZETA_Core_DebugAssert(n != nullptr);
 
-    LListNode* nl{ LListNode::GetL(n) };
-    LListNode* nr{ LListNode::GetR(n) };
+    LListNode* nl{ (GetL)(n) };
+    LListNode* nr{ (GetR)(n) };
 
-    LListNode::SetR(nl, nr);
-    LListNode::SetL(nr, nl);
+    (SetR)(nl, nr);
+    (SetL)(nr, nl);
 
-    LListNode::SetR(n, n);
-    LListNode::SetL(n, n);
+    (SetR)(n, n);
+    (SetL)(n, n);
 }
 
 template <typename LListNode>
-void InsertSegL(LListNode* n, LListNode* m_beg, LListNode* m_end) {
-    CheckContract<LListNode>();
+void llist::ops::InsertSegL(LListNode* n, LListNode* m_beg, LListNode* m_end) {
+    (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(
-        !LListNode::IsConst(type_wrapper::TypeWrapper<LListNode*>{}));
+    ZETA_Core_StaticAssert(!LListNode::IsConst());
 
     ZETA_Core_DebugAssert(n != nullptr);
     ZETA_Core_DebugAssert(m_beg != nullptr);
     ZETA_Core_DebugAssert(m_end != nullptr);
 
-    LListNode* nl{ LListNode::GetL(n) };
+    LListNode* nl{ (GetL)(n) };
     LListNode* nr{ n };
 
-    LListNode* m_beg_l{ LListNode::GetL(m_beg) };
-    LListNode* m_end_r{ LListNode::GetR(m_end) };
+    LListNode* m_beg_l{ (GetL)(m_beg) };
+    LListNode* m_end_r{ (GetR)(m_end) };
 
-    LListNode::SetR(m_beg_l, m_end_r);
-    LListNode::SetL(m_end_r, m_beg_l);
+    (SetR)(m_beg_l, m_end_r);
+    (SetL)(m_end_r, m_beg_l);
 
-    LListNode::SetR(nl, m_beg);
-    LListNode::SetL(m_beg, nl);
+    (SetR)(nl, m_beg);
+    (SetL)(m_beg, nl);
 
-    LListNode::SetR(m_end, nr);
-    LListNode::SetL(nr, m_end);
+    (SetR)(m_end, nr);
+    (SetL)(nr, m_end);
 }
 
 template <typename LListNode>
-void InsertSegR(LListNode* n, LListNode* m_beg, LListNode* m_end) {
-    CheckContract<LListNode>();
+void llist::ops::InsertSegR(LListNode* n, LListNode* m_beg, LListNode* m_end) {
+    (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(
-        !LListNode::IsConst(type_wrapper::TypeWrapper<LListNode*>{}));
+    ZETA_Core_StaticAssert(!LListNode::IsConst());
 
     ZETA_Core_DebugAssert(n != nullptr);
     ZETA_Core_DebugAssert(m_beg != nullptr);
     ZETA_Core_DebugAssert(m_end != nullptr);
 
     LListNode* nl{ n };
-    LListNode* nr{ LListNode::GetR(n) };
+    LListNode* nr{ (GetR)(n) };
 
-    LListNode* m_beg_l{ LListNode::GetL(m_beg) };
-    LListNode* m_end_r{ LListNode::GetR(m_end) };
+    LListNode* m_beg_l{ (GetL)(m_beg) };
+    LListNode* m_end_r{ (GetR)(m_end) };
 
-    LListNode::SetR(m_beg_l, m_end_r);
-    LListNode::SetL(m_end_r, m_beg_l);
+    (SetR)(m_beg_l, m_end_r);
+    (SetL)(m_end_r, m_beg_l);
 
-    LListNode::SetR(nl, m_beg);
-    LListNode::SetL(m_beg, nl);
+    (SetR)(nl, m_beg);
+    (SetL)(m_beg, nl);
 
-    LListNode::SetR(m_end, nr);
-    LListNode::SetL(nr, m_end);
+    (SetR)(m_end, nr);
+    (SetL)(nr, m_end);
 }
 
 template <typename LListNode>
-void ExtractSeg(LListNode* n_beg, LListNode* n_end) {
-    CheckContract<LListNode>();
+void llist::ops::ExtractSeg(LListNode* n_beg, LListNode* n_end) {
+    (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(
-        !LListNode::IsConst(type_wrapper::TypeWrapper<LListNode*>{}));
+    ZETA_Core_StaticAssert(!LListNode::IsConst());
 
     ZETA_Core_DebugAssert(n_beg != nullptr);
     ZETA_Core_DebugAssert(n_end != nullptr);
 
-    LListNode* nl{ LListNode::GetL(n_beg) };
-    LListNode* nr{ LListNode::GetR(n_end) };
+    LListNode* nl{ (GetL)(n_beg) };
+    LListNode* nr{ (GetR)(n_end) };
 
-    LListNode::SetR(nl, nr);
-    LListNode::SetL(nr, nl);
+    (SetR)(nl, nr);
+    (SetL)(nr, nl);
 
-    LListNode::SetR(n_end, n_beg);
-    LListNode::SetL(n_beg, n_end);
+    (SetR)(n_end, n_beg);
+    (SetL)(n_beg, n_end);
 }
 
-}  // namespace zeta::core::llist
+}  // namespace zeta::core

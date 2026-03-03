@@ -56,69 +56,70 @@ void SetPtrColor(SignedIntegral& rel_color_ptr, size_t align, void const* base,
 
 }  // namespace rel_color_ptr
 
-template <typename LinkType, typename ColorTag>
-struct AugPtrTpl;
-
-template <typename LinkType, typename ColorTag>
+template <typename LinkType_, typename ColorTag_>
 struct AugPtrTpl {
-    ZETA_Core_StaticAssert(!IsConst<LinkType>);
-    ZETA_Core_StaticAssert(!IsRef<LinkType>);
+    using LinkType = LinkType_;
+    using ColorTag = ColorTag_;
 
-    ZETA_Core_StaticAssert(IsAnyOf<RemoveVolatile<LinkType>, void*> ||
-                           IsSignedIntegral<RemoveVolatile<LinkType>>);
+    ZETA_Core_StaticAssert(!meta::IsConst<LinkType>);
+    ZETA_Core_StaticAssert(!meta::IsRef<LinkType>);
 
     ZETA_Core_StaticAssert(
-        IsAnyOf<ColorTag, value_wrapper::TrueType, value_wrapper::FalseType>);
+        meta::IsAnyOf<meta::RemoveVolatile<LinkType>, void*> ||
+        integral::IsSigned<meta::RemoveVolatile<LinkType>>);
+
+    ZETA_Core_StaticAssert(meta::IsAnyOf<ColorTag, value_wrapper::TrueType,
+                                         value_wrapper::FalseType>);
 
     static constexpr bool IsRelLink{
-        !IsAnyOf<RemoveVolatile<LinkType>, void*>
+        !meta::IsAnyOf<meta::RemoveVolatile<LinkType>, void*>
     };
 
     LinkType link;
 
     template <typename _ = void,
-              typename = EnableIf<!IsRelLink && !ColorTag::value, _>>
+              typename = meta::EnableIf<!IsRelLink && !ColorTag::value, _>>
     void* GetPtr() const;
 
-    template <typename _ = void, typename = EnableIf<!IsRelLink, _>>
+    template <typename _ = void, typename = meta::EnableIf<!IsRelLink, _>>
     void* GetPtr(size_t align) const;
 
-    template <typename _ = void, typename = EnableIf<!ColorTag::value, _>>
+    template <typename _ = void, typename = meta::EnableIf<!ColorTag::value, _>>
     void* GetPtr(void const* base) const;
 
     void* GetPtr(size_t align, void const* base) const;
 
     template <typename _ = void,
-              typename = EnableIf<!IsRelLink && ColorTag::value, _>>
+              typename = meta::EnableIf<!IsRelLink && ColorTag::value, _>>
     unsigned GetColor(size_t align) const;
 
-    template <typename _ = void, typename = EnableIf<ColorTag::value, _>>
+    template <typename _ = void, typename = meta::EnableIf<ColorTag::value, _>>
     unsigned GetColor(size_t align, void const* base) const;
 
     template <typename _ = void,
-              typename = EnableIf<!IsRelLink && !ColorTag::value, _>>
+              typename = meta::EnableIf<!IsRelLink && !ColorTag::value, _>>
     void SetPtr(void* ptr);
 
-    template <typename _ = void, typename = EnableIf<!IsRelLink, _>>
+    template <typename _ = void, typename = meta::EnableIf<!IsRelLink, _>>
     void SetPtr(size_t align, void* ptr);
 
-    template <typename _ = void, typename = EnableIf<!ColorTag::value, _>>
+    template <typename _ = void, typename = meta::EnableIf<!ColorTag::value, _>>
     void SetPtr(void const* base, void* ptr);
 
     void SetPtr(size_t align, void const* base, void* ptr);
 
     template <typename _ = void,
-              typename = EnableIf<!IsRelLink && ColorTag::value, _>>
+              typename = meta::EnableIf<!IsRelLink && ColorTag::value, _>>
     void SetColor(size_t align, unsigned color);
 
-    template <typename _ = void, typename = EnableIf<ColorTag::value, _>>
+    template <typename _ = void, typename = meta::EnableIf<ColorTag::value, _>>
     void SetColor(size_t align, void const* base, unsigned color);
 
     template <typename _ = void,
-              typename = EnableIf<!IsRelLink && ColorTag::value, _>>
+              typename = meta::EnableIf<!IsRelLink && ColorTag::value, _>>
     void SetPtrColor(size_t align, void* ptr, unsigned color);
 
-    template <typename _ = void, typename = EnableIf<ColorTag::value, _>>
+    template <typename _ = void, typename = meta::EnableIf<ColorTag::value, _>>
     void SetPtrColor(size_t align, void const* base, void* ptr, unsigned color);
 };
 

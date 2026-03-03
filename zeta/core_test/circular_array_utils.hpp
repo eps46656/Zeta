@@ -10,12 +10,11 @@
 
 namespace zeta::core_test::circular_array_utils {
 
-using SeqCntrRef = core::seq_cntr::Ref;
+using SeqCntrRef = core::seq_cntr_ref::Ref;
 
 namespace CircularArrayNS = core::circular_array;
 namespace CircularArrayOps = CircularArrayNS::ops;
 using CircularArray = CircularArrayNS::Cntr;
-using CircularArrayView = CircularArrayNS::SeqCntrView;
 
 template <typename Elem>
 SeqCntrRef Create(size_t stride, size_t capacity);
@@ -38,8 +37,7 @@ SeqCntrRef Create(size_t stride, size_t capacity) {
     ca->size = 0;
     ca->capacity = capacity;
 
-    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr::ops::MakeRef(
-        reinterpret_cast<CircularArrayView*>(ca)) };
+    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::ops::MakeRef(ca) };
 
     seq_cntr_utils::AddSanitizeFunc(ca, Sanitize);
 

@@ -82,7 +82,7 @@ struct AbilityEnum {
 
 using AbilityFlag = unsigned;
 
-ZETA_Core_StaticAssert(AbilityEnum::Total <= WidthOf<AbilityFlag>);
+ZETA_Core_StaticAssert(AbilityEnum::Total <= integral::WidthOf<AbilityFlag>);
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
 struct AbilityFlagBuilder {
@@ -191,22 +191,120 @@ ZETA_Core_StaticAssert((non_const_ability_flag & const_ability_flag) ==
 ZETA_Core_StaticAssert((non_const_ability_flag | const_ability_flag) ==
                        full_ability_flag);
 
+template <typename AssocCntr, typename = void>
+struct Traits;
+
 namespace ops {
+
+constexpr bool CheckAbilityFlags(AbilityFlag static_enabled_ability_flag,
+                                 AbilityFlag static_disabled_ability_flag);
 
 bool CheckAbilityFlags(AbilityFlag static_enabled_ability_flag,
                        AbilityFlag static_disabled_ability_flag,
                        AbilityFlag dynamic_enabled_ability_flag,
                        AbilityFlag dynamic_disabled_ability_flag);
 
+template <typename AssocCntrLike>
+auto* GetReferedInstPtr(AssocCntrLike&& cntr);
+
 template <typename AssocCntr>
-void CheckContract(AssocCntr* cntr);
+constexpr AbilityFlag GetStaticEnabledAbilityFlag();
+
+template <typename AssocCntr>
+constexpr AbilityFlag GetStaticDisabledAbilityFlag();
+
+template <typename AssocCntrLike>
+AbilityFlag GetDynamicEnabledAbilityFlag(AssocCntrLike&& cntr);
+
+template <typename AssocCntrLike>
+AbilityFlag GetDynamicDisabledAbilityFlag(AssocCntrLike&& cntr);
+
+template <typename AssocCntrLike>
+size_t GetCursorSize(AssocCntrLike&& cntr);
+
+template <typename AssocCntrLike>
+size_t GetWidth(AssocCntrLike&& cntr);
+
+template <typename AssocCntrLike>
+size_t GetSize(AssocCntrLike&& cntr);
+
+template <typename AssocCntrLike>
+size_t GetCapacity(AssocCntrLike&& cntr);
+
+template <typename AssocCntrLike>
+void GetLBCursor(AssocCntrLike&& cntr, void* dst_cursor);
+
+template <typename AssocCntrLike>
+void GetRBCursor(AssocCntrLike&& cntr, void* dst_cursor);
+
+template <typename AssocCntrLike>
+void* PeekL(AssocCntrLike&& cntr, bool lazy_copy_elem, void* dst_cursor,
+            void* dst_elem);
+
+template <typename AssocCntrLike>
+void* PeekR(AssocCntrLike&& cntr, bool lazy_copy_elem, void* dst_cursor,
+            void* dst_elem);
+
+template <typename AssocCntrLike>
+void* Derefer(AssocCntrLike&& cntr, void const* pos_cursor, bool lazy_copy_elem,
+              void* dst_elem);
+
+template <typename AssocCntrLike, typename KeyHash, typename KeyElemCompare>
+void* Find(AssocCntrLike&& cntr, void const* key, KeyHash&& key_hash,
+           KeyElemCompare&& key_elem_compare, bool lazy_copy_elem,
+           void* dst_cursor, void* dst_elem);
+
+template <typename AssocCntrLike>
+void* Insert(AssocCntrLike&& cntr, void const* elem, void* dst_cursor);
+
+template <typename AssocCntrLike>
+void PopL(AssocCntrLike&& cntr, size_t cnt);
+
+template <typename AssocCntrLike>
+void PopR(AssocCntrLike&& cntr, size_t cnt);
+
+template <typename AssocCntrLike>
+void Erase(AssocCntrLike&& cntr, void* pos_cursor);
+
+template <typename AssocCntrLike>
+void EraseAll(AssocCntrLike&& cntr);
+
+template <typename AssocCntrLike>
+void CopyCursor(AssocCntrLike&& cntr, void const* src_cursor, void* dst_cursor);
+
+template <typename AssocCntrLike>
+bool AreEqualCursor(AssocCntrLike&& cntr, void const* cursor_a,
+                    void const* cursor_b);
+
+template <typename AssocCntrLike>
+int CompareCursor(AssocCntrLike&& cntr, void const* cursor_a,
+                  void const* cursor_b);
+
+template <typename AssocCntrLike>
+size_t GetCursorDist(AssocCntrLike&& cntr, void const* cursor_a,
+                     void const* cursor_b);
+
+template <typename AssocCntrLike>
+size_t GetCursorIdx(AssocCntrLike&& cntr, void const* cursor);
+
+template <typename AssocCntrLike>
+void CursorStepL(AssocCntrLike&& cntr, void* cursor);
+
+template <typename AssocCntrLike>
+void CursorStepR(AssocCntrLike&& cntr, void* cursor);
+
+template <typename AssocCntrLike>
+void CursorAdvanceL(AssocCntrLike&& cntr, void* cursor, size_t step);
+
+template <typename AssocCntrLike>
+void CursorAdvanceR(AssocCntrLike&& cntr, void* cursor, size_t step);
+
+template <typename AssocCntrLike>
+void CheckContract(AssocCntrLike&& cntr);
 
 }  // namespace ops
 
 struct VTable {
-    template <typename AssocCntr>
-    static constexpr VTable const& Make();
-
     size_t (*GetSize)(void* cntr);
 
     size_t (*GetCapacity)(void* cntr);
@@ -260,265 +358,21 @@ struct VTable {
     void (*CursorAdvanceR)(void* cntr, void* cursor, size_t step);
 };
 
-template <typename AssocCntr>
-struct BasicVTableBuilder {
-    static constexpr VTable Build();
-
-    static size_t GetSize(void* cntr);
-
-    static constexpr size_t GetCapacity(void* cntr);
-
-    static void GetLBCursor(void* cntr, void* dst_cursor);
-
-    static void GetRBCursor(void* cntr, void* dst_cursor);
-
-    static void* PeekL(void* cntr, bool lazy_copy_elem, void* dst_cursor,
-                       void* dst_elem);
-
-    static void* PeekR(void* cntr, bool lazy_copy_elem, void* dst_cursor,
-                       void* dst_elem);
-
-    static void* Derefer(void* cntr, void const* pos_cursor,
-                         bool lazy_copy_elem, void* dst_elem);
-
-    static void* FnFind(void* cntr, void const* key, FnHash const& key_hash,
-                        FnCompare const& key_elem_compare, bool lazy_copy_elem,
-                        void* dst_cursor, void* dst_elem);
-
-    static void* FnInsert(void* cntr, void const* elem, void* dst_cursor);
-
-    static void PopL(void* cntr, size_t cnt);
-
-    static void PopR(void* cntr, size_t cnt);
-
-    static void Erase(void* cntr, void* pos_cursor);
-
-    static void EraseAll(void* cntr);
-
-    static void CopyCursor(void* cntr, void const* src_cursor,
-                           void* dst_cursor);
-
-    static bool AreEqualCursor(void* cntr, void const* cursor_a,
-                               void const* cursor_b);
-
-    static int CompareCursor(void* cntr, void const* cursor_a,
-                             void const* cursor_b);
-
-    static size_t GetCursorDist(void* cntr, void const* cursor_a,
-                                void const* cursor_b);
-
-    static size_t GetCursorIdx(void* cntr, void const* cursor);
-
-    static void CursorStepL(void* cntr, void* cursor);
-
-    static void CursorStepR(void* cntr, void* cursor);
-
-    static void CursorAdvanceL(void* cntr, void* cursor, size_t step);
-
-    static void CursorAdvanceR(void* cntr, void* cursor, size_t step);
-};
-
-template <typename AssocCntr>
-struct VTableBuilder {
-    static constexpr VTable Build();
-};
-
-template <typename SeqCntr>
-constexpr VTable const& GetVTable();
-
-struct Ref {
-    unsigned short cursor_size;
-
-    size_t width;
-    size_t capacity;
-
-    AbilityFlag dynamic_enabled_ability_flag;
-    AbilityFlag dynamic_disabled_ability_flag;
-
-    VTable const* vtable;
-
-    void* cntr;
-
-    static constexpr AbilityFlag GetStaticEnabledAbilityFlag(
-        type_wrapper::TypeWrapper<Ref const*>);
-
-    static constexpr AbilityFlag GetStaticDisabledAbilityFlag(
-        type_wrapper::TypeWrapper<Ref*>);
-
-    static constexpr AbilityFlag GetStaticDisabledAbilityFlag(
-        type_wrapper::TypeWrapper<Ref const*>);
-
-    static AbilityFlag GetDynamicEnabledAbilityFlag(Ref*);
-
-    static AbilityFlag GetDynamicEnabledAbilityFlag(Ref const*);
-
-    static AbilityFlag GetDynamicDisabledAbilityFlag(Ref*);
-
-    static AbilityFlag GetDynamicDisabledAbilityFlag(Ref const*);
-
-    static size_t GetCursorSize(Ref const*);
-
-    static size_t GetWidth(Ref const* ref);
-
-    static size_t GetSride(Ref const* ref);
-
-    static size_t GetOffset(Ref const* ref);
-
-    static size_t GetSize(Ref const* ref);
-
-    static size_t GetCapacity(Ref const* ref);
-
-    static void GetLBCursor(Ref const* ref, void* dst_cursor);
-
-    static void GetRBCursor(Ref const* ref, void* dst_cursor);
-
-    static void* PeekL(Ref const* ref, bool lazy_copy_elem, void* dst_cursor,
-                       void* dst_elem);
-
-    static void* PeekR(Ref const* ref, bool lazy_copy_elem, void* dst_cursor,
-                       void* dst_elem);
-
-    static void* Derefer(Ref const* ref, void const* pos_cursor,
-                         bool lazy_copy_elem, void* dst_elem);
-
-    template <typename KeyHash, typename KeyElemCompare>
-    static void* Find(Ref const* ref, void const* key, KeyHash const& key_hash,
-                      KeyElemCompare const& key_elem_compare,
-                      bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
-
-    static void* Insert(Ref* ref, void const* elem, void* dst_cursor);
-
-    static void PopL(Ref* ref, size_t cnt);
-
-    static void PopR(Ref* ref, size_t cnt);
-
-    static void Erase(Ref* ref, void* pos_cursor);
-
-    static void EraseAll(Ref* ref);
-
-    static void CopyCursor(Ref const* ref, void const* src_cursor,
-                           void* dst_cursor);
-
-    static bool AreEqualCursor(Ref const* ref, void const* cursor_a,
-                               void const* cursor_b);
-
-    static int CompareCursor(Ref const* ref, void const* cursor_a,
-                             void const* cursor_b);
-
-    static size_t GetCursorDist(Ref const* ref, void const* cursor_a,
-                                void const* cursor_b);
-
-    static size_t GetCursorIdx(Ref const* ref, void const* cursor);
-
-    static void CursorStepL(Ref const* ref, void* cursor);
-
-    static void CursorStepR(Ref const* ref, void* cursor);
-
-    static void CursorAdvanceL(Ref const* ref, void* cursor, size_t step);
-
-    static void CursorAdvanceR(Ref const* ref, void* cursor, size_t step);
-
-    static void CheckCntr(Ref* ref);
-};
-
 namespace ops {
 
-template <typename AssocCntrLike>
-constexpr AbilityFlag GetStaticEnabledAbilityFlag(
-    type_wrapper::TypeWrapper<AssocCntrLike>);
+template <typename AssocCntr>
+constexpr VTable BuildVTableBasic();
 
-template <typename AssocCntrLike>
-constexpr AbilityFlag GetStaticDisabledAbilityFlag(
-    type_wrapper::TypeWrapper<AssocCntrLike>);
+template <typename AssocCntr, typename = void>
+struct BuildVTableImpl {
+    static constexpr VTable Call();
+};
 
-template <typename AssocCntrLike>
-AbilityFlag GetDynamicEnabledAbilityFlag(AssocCntrLike&& cntr);
+template <typename AssocCntr>
+constexpr VTable BuildVTable();
 
-template <typename AssocCntrLike>
-AbilityFlag GetDynamicDisabledAbilityFlag(AssocCntrLike&& cntr);
-
-template <typename AssocCntrLike>
-decltype(auto) GetCursorSize(AssocCntrLike&& cntr);
-
-template <typename AssocCntrLike>
-size_t GetWidth(AssocCntrLike&& cntr);
-
-template <typename AssocCntrLike>
-size_t GetSize(AssocCntrLike&& cntr);
-
-template <typename AssocCntrLike>
-decltype(auto) GetCapacity(AssocCntrLike&& cntr);
-
-template <typename AssocCntrLike>
-void GetLBCursor(AssocCntrLike&& cntr, void* dst_cursor);
-
-template <typename AssocCntrLike>
-void GetRBCursor(AssocCntrLike&& cntr, void* dst_cursor);
-
-template <typename AssocCntrLike>
-void* PeekL(AssocCntrLike&& cntr, bool lazy_copy_elem, void* dst_cursor,
-            void* dst_elem);
-
-template <typename AssocCntrLike>
-void* PeekR(AssocCntrLike&& cntr, bool lazy_copy_elem, void* dst_cursor,
-            void* dst_elem);
-
-template <typename AssocCntrLike>
-void* Derefer(AssocCntrLike&& cntr, void const* pos_cursor, bool lazy_copy_elem,
-              void* dst_elem);
-
-template <typename AssocCntrLike, typename KeyHash, typename KeyElemCompare>
-void* Find(AssocCntrLike&& cntr, void const* key, KeyHash const& key_hash,
-           KeyElemCompare const& key_elem_compare, bool lazy_copy_elem,
-           void* dst_cursor, void* dst_elem);
-
-template <typename AssocCntrLike>
-void* Insert(AssocCntrLike&& cntr, void const* elem, void* dst_cursor);
-
-template <typename AssocCntrLike>
-void PopL(AssocCntrLike&& cntr, size_t cnt);
-
-template <typename AssocCntrLike>
-void PopR(AssocCntrLike&& cntr, size_t cnt);
-
-template <typename AssocCntrLike>
-void Erase(AssocCntrLike&& cntr, void* pos_cursor);
-
-template <typename AssocCntrLike>
-void EraseAll(AssocCntrLike&& cntr);
-
-template <typename AssocCntrLike>
-void CopyCursor(AssocCntrLike&& cntr, void const* src_cursor, void* dst_cursor);
-
-template <typename AssocCntrLike>
-bool AreEqualCursor(AssocCntrLike&& cntr, void const* cursor_a,
-                    void const* cursor_b);
-
-template <typename AssocCntrLike>
-int CompareCursor(AssocCntrLike&& cntr, void const* cursor_a,
-                  void const* cursor_b);
-
-template <typename AssocCntrLike>
-size_t GetCursorDist(AssocCntrLike&& cntr, void const* cursor_a,
-                     void const* cursor_b);
-
-template <typename AssocCntrLike>
-size_t GetCursorIdx(AssocCntrLike&& cntr, void const* cursor);
-
-template <typename AssocCntrLike>
-void CursorStepL(AssocCntrLike&& cntr, void* cursor);
-
-template <typename AssocCntrLike>
-void CursorStepR(AssocCntrLike&& cntr, void* cursor);
-
-template <typename AssocCntrLike>
-void CursorAdvanceL(AssocCntrLike&& cntr, void* cursor, size_t step);
-
-template <typename AssocCntrLike>
-void CursorAdvanceR(AssocCntrLike&& cntr, void* cursor, size_t step);
-
-template <typename AssocCntrLike>
-Ref MakeRef(AssocCntrLike&& cntr);
+template <typename AssocCntr>
+constexpr VTable const& GetVTable();
 
 }  // namespace ops
 

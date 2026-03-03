@@ -7,85 +7,78 @@
 #include <zeta/core/meta.hpp>
 #include <zeta/core/ptr_utils.hpp>
 
-namespace zeta::core::ptr_utils {
+namespace zeta::core {
 
-namespace color_ptr {
-
-inline void* GetPtr(void* const& color_ptr, size_t align) {
+inline void* ptr_utils::color_ptr::GetPtr(void* const& color_ptr,
+                                          size_t align) {
     return __builtin_align_down(color_ptr, align);
 }
 
-inline unsigned GetColor(void* const& color_ptr, size_t align) {
-    return static_cast<unsigned>(static_cast<char*>(color_ptr) -
-                                 static_cast<char*>(GetPtr(color_ptr, align)));
+inline unsigned ptr_utils::color_ptr::GetColor(void* const& color_ptr,
+                                               size_t align) {
+    return static_cast<unsigned>(
+        static_cast<char*>(color_ptr) -
+        static_cast<char*>((GetPtr)(color_ptr, align)));
 }
 
-inline void SetPtr(void*& color_ptr, size_t align, void* ptr) {
-    SetPtrColor(color_ptr, align, ptr, GetColor(color_ptr, align));
+inline void ptr_utils::color_ptr::SetPtr(void*& color_ptr, size_t align,
+                                         void* ptr) {
+    (SetPtrColor)(color_ptr, align, ptr, (GetColor)(color_ptr, align));
 }
 
-inline void SetColor(void*& color_ptr, size_t align, unsigned color) {
-    SetPtrColor(color_ptr, align, GetPtr(color_ptr, align), color);
+inline void ptr_utils::color_ptr::SetColor(void*& color_ptr, size_t align,
+                                           unsigned color) {
+    (SetPtrColor)(color_ptr, align, (GetPtr)(color_ptr, align), color);
 }
 
-inline void SetPtrColor(void*& color_ptr, size_t align, void* ptr,
-                        unsigned color) {
+inline void ptr_utils::color_ptr::SetPtrColor(void*& color_ptr, size_t align,
+                                              void* ptr, unsigned color) {
     ZETA_Core_DebugAssert(__builtin_is_aligned(ptr, align));
 
     ZETA_Core_DebugAssert(color < align);
 
     color_ptr = static_cast<char*>(ptr) + color;
 
-    ZETA_Core_DebugAssert(GetPtr(color_ptr, align) == ptr);
-    ZETA_Core_DebugAssert(GetColor(color_ptr, align) == color);
+    ZETA_Core_DebugAssert((GetPtr)(color_ptr, align) == ptr);
+    ZETA_Core_DebugAssert((GetColor)(color_ptr, align) == color);
 }
 
-}  // namespace color_ptr
-
-// -----------------------------------------------------------------------------
-
-namespace rel_ptr {
-
 template <typename SignedIntegral>
-void* GetPtr(SignedIntegral const& rel_ptr, void const* base) {
-    ZETA_Core_StaticAssert(IsSignedIntegral<SignedIntegral>);
+void* ptr_utils::rel_ptr::GetPtr(SignedIntegral const& rel_ptr,
+                                 void const* base) {
+    ZETA_Core_StaticAssert(integral::IsSigned<SignedIntegral>);
 
     return const_cast<char*>(static_cast<char const*>(base) + rel_ptr);
 }
 
 template <typename SignedIntegral>
-void SetPtr(SignedIntegral& rel_ptr, void const* base, void* ptr) {
-    ZETA_Core_StaticAssert(IsSignedIntegral<SignedIntegral>);
+void ptr_utils::rel_ptr::SetPtr(SignedIntegral& rel_ptr, void const* base,
+                                void* ptr) {
+    ZETA_Core_StaticAssert(integral::IsSigned<SignedIntegral>);
 
     ptrdiff_t diff{ static_cast<char*>(ptr) - static_cast<char const*>(base) };
 
-    ZETA_Core_DebugAssert(RangeMinOf<SignedIntegral> <= diff &&
-                          diff <= RangeMaxOf<SignedIntegral>);
+    ZETA_Core_DebugAssert(integral::RangeMinOf<SignedIntegral> <= diff &&
+                          diff <= integral::RangeMaxOf<SignedIntegral>);
 
     rel_ptr = static_cast<SignedIntegral>(diff);
 
-    ZETA_Core_DebugAssert(GetPtr(rel_ptr, base) == ptr);
+    ZETA_Core_DebugAssert((GetPtr)(rel_ptr, base) == ptr);
 }
 
-}  // namespace rel_ptr
-
-// -----------------------------------------------------------------------------
-
-namespace rel_color_ptr {
-
 template <typename SignedIntegral>
-void* GetPtr(SignedIntegral const& rel_color_ptr, size_t align,
-             void const* base) {
-    ZETA_Core_StaticAssert(IsSignedIntegral<SignedIntegral>);
+void* ptr_utils::rel_color_ptr::GetPtr(SignedIntegral const& rel_color_ptr,
+                                       size_t align, void const* base) {
+    ZETA_Core_StaticAssert(integral::IsSigned<SignedIntegral>);
 
     return const_cast<char*>(__builtin_align_down(
         static_cast<char const*>(base) + rel_color_ptr, align));
 }
 
 template <typename SignedIntegral>
-unsigned GetColor(SignedIntegral const& rel_color_ptr, size_t align,
-                  void const* base) {
-    ZETA_Core_StaticAssert(IsSignedIntegral<SignedIntegral>);
+unsigned ptr_utils::rel_color_ptr::GetColor(SignedIntegral const& rel_color_ptr,
+                                            size_t align, void const* base) {
+    ZETA_Core_StaticAssert(integral::IsSigned<SignedIntegral>);
 
     char const* ptr{ static_cast<char const*>(base) + rel_color_ptr };
 
@@ -93,23 +86,26 @@ unsigned GetColor(SignedIntegral const& rel_color_ptr, size_t align,
 }
 
 template <typename SignedIntegral>
-void SetPtr(SignedIntegral& rel_color_ptr, size_t align, void const* base,
-            void* ptr) {
-    SetPtrColor(rel_color_ptr, align, base, ptr,
-                GetColor(rel_color_ptr, align, base));
+void ptr_utils::rel_color_ptr::SetPtr(SignedIntegral& rel_color_ptr,
+                                      size_t align, void const* base,
+                                      void* ptr) {
+    (SetPtrColor)(rel_color_ptr, align, base, ptr,
+                  (GetColor)(rel_color_ptr, align, base));
 }
 
 template <typename SignedIntegral>
-void SetColor(SignedIntegral& rel_color_ptr, size_t align, void const* base,
-              unsigned color) {
-    SetPtrColor(rel_color_ptr, align, base, GetPtr(rel_color_ptr, align, base),
-                color);
+void ptr_utils::rel_color_ptr::SetColor(SignedIntegral& rel_color_ptr,
+                                        size_t align, void const* base,
+                                        unsigned color) {
+    (SetPtrColor)(rel_color_ptr, align, base,
+                  (GetPtr)(rel_color_ptr, align, base), color);
 }
 
 template <typename SignedIntegral>
-void SetPtrColor(SignedIntegral& rel_color_ptr, size_t align, void const* base,
-                 void* ptr, unsigned color) {
-    ZETA_Core_StaticAssert(IsSignedIntegral<SignedIntegral>);
+void ptr_utils::rel_color_ptr::SetPtrColor(SignedIntegral& rel_color_ptr,
+                                           size_t align, void const* base,
+                                           void* ptr, unsigned color) {
+    ZETA_Core_StaticAssert(integral::IsSigned<SignedIntegral>);
 
     ZETA_Core_DebugAssert(__builtin_is_aligned(ptr, align));
 
@@ -118,28 +114,24 @@ void SetPtrColor(SignedIntegral& rel_color_ptr, size_t align, void const* base,
     ptrdiff_t diff{ static_cast<char*>(ptr) + color -
                     static_cast<char const*>(base) };
 
-    ZETA_Core_DebugAssert(RangeMinOf<SignedIntegral> <= diff &&
-                          diff <= RangeMaxOf<SignedIntegral>);
+    ZETA_Core_DebugAssert(integral::RangeMinOf<SignedIntegral> <= diff &&
+                          diff <= integral::RangeMaxOf<SignedIntegral>);
 
     rel_color_ptr = static_cast<SignedIntegral>(diff);
 
-    ZETA_Core_DebugAssert(GetPtr(rel_color_ptr, align, base) == ptr);
-    ZETA_Core_DebugAssert(GetColor(rel_color_ptr, align, base) == color);
+    ZETA_Core_DebugAssert((GetPtr)(rel_color_ptr, align, base) == ptr);
+    ZETA_Core_DebugAssert((GetColor)(rel_color_ptr, align, base) == color);
 }
-
-}  // namespace rel_color_ptr
-
-// -----------------------------------------------------------------------------
 
 template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void* AugPtrTpl<LinkType, ColorTag>::GetPtr() const {
+void* ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetPtr() const {
     return this->link;
 }
 
 template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void* AugPtrTpl<LinkType, ColorTag>::GetPtr(size_t align) const {
+void* ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetPtr(size_t align) const {
     if constexpr (ColorTag::value) {
         return color_ptr::GetPtr(this->link, align);
     } else {
@@ -149,7 +141,7 @@ void* AugPtrTpl<LinkType, ColorTag>::GetPtr(size_t align) const {
 
 template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void* AugPtrTpl<LinkType, ColorTag>::GetPtr(void const* base) const {
+void* ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetPtr(void const* base) const {
     if constexpr (IsRelLink) {
         return rel_ptr::GetPtr(this->link, base);
     } else {
@@ -158,8 +150,8 @@ void* AugPtrTpl<LinkType, ColorTag>::GetPtr(void const* base) const {
 }
 
 template <typename LinkType, typename ColorTag>
-void* AugPtrTpl<LinkType, ColorTag>::GetPtr(size_t align,
-                                            void const* base) const {
+void* ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetPtr(size_t align,
+                                                       void const* base) const {
     if constexpr (!IsRelLink) {
         return this->GetPtr(align);
     } else if constexpr (!ColorTag::value) {
@@ -171,14 +163,15 @@ void* AugPtrTpl<LinkType, ColorTag>::GetPtr(size_t align,
 
 template <typename LinkType, typename ColorTag>
 template <typename, typename>
-unsigned AugPtrTpl<LinkType, ColorTag>::GetColor(size_t align) const {
+unsigned ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetColor(
+    size_t align) const {
     return color_ptr::GetColor(this->link, align);
 }
 
 template <typename LinkType, typename ColorTag>
 template <typename, typename>
-unsigned AugPtrTpl<LinkType, ColorTag>::GetColor(size_t align,
-                                                 void const* base) const {
+unsigned ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetColor(
+    size_t align, void const* base) const {
     if constexpr (IsRelLink) {
         return rel_color_ptr::GetColor(this->link, align, base);
     } else {
@@ -188,13 +181,13 @@ unsigned AugPtrTpl<LinkType, ColorTag>::GetColor(size_t align,
 
 template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void AugPtrTpl<LinkType, ColorTag>::SetPtr(void* ptr) {
+void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtr(void* ptr) {
     this->link = ptr;
 }
 
 template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void AugPtrTpl<LinkType, ColorTag>::SetPtr(size_t align, void* ptr) {
+void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtr(size_t align, void* ptr) {
     if constexpr (ColorTag::value) {
         color_ptr::SetPtr(this->link, align, ptr);
     } else {
@@ -204,7 +197,8 @@ void AugPtrTpl<LinkType, ColorTag>::SetPtr(size_t align, void* ptr) {
 
 template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void AugPtrTpl<LinkType, ColorTag>::SetPtr(void const* base, void* ptr) {
+void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtr(void const* base,
+                                                      void* ptr) {
     if constexpr (IsRelLink) {
         rel_ptr::SetPtr(this->link, base, ptr);
     } else {
@@ -213,8 +207,9 @@ void AugPtrTpl<LinkType, ColorTag>::SetPtr(void const* base, void* ptr) {
 }
 
 template <typename LinkType, typename ColorTag>
-void AugPtrTpl<LinkType, ColorTag>::SetPtr(size_t align, void const* base,
-                                           void* ptr) {
+void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtr(size_t align,
+                                                      void const* base,
+                                                      void* ptr) {
     if constexpr (!IsRelLink) {
         this->SetPtr(align, ptr);
     } else if constexpr (!ColorTag::value) {
@@ -226,14 +221,16 @@ void AugPtrTpl<LinkType, ColorTag>::SetPtr(size_t align, void const* base,
 
 template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void AugPtrTpl<LinkType, ColorTag>::SetColor(size_t align, unsigned color) {
+void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetColor(size_t align,
+                                                        unsigned color) {
     color_ptr::SetColor(this->link, align, color);
 }
 
 template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void AugPtrTpl<LinkType, ColorTag>::SetColor(size_t align, void const* base,
-                                             unsigned color) {
+void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetColor(size_t align,
+                                                        void const* base,
+                                                        unsigned color) {
     if constexpr (IsRelLink) {
         rel_color_ptr::SetColor(this->link, align, base, color);
     } else {
@@ -243,15 +240,18 @@ void AugPtrTpl<LinkType, ColorTag>::SetColor(size_t align, void const* base,
 
 template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void AugPtrTpl<LinkType, ColorTag>::SetPtrColor(size_t align, void* ptr,
-                                                unsigned color) {
+void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtrColor(size_t align,
+                                                           void* ptr,
+                                                           unsigned color) {
     color_ptr::SetPtrColor(this->link, align, ptr, color);
 }
 
 template <typename LinkType, typename ColorTag>
 template <typename, typename>
-void AugPtrTpl<LinkType, ColorTag>::SetPtrColor(size_t align, void const* base,
-                                                void* ptr, unsigned color) {
+void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtrColor(size_t align,
+                                                           void const* base,
+                                                           void* ptr,
+                                                           unsigned color) {
     if constexpr (IsRelLink) {
         rel_color_ptr::SetPtrColor(this->link, align, base, ptr, color);
     } else {
@@ -259,4 +259,4 @@ void AugPtrTpl<LinkType, ColorTag>::SetPtrColor(size_t align, void const* base,
     }
 }
 
-}  // namespace zeta::core::ptr_utils
+}  // namespace zeta::core

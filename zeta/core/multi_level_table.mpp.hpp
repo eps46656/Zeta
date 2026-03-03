@@ -29,25 +29,38 @@
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/mem_check_utils.hpp>
+#include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/utils.hpp>
-
-#pragma push_macro("NameSpace")
-#pragma push_macro("TplDeclParamList")
-#pragma push_macro("TplArgList")
 
 #if EnData
 
+#pragma push_macro("NameSpace")
 #define NameSpace multi_level_data_table
+
+#pragma push_macro("TplDeclParamList")
 #define TplDeclParamList \
+    typename TplNavNodeAllocatorLike, typename TplDataNodeAllocatorLike
+
+#pragma push_macro("CntrTplParamList")
+#define CntrTplParamList \
     typename NavNodeAllocatorLike, typename DataNodeAllocatorLike
-#define TplArgList NavNodeAllocatorLike, DataNodeAllocatorLike
+
+#pragma push_macro("CntrTplArgList")
+#define CntrTplArgList NavNodeAllocatorLike, DataNodeAllocatorLike
 
 #else
 
+#pragma push_macro("NameSpace")
 #define NameSpace multi_level_ptr_table
-#define TplDeclParamList typename NavNodeAllocatorLike
-#define TplArgList NavNodeAllocatorLike
+
+#pragma push_macro("CntrTplDeclParamList")
+#define TplDeclParamList typename TplNavNodeAllocatorLike
+
+#pragma push_macro("CntrTplParamList")
+#define CntrTplParamList typename NavNodeAllocatorLike
+
+#pragma push_macro("CntrTplArgList")
+#define CntrTplArgList NavNodeAllocatorLike
 
 #endif
 
@@ -72,6 +85,12 @@ ZETA_Core_StaticAssert(offsetof(NavNode, active_map) == 0);
 
 template <TplDeclParamList>
 struct Cntr {
+    using NavNodeAllocatorLike = TplNavNodeAllocatorLike;
+
+#if EnData
+    using DataNodeAllocatorLike = TplDataNodeAllocatorLike;
+#endif
+
     unsigned level;
 
     unsigned short const* branch_nums;
@@ -98,16 +117,16 @@ namespace ops {
  *
  * @param cntr The target cntr.
  */
-template <TplDeclParamList>
-void Init(Cntr<TplArgList>* cntr);
+template <CntrTplParamList>
+void Init(Cntr<CntrTplArgList>* cntr);
 
 /**
  * @brief Deinitialize the cntr.
  *
  * @param cntr The target cntr.
  */
-template <TplDeclParamList>
-void Deinit(Cntr<TplArgList>* cntr);
+template <CntrTplParamList>
+void Deinit(Cntr<CntrTplArgList>* cntr);
 
 /**
  * @brief Get the size of cntr. Assume the value does not overflow max range
@@ -115,8 +134,8 @@ void Deinit(Cntr<TplArgList>* cntr);
  *
  * @param cntr The target cntr.
  */
-template <TplDeclParamList>
-size_t GetSize(Cntr<TplArgList>* cntr);
+template <CntrTplParamList>
+size_t GetSize(Cntr<CntrTplArgList>* cntr);
 
 /**
  * @brief Get the total capacity of cntr. Assume the value does not overflow
@@ -124,8 +143,8 @@ size_t GetSize(Cntr<TplArgList>* cntr);
  *
  * @param cntr The target cntr.
  */
-template <TplDeclParamList>
-size_t GetCapacity(Cntr<TplArgList>* cntr);
+template <CntrTplParamList>
+size_t GetCapacity(Cntr<CntrTplArgList>* cntr);
 
 /**
  * @brief Get the reference of target entry by indexes.
@@ -136,14 +155,14 @@ size_t GetCapacity(Cntr<TplArgList>* cntr);
  * @return The reference of target entry. If the it is not inserted, return
  * nullptr.
  */
-template <TplDeclParamList>
-void* Access(Cntr<TplArgList>* cntr, size_t* idxes);
+template <CntrTplParamList>
+void* Access(Cntr<CntrTplArgList>* cntr, size_t* idxes);
 
-template <TplDeclParamList>
-void* FindFirst(Cntr<TplArgList>* cntr, size_t* dst_idxes);
+template <CntrTplParamList>
+void* FindFirst(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes);
 
-template <TplDeclParamList>
-void* FindLast(Cntr<TplArgList>* cntr, size_t* dst_idxes);
+template <CntrTplParamList>
+void* FindLast(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes);
 
 /**
  * @brief Find the first entry before idx.
@@ -153,8 +172,8 @@ void* FindLast(Cntr<TplArgList>* cntr, size_t* dst_idxes);
  *
  * @return The reference of target entry.
  */
-template <TplDeclParamList>
-void* FindPrev(Cntr<TplArgList>* cntr, size_t* idxes, bool included);
+template <CntrTplParamList>
+void* FindPrev(Cntr<CntrTplArgList>* cntr, size_t* idxes, bool included);
 
 /**
  * @brief Find the first entry after idx.
@@ -164,8 +183,8 @@ void* FindPrev(Cntr<TplArgList>* cntr, size_t* idxes, bool included);
  *
  * @return The reference of target entry.
  */
-template <TplDeclParamList>
-void* FindNext(Cntr<TplArgList>* cntr, size_t* idxes, bool included);
+template <CntrTplParamList>
+void* FindNext(Cntr<CntrTplArgList>* cntr, size_t* idxes, bool included);
 
 /**
  * @brief Insert a new entry at idxes then return its reference. If
@@ -176,8 +195,8 @@ void* FindNext(Cntr<TplArgList>* cntr, size_t* idxes, bool included);
  *
  * @return The reference of target entry.
  */
-template <TplDeclParamList>
-Pair<void*, bool> Insert(Cntr<TplArgList>* cntr, size_t* idxes);
+template <CntrTplParamList>
+utils::Pair<void*, bool> Insert(Cntr<CntrTplArgList>* cntr, size_t* idxes);
 
 /**
  * @brief Erase the target entry by indexes. If it has not existen.
@@ -187,22 +206,23 @@ Pair<void*, bool> Insert(Cntr<TplArgList>* cntr, size_t* idxes);
  *
  * @return The reference of target entry.
  */
-template <TplDeclParamList>
-bool Erase(Cntr<TplArgList>* cntr, size_t* idxes);
+template <CntrTplParamList>
+bool Erase(Cntr<CntrTplArgList>* cntr, size_t* idxes);
 
 /**
  * @brief Erase all existed entries.
  *
  * @param cntr The target cntr.
  */
-template <TplDeclParamList>
-void EraseAll(Cntr<TplArgList>* cntr);
+template <CntrTplParamList>
+void EraseAll(Cntr<CntrTplArgList>* cntr);
 
-template <TplDeclParamList>
-void Sanitize(Cntr<TplArgList>* cntr, MemRecorder* dst_nav_node
+template <CntrTplParamList>
+void Sanitize(Cntr<CntrTplArgList>* cntr,
+              mem_recorder::MemRecorder* dst_nav_node
 #if EnData
               ,
-              MemRecorder* dst_data_node
+              mem_recorder::MemRecorder* dst_data_node
 #endif
 );
 
@@ -211,8 +231,8 @@ void Sanitize(Cntr<TplArgList>* cntr, MemRecorder* dst_nav_node
 }  // namespace zeta::core::NameSpace
 
 #pragma pop_macro("NameSpace")
-#pragma pop_macro("TplArgList")
-#pragma pop_macro("TplDeclParamList")
+#pragma pop_macro("CntrTplArgList")
+#pragma pop_macro("CntrTplParamList")
 
 #endif
 

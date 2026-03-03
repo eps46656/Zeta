@@ -10,186 +10,185 @@
 
 namespace zeta::core {
 
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool utils::operator==(Pair<XFirst, XSecond> const& x,
+                       Pair<YFirst, YSecond> const& y) {
+    return compare::ops::BasicCompare(x, y) == 0;
+}
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool utils::operator!=(Pair<XFirst, XSecond> const& x,
+                       Pair<YFirst, YSecond> const& y) {
+    return compare::ops::BasicCompare(x, y) != 0;
+}
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool utils::operator<(Pair<XFirst, XSecond> const& x,
+                      Pair<YFirst, YSecond> const& y) {
+    return compare::ops::BasicCompare(x, y) < 0;
+}
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool utils::operator<=(Pair<XFirst, XSecond> const& x,
+                       Pair<YFirst, YSecond> const& y) {
+    return compare::ops::BasicCompare(x, y) <= 0;
+}
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool utils::operator>(Pair<XFirst, XSecond> const& x,
+                      Pair<YFirst, YSecond> const& y) {
+    return compare::ops::BasicCompare(x, y) > 0;
+}
+
+template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
+bool utils::operator>=(Pair<XFirst, XSecond> const& x,
+                       Pair<YFirst, YSecond> const& y) {
+    return compare::ops::BasicCompare(x, y) >= 0;
+}
+
 template <typename First, typename Second>
-unsigned long long hash::HashCore<Pair<First, Second>>::operator()(
-    Pair<First, Second> const& x, unsigned long long salt) const {
-    unsigned long long h1{ hash::Hash(x.first, salt) };
-    unsigned long long h2{ hash::Hash(x.second, h1) };
-    return hash::Hash(h2, salt);
+unsigned long long
+hash::ops::BasicHashImpl<utils::Pair<First, Second>>::operator()(
+    utils::Pair<First, Second> const& x, unsigned long long salt) const {
+    unsigned long long h1{ hash::ops::BasicHash(x.first, salt) };
+    unsigned long long h2{ hash::ops::BasicHash(x.second, h1) };
+    return hash::ops::BasicHash(h2, salt);
 }
 
 template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
-int compare::CompareCore<Pair<XFirst, XSecond>, Pair<YFirst, YSecond>>::
-operator()(Pair<XFirst, XSecond> const& x,
-           Pair<YFirst, YSecond> const& y) const {
-    int cmp{ compare::Compare(x.first, y.first) };
+int compare::BasicCompareImpl<utils::Pair<XFirst, XSecond>,
+                              utils::Pair<YFirst, YSecond>>::
+operator()(utils::Pair<XFirst, XSecond> const& x,
+           utils::Pair<YFirst, YSecond> const& y) const {
+    int cmp{ compare::ops::BasicCompare(x.first, y.first) };
     if (cmp != 0) { return cmp; }
-    return Compare(x.second, y.second);
+    return compare::ops::BasicCompare(x.second, y.second);
 }
 
-template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
-bool operator==(Pair<XFirst, XSecond> const& x,
-                Pair<YFirst, YSecond> const& y) {
-    return compare::Compare(x, y) == 0;
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool utils::operator==(Triplet<XFirst, XSecond, XThird> const& x,
+                       Triplet<YFirst, YSecond, YThird> const& y) {
+    return compare::ops::BasicCompare(x, y) == 0;
 }
 
-template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
-bool operator!=(Pair<XFirst, XSecond> const& x,
-                Pair<YFirst, YSecond> const& y) {
-    return compare::Compare(x, y) != 0;
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool utils::operator!=(Triplet<XFirst, XSecond, XThird> const& x,
+                       Triplet<YFirst, YSecond, YThird> const& y) {
+    return compare::ops::BasicCompare(x, y) != 0;
 }
 
-template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
-bool operator<(Pair<XFirst, XSecond> const& x, Pair<YFirst, YSecond> const& y) {
-    return compare::Compare(x, y) < 0;
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool utils::operator<(Triplet<XFirst, XSecond, XThird> const& x,
+                      Triplet<YFirst, YSecond, YThird> const& y) {
+    return compare::ops::BasicCompare(x, y) < 0;
 }
 
-template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
-bool operator<=(Pair<XFirst, XSecond> const& x,
-                Pair<YFirst, YSecond> const& y) {
-    return compare::Compare(x, y) <= 0;
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool utils::operator<=(Triplet<XFirst, XSecond, XThird> const& x,
+                       Triplet<YFirst, YSecond, YThird> const& y) {
+    return compare::ops::BasicCompare(x, y) <= 0;
 }
 
-template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
-bool operator>(Pair<XFirst, XSecond> const& x, Pair<YFirst, YSecond> const& y) {
-    return compare::Compare(x, y) > 0;
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool utils::operator>(Triplet<XFirst, XSecond, XThird> const& x,
+                      Triplet<YFirst, YSecond, YThird> const& y) {
+    return compare::ops::BasicCompare(x, y) > 0;
 }
 
-template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
-bool operator>=(Pair<XFirst, XSecond> const& x,
-                Pair<YFirst, YSecond> const& y) {
-    return compare::Compare(x, y) >= 0;
+template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
+          typename YSecond, typename YThird>
+bool utils::operator>=(Triplet<XFirst, XSecond, XThird> const& x,
+                       Triplet<YFirst, YSecond, YThird> const& y) {
+    return compare::ops::BasicCompare(x, y) >= 0;
 }
-
-// -----------------------------------------------------------------------------
 
 template <typename First, typename Second, typename Third>
-unsigned long long hash::HashCore<Triplet<First, Second, Third>>::operator()(
-    Triplet<First, Second, Third> const& x, unsigned long long salt) const {
-    unsigned long long h1{ hash::Hash(x.first, salt) };
-    unsigned long long h2{ hash::Hash(x.second, h1) };
-    unsigned long long h3{ hash::Hash(x.third, h2) };
-    return hash::Hash(h3, salt);
+unsigned long long
+hash::ops::BasicHashImpl<utils::Triplet<First, Second, Third>>::operator()(
+    utils::Triplet<First, Second, Third> const& x,
+    unsigned long long salt) const {
+    unsigned long long h1{ hash::ops::BasicHash(x.first, salt) };
+    unsigned long long h2{ hash::ops::BasicHash(x.second, h1) };
+    unsigned long long h3{ hash::ops::BasicHash(x.third, h2) };
+    return hash::ops::BasicHash(h3, salt);
 }
 
 template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
           typename YSecond, typename YThird>
-int compare::CompareCore<Triplet<XFirst, XSecond, XThird>,
-                         Triplet<YFirst, YSecond, YThird>>::
-operator()(Triplet<XFirst, XSecond, XThird> const& x,
-           Triplet<YFirst, YSecond, YThird> const& y) const {
-    int cmp{ compare::Compare(x.first, y.first) };
+int compare::BasicCompareImpl<utils::Triplet<XFirst, XSecond, XThird>,
+                              utils::Triplet<YFirst, YSecond, YThird>>::
+operator()(utils::Triplet<XFirst, XSecond, XThird> const& x,
+           utils::Triplet<YFirst, YSecond, YThird> const& y) const {
+    int cmp{ compare::ops::BasicCompare(x.first, y.first) };
     if (cmp != 0) { return cmp; }
-    cmp = compare::Compare(x.second, y.second);
+    cmp = compare::ops::BasicCompare(x.second, y.second);
     if (cmp != 0) { return cmp; }
-    return Compare(x.third, y.third);
+    return compare::ops::BasicCompare(x.third, y.third);
 }
-
-template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
-          typename YSecond, typename YThird>
-bool operator==(Triplet<XFirst, XSecond, XThird> const& x,
-                Triplet<YFirst, YSecond, YThird> const& y) {
-    return compare::Compare(x, y) == 0;
-}
-
-template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
-          typename YSecond, typename YThird>
-bool operator!=(Triplet<XFirst, XSecond, XThird> const& x,
-                Triplet<YFirst, YSecond, YThird> const& y) {
-    return compare::Compare(x, y) != 0;
-}
-
-template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
-          typename YSecond, typename YThird>
-bool operator<(Triplet<XFirst, XSecond, XThird> const& x,
-               Triplet<YFirst, YSecond, YThird> const& y) {
-    return compare::Compare(x, y) < 0;
-}
-
-template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
-          typename YSecond, typename YThird>
-bool operator<=(Triplet<XFirst, XSecond, XThird> const& x,
-                Triplet<YFirst, YSecond, YThird> const& y) {
-    return compare::Compare(x, y) <= 0;
-}
-
-template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
-          typename YSecond, typename YThird>
-bool operator>(Triplet<XFirst, XSecond, XThird> const& x,
-               Triplet<YFirst, YSecond, YThird> const& y) {
-    return compare::Compare(x, y) > 0;
-}
-
-template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
-          typename YSecond, typename YThird>
-bool operator>=(Triplet<XFirst, XSecond, XThird> const& x,
-                Triplet<YFirst, YSecond, YThird> const& y) {
-    return compare::Compare(x, y) >= 0;
-}
-
-// -----------------------------------------------------------------------------
 
 template <typename X, typename Y>
-void Swap(X&& x  // NOLINT(cppcoreguidelines-missing-std-forward)
-          ,
-          Y&& y  // NOLINT(cppcoreguidelines-missing-std-forward)
+void utils::Swap(X&& x  // NOLINT(cppcoreguidelines-missing-std-forward)
+                 ,
+                 Y&& y  // NOLINT(cppcoreguidelines-missing-std-forward)
 ) {
     if (&x == &y) { return; }
-    auto tmp{ Move(x) };
-    x = Move(y);
-    y = Move(tmp);
+    auto tmp{ meta::Move(x) };
+    x = meta::Move(y);
+    y = meta::Move(tmp);
 }
 
-// -----------------------------------------------------------------------------
-
-namespace detail {
+namespace utils::detail {
 
 template <typename Operation, typename T0>
 constexpr decltype(auto) LeftReduce_(Operation const&, T0&& x0) {
-    return Forward<T0>(x0);
+    return meta::Forward<T0>(x0);
 }
 
 template <typename Operation, typename T0, typename T1, typename... Ts>
 constexpr decltype(auto) LeftReduce_(Operation const& opr, T0&& x0, T1&& x1,
                                      Ts&&... xs) {
-    return LeftReduce_(opr(Forward<T0>(x0), Forward<T1>(x1)),
-                       Forward<Ts>(xs)...);
+    return LeftReduce_(opr(meta::Forward<T0>(x0), meta::Forward<T1>(x1)),
+                       meta::Forward<Ts>(xs)...);
 }
 
-}  // namespace detail
+}  // namespace utils::detail
 
 template <typename Operation, typename T0, typename... Ts>
-constexpr decltype(auto) LeftReduce(Operation const& opr, T0&& x0, Ts&&... xs) {
-    return detail::LeftReduce_(opr, Forward<T0>(x0), Forward<Ts>(xs)...);
+constexpr decltype(auto) utils::LeftReduce(Operation const& opr, T0&& x0,
+                                           Ts&&... xs) {
+    return detail::LeftReduce_(opr, meta::Forward<T0>(x0),
+                               meta::Forward<Ts>(xs)...);
 }
 
-// -----------------------------------------------------------------------------
-
-namespace detail {
+namespace utils::detail {
 
 template <typename Operation, typename T0>
 static constexpr decltype(auto) RightReduce_(Operation const&, T0&& x0) {
-    return Forward<T0>(x0);
+    return meta::Forward<T0>(x0);
 }
 
 template <typename Operation, typename T0, typename T1, typename... Ts>
 static constexpr decltype(auto) RightReduce_(Operation const& opr, T0&& x0,
                                              T1&& x1, Ts&&... xs) {
-    return opr(Forward<T0>(x0),
-               RightReduce_(opr, Forward<T1>(x1), Forward<Ts>(xs)...));
+    return opr(meta::Forward<T0>(x0), RightReduce_(opr, meta::Forward<T1>(x1),
+                                                   meta::Forward<Ts>(xs)...));
 }
 
-}  // namespace detail
+}  // namespace utils::detail
 
 template <typename Operation, typename T0, typename... Ts>
-constexpr decltype(auto) RightReduce(Operation const& opr, T0&& x0,
-                                     Ts&&... xs) {
-    return detail::RightReduce_(opr, Forward<T0>(x0), Forward<Ts>(xs)...);
+constexpr decltype(auto) utils::RightReduce(Operation const& opr, T0&& x0,
+                                            Ts&&... xs) {
+    return detail::RightReduce_(opr, meta::Forward<T0>(x0),
+                                meta::Forward<Ts>(xs)...);
 }
 
-// -----------------------------------------------------------------------------
-
-namespace detail {
+namespace utils::detail {
 
 template <size_t Beg, size_t End>
 struct TreeReduce_ {
@@ -197,8 +196,8 @@ struct TreeReduce_ {
     static constexpr decltype(auto) F(Operation const& opr, Ts&&... xs) {
         constexpr size_t Mid{ (Beg + End) / 2 };
 
-        return opr(TreeReduce_<Beg, Mid>::F(opr, Forward<Ts>(xs)...),
-                   TreeReduce_<Mid, End>::F(opr, Forward<Ts>(xs)...));
+        return opr(TreeReduce_<Beg, Mid>::F(opr, meta::Forward<Ts>(xs)...),
+                   TreeReduce_<Mid, End>::F(opr, meta::Forward<Ts>(xs)...));
     }
 };
 
@@ -206,79 +205,73 @@ template <size_t Beg>
 struct TreeReduce_<Beg, Beg + 1> {
     template <typename Operation, typename... Ts>
     static constexpr decltype(auto) F(Operation const&, Ts&&... xs) {
-        return GetNth<Beg>(Forward<Ts>(xs)...);
+        return meta::GetNth<Beg>(meta::Forward<Ts>(xs)...);
     }
 };
 
-}  // namespace detail
+}  // namespace utils::detail
 
 template <typename Operation, typename T0, typename... Ts>
-constexpr decltype(auto) TreeReduce(Operation const& opr, T0&& x0, Ts&&... xs) {
-    return detail::TreeReduce_<0, 1 + sizeof...(xs)>::F(opr, Forward<T0>(x0),
-                                                        Forward<Ts>(xs)...);
+constexpr decltype(auto) utils::TreeReduce(Operation const& opr, T0&& x0,
+                                           Ts&&... xs) {
+    return detail::TreeReduce_<0, 1 + sizeof...(xs)>::F(
+        opr, meta::Forward<T0>(x0), meta::Forward<Ts>(xs)...);
 }
 
-// -----------------------------------------------------------------------------
-
-namespace detail {
+namespace utils::detail {
 
 struct MinOperation_ {
     template <typename X, typename Y>
     constexpr decltype(auto) operator()(X&& x, Y&& y) const {
-        return y < x ? Forward<Y>(y) : Forward<X>(x);
+        return y < x ? meta::Forward<Y>(y) : meta::Forward<X>(x);
     }
 };
 
-}  // namespace detail
+}  // namespace utils::detail
 
 template <typename T0, typename... Ts>
-constexpr decltype(auto) Min(T0&& x0, Ts&&... xs) {
-    return TreeReduce(detail::MinOperation_{}, Forward<T0>(x0),
-                      Forward<Ts>(xs)...);
+constexpr decltype(auto) utils::Min(T0&& x0, Ts&&... xs) {
+    return TreeReduce(detail::MinOperation_{}, meta::Forward<T0>(x0),
+                      meta::Forward<Ts>(xs)...);
 }
 
-// -----------------------------------------------------------------------------
-
-namespace detail {
+namespace utils::detail {
 
 struct MaxOperation_ {
     template <typename X, typename Y>
     constexpr decltype(auto) operator()(X&& x, Y&& y) const {
-        return x < y ? Forward<Y>(y) : Forward<X>(x);
+        return x < y ? meta::Forward<Y>(y) : meta::Forward<X>(x);
     }
 };
 
-}  // namespace detail
+}  // namespace utils::detail
 
 template <typename T0, typename... Ts>
-constexpr decltype(auto) Max(T0&& x0, Ts&&... xs) {
-    return TreeReduce(detail::MaxOperation_{}, Forward<T0>(x0),
-                      Forward<Ts>(xs)...);
+constexpr decltype(auto) utils::Max(T0&& x0, Ts&&... xs) {
+    return TreeReduce(detail::MaxOperation_{}, meta::Forward<T0>(x0),
+                      meta::Forward<Ts>(xs)...);
 }
 
-// -----------------------------------------------------------------------------
-
-namespace detail {
+namespace utils::detail {
 
 struct SumOperation_ {
     template <typename X, typename Y>
     constexpr decltype(auto) operator()(X&& x, Y&& y) const {
-        return Forward<X>(x) + Forward<Y>(y);
+        return meta::Forward<X>(x) + meta::Forward<Y>(y);
     }
 };
 
-}  // namespace detail
+}  // namespace utils::detail
 
 template <typename T0, typename... Ts>
-constexpr decltype(auto) Sum(T0&& x0, Ts&&... xs) {
-    return TreeReduce(detail::SumOperation_{}, Forward<T0>(x0),
-                      Forward<Ts>(xs)...);
+constexpr decltype(auto) utils::Sum(T0&& x0, Ts&&... xs) {
+    return TreeReduce(detail::SumOperation_{}, meta::Forward<T0>(x0),
+                      meta::Forward<Ts>(xs)...);
 }
 
-// -----------------------------------------------------------------------------
-
 template <typename Node, typename GetLinkFunc>
-Pair<Node*, size_t> GetMostLink(Node* n, GetLinkFunc const& get_link) {
+utils::Pair<Node*, size_t> utils::GetMostLink(Node* n,
+                                              GetLinkFunc const& get_link) {
     if (n == nullptr) { return { nullptr, 0 }; }
 
     for (size_t i{ 1 };; ++i) {
@@ -288,9 +281,7 @@ Pair<Node*, size_t> GetMostLink(Node* n, GetLinkFunc const& get_link) {
     }
 }
 
-// -----------------------------------------------------------------------------
-
-inline int MemCompare(void const* a, void const* b, size_t size) {
+inline int utils::MemCompare(void const* a, void const* b, size_t size) {
     if (a == b || size == 0) { return 0; }
 
     ZETA_Core_DebugAssert(a != nullptr);
@@ -299,7 +290,7 @@ inline int MemCompare(void const* a, void const* b, size_t size) {
     return __builtin_memcmp(a, b, size);
 }
 
-inline void MemSwap(void* x_, void* y_, size_t size) {
+inline void utils::MemSwap(void* x_, void* y_, size_t size) {
     auto* x{ static_cast<char*>(x_) };
     auto* y{ static_cast<char*>(y_) };
 
@@ -311,7 +302,7 @@ inline void MemSwap(void* x_, void* y_, size_t size) {
     for (size_t i{ 0 }; i < size; ++i) { Swap(x[i], y[i]); }
 }
 
-inline void MemCopy(void* dst, void const* src, size_t size) {
+inline void utils::MemCopy(void* dst, void const* src, size_t size) {
     if (dst == src || size == 0) { return; }
 
     ZETA_Core_DebugAssert(dst != nullptr);
@@ -320,7 +311,7 @@ inline void MemCopy(void* dst, void const* src, size_t size) {
     __builtin_memcpy(dst, src, size);
 }
 
-inline void MemMove(void* dst, void const* src, size_t size) {
+inline void utils::MemMove(void* dst, void const* src, size_t size) {
     if (dst == src || size == 0) { return; }
 
     ZETA_Core_DebugAssert(dst != nullptr);
@@ -329,7 +320,7 @@ inline void MemMove(void* dst, void const* src, size_t size) {
     __builtin_memmove(dst, src, size);
 }
 
-inline void* MemRotate(void* data_, size_t l_size, size_t r_size) {
+inline void* utils::MemRotate(void* data_, size_t l_size, size_t r_size) {
     auto* data{ static_cast<char*>(data_) };
 
     if (l_size == 0 && r_size == 0) { return data; }
@@ -352,27 +343,8 @@ inline void* MemRotate(void* data_, size_t l_size, size_t r_size) {
     return ret;
 }
 
-inline unsigned long long MemHash(void const* data_, size_t size,
-                                  unsigned long long salt) {
-    constexpr unsigned long long fnv_offset_basis{ 14695981039346656037ULL };
-    constexpr unsigned long long fnv_prime{ 1099511628211ULL };
-
-    auto const* data{ static_cast<unsigned char const*>(data_) };
-    ZETA_Core_DebugAssert(data != nullptr);
-
-    unsigned long long ret{ fnv_offset_basis };
-
-    for (size_t i{ 0 }; i < size; ++i) {
-        ret = (ret * fnv_prime) ^ data[i] + salt;
-    }
-
-    return ret;
-}
-
-// -----------------------------------------------------------------------------
-
-inline int ElemCompare(void const* a_, void const* b_, size_t width,
-                       size_t a_stride, size_t b_stride, size_t cnt) {
+inline int utils::ElemCompare(void const* a_, void const* b_, size_t width,
+                              size_t a_stride, size_t b_stride, size_t cnt) {
     auto const* a{ static_cast<char const*>(a_) };
     auto const* b{ static_cast<char const*>(b_) };
 
@@ -399,8 +371,8 @@ inline int ElemCompare(void const* a_, void const* b_, size_t width,
     return 0;
 }
 
-inline void ElemCopy(void* dst_, void const* src_, size_t width,
-                     size_t dst_stride, size_t src_stride, size_t cnt) {
+inline void utils::ElemCopy(void* dst_, void const* src_, size_t width,
+                            size_t dst_stride, size_t src_stride, size_t cnt) {
     auto* dst{ static_cast<char*>(dst_) };
     auto const* src{ static_cast<char const*>(src_) };
 
@@ -423,48 +395,25 @@ inline void ElemCopy(void* dst_, void const* src_, size_t width,
     }
 }
 
-inline unsigned long long ElemHash(void const* data_, size_t width,
-                                   size_t stride, size_t cnt,
-                                   unsigned long long salt) {
-    auto const* data{ static_cast<unsigned char const*>(data_) };
-
-    ZETA_Core_DebugAssert(data != nullptr);
-    ZETA_Core_DebugAssert(0 < width);
-    ZETA_Core_DebugAssert(0 < stride);
-    ZETA_Core_DebugAssert(width <= stride);
-
-    unsigned long long ret{ 14695981039346656037ULL };
-
-    for (size_t i{ 0 }; i < cnt; ++i, data += stride) {
-        for (size_t j{ 0 }; j < width; ++j) {
-            ret = (ret * 1099511628211ULL) ^ data[j] + salt;
-        }
-    }
-
-    return ret;
-}
-
-inline void ElemMove(void* dst_, void const* src_, size_t width,
-                     size_t dst_stride, size_t src_stride, size_t cnt) {
+inline void utils::ElemMove(void* dst_, void const* src_, size_t width,
+                            size_t dst_stride, size_t src_stride, size_t cnt) {
     auto* dst{ static_cast<char*>(dst_) };
     auto const* src{ static_cast<char const*>(src_) };
 
-    ZETA_Core_DebugAssert(width <= dst_stride);
-    ZETA_Core_DebugAssert(width <= src_stride);
-    ZETA_Core_DebugAssert(0 < dst_stride);
-    ZETA_Core_DebugAssert(0 < src_stride);
+    ZETA_Core_DebugAssert(dst_stride == 0 || width <= dst_stride);
+    ZETA_Core_DebugAssert(src_stride == 0 || width <= src_stride);
+    ZETA_Core_DebugAssert((dst_stride == 0) == (src_stride == 0));
 
-    if (cnt == 0) { return; }
+    if (width == 0 || cnt == 0) { return; }
 
     ZETA_Core_DebugAssert(dst != nullptr);
     ZETA_Core_DebugAssert(src != nullptr);
 
-    if (width == dst_stride && width == src_stride) {
+    if ((width == dst_stride && width == src_stride) ||
+        (dst_stride == 0 && src_stride == 0) || cnt == 1) {
         MemMove(dst, src, width * cnt);
         return;
     }
-
-    if (dst == src && dst_stride == src_stride) { return; }
 
     char* dst_end{ dst + dst_stride * (cnt - 1) + width };
     char const* src_end{ src + src_stride * (cnt - 1) + width };
@@ -495,13 +444,10 @@ inline void ElemMove(void* dst_, void const* src_, size_t width,
 
     ZETA_Core_DebugAssert(false);
 
-    size_t buffer_capacity{ static_cast<size_t>(FloorLog2(cnt)) + 4 };
+    constexpr size_t buffer_capacity{ integral::WidthOf<size_t> + 4 };
 
-    auto* begs{ static_cast<size_t*>(__builtin_alloca_with_align(
-        sizeof(size_t) * buffer_capacity, __CHAR_BIT__ * alignof(size_t))) };
-
-    auto* cnts{ static_cast<size_t*>(__builtin_alloca_with_align(
-        sizeof(size_t) * buffer_capacity, __CHAR_BIT__ * alignof(size_t))) };
+    size_t begs[buffer_capacity];
+    size_t cnts[buffer_capacity];
 
     size_t buffer_i{ 0 };
 
@@ -554,9 +500,13 @@ inline void ElemMove(void* dst_, void const* src_, size_t width,
     }
 }
 
-inline void* ElemRotate(void* data_, size_t width, size_t stride, size_t l_size,
-                        size_t r_size) {
+inline void* utils::ElemRotate(void* data_, size_t width, size_t stride,
+                               size_t l_size, size_t r_size) {
     auto* data{ static_cast<char*>(data_) };
+
+    if (width == 0 || stride == 0) { return data; }
+
+    ZETA_Core_DebugAssert(width <= stride);
 
     if (width == stride) {
         return MemRotate(data, stride * l_size, stride * r_size);
@@ -584,10 +534,8 @@ inline void* ElemRotate(void* data_, size_t width, size_t stride, size_t l_size,
     return ret;
 }
 
-// -----------------------------------------------------------------------------
-
 template <typename XIterator, typename YIterator>
-int SeqCompare(XIterator x, YIterator y, size_t size) {
+int utils::SeqCompare(XIterator x, YIterator y, size_t size) {
     if (x == y) { return 0; }
 
     for (size_t i{ 0 }; i < size; ++i, ++x, ++y) {
@@ -599,14 +547,14 @@ int SeqCompare(XIterator x, YIterator y, size_t size) {
 }
 
 template <typename DstIterator, typename SrcIterator>
-void SeqCopy(DstIterator dst, SrcIterator src, size_t size) {
+void utils::SeqCopy(DstIterator dst, SrcIterator src, size_t size) {
     if (dst == src) { return; }
 
     for (size_t i{ 0 }; i < size; ++i, ++dst, ++src) { *dst = *src; }
 }
 
 template <typename DstIterator, typename SrcIterator>
-void SeqMove(DstIterator dst, SrcIterator src, size_t size) {
+void utils::SeqMove(DstIterator dst, SrcIterator src, size_t size) {
     if (dst == src) { return; }
 
     if (dst < src) {
@@ -627,7 +575,7 @@ void SeqMove(DstIterator dst, SrcIterator src, size_t size) {
 }
 
 template <typename Iterator>
-Iterator SeqRotate(Iterator beg, Iterator mid, Iterator end) {
+Iterator utils::SeqRotate(Iterator beg, Iterator mid, Iterator end) {
     // TODO
 
     ZETA_Core_Unused(beg);
@@ -635,23 +583,20 @@ Iterator SeqRotate(Iterator beg, Iterator mid, Iterator end) {
     ZETA_Core_Unused(end);
 }
 
-// -----------------------------------------------------------------------------
-
 template <typename UnsignedIntegral>
-constexpr UnsignedIntegral UIntCeilDiv(UnsignedIntegral x, UnsignedIntegral y) {
-    ZETA_Core_StaticAssert(IsUnsignedIntegral<UnsignedIntegral>);
+constexpr UnsignedIntegral utils::UIntCeilDiv(UnsignedIntegral x,
+                                              UnsignedIntegral y) {
+    ZETA_Core_StaticAssert(integral::IsUnsigned<UnsignedIntegral>);
 
     ZETA_Core_DebugAssert(0 < y);
 
     return x == 0 ? 0 : (x - 1) / y + 1;
 }
 
-// -----------------------------------------------------------------------------
-
 template <typename UnsignedIntegral>
-constexpr UnsignedIntegral UIntAlignDown(UnsignedIntegral val,
-                                         UnsignedIntegral align) {
-    ZETA_Core_StaticAssert(IsUnsignedIntegral<UnsignedIntegral>);
+constexpr UnsignedIntegral utils::UIntAlignDown(UnsignedIntegral val,
+                                                UnsignedIntegral align) {
+    ZETA_Core_StaticAssert(integral::IsUnsigned<UnsignedIntegral>);
 
     ZETA_Core_DebugAssert(0 < align);
 
@@ -659,18 +604,17 @@ constexpr UnsignedIntegral UIntAlignDown(UnsignedIntegral val,
 }
 
 template <typename UnsignedIntegral>
-constexpr UnsignedIntegral UIntAlignUp(UnsignedIntegral val,
-                                       UnsignedIntegral align) {
-    ZETA_Core_StaticAssert(IsUnsignedIntegral<UnsignedIntegral>);
+constexpr UnsignedIntegral utils::UIntAlignUp(UnsignedIntegral val,
+                                              UnsignedIntegral align) {
+    ZETA_Core_StaticAssert(integral::IsUnsigned<UnsignedIntegral>);
 
     ZETA_Core_DebugAssert(0 < align);
 
     return val == 0 ? 0 : val - 1 - (val - 1) % align + align;
 }
 
-// -----------------------------------------------------------------------------
-
-constexpr unsigned long long Power(unsigned long long base, unsigned exp) {
+constexpr unsigned long long utils::Power(unsigned long long base,
+                                          unsigned exp) {
     if (base == 0) { return 0; }
 
     if (__builtin_popcountll(base) == 1) {
@@ -687,58 +631,86 @@ constexpr unsigned long long Power(unsigned long long base, unsigned exp) {
     return ret;
 }
 
-// -----------------------------------------------------------------------------
-
-constexpr unsigned FloorLog2(unsigned long long x) {
+constexpr unsigned utils::FloorLog2(unsigned long long x) {
     ZETA_Core_DebugAssert(0 < x);
     return ZETA_Core_ullong_width - 1 -
            static_cast<unsigned>(__builtin_clzll(x));
 }
 
-constexpr unsigned CeilLog2(unsigned long long x) {
+constexpr unsigned utils::CeilLog2(unsigned long long x) {
     return x <= 1 ? 0
                   : ZETA_Core_ullong_width -
                         static_cast<unsigned>(__builtin_clzll(x - 1));
 }
 
-constexpr unsigned FloorLog(unsigned long long x, unsigned base) {
+constexpr unsigned utils::FloorLog(unsigned long long x, unsigned base) {
+    ZETA_Core_DebugAssert(0 < x);
     ZETA_Core_DebugAssert(1 < base);
 
-    if (base == 2) { return FloorLog2(x); }
+    unsigned approx_ans{ FloorLog2(x) / CeilLog2(base) };
 
-    unsigned ceil_log2_base{ CeilLog2(base) };
+    if ((base & (base - 1)) == 0) { return approx_ans; }
+
+    if (approx_ans <= 4) {
+        unsigned ret{ 0 };
+
+        for (; base <= x; x /= base) { ++ret; }
+
+        return ret;
+    }
+
+    unsigned max_k{ FloorLog2(approx_ans) };
+
+    /*
+
+    0   1
+    1   2
+    2   4
+
+    k   base^(2^k)
+
+    max_k   base^(2^max_k) <= x
+
+    2^max_k <= approx_ans
+
+    max_k <= FloorLog2(approx_ans)
+
+    */
+
+    unsigned long long bases[ZETA_Core_ullong_width];
+
+    bases[0] = base;
+
+    for (unsigned k{ 1 }; k <= max_k; ++k) {
+        bases[k] = bases[k - 1] * bases[k - 1];
+    }
 
     unsigned ret{ 0 };
 
-    for (;;) {
-        unsigned cur_ret{ FloorLog2(x) / ceil_log2_base };
-
-        ret += cur_ret;
-
-        if (cur_ret <= 1) {
-            if (cur_ret == 1) { x /= base; }
-            break;
-        }
-
-        x /= Power(base, cur_ret);
+    while (bases[max_k] <= x) {
+        x /= bases[max_k];
+        ++ret;
     }
 
-    for (; base <= x; x /= base) { ++ret; }
+    for (unsigned k{ max_k }; 0 < k; ret *= 2) {
+        --k;
+
+        if (bases[k] <= x) {
+            x /= bases[k];
+            ++ret;
+        }
+    }
 
     return ret;
 }
 
-constexpr unsigned CeilLog(unsigned long long x, unsigned base) {
+constexpr unsigned utils::CeilLog(unsigned long long x, unsigned base) {
     ZETA_Core_DebugAssert(1 < base);
-
-    if (base == 2) { return CeilLog2(x); }
 
     return x <= 1 ? 0 : FloorLog(x - 1, base) + 1;
 }
 
-// -----------------------------------------------------------------------------
-
-constexpr int FindPrevOne(unsigned long long val, int pos) {
+constexpr int utils::FindPrevOne(unsigned long long val, int pos) {
     ZETA_Core_DebugAssert(-1 <= pos);
     ZETA_Core_DebugAssert(pos <= ZETA_Core_ullong_width);
 
@@ -749,7 +721,7 @@ constexpr int FindPrevOne(unsigned long long val, int pos) {
     return val == 0 ? -1 : ZETA_Core_ullong_width - 1 - __builtin_clzll(val);
 }
 
-constexpr int FindNextOne(unsigned long long val, int pos) {
+constexpr int utils::FindNextOne(unsigned long long val, int pos) {
     ZETA_Core_DebugAssert(-1 <= pos);
     ZETA_Core_DebugAssert(pos <= ZETA_Core_ullong_width);
 
@@ -760,9 +732,8 @@ constexpr int FindNextOne(unsigned long long val, int pos) {
     return val == 0 ? -1 : __builtin_ctzll(val);
 }
 
-// -----------------------------------------------------------------------------
-
-inline unsigned long long GCD(unsigned long long x, unsigned long long y) {
+inline unsigned long long utils::GCD(unsigned long long x,
+                                     unsigned long long y) {
     if (x == 0) { return Max(1ULL, y); }
 
     for (;;) {
@@ -776,30 +747,29 @@ inline unsigned long long GCD(unsigned long long x, unsigned long long y) {
     }
 }
 
-inline unsigned long long LCM(unsigned long long x, unsigned long long y) {
+inline unsigned long long utils::LCM(unsigned long long x,
+                                     unsigned long long y) {
     unsigned long long gcd{ GCD(x, y) };
     return x / gcd * y;
 }
 
-// -----------------------------------------------------------------------------
-
 template <typename T>
-T& GetInstRef(T* inst) {
+T& utils::GetInstRef(T* inst) {
     return *inst;
 }
 
 template <typename T>
-T& GetInstRef(T& inst) {
+T& utils::GetInstRef(T& inst) {
     return inst;
 }
 
 template <typename T>
-T* GetInstPtr(T* inst) {
+T* utils::GetInstPtr(T* inst) {
     return inst;
 }
 
 template <typename T>
-T* GetInstPtr(T& inst) {
+T* utils::GetInstPtr(T& inst) {
     return &inst;
 }
 

@@ -4,7 +4,6 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/seq_cntr.hpp>
-#include <zeta/core/type_wrapper.hpp>
 #include <zeta/core/value_wrapper.hpp>
 
 namespace zeta::core::debug_deque {
@@ -103,108 +102,112 @@ void CursorAdvanceR(Cntr const* cntr, Cursor* cursor, size_t step);
 
 }  // namespace ops
 
-struct SeqCntrView {
-    static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag(
-        type_wrapper::TypeWrapper<SeqCntrView*>);
+}  // namespace zeta::core::debug_deque
 
-    static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag(
-        type_wrapper::TypeWrapper<SeqCntrView const*>);
+namespace zeta::core {
 
-    static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag(
-        type_wrapper::TypeWrapper<SeqCntrView const*>);
+template <>
+struct seq_cntr::Traits<debug_deque::Cntr const, void> {
+    static void* GetReferedInst(debug_deque::Cntr const* cntr);
+
+    static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
+
+    static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();
 
     static constexpr seq_cntr::AbilityFlag GetDynamicEnabledAbilityFlag(
-        SeqCntrView const*);
+        debug_deque::Cntr const* cntr);
 
     static constexpr seq_cntr::AbilityFlag GetDynamicDisabledAbilityFlag(
-        SeqCntrView const*);
+        debug_deque::Cntr const* cntr);
 
-    static constexpr size_t GetCursorSize(SeqCntrView const*);
+    static size_t GetCursorSize(debug_deque::Cntr const* cntr);
 
-    static size_t GetWidth(SeqCntrView const* seq_cntr_view);
+    static size_t GetWidth(debug_deque::Cntr const* cntr);
 
-    static size_t GetSride(SeqCntrView const* seq_cntr_view);
+    static size_t GetSize(debug_deque::Cntr const* cntr);
 
-    static size_t GetOffset(SeqCntrView const* seq_cntr_view);
+    static size_t GetCapacity(debug_deque::Cntr const* cntr);
 
-    static size_t GetSize(SeqCntrView const* seq_cntr_view);
+    static void GetLBCursor(debug_deque::Cntr const* cntr, void* dst_cursor);
 
-    static size_t GetCapacity(SeqCntrView const* seq_cntr_view);
+    static void GetRBCursor(debug_deque::Cntr const* cntr, void* dst_cursor);
 
-    static void GetLBCursor(SeqCntrView const* seq_cntr_view, void* dst_cursor);
-
-    static void GetRBCursor(SeqCntrView const* seq_cntr_view, void* dst_cursor);
-
-    static void* PeekL(SeqCntrView const* seq_cntr_view, bool lazy_cpy_elem,
+    static void* PeekL(debug_deque::Cntr const* cntr, bool lazy_copy_elem,
                        void* dst_cursor, void* dst_elem);
 
-    static void* PeekR(SeqCntrView const* seq_cntr_view, bool lazy_cpy_elem,
+    static void* PeekR(debug_deque::Cntr const* cntr, bool lazy_copy_elem,
                        void* dst_cursor, void* dst_elem);
 
-    static void* Access(SeqCntrView const* seq_cntr_view, size_t idx,
+    static void* Access(debug_deque::Cntr const* cntr, size_t idx,
                         bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
 
-    static void* Derefer(SeqCntrView const* seq_cntr_view,
-                         void const* pos_cursor, bool lazy_copy_elem,
-                         void* dst_elem);
+    static void* Derefer(debug_deque::Cntr const* cntr, void const* pos_cursor,
+                         bool lazy_copy_elem, void* dst_elem);
 
     template <typename Reader>
-    static void Read(SeqCntrView const* seq_cntr_view, void const* pos_cursor,
+    static void Read(debug_deque::Cntr const* cntr, void const* pos_cursor,
                      size_t cnt, Reader&& reader, void* dst_cursor);
 
-    template <typename Writer>
-    static void Write(SeqCntrView* seq_cntr_view, void* pos_cursor, size_t cnt,
-                      Writer&& writer, void* dst_cursor);
-
-    template <typename ReaderWriter>
-    static void ReadWrite(SeqCntrView* seq_cntr_view, void* pos_cursor,
-                          size_t cnt, ReaderWriter&& reader_writer,
-                          void* dst_cursor);
-
-    template <typename Writer>
-    static void* PushL(SeqCntrView* seq_cntr_view, size_t cnt, Writer&& writer,
-                       void* dst_cursor);
-
-    template <typename Writer>
-    static void* PushR(SeqCntrView* seq_cntr_view, size_t cnt, Writer&& writer,
-                       void* dst_cursor);
-
-    template <typename Writer>
-    static void* Insert(SeqCntrView* seq_cntr_view, void* pos_cursor,
-                        size_t cnt, Writer&& writer, void* dst_cursor);
-
-    static void PopL(SeqCntrView* seq_cntr_view, size_t cnt);
-
-    static void PopR(SeqCntrView* seq_cntr_view, size_t cnt);
-
-    static void Erase(SeqCntrView* seq_cntr_view, void* pos_cursor, size_t cnt);
-
-    static void EraseAll(SeqCntrView* seq_cntr_view);
-
-    static void CopyCursor(SeqCntrView const* seq_cntr_view,
+    static void CopyCursor(debug_deque::Cntr const* cntr,
                            void const* src_cursor, void* dst_cursor);
 
-    static bool AreEqualCursor(SeqCntrView const* seq_cntr_view,
+    static bool AreEqualCursor(debug_deque::Cntr const* cntr,
                                void const* cursor_a, void const* cursor_b);
 
-    static int CompareCursor(SeqCntrView const* seq_cntr_view,
+    static int CompareCursor(debug_deque::Cntr const* cntr,
                              void const* cursor_a, void const* cursor_b);
 
-    static size_t GetCursorDist(SeqCntrView const* seq_cntr_view,
+    static size_t GetCursorDist(debug_deque::Cntr const* cntr,
                                 void const* cursor_a, void const* cursor_b);
 
-    static size_t GetCursorIdx(SeqCntrView const* seq_cntr_view,
+    static size_t GetCursorIdx(debug_deque::Cntr const* cntr,
                                void const* cursor);
 
-    static void CursorStepL(SeqCntrView const* seq_cntr_view, void* cursor);
+    static void CursorStepL(debug_deque::Cntr const* cntr, void* cursor);
 
-    static void CursorStepR(SeqCntrView const* seq_cntr_view, void* cursor);
+    static void CursorStepR(debug_deque::Cntr const* cntr, void* cursor);
 
-    static void CursorAdvanceL(SeqCntrView const* seq_cntr_view, void* cursor,
+    static void CursorAdvanceL(debug_deque::Cntr const* cntr, void* cursor,
                                size_t step);
 
-    static void CursorAdvanceR(SeqCntrView const* seq_cntr_view, void* cursor,
+    static void CursorAdvanceR(debug_deque::Cntr const* cntr, void* cursor,
                                size_t step);
 };
 
-}  // namespace zeta::core::debug_deque
+template <>
+struct seq_cntr::Traits<debug_deque::Cntr, void>
+    : public seq_cntr::Traits<debug_deque::Cntr const, void> {
+    static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
+
+    static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();
+
+    template <typename Writer>
+    static void Write(debug_deque::Cntr* cntr, void* pos_cursor, size_t cnt,
+                      Writer&& writer, void* dst_cursor);
+
+    template <typename ReaderWriter>
+    static void ReadWrite(debug_deque::Cntr* cntr, void* pos_cursor, size_t cnt,
+                          ReaderWriter&& reader_writer, void* dst_cursor);
+
+    template <typename Writer>
+    static void* PushL(debug_deque::Cntr* cntr, size_t cnt, Writer&& writer,
+                       void* dst_cursor);
+
+    template <typename Writer>
+    static void* PushR(debug_deque::Cntr* cntr, size_t cnt, Writer&& writer,
+                       void* dst_cursor);
+
+    template <typename Writer>
+    static void* Insert(debug_deque::Cntr* cntr, void* pos_cursor, size_t cnt,
+                        Writer&& writer, void* dst_cursor);
+
+    static void PopL(debug_deque::Cntr* cntr, size_t cnt);
+
+    static void PopR(debug_deque::Cntr* cntr, size_t cnt);
+
+    static void Erase(debug_deque::Cntr* cntr, void* pos_cursor, size_t cnt);
+
+    static void EraseAll(debug_deque::Cntr* cntr);
+};
+
+}  // namespace zeta::core

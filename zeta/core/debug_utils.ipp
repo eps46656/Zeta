@@ -8,8 +8,6 @@
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
 
-#pragma push_macro("Format")
-
 #define ZETA_Core_PrintVar(var)                                      \
     zeta::core::debug_utils::PrintVar(std::cout, __FILE__, __LINE__, \
                                       __PRETTY_FUNCTION__,           \
@@ -52,6 +50,7 @@
     ZETA_Core_WhenEnableDebug(     \
         ZETA_Core_DebugAssert_(ZETA_Core_TmpName, (__VA_ARGS__)))
 
+#pragma push_macro("Format")
 #define Format(left_right, width) \
     left_right << std::setfill(' ') << std::setw(width)
 
@@ -67,30 +66,35 @@ std::string GetTypeStr() {
     return func_name.substr(l_size, func_name.size() - r_size - l_size);
 }
 
+template <>
+struct VarPrinter<bool> {
+    static std::ostream& Print(std::ostream& os, bool value) {
+        os << Format(std::right, dec_width) << (value ? "true" : "false");
+        return os;
+    }
+};
+
 template <typename T>
-struct VarPrinter<T, EnableIf<(IsIntegral<T> || IsPointer<T>), void>> {
+struct VarPrinter<
+    T, meta::EnableIf<(integral::IsIntegral<T> || meta::IsPointer<T>), void>> {
     static constexpr auto PreProcess_(T const& value) {
-        if constexpr (IsPointer<T>) {
+        if constexpr (meta::IsPointer<T>) {
             return reinterpret_cast<uintptr_t>(value);
-        } else if constexpr (IsUnsignedIntegral<T>) {
+        } else if constexpr (integral::IsUnsigned<T>) {
             return static_cast<unsigned long long>(value);
-        } else if constexpr (IsSignedIntegral<T>) {
+        } else if constexpr (integral::IsSigned<T>) {
             return static_cast<long long>(value);
         }
     }
 
     static std::ostream& Print(std::ostream& os, T const& value) {
-        if constexpr (IsAnyOf<T, bool>) {
-            os << Format(std::right, dec_width) << (value ? "true" : "false");
-        } else {
-            auto proc_value{ PreProcess_(value) };
+        auto proc_value{ PreProcess_(value) };
 
-            os << Format(std::right, dec_width) << std::dec << proc_value << 'd'
-               << space_str << Format(std::right, hex_width) << std::hex
-               << std::uppercase << proc_value << 'h';
-        }
+        os << Format(std::right, dec_width) << std::dec << proc_value << 'd'
+           << space_str << Format(std::right, hex_width) << std::hex
+           << std::uppercase << proc_value << 'h';
 
-        if constexpr (IsAnyOf<T, char*, char const*>) {
+        if constexpr (meta::IsAnyOf<T, char*, char const*>) {
             os << space_str << "\"" << value << "\"";
         }
 
@@ -130,7 +134,13 @@ struct VarPrinter<char const[N]> {
     }
 };
 
-// -----------------------------------------------------------------------------
+template <>
+struct VarPrinter<double> {
+    static std::ostream& Print(std::ostream& os, double value) {
+        os << space_str << "\"" << value << "\"";
+        return os;
+    }
+};
 
 inline std::ostream& PrintPos(std::ostream& os, char const* file, int line,
                               char const* func) {

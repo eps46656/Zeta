@@ -2,26 +2,25 @@
 
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/assoc_cntr.hpp>
-#include <zeta/core/bin_tree_node_tpl.hpp>
+#include <zeta/core/basic_bin_tree_node.hpp>
+#include <zeta/core/basic_llist_node.hpp>
 #include <zeta/core/debug_utils.hpp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/generic_hash_table.hpp>
-#include <zeta/core/llist_node_tpl.hpp>
-#include <zeta/core/mem_check_utils.hpp>
+#include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/value_wrapper.hpp>
 
 #pragma push_macro("CntrTplDeclParamList")
+#define CntrTplDeclParamList                           \
+    typename ElemHashLike_, typename ElemCompareLike_, \
+        typename NodeAllocator_, typename TableNodeAllocatorLike_
+
 #pragma push_macro("CntrTplParamList")
-#pragma push_macro("CntrTplArgList")
-
-#define CntrTplDeclParamList                                                 \
-    typename ElemHashLike, typename ElemCompareLike, typename NodeAllocator, \
-        typename TableNodeAllocatorLike
-
 #define CntrTplParamList                                                     \
     typename ElemHashLike, typename ElemCompareLike, typename NodeAllocator, \
         typename TableNodeAllocatorLike
 
+#pragma push_macro("CntrTplArgList")
 #define CntrTplArgList \
     ElemHashLike, ElemCompareLike, NodeAllocator, TableNodeAllocatorLike
 
@@ -29,8 +28,8 @@ namespace zeta::core::dynamic_hash_table {
 
 ZETA_Core_StaticAssert(alignof(void*) % 4 == 0);
 
-using LListNode =
-    LListNodeTpl<void*, value_wrapper::FalseType, value_wrapper::FalseType>;
+using LListNode = basic_llist_node::Node<void*, value_wrapper::FalseType,
+                                         value_wrapper::FalseType>;
 
 struct Node;
 
@@ -47,8 +46,6 @@ struct Cntr;
 
 template <CntrTplDeclParamList>
 struct AssocCntrView;
-
-// -----------------------------------------------------------------------------
 
 struct Node {
     ZETA_Core_DebugStructPadding;
@@ -89,6 +86,11 @@ struct Cursor {
 
 template <CntrTplDeclParamList>
 struct Cntr {
+    using ElemHashLike = ElemHashLike_;
+    using ElemCompareLike = ElemCompareLike_;
+    using NodeAllocator = NodeAllocator_;
+    using TableNodeAllocatorLike = TableNodeAllocatorLike_;
+
     size_t width;
 
     LListNode* lln;
@@ -136,39 +138,21 @@ template <CntrTplParamList>
 void GetRBCursor(Cntr<CntrTplArgList> const* cntr, Cursor* dst_cursor);
 
 template <CntrTplParamList>
-void* PeekL(Cntr<CntrTplArgList>* cntr, bool lazy_copy_elem, Cursor* dst_cursor,
-            void* dst_elem);
+void* PeekL(Cntr<CntrTplArgList> const* cntr, bool lazy_copy_elem,
+            Cursor* dst_cursor, void* dst_elem);
 
 template <CntrTplParamList>
-void const* PeekL(Cntr<CntrTplArgList> const* cntr, bool lazy_copy_elem,
-                  Cursor* dst_cursor, void* dst_elem);
+void* PeekR(Cntr<CntrTplArgList> const* cntr, bool lazy_copy_elem,
+            Cursor* dst_cursor, void* dst_elem);
 
 template <CntrTplParamList>
-void* PeekR(Cntr<CntrTplArgList>* cntr, bool lazy_copy_elem, Cursor* dst_cursor,
-            void* dst_elem);
-
-template <CntrTplParamList>
-void const* PeekR(Cntr<CntrTplArgList> const* cntr, bool lazy_copy_elem,
-                  Cursor* dst_cursor, void* dst_elem);
-
-template <CntrTplParamList>
-void* Derefer(Cntr<CntrTplArgList>* cntr, Cursor const* pos_cursor,
+void* Derefer(Cntr<CntrTplArgList> const* cntr, Cursor const* pos_cursor,
               bool lazy_copy_elem, void* dst_elem);
 
-template <CntrTplParamList>
-void const* Derefer(Cntr<CntrTplArgList> const* cntr, Cursor const* pos_cursor,
-                    bool lazy_copy_elem, void* dst_elem);
-
 template <CntrTplParamList, typename KeyHash, typename KeyElemCompare>
-void* Find(Cntr<CntrTplArgList>* cntr, void const* key, KeyHash const& key_hash,
-           KeyElemCompare const& key_elem_compare, bool lazy_copy_elem,
-           Cursor* dst_cursor, void* dst_elem);
-
-template <CntrTplParamList, typename KeyHash, typename KeyElemCompare>
-void const* Find(Cntr<CntrTplArgList> const* cntr, void const* key,
-                 KeyHash const& key_hash,
-                 KeyElemCompare const& key_elem_compare, bool lazy_copy_elem,
-                 Cursor* dst_cursor, void* dst_elem);
+void* Find(Cntr<CntrTplArgList> const* cntr, void const* key,
+           KeyHash const& key_hash, KeyElemCompare const& key_elem_compare,
+           bool lazy_copy_elem, Cursor* dst_cursor, void* dst_elem);
 
 template <CntrTplParamList>
 void* Insert(Cntr<CntrTplArgList>* cntr, void const* elem, Cursor* dst_cursor);
@@ -203,110 +187,101 @@ template <CntrTplParamList>
 unsigned long long GetEffFactor(Cntr<CntrTplArgList>* cntr);
 
 template <CntrTplParamList>
-void Sanitize(Cntr<CntrTplArgList>* cntr, MemRecorder* dst_table,
-              MemRecorder* dst_node);
-
-template <CntrTplParamList>
-AssocCntrView<CntrTplArgList>* AsAssocCntrView(Cntr<CntrTplArgList>* cntr);
+void Sanitize(Cntr<CntrTplArgList> const* cntr,
+              mem_recorder::MemRecorder* dst_table,
+              mem_recorder::MemRecorder* dst_node);
 
 }  // namespace ops
 
-template <CntrTplDeclParamList>
-struct AssocCntrView {
-    static constexpr bool IsConst(type_wrapper::TypeWrapper<AssocCntrView*>);
+}  // namespace zeta::core::dynamic_hash_table
 
-    static constexpr bool IsConst(
-        type_wrapper::TypeWrapper<AssocCntrView const*>);
+namespace zeta::core {
 
-    static constexpr assoc_cntr::AbilityFlag GetStaticEnabledAbilityFlag(
-        type_wrapper::TypeWrapper<AssocCntrView*>);
+template <CntrTplParamList>
+struct assoc_cntr::Traits<dynamic_hash_table::Cntr<CntrTplArgList> const,
+                          void> {
+    static void* GetReferedInst(
+        dynamic_hash_table::Cntr<CntrTplArgList> const* cntr);
 
-    static constexpr assoc_cntr::AbilityFlag GetStaticEnabledAbilityFlag(
-        type_wrapper::TypeWrapper<AssocCntrView const*>);
+    static constexpr assoc_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
 
-    static constexpr assoc_cntr::AbilityFlag GetStaticDisabledAbilityFlag(
-        type_wrapper::TypeWrapper<AssocCntrView*>);
-
-    static constexpr assoc_cntr::AbilityFlag GetStaticDisabledAbilityFlag(
-        type_wrapper::TypeWrapper<AssocCntrView const*>);
+    static constexpr assoc_cntr::AbilityFlag GetStaticDisabledAbilityFlag();
 
     static constexpr assoc_cntr::AbilityFlag GetDynamicEnabledAbilityFlag(
-        AssocCntrView const*);
+        dynamic_hash_table::Cntr<CntrTplArgList> const*);
 
     static constexpr assoc_cntr::AbilityFlag GetDynamicDisabledAbilityFlag(
-        AssocCntrView const*);
+        dynamic_hash_table::Cntr<CntrTplArgList> const*);
 
-    static constexpr size_t GetCursorSize(AssocCntrView const* cntr);
+    static constexpr size_t GetCursorSize(
+        dynamic_hash_table::Cntr<CntrTplArgList> const*);
 
-    static size_t GetWidth(AssocCntrView const* cntr);
+    static size_t GetWidth(dynamic_hash_table::Cntr<CntrTplArgList> const*);
 
-    static size_t GetSize(AssocCntrView const* cntr);
+    static size_t GetSize(dynamic_hash_table::Cntr<CntrTplArgList> const*);
 
-    static size_t GetCapacity(AssocCntrView const* cntr);
+    static size_t GetCapacity(dynamic_hash_table::Cntr<CntrTplArgList> const*);
 
-    static void GetLBCursor(AssocCntrView const* cntr, void* dst_cursor);
+    static void GetLBCursor(
+        dynamic_hash_table::Cntr<CntrTplArgList> const* cntr, void* dst_cursor);
 
-    static void GetRBCursor(AssocCntrView const* cntr, void* dst_cursor);
+    static void GetRBCursor(
+        dynamic_hash_table::Cntr<CntrTplArgList> const* cntr, void* dst_cursor);
 
-    static Conditional<false, void*, void*> PeekL(AssocCntrView* cntr,
-                                                  bool lazy_copy_elem,
-                                                  void* dst_cursor,
-                                                  void* dst_elem);
+    static void* PeekL(dynamic_hash_table::Cntr<CntrTplArgList> const* cntr,
+                       bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
 
-    static void const* PeekL(AssocCntrView const* cntr, bool lazy_copy_elem,
-                             void* dst_cursor, void* dst_elem);
+    static void* PeekR(dynamic_hash_table::Cntr<CntrTplArgList> const* cntr,
+                       bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
 
-    static Conditional<false, void*, void*> PeekR(AssocCntrView* cntr,
-                                                  bool lazy_copy_elem,
-                                                  void* dst_cursor,
-                                                  void* dst_elem);
-
-    static void const* PeekR(AssocCntrView const* cntr, bool lazy_copy_elem,
-                             void* dst_cursor, void* dst_elem);
-
-    static void* Derefer(AssocCntrView* cntr, void const* pos_cursor,
-                         bool lazy_copy_elem, void* dst_elem);
-
-    static void const* Derefer(AssocCntrView const* cntr,
-                               void const* pos_cursor, bool lazy_copy_elem,
-                               void* dst_elem);
+    static void* Derefer(dynamic_hash_table::Cntr<CntrTplArgList> const* cntr,
+                         void const* pos_cursor, bool lazy_copy_elem,
+                         void* dst_elem);
 
     template <typename KeyHash, typename KeyElemCompare>
-    static void* Find(AssocCntrView* cntr, void const* key,
-                      KeyHash const& key_hash,
+    static void* Find(dynamic_hash_table::Cntr<CntrTplArgList> const* cntr,
+                      void const* key, KeyHash const& key_hash,
                       KeyElemCompare const& key_elem_compare,
                       bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
 
-    template <typename KeyHash, typename KeyElemCompare>
-    static void const* Find(AssocCntrView const* cntr, void const* key,
-                            KeyHash const& key_hash,
-                            KeyElemCompare const& key_elem_compare,
-                            bool lazy_copy_elem, void* dst_cursor,
-                            void* dst_elem);
+    static void CopyCursor(dynamic_hash_table::Cntr<CntrTplArgList> const* cntr,
+                           void const* src_cursor, void* dst_cursor);
 
-    static void* Insert(AssocCntrView* cntr, void const* elem,
-                        void* dst_cursor);
+    static bool AreEqualCursor(
+        dynamic_hash_table::Cntr<CntrTplArgList> const* cntr,
+        void const* cursor_a, void const* cursor_b);
 
-    static void PopL(AssocCntrView* cntr, size_t cnt);
+    static void CursorStepL(
+        dynamic_hash_table::Cntr<CntrTplArgList> const* cntr, void* cursor);
 
-    static void PopR(AssocCntrView* cntr, size_t cnt);
-
-    static void Erase(AssocCntrView* cntr, void* pos_cursor);
-
-    static void EraseAll(AssocCntrView* cntr);
-
-    static void CopyCursor(AssocCntrView const* cntr, void const* src_cursor,
-                           void* dst_cursor);
-
-    static bool AreEqualCursor(AssocCntrView const* cntr, void const* cursor_a,
-                               void const* cursor_b);
-
-    static void CursorStepL(AssocCntrView const* cntr, void* cursor);
-
-    static void CursorStepR(AssocCntrView const* cntr, void* cursor);
+    static void CursorStepR(
+        dynamic_hash_table::Cntr<CntrTplArgList> const* cntr, void* cursor);
 };
 
-}  // namespace zeta::core::dynamic_hash_table
+template <CntrTplParamList>
+struct assoc_cntr::Traits<dynamic_hash_table::Cntr<CntrTplArgList>, void>
+    : public assoc_cntr::Traits<dynamic_hash_table::Cntr<CntrTplArgList> const,
+                                void> {
+    static constexpr assoc_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
+
+    static constexpr assoc_cntr::AbilityFlag GetStaticDisabledAbilityFlag();
+
+    static void* Insert(dynamic_hash_table::Cntr<CntrTplArgList>* cntr,
+                        void const* elem, void* dst_cursor);
+
+    static void PopL(dynamic_hash_table::Cntr<CntrTplArgList>* cntr,
+                     size_t cnt);
+
+    static void PopR(dynamic_hash_table::Cntr<CntrTplArgList>* cntr,
+                     size_t cnt);
+
+    static void Erase(dynamic_hash_table::Cntr<CntrTplArgList>* cntr,
+                      void* pos_cursor);
+
+    static void EraseAll(dynamic_hash_table::Cntr<CntrTplArgList>* cntr);
+};
+
+}  // namespace zeta::core
 
 #pragma pop_macro("CntrTplDeclParamList")
 #pragma pop_macro("CntrTplParamList")

@@ -7,8 +7,8 @@
 
 namespace zeta::core::value_wrapper {
 
-template <auto V>
-constexpr auto StaticValueWrapper<V>::operator()() const {
+template <typename T, T V>
+constexpr auto StaticValueWrapper<T, V>::operator()() const {
     return V;
 }
 
@@ -17,45 +17,41 @@ T const& DynamicValueWrapper<T>::operator()() const {
     return this->value;
 }
 
-// -----------------------------------------------------------------------------
-
 template <bool V, typename TX, typename TY>
-decltype(auto) Conditional(StaticValueWrapper<V> const&, TX&& x, TY&& y) {
+decltype(auto) Conditional(StaticValueWrapper<bool, V> const&, TX&& x, TY&& y) {
     if constexpr (V) {
-        return x;
+        return meta::Forward<TX>(x);
     } else {
-        return y;
+        return meta::Forward<TY>(y);
     }
 }
 
 template <typename TX, typename TY>
 decltype(auto) Conditional(DynamicValueWrapper<bool> const& cond, TX&& x,
                            TY&& y) {
-    return cond.value ? x : y;
+    return cond.value ? meta::Forward<TX>(x) : meta::Forward<TY>(y);
 }
-
-// -----------------------------------------------------------------------------
 
 namespace detail {
 
 struct Merge_ {
-    template <auto VX, auto VY>
-    decltype(auto) Merge(StaticValueWrapper<VX> const& x,
-                         StaticValueWrapper<VY> const& y) {
+    template <typename TX, auto VX, typename TY, auto VY>
+    decltype(auto) Merge(StaticValueWrapper<TX, VX> const& x,
+                         StaticValueWrapper<TY, VY> const& y) {
         ZETA_Core_StaticAssert(x.value == y.value);
         return x;
     }
 
-    template <auto VX, typename TY>
-    decltype(auto) Merge(StaticValueWrapper<VX> const& x,
+    template <typename TX, auto VX, typename TY>
+    decltype(auto) Merge(StaticValueWrapper<TX, VX> const& x,
                          DynamicValueWrapper<TY> const& y) {
         ZETA_Core_DebugAssert(x.value == y.value);
         return x;
     }
 
-    template <typename TX, auto VY>
+    template <typename TX, typename TY, auto VY>
     decltype(auto) Merge(DynamicValueWrapper<TX> const& x,
-                         StaticValueWrapper<VY> const& y) {
+                         StaticValueWrapper<TY, VY> const& y) {
         ZETA_Core_DebugAssert(x.value == y.value);
         return y;
     }
@@ -72,7 +68,8 @@ struct Merge_ {
 
 template <typename T0, typename... Ts>
 decltype(auto) Merge(T0 const& x0, Ts const&... xs) {
-    return TreeReduce(detail::Merge_{}, Forward<T0>(x0), Forward<Ts>(xs)...);
+    return TreeReduce(detail::Merge_{}, meta::Forward<T0>(x0),
+                      meta::Forward<Ts>(xs)...);
 }
 
 }  // namespace zeta::core::value_wrapper

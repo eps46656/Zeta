@@ -31,8 +31,6 @@ struct FunctionRef<Ret(Args...)> {
 
     char kind;
 
-    // -------------------------------------------------------------------------
-
     FunctionRef() = default;
 
     FunctionRef(FunctionRef const&) = default;
@@ -53,11 +51,11 @@ struct FunctionRef<Ret(Args...)> {
                  // hicpp-explicit-conversions)
         (Callable& callable);
 
-    // -------------------------------------------------------------------------
+    ~FunctionRef() = default;
 
     FunctionRef& operator=(FunctionRef const&) = default;
 
-    // -------------------------------------------------------------------------
+    FunctionRef& operator=(FunctionRef&&) = default;
 
     Ret operator()(Args... args) const;
 };

@@ -1,7 +1,7 @@
 #include <vector>
+#include <zeta/core/basic_bin_tree_node.hpp>
+#include <zeta/core/basic_bin_tree_node.ipp>
 #include <zeta/core/bin_tree.ipp>
-#include <zeta/core/bin_tree_node_tpl.hpp>
-#include <zeta/core/bin_tree_node_tpl.ipp>
 #include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
@@ -15,14 +15,14 @@
 
 // -----------------------------------------------------------------------------
 
-using bin_tree_node_t =
-    zeta::core::BinTreeNodeTpl<void*, zeta::core::value_wrapper::TrueType,
-                               zeta::core::value_wrapper::TrueType,
-                               zeta::core::value_wrapper::TrueType,
-                               zeta::core::value_wrapper::TrueType>;
+struct BinTreeNode : public zeta::core::basic_bin_tree_node::Node<
+                         void*, zeta::core::value_wrapper::TrueType,
+                         zeta::core::value_wrapper::TrueType,
+                         zeta::core::value_wrapper::TrueType,
+                         zeta::core::value_wrapper::TrueType> {};
 
 struct Node {
-    bin_tree_node_t n;
+    BinTreeNode n;
 };
 
 struct NodeCup {
@@ -36,100 +36,79 @@ std::vector<NodeCup> vec;
 
 size_t size_sum;
 
-bin_tree_node_t* root;
-bin_tree_node_t* rb;
+BinTreeNode* root;
+BinTreeNode* rb;
 
 // -----------------------------------------------------------------------------
 
-struct MyRBTreeNodeView {
-    static constexpr bool IsConst(
-        zeta::core::type_wrapper::TypeWrapper<MyRBTreeNodeView*>) {
-        return false;
+template <>
+struct zeta::core::bin_tree::Traits<BinTreeNode const> {
+    static constexpr bool IsConst() { return true; }
+
+    static constexpr bool HasAccSize() { return true; }
+
+    static constexpr size_t GetNullAccSize() { return 0; }
+
+    static BinTreeNode const* GetP(BinTreeNode const* n) {
+        return static_cast<BinTreeNode const*>(n->GetPPtr());
     }
 
-    static constexpr bool IsConst(
-        zeta::core::type_wrapper::TypeWrapper<MyRBTreeNodeView const*>) {
-        return true;
+    static BinTreeNode const* GetL(BinTreeNode const* n) {
+        return static_cast<BinTreeNode const*>(n->GetLPtr());
     }
 
-    static constexpr bool IsAccSizeEnabled(
-        zeta::core::type_wrapper::TypeWrapper<MyRBTreeNodeView const*>) {
-        return true;
+    static BinTreeNode const* GetR(BinTreeNode const* n) {
+        return static_cast<BinTreeNode const*>(n->GetRPtr());
     }
 
-    static constexpr size_t GetNullAccSize(
-        zeta::core::type_wrapper::TypeWrapper<MyRBTreeNodeView const*>) {
-        return 0;
+    static size_t GetAccSize(BinTreeNode const* n) { return n->GetAccSize(); }
+};
+
+template <>
+struct zeta::core::bin_tree::Traits<BinTreeNode>
+    : public zeta::core::bin_tree::Traits<BinTreeNode const> {
+    static constexpr bool IsConst() { return false; }
+
+    static BinTreeNode* GetP(BinTreeNode* n) {
+        return static_cast<BinTreeNode*>(n->GetPPtr());
     }
 
-    static MyRBTreeNodeView* GetP(MyRBTreeNodeView* n) {
-        return reinterpret_cast<MyRBTreeNodeView*>(
-            reinterpret_cast<bin_tree_node_t*>(n)->GetPPtr());
+    static BinTreeNode* GetL(BinTreeNode* n) {
+        return static_cast<BinTreeNode*>(n->GetLPtr());
     }
 
-    static MyRBTreeNodeView* GetL(MyRBTreeNodeView* n) {
-        return reinterpret_cast<MyRBTreeNodeView*>(
-            reinterpret_cast<bin_tree_node_t*>(n)->GetLPtr());
+    static BinTreeNode* GetR(BinTreeNode* n) {
+        return static_cast<BinTreeNode*>(n->GetRPtr());
     }
 
-    static MyRBTreeNodeView* GetR(MyRBTreeNodeView* n) {
-        return reinterpret_cast<MyRBTreeNodeView*>(
-            reinterpret_cast<bin_tree_node_t*>(n)->GetRPtr());
-    }
+    static void SetP(BinTreeNode* n, BinTreeNode* m) { n->SetPPtr(m); }
 
-    static MyRBTreeNodeView const* GetP(MyRBTreeNodeView const* n) {
-        return reinterpret_cast<MyRBTreeNodeView const*>(
-            reinterpret_cast<bin_tree_node_t const*>(n)->GetPPtr());
-    }
+    static void SetL(BinTreeNode* n, BinTreeNode* m) { n->SetLPtr(m); }
 
-    static MyRBTreeNodeView const* GetL(MyRBTreeNodeView const* n) {
-        return reinterpret_cast<MyRBTreeNodeView const*>(
-            reinterpret_cast<bin_tree_node_t const*>(n)->GetLPtr());
-    }
+    static void SetR(BinTreeNode* n, BinTreeNode* m) { n->SetRPtr(m); }
 
-    static MyRBTreeNodeView const* GetR(MyRBTreeNodeView const* n) {
-        return reinterpret_cast<MyRBTreeNodeView const*>(
-            reinterpret_cast<bin_tree_node_t const*>(n)->GetRPtr());
+    static void SetAccSize(BinTreeNode* n, size_t acc_size) {
+        n->SetAccSize(acc_size);
     }
+};
 
-    static void SetP(MyRBTreeNodeView* n, MyRBTreeNodeView* m) {
-        reinterpret_cast<bin_tree_node_t*>(n)->SetPPtr(
-            reinterpret_cast<bin_tree_node_t*>(m));
-    }
-    static void SetL(MyRBTreeNodeView* n, MyRBTreeNodeView* m) {
-        reinterpret_cast<bin_tree_node_t*>(n)->SetLPtr(
-            reinterpret_cast<bin_tree_node_t*>(m));
-    }
-    static void SetR(MyRBTreeNodeView* n, MyRBTreeNodeView* m) {
-        reinterpret_cast<bin_tree_node_t*>(n)->SetRPtr(
-            reinterpret_cast<bin_tree_node_t*>(m));
-    }
+template <>
+struct zeta::core::rbtree::Traits<BinTreeNode const, void> {
+    static unsigned GetColor(BinTreeNode const* n) { return n->GetPColor(); }
+};
 
-    static unsigned GetColor(MyRBTreeNodeView const* n) {
-        return reinterpret_cast<bin_tree_node_t const*>(n)->GetPColor();
-    }
-
-    static void SetColor(MyRBTreeNodeView* n, unsigned color) {
-        reinterpret_cast<bin_tree_node_t*>(n)->SetPColor(color);
-    }
-
-    static size_t GetAccSize(MyRBTreeNodeView const* n) {
-        return reinterpret_cast<bin_tree_node_t const*>(n)->GetAccSize();
-    }
-
-    static void SetAccSize(MyRBTreeNodeView* n, size_t acc_size) {
-        reinterpret_cast<bin_tree_node_t*>(n)->SetAccSize(acc_size);
+template <>
+struct zeta::core::rbtree::Traits<BinTreeNode, void>
+    : public zeta::core::rbtree::Traits<BinTreeNode const, void> {
+    static void SetColor(BinTreeNode* n, unsigned color) {
+        n->SetPColor(color);
     }
 };
 
 // -----------------------------------------------------------------------------
 
-void CompareLR() {
-    bin_tree_node_t* n{ reinterpret_cast<bin_tree_node_t*>(
-        zeta::core::GetMostLink(
-            reinterpret_cast<MyRBTreeNodeView*>(root),
-            [&](auto x) { return MyRBTreeNodeView::GetL(x); })
-            .first) };
+inline void CompareLR() {
+    BinTreeNode* n{ zeta::core::bin_tree::ops::GetMostL(root).first };
 
     auto iter{ vec.begin() };
     auto end{ vec.end() };
@@ -146,21 +125,15 @@ void CompareLR() {
 
         ZETA_Core_DebugAssert(iter->linked_node == node);
         ZETA_Core_DebugAssert(iter->size ==
-                              zeta::core::bin_tree::GetSize(
-                                  reinterpret_cast<MyRBTreeNodeView*>(n)));
+                              zeta::core::bin_tree::ops::GetSize(n));
 
         ++iter;
-        n = reinterpret_cast<bin_tree_node_t*>(zeta::core::bin_tree::StepR(
-            reinterpret_cast<MyRBTreeNodeView*>(n)));
+        n = zeta::core::bin_tree::ops::StepR(n);
     }
 }
 
-void CompareRL() {
-    bin_tree_node_t* n{ reinterpret_cast<bin_tree_node_t*>(
-        zeta::core::GetMostLink(
-            reinterpret_cast<MyRBTreeNodeView*>(root),
-            [&](MyRBTreeNodeView* x) { return MyRBTreeNodeView::GetR(x); })
-            .first) };
+inline void CompareRL() {
+    BinTreeNode* n{ zeta::core::bin_tree::ops::GetMostR(root).first };
     auto iter{ vec.rbegin() };
     auto end{ vec.rend() };
 
@@ -176,18 +149,15 @@ void CompareRL() {
 
         ZETA_Core_DebugAssert(iter->linked_node == node);
         ZETA_Core_DebugAssert(iter->size ==
-                              zeta::core::bin_tree::GetSize(
-                                  reinterpret_cast<MyRBTreeNodeView*>(n)));
+                              zeta::core::bin_tree::ops::GetSize(n));
 
         ++iter;
-        n = reinterpret_cast<bin_tree_node_t*>(zeta::core::bin_tree::StepL(
-            reinterpret_cast<MyRBTreeNodeView*>(n)));
+        n = zeta::core::bin_tree::ops::StepL(n);
     }
 }
 
-void Sanitize() {
-    zeta::core::rbtree::Sanitize(nullptr,
-                                 reinterpret_cast<MyRBTreeNodeView*>(root));
+inline void Sanitize() {
+    zeta::core::rbtree::ops::Sanitize(nullptr, root);
     CompareLR();
     CompareRL();
 }
@@ -196,11 +166,12 @@ void Sanitize() {
 
 size_t fallback_sign{ 0x479237197577 };
 
-void Access(size_t idx) {
-    auto [target_n_, target_tail_idx]{ zeta::core::bin_tree::AccessL(
-        reinterpret_cast<MyRBTreeNodeView*>(root), idx) };
+inline void AccessL(size_t idx) {
+    auto [target_n_l,
+          target_tail_idx_l]{ zeta::core::bin_tree::ops::AccessL(root, idx) };
 
-    auto* target_n{ reinterpret_cast<bin_tree_node_t*>(target_n_) };
+    ZETA_Core_DebugAssert(zeta::core::bin_tree::ops::GetAccSize(root) ==
+                          size_sum);
 
     auto target_iter{ vec.end() };
 
@@ -214,15 +185,82 @@ void Access(size_t idx) {
     }
 
     if (target_iter == vec.end()) {
-        ZETA_Core_DebugAssert(target_n == nullptr);
+        ZETA_Core_DebugAssert(target_n_l == nullptr);
     } else {
-        ZETA_Core_DebugAssert(&target_iter->linked_node->n == target_n);
+        ZETA_Core_DebugAssert(&target_iter->linked_node->n == target_n_l);
     }
 
-    ZETA_Core_DebugAssert(target_tail_idx == idx);
+    ZETA_Core_DebugAssert(target_tail_idx_l == idx);
 }
 
-void Insert(size_t idx, size_t size) {
+inline void AccessR(size_t idx) {
+    auto [target_n_r,
+          target_tail_idx_r]{ zeta::core::bin_tree::ops::AccessR(root, idx) };
+
+    ZETA_Core_DebugAssert(zeta::core::bin_tree::ops::GetAccSize(root) ==
+                          size_sum);
+
+    auto target_iter{ vec.rend() };
+
+    for (auto iter{ vec.rbegin() }, end{ vec.rend() }; iter != end; ++iter) {
+        if (idx < iter->size) {
+            target_iter = iter;
+            break;
+        }
+
+        idx -= iter->size;
+    }
+
+    if (target_iter == vec.rend()) {
+        ZETA_Core_DebugAssert(target_n_r == nullptr);
+    } else {
+        ZETA_Core_DebugAssert(&target_iter->linked_node->n == target_n_r);
+    }
+
+    ZETA_Core_DebugAssert(target_tail_idx_r == idx);
+}
+
+inline void AccessLR(size_t idx) {
+    auto [target_n_l,
+          target_tail_idx_l]{ zeta::core::bin_tree::ops::AccessL(root, idx) };
+
+    auto [target_n_r, target_tail_idx_r]{ zeta::core::bin_tree::ops::AccessR(
+        root, size_sum - 1 - idx) };
+
+    ZETA_Core_DebugAssert(zeta::core::bin_tree::ops::GetAccSize(root) ==
+                          size_sum);
+
+    size_t last_size;
+
+    auto target_iter{ vec.end() };
+
+    for (auto iter{ vec.begin() }, end{ vec.end() }; iter != end; ++iter) {
+        last_size = iter->size;
+
+        if (idx < last_size) {
+            target_iter = iter;
+            break;
+        }
+
+        idx -= last_size;
+    }
+
+    if (target_iter == vec.end()) {
+        ZETA_Core_DebugAssert(target_n_l == nullptr);
+        ZETA_Core_DebugAssert(target_n_r == nullptr);
+
+        ZETA_Core_DebugAssert(target_tail_idx_l == idx);
+        ZETA_Core_DebugAssert(target_tail_idx_r == idx);
+    } else {
+        ZETA_Core_DebugAssert(&target_iter->linked_node->n == target_n_l);
+        ZETA_Core_DebugAssert(&target_iter->linked_node->n == target_n_r);
+
+        ZETA_Core_DebugAssert(target_tail_idx_l == idx);
+        ZETA_Core_DebugAssert(target_tail_idx_r == last_size - 1 - idx);
+    }
+}
+
+inline void Insert(size_t idx, size_t size) {
     ZETA_Core_DebugAssert(0 <= idx);
     ZETA_Core_DebugAssert(idx <= vec.size());
 
@@ -230,30 +268,23 @@ void Insert(size_t idx, size_t size) {
 
     new_node->n.Init();
 
-    zeta::core::bin_tree::SetSize(
-        reinterpret_cast<MyRBTreeNodeView*>(&new_node->n), size);
+    zeta::core::bin_tree::ops::SetSize(&new_node->n, size);
 
-    ZETA_Core_DebugAssert(
-        zeta::core::bin_tree::GetSize(
-            reinterpret_cast<MyRBTreeNodeView*>(&new_node->n)) == size);
+    ZETA_Core_DebugAssert(zeta::core::bin_tree::ops::GetSize(&new_node->n) ==
+                          size);
 
     size_sum += size;
 
     if (idx < vec.size()) {
         Node* ins_node{ vec[idx].linked_node };
-        root = reinterpret_cast<bin_tree_node_t*>(zeta::core::rbtree::InsertL(
-            reinterpret_cast<MyRBTreeNodeView*>(&ins_node->n),
-            reinterpret_cast<MyRBTreeNodeView*>(&new_node->n)));
+        root = zeta::core::rbtree::ops::InsertL(&ins_node->n, &new_node->n);
     } else if (vec.size() == 0) {
         root = &new_node->n;
-        MyRBTreeNodeView::SetColor(
-            reinterpret_cast<MyRBTreeNodeView*>(&new_node->n),
-            zeta::core::rbtree::black);
+        zeta::core::rbtree::ops::SetColor(&new_node->n,
+                                          zeta::core::rbtree::black);
     } else {
         Node* ins_node{ vec.back().linked_node };
-        root = reinterpret_cast<bin_tree_node_t*>(zeta::core::rbtree::InsertR(
-            reinterpret_cast<MyRBTreeNodeView*>(&ins_node->n),
-            reinterpret_cast<MyRBTreeNodeView*>(&new_node->n)));
+        root = zeta::core::rbtree::ops::InsertR(&ins_node->n, &new_node->n);
     }
 
     vec.insert(vec.begin() + static_cast<long long>(idx),
@@ -265,15 +296,14 @@ void Insert(size_t idx, size_t size) {
 
 // -----------------------------------------------------------------------------
 
-void Erase(size_t idx) {
+inline void Erase(size_t idx) {
     ZETA_Core_DebugAssert(0 <= idx);
     ZETA_Core_DebugAssert(idx < vec.size());
 
     size_sum -= vec[idx].size;
 
     Node* target_node{ vec[idx].linked_node };
-    root = reinterpret_cast<bin_tree_node_t*>(zeta::core::rbtree::Extract(
-        reinterpret_cast<MyRBTreeNodeView*>(&target_node->n)));
+    root = zeta::core::rbtree::ops::Extract(&target_node->n);
     delete target_node;
 
     vec.erase(vec.begin() + static_cast<long long>(idx));
@@ -281,7 +311,7 @@ void Erase(size_t idx) {
 
 // -----------------------------------------------------------------------------
 
-void main1() {
+inline void main1() {
     unsigned seed{ static_cast<unsigned>(time(nullptr)) };
 
     ZETA_Core_PrintVar(seed);
@@ -319,9 +349,9 @@ void main1() {
 
         for (int i{ 0 }, end{ static_cast<int>(vec.size()) * 2 }; i < end;
              ++i) {
-            size_t idx{ zeta::core_test::GetRandomInt<size_t>(0,
-                                                              size_sum * 2) };
-            Access(idx);
+            AccessL(zeta::core_test::GetRandomInt<size_t>(0, size_sum * 2));
+            AccessR(zeta::core_test::GetRandomInt<size_t>(0, size_sum * 2));
+            AccessLR(zeta::core_test::GetRandomInt<size_t>(0, size_sum - 1));
         }
     }
 }

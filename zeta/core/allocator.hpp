@@ -7,50 +7,13 @@
 
 namespace zeta::core::allocator {
 
-template <typename AllocatorLike>
-void CheckContract(AllocatorLike&& alctr);
-
-struct VTable {
-    template <typename Allocator>
-    static constexpr VTable const& Build();
-
-    void* (*Allocate)(void* alctr, size_t size);
-
-    void (*Deallocate)(void* alctr, void* ptr);
-};
-
-template <typename Allocator>
-struct BasicVTableBuilder {
-    static constexpr VTable Build();
-
-    static void* Allocate(void* alctr, size_t size);
-
-    static void Deallocate(void* alctr, void* ptr);
-};
-
-template <typename Allocator>
-struct VTableBuilder {
-    static constexpr VTable Build();
-};
-
-template <typename Allocator>
-constexpr VTable const& GetVTable();
-
-struct Ref {
-    unsigned short align;
-
-    VTable const* vtable;
-
-    void* alctr;
-
-    static size_t GetAlign(Ref const* ref_view);
-
-    static void* Allocate(Ref* ref_view, size_t size);
-
-    static void Deallocate(Ref* ref_view, void* ptr);
-};
+template <typename SeqCntr, typename = void>
+struct Traits;
 
 namespace ops {
+
+template <typename AllocatorLike>
+void* GetReferedInst(AllocatorLike&& alctr);
 
 template <typename AllocatorLike>
 size_t GetAlign(AllocatorLike&& alctr);
@@ -65,10 +28,29 @@ template <typename AllocatorLike>
 void* SafeAllocate(AllocatorLike&& alctr, size_t align, size_t size);
 
 template <typename AllocatorLike>
-Ref MakeRef(AllocatorLike&& alctr);
+void CheckContract(AllocatorLike&& alctr);
 
 }  // namespace ops
 
-extern Ref weak_lifo_allocator;
+struct VTable {
+    void* (*Allocate)(void* alctr, size_t size);
+
+    void (*Deallocate)(void* alctr, void* ptr);
+};
+
+namespace ops {
+
+template <typename Allocator>
+constexpr VTable BuildVTableBasic();
+
+template <typename Allocator, typename = void>
+struct BuildVTableImpl {
+    static constexpr VTable Call();
+};
+
+template <typename Allocator>
+constexpr VTable const& GetVTable();
+
+}  // namespace ops
 
 }  // namespace zeta::core::allocator

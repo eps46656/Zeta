@@ -10,7 +10,7 @@
 #include <zeta/core/hash.hpp>
 #include <zeta/core/hash.ipp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/mem_check_utils.hpp>
+#include <zeta/core/mem_recorder.hpp>
 #include <zeta/core_test/assoc_cntr_utils.hpp>
 #include <zeta/core_test/debug_hash_table_utils.hpp>
 #include <zeta/core_test/dynamic_hash_table_utils.hpp>
@@ -21,9 +21,9 @@
 
 namespace zeta::core_test {
 
-using AssocCntrRef = core::assoc_cntr::Ref;
+using AssocCntrRef = core::assoc_cntr_ref::Ref;
 
-void main1() {
+inline void main1() {
     unsigned random_seed{ static_cast<unsigned>(time(nullptr)) };
     unsigned fixed_seed{ 1729615114 };
 
@@ -38,7 +38,7 @@ void main1() {
 
     SetRandomSeed(seed);
 
-    using Elem = core::Pair<unsigned long long, unsigned long long>;
+    using Elem = core::utils::Pair<unsigned long long, unsigned long long>;
 
     AssocCntrRef assoc_cntr_a{ debug_hash_table_utils::Create<Elem>() };
 
@@ -48,8 +48,8 @@ void main1() {
 
     std::vector<AssocCntrRef*> assoc_cntrs{ &assoc_cntr_a, &assoc_cntr_b };
 
-    std::unordered_set<Elem, core::hash::CppStdHash<Elem>,
-                       core::compare::CppStdEqualTo<Elem, Elem>>
+    std::unordered_set<Elem, core::hash::CppStdBasicHash<Elem>,
+                       core::compare::CppStdBasicEqualTo<Elem, Elem>>
         elems_s;
     std::vector<Elem> elems_v;
 

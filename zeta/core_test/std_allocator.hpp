@@ -4,33 +4,19 @@
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/allocator.ipp>
 #include <zeta/core/debug_utils.ipp>
-#include <zeta/core/mem_check_utils.hpp>
+#include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/type_wrapper.hpp>
 
 namespace zeta::core_test::std_allocator {
 
 struct Allocator {
-    core::MemRecorder* mem_recorder;
+    core::mem_recorder::MemRecorder mem_recorder;
 
     size_t usage;
 
     size_t buffered_size_{ 0 };
     size_t max_buffered_ptrs_num_{ 0 };
     std::vector<void*> buffered_ptrs_;
-
-    Allocator() {
-#if ZETA_Core_EnableDebug
-        this->mem_recorder = core::MemRecorder::Create();
-#else
-        this->mem_recorder = nullptr;
-#endif
-    }
-
-    ~Allocator() {
-#if ZETA_Core_EnableDebug
-        core::MemRecorder::Destroy(this->mem_recorder);
-#endif
-    }
 
     static size_t GetAlign(Allocator const* std_allocator) {
         Check(std_allocator);
@@ -45,7 +31,8 @@ struct Allocator {
         void* ptr{ std::malloc(size) };
 
 #if ZETA_Core_EnableDebug
-        core::MemRecorder::Record(std_allocator->mem_recorder, ptr, size);
+        core::mem_recorder::ops::Record(&std_allocator->mem_recorder, ptr,
+                                        size);
         std_allocator->usage += size;
 #endif
 
@@ -57,7 +44,8 @@ struct Allocator {
 
         if (ptr == nullptr) { return; }
 
-        bool b{ core::MemRecorder::Unrecord(std_allocator->mem_recorder, ptr) };
+        bool b{ core::mem_recorder::ops::Unrecord(&std_allocator->mem_recorder,
+                                                  ptr) };
 
         ZETA_Core_DebugAssert(b);
 
@@ -69,16 +57,33 @@ struct Allocator {
     }
 };
 
-struct AllocatorView {
-    static size_t GetAlign(Allocator* /* a */) { return alignof(max_align_t); }
+}  // namespace zeta::core_test::std_allocator
 
-    static void* Allocate(Allocator* a, size_t size) {
-        return Allocator::Allocate(a, size);
+namespace zeta::core {
+
+template <typename Allocator>
+struct allocator::Traits<
+    Allocator, meta::EnableIf<meta::IsAnyOf<
+                   Allocator, zeta::core_test::std_allocator::Allocator,
+                   zeta::core_test::std_allocator::Allocator const>>> {
+    static void* GetReferedInst(Allocator const* std_allocator) {
+        return const_cast<void*>(static_cast<void const*>(std_allocator));
     }
 
-    static void Deallocate(Allocator* a, void* ptr) {
-        Allocator::Deallocate(a, ptr);
+    static size_t GetAlign(Allocator const* std_allocator) {
+        return zeta::core_test::std_allocator::Allocator::GetAlign(
+            std_allocator);
+    }
+
+    static void* Allocate(Allocator* std_allocator, size_t size) {
+        return zeta::core_test::std_allocator::Allocator::Allocate(
+            std_allocator, size);
+    }
+
+    static void Deallocate(Allocator* std_allocator, void* ptr) {
+        zeta::core_test::std_allocator::Allocator::Deallocate(std_allocator,
+                                                              ptr);
     }
 };
 
-}  // namespace zeta::core_test::std_allocator
+}  // namespace zeta::core

@@ -51,7 +51,7 @@ class Target:
     env: EnvEnum
 
 
-class Language(enum.Enum):
+class Language(enum.IntEnum):
     C = enum.auto()
     C_HEADER = enum.auto()
     C_SOURCE = enum.auto()

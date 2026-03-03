@@ -8,12 +8,12 @@
 #include <zeta/core/seg_utils.hpp>
 #include <zeta/core/utils.ipp>
 
-namespace zeta::core::seg_utils {
+namespace zeta::core {
 
 template <typename Writer>
-void SegShoveL(circular_array::Cntr* l_ca, circular_array::Cntr* r_ca,
-               size_t rl_cnt, size_t ins_cnt, size_t shove_cnt,
-               Writer&& writer) {
+void seg_utils::SegShoveL(circular_array::Cntr* l_ca,
+                          circular_array::Cntr* r_ca, size_t rl_cnt,
+                          size_t ins_cnt, size_t shove_cnt, Writer&& writer) {
     ZETA_Core_DebugAssert(l_ca != nullptr);
     ZETA_Core_DebugAssert(r_ca != nullptr);
 
@@ -23,8 +23,8 @@ void SegShoveL(circular_array::Cntr* l_ca, circular_array::Cntr* r_ca,
     ZETA_Core_DebugAssert(shove_cnt <= r_ca->size + ins_cnt);
     ZETA_Core_DebugAssert(r_ca->size + ins_cnt - shove_cnt <= r_ca->capacity);
 
-    size_t cnt_a{ Min(rl_cnt, shove_cnt) };
-    size_t cnt_b{ Min(ins_cnt, shove_cnt - cnt_a) };
+    size_t cnt_a{ utils::Min(rl_cnt, shove_cnt) };
+    size_t cnt_b{ utils::Min(ins_cnt, shove_cnt - cnt_a) };
     size_t cnt_c{ shove_cnt - cnt_a - cnt_b };
 
     size_t l_size{ l_ca->size };
@@ -38,7 +38,8 @@ void SegShoveL(circular_array::Cntr* l_ca, circular_array::Cntr* r_ca,
     }
 
     if (0 < cnt_b) {
-        circular_array::ops::IdxWrite(l_ca, l_size + cnt_a, cnt_b, writer);
+        circular_array::ops::IdxWrite(l_ca, l_size + cnt_a, cnt_b,
+                                      meta::Forward<Writer>(writer));
     }
 
     if (0 < cnt_c) {
@@ -50,14 +51,14 @@ void SegShoveL(circular_array::Cntr* l_ca, circular_array::Cntr* r_ca,
 
     if (0 < ins_cnt - cnt_b) {
         circular_array::ops::IdxInsert(r_ca, rl_cnt - cnt_a, ins_cnt - cnt_b,
-                                       writer);
+                                       meta::Forward<Writer>(writer));
     }
 }
 
 template <typename Writer>
-void SegShoveR(circular_array::Cntr* l_ca, circular_array::Cntr* r_ca,
-               size_t lr_cnt, size_t ins_cnt, size_t shove_cnt,
-               Writer&& writer) {
+void seg_utils::SegShoveR(circular_array::Cntr* l_ca,
+                          circular_array::Cntr* r_ca, size_t lr_cnt,
+                          size_t ins_cnt, size_t shove_cnt, Writer&& writer) {
     ZETA_Core_DebugAssert(l_ca != nullptr);
     ZETA_Core_DebugAssert(r_ca != nullptr);
 
@@ -66,8 +67,8 @@ void SegShoveR(circular_array::Cntr* l_ca, circular_array::Cntr* r_ca,
     ZETA_Core_DebugAssert(r_ca->size + shove_cnt <= r_ca->capacity);
     ZETA_Core_DebugAssert(shove_cnt <= l_ca->size + ins_cnt);
 
-    size_t cnt_a{ Min(lr_cnt, shove_cnt) };
-    size_t cnt_b{ Min(ins_cnt, shove_cnt - cnt_a) };
+    size_t cnt_a{ utils::Min(lr_cnt, shove_cnt) };
+    size_t cnt_b{ utils::Min(ins_cnt, shove_cnt - cnt_a) };
     size_t cnt_c{ shove_cnt - cnt_a - cnt_b };
 
     size_t l_size{ l_ca->size };
@@ -89,12 +90,13 @@ void SegShoveR(circular_array::Cntr* l_ca, circular_array::Cntr* r_ca,
 
     if (0 < ins_cnt - cnt_b) {
         circular_array::ops::IdxInsert(l_ca, l_size - lr_cnt, ins_cnt - cnt_b,
-                                       writer);
+                                       meta::Forward<Writer>(writer));
     }
 
     if (0 < cnt_b) {
-        circular_array::ops::IdxWrite(r_ca, cnt_c, cnt_b, writer);
+        circular_array::ops::IdxWrite(r_ca, cnt_c, cnt_b,
+                                      meta::Forward<Writer>(writer));
     }
 }
 
-}  // namespace zeta::core::seg_utils
+}  // namespace zeta::core

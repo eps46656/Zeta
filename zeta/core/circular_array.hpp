@@ -3,7 +3,6 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/seq_cntr.hpp>
-#include <zeta/core/type_wrapper.hpp>
 
 namespace zeta::core::circular_array {
 
@@ -49,7 +48,7 @@ constexpr size_t GetCursorSize(Cntr const* cntr);
 
 size_t GetWidth(Cntr const* cntr);
 
-size_t GetSride(Cntr const* cntr);
+size_t GetStride(Cntr const* cntr);
 
 size_t GetOffset(Cntr const* cntr);
 
@@ -141,108 +140,114 @@ void CursorAdvanceR(Cntr const* cntr, Cursor* cursor, size_t step);
 
 }  // namespace ops
 
-struct SeqCntrView {
-    static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag(
-        type_wrapper::TypeWrapper<SeqCntrView*>);
+}  // namespace zeta::core::circular_array
 
-    static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag(
-        type_wrapper::TypeWrapper<SeqCntrView const*>);
+namespace zeta::core {
 
-    static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag(
-        type_wrapper::TypeWrapper<SeqCntrView const*>);
+template <>
+struct seq_cntr::Traits<circular_array::Cntr const, void> {
+    static void* GetReferedInst(circular_array::Cntr const* cntr);
+
+    static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
+
+    static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();
 
     static constexpr seq_cntr::AbilityFlag GetDynamicEnabledAbilityFlag(
-        SeqCntrView const*);
+        circular_array::Cntr const* cntr);
 
     static constexpr seq_cntr::AbilityFlag GetDynamicDisabledAbilityFlag(
-        SeqCntrView const*);
+        circular_array::Cntr const* cntr);
 
-    static constexpr size_t GetCursorSize(SeqCntrView const*);
+    static size_t GetCursorSize(circular_array::Cntr const* cntr);
 
-    static size_t GetWidth(SeqCntrView const* seq_cntr_view);
+    static size_t GetWidth(circular_array::Cntr const* cntr);
 
-    static size_t GetSride(SeqCntrView const* seq_cntr_view);
+    static size_t GetSize(circular_array::Cntr const* cntr);
 
-    static size_t GetOffset(SeqCntrView const* seq_cntr_view);
+    static size_t GetCapacity(circular_array::Cntr const* cntr);
 
-    static size_t GetSize(SeqCntrView const* seq_cntr_view);
+    static void GetLBCursor(circular_array::Cntr const* cntr, void* dst_cursor);
 
-    static size_t GetCapacity(SeqCntrView const* seq_cntr_view);
+    static void GetRBCursor(circular_array::Cntr const* cntr, void* dst_cursor);
 
-    static void GetLBCursor(SeqCntrView const* seq_cntr_view, void* dst_cursor);
-
-    static void GetRBCursor(SeqCntrView const* seq_cntr_view, void* dst_cursor);
-
-    static void* PeekL(SeqCntrView const* seq_cntr_view, bool lazy_copy_elem,
+    static void* PeekL(circular_array::Cntr const* cntr, bool lazy_copy_elem,
                        void* dst_cursor, void* dst_elem);
 
-    static void* PeekR(SeqCntrView const* seq_cntr_view, bool lazy_copy_elem,
+    static void* PeekR(circular_array::Cntr const* cntr, bool lazy_copy_elem,
                        void* dst_cursor, void* dst_elem);
 
-    static void* Access(SeqCntrView const* seq_cntr_view, size_t idx,
+    static void* Access(circular_array::Cntr const* cntr, size_t idx,
                         bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
 
-    static void* Derefer(SeqCntrView const* seq_cntr_view,
+    static void* Derefer(circular_array::Cntr const* cntr,
                          void const* pos_cursor, bool lazy_copy_elem,
                          void* dst_elem);
 
     template <typename Reader>
-    static void Read(SeqCntrView const* seq_cntr_view, void const* pos_cursor,
+    static void Read(circular_array::Cntr const* cntr, void const* pos_cursor,
                      size_t cnt, Reader&& reader, void* dst_cursor);
 
+    static void CopyCursor(circular_array::Cntr const* cntr,
+                           void const* src_cursor, void* dst_cursor);
+
+    static bool AreEqualCursor(circular_array::Cntr const* cntr,
+                               void const* cursor_a, void const* cursor_b);
+
+    static int CompareCursor(circular_array::Cntr const* cntr,
+                             void const* cursor_a, void const* cursor_b);
+
+    static size_t GetCursorDist(circular_array::Cntr const* cntr,
+                                void const* cursor_a, void const* cursor_b);
+
+    static size_t GetCursorIdx(circular_array::Cntr const* cntr,
+                               void const* cursor);
+
+    static void CursorStepL(circular_array::Cntr const* cntr, void* cursor);
+
+    static void CursorStepR(circular_array::Cntr const* cntr, void* cursor);
+
+    static void CursorAdvanceL(circular_array::Cntr const* cntr, void* cursor,
+                               size_t step);
+
+    static void CursorAdvanceR(circular_array::Cntr const* cntr, void* cursor,
+                               size_t step);
+};
+
+template <>
+struct seq_cntr::Traits<circular_array::Cntr, void>
+    : public seq_cntr::Traits<circular_array::Cntr const, void> {
+    static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
+
+    static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();
+
     template <typename Writer>
-    static void Write(SeqCntrView* seq_cntr_view, void* pos_cursor, size_t cnt,
+    static void Write(circular_array::Cntr* cntr, void* pos_cursor, size_t cnt,
                       Writer&& writer, void* dst_cursor);
 
     template <typename ReaderWriter>
-    static void ReadWrite(SeqCntrView* seq_cntr_view, void* pos_cursor,
+    static void ReadWrite(circular_array::Cntr* cntr, void* pos_cursor,
                           size_t cnt, ReaderWriter&& reader_writer,
                           void* dst_cursor);
 
     template <typename Writer>
-    static void* PushL(SeqCntrView* seq_cntr_view, size_t cnt, Writer&& writer,
+    static void* PushL(circular_array::Cntr* cntr, size_t cnt, Writer&& writer,
                        void* dst_cursor);
 
     template <typename Writer>
-    static void* PushR(SeqCntrView* seq_cntr_view, size_t cnt, Writer&& writer,
+    static void* PushR(circular_array::Cntr* cntr, size_t cnt, Writer&& writer,
                        void* dst_cursor);
 
     template <typename Writer>
-    static void* Insert(SeqCntrView* seq_cntr_view, void* pos_cursor,
+    static void* Insert(circular_array::Cntr* cntr, void* pos_cursor,
                         size_t cnt, Writer&& writer, void* dst_cursor);
 
-    static void PopL(SeqCntrView* seq_cntr_view, size_t cnt);
+    static void PopL(circular_array::Cntr* cntr, size_t cnt);
 
-    static void PopR(SeqCntrView* seq_cntr_view, size_t cnt);
+    static void PopR(circular_array::Cntr* cntr, size_t cnt);
 
-    static void Erase(SeqCntrView* seq_cntr_view, void* pos_cursor, size_t cnt);
+    static void Erase(circular_array::Cntr* cntr, void* pos_cursor, size_t cnt);
 
-    static void EraseAll(SeqCntrView* seq_cntr_view);
-
-    static void CopyCursor(SeqCntrView const* seq_cntr_view,
-                           void const* src_cursor, void* dst_cursor);
-
-    static bool AreEqualCursor(SeqCntrView const* seq_cntr_view,
-                               void const* cursor_a, void const* cursor_b);
-
-    static int CompareCursor(SeqCntrView const* seq_cntr_view,
-                             void const* cursor_a, void const* cursor_b);
-
-    static size_t GetCursorDist(SeqCntrView const* seq_cntr_view,
-                                void const* cursor_a, void const* cursor_b);
-
-    static size_t GetCursorIdx(SeqCntrView const* seq_cntr_view,
-                               void const* cursor);
-
-    static void CursorStepL(SeqCntrView const* seq_cntr_view, void* cursor);
-
-    static void CursorStepR(SeqCntrView const* seq_cntr_view, void* cursor);
-
-    static void CursorAdvanceL(SeqCntrView const* seq_cntr_view, void* cursor,
-                               size_t step);
-
-    static void CursorAdvanceR(SeqCntrView const* seq_cntr_view, void* cursor,
-                               size_t step);
+    static void EraseAll(circular_array::Cntr* cntr);
 };
 
-}  // namespace zeta::core::circular_array
+}  // namespace zeta::core

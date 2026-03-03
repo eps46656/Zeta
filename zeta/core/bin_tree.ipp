@@ -6,209 +6,245 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
-#include <zeta/core/type_wrapper.hpp>
-#include <zeta/core/utils.hpp>
+#include <zeta/core/utils.ipp>
 
-namespace zeta::core::bin_tree {
+namespace zeta::core {
 
 template <typename BinTreeNode>
-void CheckContract() {
-    constexpr type_wrapper::TypeWrapper<BinTreeNode*> btn_ptr_type_wrapper;
+constexpr bool bin_tree::ops::IsConst() {
+    constexpr bool ret{ Traits<BinTreeNode>::IsConst() };
+    return ret;
+}
 
-    BinTreeNode* btn_ptr{ nullptr };
+template <typename BinTreeNode>
+constexpr bool bin_tree::ops::HasAccSize() {
+    constexpr bool ret{ Traits<BinTreeNode>::HasAccSize() };
+    return ret;
+}
+
+template <typename BinTreeNode>
+BinTreeNode* bin_tree::ops::GetP(BinTreeNode* n) {
+    return Traits<BinTreeNode>::GetP(n);
+}
+
+template <typename BinTreeNode>
+BinTreeNode* bin_tree::ops::GetL(BinTreeNode* n) {
+    return Traits<BinTreeNode>::GetL(n);
+}
+
+template <typename BinTreeNode>
+BinTreeNode* bin_tree::ops::GetR(BinTreeNode* n) {
+    return Traits<BinTreeNode>::GetR(n);
+}
+
+template <typename BinTreeNode>
+void bin_tree::ops::SetP(BinTreeNode* n, BinTreeNode* m) {
+    ZETA_Core_StaticAssert(!(IsConst<BinTreeNode>)());
+    Traits<BinTreeNode>::SetP(n, m);
+}
+
+template <typename BinTreeNode>
+void bin_tree::ops::SetL(BinTreeNode* n, BinTreeNode* m) {
+    ZETA_Core_StaticAssert(!(IsConst<BinTreeNode>)());
+    Traits<BinTreeNode>::SetL(n, m);
+}
+
+template <typename BinTreeNode>
+void bin_tree::ops::SetR(BinTreeNode* n, BinTreeNode* m) {
+    ZETA_Core_StaticAssert(!(IsConst<BinTreeNode>)());
+    Traits<BinTreeNode>::SetR(n, m);
+}
+
+template <typename BinTreeNode>
+constexpr size_t bin_tree::ops::GetNullAccSize() {
+    ZETA_Core_StaticAssert((HasAccSize<BinTreeNode>)());
+    constexpr size_t ret{ Traits<BinTreeNode>::GetNullAccSize() };
+    return ret;
+}
+
+template <typename BinTreeNode>
+size_t bin_tree::ops::GetAccSize(BinTreeNode* n) {
+    ZETA_Core_StaticAssert((HasAccSize<BinTreeNode>)());
+    return Traits<BinTreeNode>::GetAccSize(n);
+}
+
+template <typename BinTreeNode>
+void bin_tree::ops::SetAccSize(BinTreeNode* n, size_t acc_size) {
+    ZETA_Core_StaticAssert(!(IsConst<BinTreeNode>)());
+    ZETA_Core_StaticAssert((HasAccSize<BinTreeNode>)());
+    Traits<BinTreeNode>::SetAccSize(n, acc_size);
+}
+
+template <typename BinTreeNode>
+void bin_tree::ops::CheckContract() {
+    BinTreeNode* btn{ nullptr };
     size_t size_val{ 0 };
 
+    constexpr bool is_const{ (IsConst<BinTreeNode>)() };
+    constexpr bool hash_acc_size{ (HasAccSize<BinTreeNode>)() };
+
 #pragma push_macro("CheckMethod")
-
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CheckMethod(method, return_type, ...) \
-    ZETA_Core_StaticAssert(                   \
-        IsAnyOf<decltype(BinTreeNode::method(__VA_ARGS__)), return_type>)
+#define CheckMethod(method, ...) \
+    ZETA_Core_Unused([=]() { ops::method<BinTreeNode>(__VA_ARGS__); })
 
-    CheckMethod(GetP, BinTreeNode*, btn_ptr);
-    CheckMethod(GetL, BinTreeNode*, btn_ptr);
-    CheckMethod(GetR, BinTreeNode*, btn_ptr);
+    CheckMethod(GetP, btn);
+    CheckMethod(GetL, btn);
+    CheckMethod(GetR, btn);
 
-    CheckMethod(IsConst, bool, btn_ptr_type_wrapper);
-
-    if constexpr (!BinTreeNode::IsConst(btn_ptr_type_wrapper)) {
-        CheckMethod(SetP, TypeAny, btn_ptr, btn_ptr);
-        CheckMethod(SetL, TypeAny, btn_ptr, btn_ptr);
-        CheckMethod(SetR, TypeAny, btn_ptr, btn_ptr);
+    if constexpr (!is_const) {
+        CheckMethod(SetP, btn, btn);
+        CheckMethod(SetL, btn, btn);
+        CheckMethod(SetR, btn, btn);
     }
 
-    CheckMethod(IsAccSizeEnabled, bool, btn_ptr_type_wrapper);
+    if constexpr (hash_acc_size) {
+        CheckMethod(GetNullAccSize);
 
-    if constexpr (BinTreeNode::IsAccSizeEnabled(btn_ptr_type_wrapper)) {
-        CheckMethod(GetNullAccSize, size_t, btn_ptr_type_wrapper);
+        CheckMethod(GetAccSize, btn);
 
-        CheckMethod(GetAccSize, size_t, btn_ptr);
-
-        if constexpr (!BinTreeNode::IsConst(btn_ptr_type_wrapper)) {
-            CheckMethod(SetAccSize, TypeAny, btn_ptr, size_val);
-        }
+        if constexpr (!is_const) { CheckMethod(SetAccSize, btn, size_val); }
     }
 
 #pragma pop_macro("CheckMethod")
 }
 
-// -----------------------------------------------------------------------------
-
 template <typename BinTreeNode>
-Pair<BinTreeNode*, size_t> GetMostP(BinTreeNode* n) {
-    CheckContract<BinTreeNode>();
+utils::Pair<BinTreeNode*, size_t> bin_tree::ops::GetMostP(BinTreeNode* n) {
+    (CheckContract<BinTreeNode>)();
 
-    return GetMostLink(n, [&](auto x) { return BinTreeNode::GetP(x); });
+    return utils::GetMostLink(n, [](BinTreeNode* x) { return (GetP)(x); });
 }
 
 template <typename BinTreeNode>
-Pair<BinTreeNode*, size_t> GetMostL(BinTreeNode* n) {
-    CheckContract<BinTreeNode>();
+utils::Pair<BinTreeNode*, size_t> bin_tree::ops::GetMostL(BinTreeNode* n) {
+    (CheckContract<BinTreeNode>)();
 
-    return GetMostLink(n, [&](auto x) { return BinTreeNode::GetL(x); });
+    return utils::GetMostLink(n, [](BinTreeNode* x) { return (GetL)(x); });
 }
 
 template <typename BinTreeNode>
-Pair<BinTreeNode*, size_t> GetMostR(BinTreeNode* n) {
-    CheckContract<BinTreeNode>();
+utils::Pair<BinTreeNode*, size_t> bin_tree::ops::GetMostR(BinTreeNode* n) {
+    (CheckContract<BinTreeNode>)();
 
-    return GetMostLink(n, [&](auto x) { return BinTreeNode::GetR(x); });
+    return utils::GetMostLink(n, [](BinTreeNode* x) { return (GetR)(x); });
 }
 
-// -----------------------------------------------------------------------------
-
 template <typename BinTreeNode>
-void AddDiffSize(BinTreeNode* n, size_t diff_size) {
-    CheckContract<BinTreeNode>();
+void bin_tree::ops::AddDiffSize(BinTreeNode* n, size_t diff_size) {
+    (CheckContract<BinTreeNode>)();
 
-    ZETA_Core_StaticAssert(
-        !BinTreeNode::IsConst(type_wrapper::TypeWrapper<BinTreeNode*>{}));
+    ZETA_Core_StaticAssert(!(IsConst<BinTreeNode>)());
 
-    ZETA_Core_StaticAssert(BinTreeNode::IsAccSizeEnabled(
-        type_wrapper::TypeWrapper<BinTreeNode*>{}));
+    ZETA_Core_StaticAssert((HasAccSize<BinTreeNode>)());
 
     if (diff_size == 0) { return; }
 
-    for (; n != nullptr; n = BinTreeNode::GetP(n)) {
-        BinTreeNode::SetAccSize(n, BinTreeNode::GetAccSize(n) + diff_size);
+    for (; n != nullptr; n = (GetP)(n)) {
+        (SetAccSize)(n, (GetAccSize)(n) + diff_size);
     }
 }
 
 template <typename BinTreeNode>
-size_t GetSize(BinTreeNode* n) {
-    CheckContract<BinTreeNode>();
+size_t bin_tree::ops::GetSize(BinTreeNode* n) {
+    (CheckContract<BinTreeNode>)();
 
-    type_wrapper::TypeWrapper<BinTreeNode*> btn_ptr_type_wrapper;
+    ZETA_Core_StaticAssert((HasAccSize<BinTreeNode>)());
 
-    ZETA_Core_StaticAssert(BinTreeNode::IsAccSizeEnabled(btn_ptr_type_wrapper));
-
-    auto null_acc_size{ BinTreeNode::GetNullAccSize(btn_ptr_type_wrapper) };
+    constexpr size_t null_acc_size{ (GetNullAccSize<BinTreeNode>)() };
 
     if (n == nullptr) { return null_acc_size; }
 
-    BinTreeNode* nl{ BinTreeNode::GetL(n) };
-    BinTreeNode* nr{ BinTreeNode::GetR(n) };
+    BinTreeNode* nl{ (GetL)(n) };
+    BinTreeNode* nr{ (GetR)(n) };
 
-    return BinTreeNode::GetAccSize(n) -
-           (nl == nullptr ? null_acc_size : BinTreeNode::GetAccSize(nl)) -
-           (nr == nullptr ? null_acc_size : BinTreeNode::GetAccSize(nr));
+    return (GetAccSize)(n) -
+           (nl == nullptr ? null_acc_size : (GetAccSize)(nl)) -
+           (nr == nullptr ? null_acc_size : (GetAccSize)(nr));
 }
 
 template <typename BinTreeNode>
-void SetSize(BinTreeNode* n, size_t size) {
-    CheckContract<BinTreeNode>();
+void bin_tree::ops::SetSize(BinTreeNode* n, size_t size) {
+    (CheckContract<BinTreeNode>)();
 
-    ZETA_Core_StaticAssert(
-        !BinTreeNode::IsConst(type_wrapper::TypeWrapper<BinTreeNode*>{}));
+    ZETA_Core_StaticAssert(!(IsConst<BinTreeNode>)());
 
-    ZETA_Core_StaticAssert(BinTreeNode::IsAccSizeEnabled(
-        type_wrapper::TypeWrapper<BinTreeNode*>{}));
+    ZETA_Core_StaticAssert((HasAccSize<BinTreeNode>)());
 
     ZETA_Core_DebugAssert(n != nullptr);
 
-    AddDiffSize(n, size - GetSize(n));
+    (AddDiffSize)(n, size - (GetSize)(n));
 }
 
-// -----------------------------------------------------------------------------
+#pragma push_macro("Attatch_")
 
-#pragma push_macro("AttatchCore")
-
-#define AttatchCore(D)                                                      \
-    CheckContract<BinTreeNode>();                                           \
-                                                                            \
-    type_wrapper::TypeWrapper<BinTreeNode*> btn_ptr_type_wrapper;           \
-                                                                            \
-    ZETA_Core_DebugAssert(pos != nullptr);                                  \
-                                                                            \
-    ZETA_Core_DebugAssert(BinTreeNode::Get##D(pos) == nullptr);             \
-    ZETA_Core_DebugAssert(n == nullptr || BinTreeNode::GetP(n) == nullptr); \
-                                                                            \
-    if (n == nullptr) { return; }                                           \
-                                                                            \
-    BinTreeNode::Set##D(pos, n);                                            \
-    BinTreeNode::SetP(n, pos);                                              \
-                                                                            \
-    if constexpr (BinTreeNode::IsAccSizeEnabled(btn_ptr_type_wrapper)) {    \
-        AddDiffSize(pos,                                                    \
-                    BinTreeNode::GetAccSize(n) -                            \
-                        BinTreeNode::GetNullAccSize(btn_ptr_type_wrapper)); \
+#define Attatch_(D)                                                            \
+    (CheckContract<BinTreeNode>)();                                            \
+                                                                               \
+    ZETA_Core_DebugAssert(pos != nullptr);                                     \
+                                                                               \
+    ZETA_Core_DebugAssert((Get##D)(pos) == nullptr);                           \
+    ZETA_Core_DebugAssert(n == nullptr || (GetP)(n) == nullptr);               \
+                                                                               \
+    if (n == nullptr) { return; }                                              \
+                                                                               \
+    (Set##D)(pos, n);                                                          \
+    (SetP)(n, pos);                                                            \
+                                                                               \
+    if constexpr ((HasAccSize<BinTreeNode>())) {                               \
+        (AddDiffSize)(pos, (GetAccSize)(n) - (GetNullAccSize<BinTreeNode>)()); \
     }
 
 template <typename BinTreeNode>
-void AttatchL(BinTreeNode* pos, BinTreeNode* n) {
-    AttatchCore(L);
+void bin_tree::ops::AttatchL(BinTreeNode* pos, BinTreeNode* n) {
+    Attatch_(L);
 }
 
 template <typename BinTreeNode>
-void AttatchR(BinTreeNode* pos, BinTreeNode* n) {
-    AttatchCore(R);
+void bin_tree::ops::AttatchR(BinTreeNode* pos, BinTreeNode* n) {
+    Attatch_(R);
 }
 
-#pragma pop_macro("AttatchCore")
+#pragma pop_macro("Attatch_")
 
 template <typename BinTreeNode>
-void Detach(BinTreeNode* n) {
-    CheckContract<BinTreeNode>();
+void bin_tree::ops::Detach(BinTreeNode* n) {
+    (CheckContract<BinTreeNode>)();
 
     ZETA_Core_DebugAssert(n != nullptr);
 
-    type_wrapper::TypeWrapper<BinTreeNode*> btn_ptr_type_wrapper;
-
-    BinTreeNode* np{ BinTreeNode::GetP(n) };
+    BinTreeNode* np{ (GetP)(n) };
 
     if (np == nullptr) { return; }
 
-    if (BinTreeNode::GetL(np) == n) {
-        BinTreeNode::SetL(np, nullptr);
+    if ((GetL)(np) == n) {
+        (SetL)(np, static_cast<BinTreeNode*>(nullptr));
     } else {
-        BinTreeNode::SetR(np, nullptr);
+        (SetR)(np, static_cast<BinTreeNode*>(nullptr));
     }
 
-    BinTreeNode::SetP(n, nullptr);
+    (SetP)(n, static_cast<BinTreeNode*>(nullptr));
 
-    if constexpr (BinTreeNode::IsAccSizeEnabled(btn_ptr_type_wrapper)) {
-        AddDiffSize(np, BinTreeNode::GetNullAccSize(btn_ptr_type_wrapper) -
-                            BinTreeNode::GetAccSize(n));
+    if constexpr ((HasAccSize<BinTreeNode>)()) {
+        (AddDiffSize)(np, (GetNullAccSize<BinTreeNode>)() - (GetAccSize)(n));
     }
 }
 
 template <typename BinTreeNode>
-void Swap(BinTreeNode* n, BinTreeNode* m) {
-    CheckContract<BinTreeNode>();
-
-    type_wrapper::TypeWrapper<BinTreeNode*> btn_ptr_type_wrapper;
+void bin_tree::ops::Swap(BinTreeNode* n, BinTreeNode* m) {
+    (CheckContract<BinTreeNode>)();
 
     ZETA_Core_DebugAssert(n != nullptr);
     ZETA_Core_DebugAssert(m != nullptr);
 
     if (n == m) { return; }
 
-    BinTreeNode* np{ BinTreeNode::GetP(n) };
-    BinTreeNode* mp{ BinTreeNode::GetP(m) };
+    BinTreeNode* np{ (GetP)(n) };
+    BinTreeNode* mp{ (GetP)(m) };
 
     if (np == m) {
-        Swap(n, m);
-        Swap(np, mp);
+        utils::Swap(n, m);
+        utils::Swap(np, mp);
     }
 
     size_t n_acc_size;
@@ -223,237 +259,226 @@ void Swap(BinTreeNode* n, BinTreeNode* m) {
     ZETA_Core_Unused(n_size);
     ZETA_Core_Unused(m_size);
 
-    BinTreeNode* nl{ BinTreeNode::GetL(n) };
-    BinTreeNode* nr{ BinTreeNode::GetR(n) };
+    BinTreeNode* nl{ (GetL)(n) };
+    BinTreeNode* nr{ (GetR)(n) };
 
-    BinTreeNode* ml{ BinTreeNode::GetL(m) };
-    BinTreeNode* mr{ BinTreeNode::GetR(m) };
+    BinTreeNode* ml{ (GetL)(m) };
+    BinTreeNode* mr{ (GetR)(m) };
 
-    if constexpr (BinTreeNode::IsAccSizeEnabled(btn_ptr_type_wrapper)) {
-        auto null_acc_size{ BinTreeNode::GetNullAccSize(btn_ptr_type_wrapper) };
+    if constexpr ((HasAccSize<BinTreeNode>)()) {
+        constexpr size_t null_acc_size{ (GetNullAccSize<BinTreeNode>)() };
 
-        n_acc_size = BinTreeNode::GetAccSize(n);
-        m_acc_size = BinTreeNode::GetAccSize(m);
+        n_acc_size = (GetAccSize)(n);
+        m_acc_size = (GetAccSize)(m);
 
         n_size = n_acc_size -
-                 (nl == nullptr ? null_acc_size : BinTreeNode::GetAccSize(nl)) -
-                 (nr == nullptr ? null_acc_size : BinTreeNode::GetAccSize(nr));
+                 (nl == nullptr ? null_acc_size : (GetAccSize)(nl)) -
+                 (nr == nullptr ? null_acc_size : (GetAccSize)(nr));
 
         m_size = m_acc_size -
-                 (ml == nullptr ? null_acc_size : BinTreeNode::GetAccSize(ml)) -
-                 (mr == nullptr ? null_acc_size : BinTreeNode::GetAccSize(mr));
+                 (ml == nullptr ? null_acc_size : (GetAccSize)(ml)) -
+                 (mr == nullptr ? null_acc_size : (GetAccSize)(mr));
     }
 
     if (mp == n) {
         if (np == nullptr) {
-        } else if (BinTreeNode::GetL(np) == n) {
-            BinTreeNode::SetL(np, m);
+        } else if ((GetL)(np) == n) {
+            (SetL)(np, m);
         } else {
-            BinTreeNode::SetR(np, m);
+            (SetR)(np, m);
         }
 
-        BinTreeNode::SetP(m, np);
+        (SetP)(m, np);
 
-        if (BinTreeNode::GetL(n) == m) {
-            BinTreeNode::SetL(m, n);
+        if ((GetL)(n) == m) {
+            (SetL)(m, n);
 
-            BinTreeNode::SetR(m, nr);
-            if (nr != nullptr) { BinTreeNode::SetP(nr, m); }
+            (SetR)(m, nr);
+            if (nr != nullptr) { (SetP)(nr, m); }
         } else {
-            BinTreeNode::SetL(m, nl);
-            if (nl != nullptr) { BinTreeNode::SetP(nl, m); }
+            (SetL)(m, nl);
+            if (nl != nullptr) { (SetP)(nl, m); }
 
-            BinTreeNode::SetR(m, n);
+            (SetR)(m, n);
         }
 
-        BinTreeNode::SetP(n, m);
+        (SetP)(n, m);
 
-        BinTreeNode::SetL(n, ml);
-        if (ml != nullptr) { BinTreeNode::SetP(ml, n); }
+        (SetL)(n, ml);
+        if (ml != nullptr) { (SetP)(ml, n); }
 
-        BinTreeNode::SetR(n, mr);
-        if (mr != nullptr) { BinTreeNode::SetP(mr, n); }
+        (SetR)(n, mr);
+        if (mr != nullptr) { (SetP)(mr, n); }
     } else {
         if (np == nullptr) {
-        } else if (BinTreeNode::GetL(np) == n) {
-            BinTreeNode::SetL(np, m);
+        } else if ((GetL)(np) == n) {
+            (SetL)(np, m);
         } else {
-            BinTreeNode::SetR(np, m);
+            (SetR)(np, m);
         }
 
-        BinTreeNode::SetP(m, np);
+        (SetP)(m, np);
 
-        BinTreeNode::SetL(m, nl);
-        if (nl != nullptr) { BinTreeNode::SetP(nl, m); }
+        (SetL)(m, nl);
+        if (nl != nullptr) { (SetP)(nl, m); }
 
-        BinTreeNode::SetR(m, nr);
-        if (nr != nullptr) { BinTreeNode::SetP(nr, m); }
+        (SetR)(m, nr);
+        if (nr != nullptr) { (SetP)(nr, m); }
 
         if (mp == nullptr) {
-        } else if (BinTreeNode::GetL(mp) == m) {
-            BinTreeNode::SetL(mp, n);
+        } else if ((GetL)(mp) == m) {
+            (SetL)(mp, n);
         } else {
-            BinTreeNode::SetR(mp, n);
+            (SetR)(mp, n);
         }
 
-        BinTreeNode::SetP(n, mp);
+        (SetP)(n, mp);
 
-        BinTreeNode::SetL(n, ml);
-        if (ml != nullptr) { BinTreeNode::SetP(ml, n); }
+        (SetL)(n, ml);
+        if (ml != nullptr) { (SetP)(ml, n); }
 
-        BinTreeNode::SetR(n, mr);
-        if (mr != nullptr) { BinTreeNode::SetP(mr, n); }
+        (SetR)(n, mr);
+        if (mr != nullptr) { (SetP)(mr, n); }
     }
 
-    if constexpr (BinTreeNode::IsAccSizeEnabled(
-                      type_wrapper::TypeWrapper<BinTreeNode*>{})) {
-        BinTreeNode::SetAccSize(n, m_acc_size);
-        BinTreeNode::SetAccSize(m, n_acc_size);
+    if constexpr ((HasAccSize<BinTreeNode>)()) {
+        (SetAccSize)(n, m_acc_size);
+        (SetAccSize)(m, n_acc_size);
 
         AddDiffSize(n, n_size - m_size);
         AddDiffSize(m, m_size - n_size);
     }
 }
 
-// -----------------------------------------------------------------------------
+#pragma push_macro("Rotate_")
 
-#pragma push_macro("RotateCore")
-
-#define RotateCore(D, E)                                                      \
-    CheckContract<BinTreeNode>();                                             \
-                                                                              \
-    type_wrapper::TypeWrapper<BinTreeNode*> btn_ptr_type_wrapper;             \
+#define Rotate_(D, E)                                                         \
+    (CheckContract<BinTreeNode>)();                                           \
                                                                               \
     ZETA_Core_DebugAssert(n != nullptr);                                      \
                                                                               \
-    BinTreeNode* ne{ BinTreeNode::Get##E(n) };                                \
+    BinTreeNode* ne{ (Get##E)(n) };                                           \
     ZETA_Core_DebugAssert(ne != nullptr);                                     \
                                                                               \
-    BinTreeNode* ned{ BinTreeNode::Get##D(ne) };                              \
-    BinTreeNode* np{ BinTreeNode::GetP(n) };                                  \
+    BinTreeNode* ned{ (Get##D)(ne) };                                         \
+    BinTreeNode* np{ (GetP)(n) };                                             \
                                                                               \
     if (np != nullptr) {                                                      \
-        if (BinTreeNode::Get##D(np) == n) {                                   \
-            BinTreeNode::Set##D(np, ne);                                      \
+        if ((Get##D)(np) == n) {                                              \
+            (Set##D)(np, ne);                                                 \
         } else {                                                              \
-            BinTreeNode::Set##E(np, ne);                                      \
+            (Set##E)(np, ne);                                                 \
         }                                                                     \
     }                                                                         \
                                                                               \
-    BinTreeNode::SetP(ne, np);                                                \
+    (SetP)(ne, np);                                                           \
                                                                               \
-    BinTreeNode::Set##D(ne, n);                                               \
-    BinTreeNode::SetP(n, ne);                                                 \
+    (Set##D)(ne, n);                                                          \
+    (SetP)(n, ne);                                                            \
                                                                               \
-    BinTreeNode::Set##E(n, ned);                                              \
-    if (ned != nullptr) { BinTreeNode::SetP(ned, n); }                        \
+    (Set##E)(n, ned);                                                         \
+    if (ned != nullptr) { (SetP)(ned, n); }                                   \
                                                                               \
-    if constexpr (BinTreeNode::IsAccSizeEnabled(btn_ptr_type_wrapper)) {      \
-        size_t n_acc_size{ BinTreeNode::GetAccSize(n) };                      \
-        size_t ne_acc_size{ BinTreeNode::GetAccSize(ne) };                    \
-        size_t ned_acc_size{ ned == nullptr ? BinTreeNode::GetNullAccSize(    \
-                                                  btn_ptr_type_wrapper)       \
-                                            : BinTreeNode::GetAccSize(ned) }; \
+    if constexpr ((HasAccSize<BinTreeNode>)()) {                              \
+        size_t n_acc_size{ (GetAccSize)(n) };                                 \
+        size_t ne_acc_size{ (GetAccSize)(ne) };                               \
+        size_t ned_acc_size{ ned == nullptr ? (GetNullAccSize<BinTreeNode>)() \
+                                            : (GetAccSize)(ned) };            \
                                                                               \
-        BinTreeNode::SetAccSize(n, n_acc_size - ne_acc_size + ned_acc_size);  \
+        (SetAccSize)(n, n_acc_size - ne_acc_size + ned_acc_size);             \
                                                                               \
-        BinTreeNode::SetAccSize(ne, n_acc_size);                              \
+        (SetAccSize)(ne, n_acc_size);                                         \
     };
 
 template <typename BinTreeNode>
-void RotateL(BinTreeNode* n) {
-    RotateCore(L, R);
+void bin_tree::ops::RotateL(BinTreeNode* n) {
+    Rotate_(L, R);
 }
 
 template <typename BinTreeNode>
-void RotateR(BinTreeNode* n) {
-    RotateCore(R, L);
+void bin_tree::ops::RotateR(BinTreeNode* n) {
+    Rotate_(R, L);
 }
 
-#pragma pop_macro("RotateCore")
+#pragma pop_macro("Rotate_")
 
-// -----------------------------------------------------------------------------
+#pragma push_macro("Access_")
 
-#pragma push_macro("AccessCore")
-
-#define AccessCore(D, E)                                                     \
-    CheckContract<BinTreeNode>();                                            \
-                                                                             \
-    type_wrapper::TypeWrapper<BinTreeNode*> btn_ptr_type_wrapper;            \
-                                                                             \
-    ZETA_Core_StaticAssert(                                                  \
-        BinTreeNode::IsAccSizeEnabled(btn_ptr_type_wrapper));                \
-                                                                             \
-    auto null_acc_size{ BinTreeNode::GetNullAccSize(btn_ptr_type_wrapper) }; \
-                                                                             \
-    size_t n_acc_size{ n == nullptr ? null_acc_size                          \
-                                    : BinTreeNode::GetAccSize(n) };          \
-                                                                             \
-    if (n_acc_size <= idx) { return { nullptr, idx - n_acc_size }; }         \
-                                                                             \
-    while (n != nullptr) {                                                   \
-        BinTreeNode* nd{ BinTreeNode::Get##D(n) };                           \
-        size_t nd_acc_size{ nd == nullptr ? null_acc_size                    \
-                                          : BinTreeNode::GetAccSize(nd) };   \
-                                                                             \
-        if (idx < nd_acc_size) {                                             \
-            n = nd;                                                          \
-            n_acc_size = nd_acc_size;                                        \
-            continue;                                                        \
-        }                                                                    \
-                                                                             \
-        BinTreeNode* ne{ BinTreeNode::Get##E(n) };                           \
-        size_t ne_acc_size{ ne == nullptr ? null_acc_size                    \
-                                          : BinTreeNode::GetAccSize(ne) };   \
-                                                                             \
-        idx -= nd_acc_size;                                                  \
-        size_t n_size{ n_acc_size - nd_acc_size - ne_acc_size };             \
-                                                                             \
-        if (idx < n_size) { break; }                                         \
-                                                                             \
-        n = ne;                                                              \
-        n_acc_size = ne_acc_size;                                            \
-        idx -= n_size;                                                       \
-    }                                                                        \
-                                                                             \
+#define Access_(D, E)                                                    \
+    (CheckContract<BinTreeNode>)();                                      \
+                                                                         \
+    ZETA_Core_StaticAssert((HasAccSize<BinTreeNode>)());                 \
+                                                                         \
+    constexpr size_t null_acc_size{ (GetNullAccSize<BinTreeNode>)() };   \
+                                                                         \
+    size_t n_acc_size{ n == nullptr ? null_acc_size : (GetAccSize)(n) }; \
+                                                                         \
+    if (n_acc_size <= idx) { return { nullptr, idx - n_acc_size }; }     \
+                                                                         \
+    while (n != nullptr) {                                               \
+        BinTreeNode* nd{ (Get##D)(n) };                                  \
+        size_t nd_acc_size{ nd == nullptr ? null_acc_size                \
+                                          : (GetAccSize)(nd) };          \
+                                                                         \
+        if (idx < nd_acc_size) {                                         \
+            n = nd;                                                      \
+            n_acc_size = nd_acc_size;                                    \
+            continue;                                                    \
+        }                                                                \
+                                                                         \
+        BinTreeNode* ne{ (Get##E)(n) };                                  \
+        size_t ne_acc_size{ ne == nullptr ? null_acc_size                \
+                                          : (GetAccSize)(ne) };          \
+                                                                         \
+        idx -= nd_acc_size;                                              \
+        size_t n_size{ n_acc_size - nd_acc_size - ne_acc_size };         \
+                                                                         \
+        if (idx < n_size) { break; }                                     \
+                                                                         \
+        n = ne;                                                          \
+        n_acc_size = ne_acc_size;                                        \
+        idx -= n_size;                                                   \
+    }                                                                    \
+                                                                         \
     return { n, idx };
 
 template <typename BinTreeNode>
-Pair<BinTreeNode*, size_t> AccessL(BinTreeNode* n, size_t idx) {
-    AccessCore(L, R);
+utils::Pair<BinTreeNode*, size_t> bin_tree::ops::AccessL(BinTreeNode* n,
+                                                         size_t idx) {
+    Access_(L, R);
 }
 
 template <typename BinTreeNode>
-Pair<BinTreeNode*, size_t> AccessR(BinTreeNode* n, size_t idx) {
-    AccessCore(R, L);
+utils::Pair<BinTreeNode*, size_t> bin_tree::ops::AccessR(BinTreeNode* n,
+                                                         size_t idx) {
+    Access_(R, L);
 }
 
-#pragma pop_macro("AccessCore")
+#pragma pop_macro("Access_")
 
 #pragma push_macro("StepP_")
 
-#define StepP_(D)                                         \
-    CheckContract<BinTreeNode>();                         \
-                                                          \
-    ZETA_Core_StaticAssert(BinTreeNode::IsAccSizeEnabled( \
-        type_wrapper::TypeWrapper<BinTreeNode*>{}));      \
-                                                          \
-    ZETA_Core_DebugAssert(n != nullptr);                  \
-                                                          \
-    for (;;) {                                            \
-        BinTreeNode* np{ BinTreeNode::GetP(n) };          \
-        if (np == nullptr) { return nullptr; }            \
-        if (BinTreeNode::Get##E(np) == n) { return np; }  \
-        n = np;                                           \
+#define StepP_(D)                                        \
+    (CheckContract<BinTreeNode>)();                      \
+                                                         \
+    ZETA_Core_StaticAssert((HasAccSize<BinTreeNode>)()); \
+                                                         \
+    ZETA_Core_DebugAssert(n != nullptr);                 \
+                                                         \
+    for (;;) {                                           \
+        BinTreeNode* np{ (GetP)(n) };                    \
+        if (np == nullptr) { return nullptr; }           \
+        if ((Get##D)(np) == n) { return np; }            \
+        n = np;                                          \
     }
 
 template <typename BinTreeNode>
-BinTreeNode* StepPL(BinTreeNode* n) {
+BinTreeNode* bin_tree::ops::StepPL(BinTreeNode* n) {
     StepP_(L);
 }
 
 template <typename BinTreeNode>
-BinTreeNode* StepPR(BinTreeNode* n) {
+BinTreeNode* bin_tree::ops::StepPR(BinTreeNode* n) {
     StepP_(R);
 }
 
@@ -461,29 +486,29 @@ BinTreeNode* StepPR(BinTreeNode* n) {
 
 #pragma push_macro("Step_")
 
-#define Step_(D, E)                                      \
-    CheckContract<BinTreeNode>();                        \
-                                                         \
-    ZETA_Core_DebugAssert(n != nullptr);                 \
-                                                         \
-    BinTreeNode* nd{ BinTreeNode::Get##D(n) };           \
-                                                         \
-    if (nd != nullptr) { return GetMost##E(nd).first; }  \
-                                                         \
-    for (;;) {                                           \
-        BinTreeNode* np{ BinTreeNode::GetP(n) };         \
-        if (np == nullptr) { return nullptr; }           \
-        if (BinTreeNode::Get##E(np) == n) { return np; } \
-        n = np;                                          \
+#define Step_(D, E)                                     \
+    (CheckContract<BinTreeNode>)();                     \
+                                                        \
+    ZETA_Core_DebugAssert(n != nullptr);                \
+                                                        \
+    BinTreeNode* nd{ (Get##D)(n) };                     \
+                                                        \
+    if (nd != nullptr) { return GetMost##E(nd).first; } \
+                                                        \
+    for (;;) {                                          \
+        BinTreeNode* np{ (GetP)(n) };                   \
+        if (np == nullptr) { return nullptr; }          \
+        if ((Get##E)(np) == n) { return np; }           \
+        n = np;                                         \
     }
 
 template <typename BinTreeNode>
-BinTreeNode* StepL(BinTreeNode* n) {
+BinTreeNode* bin_tree::ops::StepL(BinTreeNode* n) {
     Step_(L, R);
 }
 
 template <typename BinTreeNode>
-BinTreeNode* StepR(BinTreeNode* n) {
+BinTreeNode* bin_tree::ops::StepR(BinTreeNode* n) {
     Step_(R, L);
 }
 
@@ -491,92 +516,87 @@ BinTreeNode* StepR(BinTreeNode* n) {
 
 #pragma push_macro("Advance_")
 
-#define Advance_(D, E)                                                       \
-    CheckContract<BinTreeNode>();                                            \
-                                                                             \
-    type_wrapper::TypeWrapper<BinTreeNode*> btn_ptr_type_wrapper;            \
-                                                                             \
-    ZETA_Core_StaticAssert(                                                  \
-        BinTreeNode::IsAccSizeEnabled(btn_ptr_type_wrapper));                \
-                                                                             \
-    auto null_acc_size{ BinTreeNode::GetNullAccSize(btn_ptr_type_wrapper) }; \
-                                                                             \
-    while (n != nullptr && 0 < step) {                                       \
-        BinTreeNode* nd{ BinTreeNode::Get##D(n) };                           \
-        BinTreeNode* ne{ BinTreeNode::Get##E(n) };                           \
-                                                                             \
-        size_t n_acc_size{ BinTreeNode::GetAccSize(n) };                     \
-        size_t nd_acc_size{ nd == nullptr ? null_acc_size                    \
-                                          : BinTreeNode::GetAccSize(nd) };   \
-        size_t ne_acc_size{ ne == nullptr ? null_acc_size                    \
-                                          : BinTreeNode::GetAccSize(ne) };   \
-                                                                             \
-        size_t n_size{ n_acc_size - nd_acc_size - ne_acc_size };             \
-                                                                             \
-        if (step < n_size) { break; }                                        \
-                                                                             \
-        step -= n_size;                                                      \
-                                                                             \
-        if (step < nd_acc_size) { return Access##E(nd, step); }              \
-                                                                             \
-        step -= nd_acc_size;                                                 \
-                                                                             \
-        for (;;) {                                                           \
-            BinTreeNode* np{ BinTreeNode::GetP(n) };                         \
-                                                                             \
-            if (np == nullptr || BinTreeNode::Get##E(np) == n) {             \
-                n = np;                                                      \
-                break;                                                       \
-            }                                                                \
-                                                                             \
-            n = np;                                                          \
-        }                                                                    \
-    }                                                                        \
-                                                                             \
+#define Advance_(D, E)                                                 \
+    (CheckContract<BinTreeNode>)();                                    \
+                                                                       \
+    ZETA_Core_StaticAssert((HasAccSize<BinTreeNode>)());               \
+                                                                       \
+    constexpr size_t null_acc_size{ (GetNullAccSize<BinTreeNode>)() }; \
+                                                                       \
+    while (n != nullptr && 0 < step) {                                 \
+        BinTreeNode* nd{ (Get##D)(n) };                                \
+        BinTreeNode* ne{ (Get##E)(n) };                                \
+                                                                       \
+        size_t n_acc_size{ (GetAccSize)(n) };                          \
+        size_t nd_acc_size{ nd == nullptr ? null_acc_size              \
+                                          : (GetAccSize)(nd) };        \
+        size_t ne_acc_size{ ne == nullptr ? null_acc_size              \
+                                          : (GetAccSize)(ne) };        \
+                                                                       \
+        size_t n_size{ n_acc_size - nd_acc_size - ne_acc_size };       \
+                                                                       \
+        if (step < n_size) { break; }                                  \
+                                                                       \
+        step -= n_size;                                                \
+                                                                       \
+        if (step < nd_acc_size) { return (Access##E)(nd, step); }      \
+                                                                       \
+        step -= nd_acc_size;                                           \
+                                                                       \
+        for (;;) {                                                     \
+            BinTreeNode* np{ (GetP)(n) };                              \
+                                                                       \
+            if (np == nullptr || (Get##E)(np) == n) {                  \
+                n = np;                                                \
+                break;                                                 \
+            }                                                          \
+                                                                       \
+            n = np;                                                    \
+        }                                                              \
+    }                                                                  \
+                                                                       \
     return { n, step };
 
 template <typename BinTreeNode>
-Pair<BinTreeNode*, size_t> AdvanceL(BinTreeNode* n, size_t step) {
+utils::Pair<BinTreeNode*, size_t> bin_tree::ops::AdvanceL(BinTreeNode* n,
+                                                          size_t step) {
     Advance_(L, R);
 }
 
 template <typename BinTreeNode>
-Pair<BinTreeNode*, size_t> AdvanceR(BinTreeNode* n, size_t step) {
+utils::Pair<BinTreeNode*, size_t> bin_tree::ops::AdvanceR(BinTreeNode* n,
+                                                          size_t step) {
     Advance_(R, L);
 }
 
 #pragma pop_macro("Advance_")
 
 template <typename BinTreeNode>
-Pair<size_t, size_t> GetLRAccSize(BinTreeNode* n) {
-    CheckContract<BinTreeNode>();
+utils::Pair<size_t, size_t> bin_tree::ops::GetLRAccSize(BinTreeNode* n) {
+    (CheckContract<BinTreeNode>)();
 
-    type_wrapper::TypeWrapper<BinTreeNode*> btn_ptr_type_wrapper;
-
-    ZETA_Core_StaticAssert(BinTreeNode::IsAccSizeEnabled(btn_ptr_type_wrapper));
+    ZETA_Core_StaticAssert((HasAccSize<BinTreeNode>)());
 
     ZETA_Core_DebugAssert(n != nullptr);
 
-    auto null_acc_size{ BinTreeNode::GetNullAccSize(btn_ptr_type_wrapper) };
+    constexpr size_t null_acc_size{ (GetNullAccSize<BinTreeNode>)() };
 
-    BinTreeNode* nl{ BinTreeNode::GetL(n) };
-    BinTreeNode* nr{ BinTreeNode::GetR(n) };
+    BinTreeNode* nl{ (GetL)(n) };
+    BinTreeNode* nr{ (GetR)(n) };
 
-    size_t l_acc_size{ nl == nullptr ? null_acc_size
-                                     : BinTreeNode::GetAccSize(nl) };
-    size_t r_acc_size{ nr == nullptr ? null_acc_size
-                                     : BinTreeNode::GetAccSize(nr) };
+    size_t l_acc_size{ nl == nullptr ? null_acc_size : (GetAccSize)(nl) };
+    size_t r_acc_size{ nr == nullptr ? null_acc_size : (GetAccSize)(nr) };
 
-    size_t n_acc_size{ BinTreeNode::GetAccSize(n) };
+    size_t n_acc_size{ (GetAccSize)(n) };
 
     for (;;) {
-        BinTreeNode* np{ BinTreeNode::GetP(n) };
+        BinTreeNode* np{ (GetP)(n) };
         if (np == nullptr) { break; }
 
-        size_t np_acc_size{ BinTreeNode::GetAccSize(np) };
+        size_t np_acc_size{ (GetAccSize)(np) };
         size_t k{ np_acc_size - n_acc_size };
 
-        if (BinTreeNode::GetL(np) == n) {
+        if ((GetL)(np) == n) {
             r_acc_size += k;
         } else {
             l_acc_size += k;
@@ -589,26 +609,20 @@ Pair<size_t, size_t> GetLRAccSize(BinTreeNode* n) {
     return { l_acc_size, r_acc_size };
 }
 
-// -----------------------------------------------------------------------------
-
-namespace detail {
+namespace bin_tree::ops::detail {
 
 template <typename BinTreeNode>
 void SanitizeCore(BinTreeNode* n) {
-    CheckContract<BinTreeNode>();
+    (CheckContract<BinTreeNode>)();
 
     for (BinTreeNode* m{ n };;) {
-        BinTreeNode* ml{ BinTreeNode::GetL(m) };
-        BinTreeNode* mr{ BinTreeNode::GetR(m) };
+        BinTreeNode* ml{ (GetL)(m) };
+        BinTreeNode* mr{ (GetR)(m) };
 
         ZETA_Core_DebugAssert((ml == nullptr && mr == nullptr) || (ml != mr));
 
-        if (ml != nullptr) {
-            ZETA_Core_DebugAssert(BinTreeNode::GetP(ml) == m);
-        }
-        if (mr != nullptr) {
-            ZETA_Core_DebugAssert(BinTreeNode::GetP(mr) == m);
-        }
+        if (ml != nullptr) { ZETA_Core_DebugAssert((GetP)(ml) == m); }
+        if (mr != nullptr) { ZETA_Core_DebugAssert((GetP)(mr) == m); }
 
         if (ml != nullptr) {
             m = ml;
@@ -623,14 +637,14 @@ void SanitizeCore(BinTreeNode* n) {
         if (m == n) { break; }
 
         for (;;) {
-            BinTreeNode* mp{ BinTreeNode::GetP(m) };
+            BinTreeNode* mp{ (GetP)(m) };
 
-            if (BinTreeNode::GetR(mp) == m) {
+            if ((GetR)(mp) == m) {
                 m = mp;
                 continue;
             }
 
-            BinTreeNode* mpr{ BinTreeNode::GetR(mp) };
+            BinTreeNode* mpr{ (GetR)(mp) };
 
             if (mp != n) {
                 m = mpr == nullptr ? mp : mpr;
@@ -643,22 +657,19 @@ void SanitizeCore(BinTreeNode* n) {
     }
 }
 
-}  // namespace detail
+}  // namespace bin_tree::ops::detail
 
 template <typename BinTreeNode>
-void Sanitize(BinTreeNode* root) {
-    CheckContract<BinTreeNode>();
+void bin_tree::ops::Sanitize(BinTreeNode* root) {
+    (CheckContract<BinTreeNode>)();
 
-    ZETA_Core_StaticAssert(
-        BinTreeNode::IsConst(type_wrapper::TypeWrapper<BinTreeNode*>{}));
+    if (root == nullptr) { return; }
+
+    ZETA_Core_DebugAssert((GetP)(root) == nullptr);
 
     constexpr size_t buffer_capacity{
         static_cast<size_t>(ZETA_Core_ullong_width) * 4
     };
-
-    if (root == nullptr) { return; }
-
-    ZETA_Core_DebugAssert(BinTreeNode::GetP(root) == nullptr);
 
     BinTreeNode* buffer[buffer_capacity];
 
@@ -666,20 +677,22 @@ void Sanitize(BinTreeNode* root) {
 
     buffer[buffer_i++] = root;
 
-    unsigned long long random_seed{ GetRandom() };
+    unsigned long long random_seed{ utils::GetRandom() };
 
     while (0 < buffer_i) {
         BinTreeNode* n{ buffer[--buffer_i] };
 
-        BinTreeNode* nl{ BinTreeNode::GetL(n) };
-        BinTreeNode* nr{ BinTreeNode::GetR(n) };
+        BinTreeNode* nl{ (GetL)(n) };
+        BinTreeNode* nr{ (GetR)(n) };
 
-        if (SimpleRandomRotate(&random_seed) % 2 == 1) { Swap(nl, nr); }
+        if (utils::SimpleRandomRotate(&random_seed) % 2 == 1) {
+            utils::Swap(nl, nr);
+        }
 
         ZETA_Core_DebugAssert((nl == nullptr && nr == nullptr) || (nl != nr));
 
         if (nl != nullptr) {
-            ZETA_Core_DebugAssert(BinTreeNode::GetP(nl) == n);
+            ZETA_Core_DebugAssert((GetP)(nl) == n);
 
             if (buffer_i == buffer_capacity) {
                 detail::SanitizeCore(nl);
@@ -689,7 +702,7 @@ void Sanitize(BinTreeNode* root) {
         }
 
         if (nr != nullptr) {
-            ZETA_Core_DebugAssert(BinTreeNode::GetP(nr) == n);
+            ZETA_Core_DebugAssert((GetP)(nr) == n);
 
             if (buffer_i == buffer_capacity) {
                 detail::SanitizeCore(nr);
@@ -700,30 +713,30 @@ void Sanitize(BinTreeNode* root) {
     }
 }
 
-// -----------------------------------------------------------------------------
-
-namespace detail {
+namespace bin_tree::ops::detail {
 
 template <typename BinTreeNode>
-size_t CountCore(BinTreeNode* n) {
+size_t Count_(BinTreeNode* n) {
     size_t ret{ 0 };
 
-    for (BinTreeNode* m; n != nullptr; n = BinTreeNode::GetR(n), ++ret) {
+    for (BinTreeNode* m; n != nullptr; n = (GetR)(n), ++ret) {
         for (m = GetMostL(n).first; m != n; m = StepR(m)) { ++ret; }
     }
 
     return ret;
 }
 
-}  // namespace detail
+}  // namespace bin_tree::ops::detail
 
 template <typename BinTreeNode>
-size_t Count(BinTreeNode* n) {
-    CheckContract<BinTreeNode>();
+size_t bin_tree::ops::Count(BinTreeNode* n) {
+    (CheckContract<BinTreeNode>)();
 
     constexpr size_t buffer_capacity{
         static_cast<size_t>(ZETA_Core_ullong_width) * 4
     };
+
+    constexpr size_t random_swap_th{ buffer_capacity / 2 };
 
     if (n == nullptr) { return 0; }
 
@@ -733,7 +746,7 @@ size_t Count(BinTreeNode* n) {
 
     buffer[buffer_i++] = n;
 
-    unsigned long long random_seed{ GetRandom() };
+    unsigned long long random_seed{ utils::GetRandom() };
 
     size_t ret{ 0 };
 
@@ -742,14 +755,17 @@ size_t Count(BinTreeNode* n) {
 
         ++ret;
 
-        BinTreeNode* ml{ BinTreeNode::GetL(m) };
-        BinTreeNode* mr{ BinTreeNode::GetR(m) };
+        BinTreeNode* ml{ (GetL)(m) };
+        BinTreeNode* mr{ (GetR)(m) };
 
-        if (SimpleRandomRotate(&random_seed) % 2 == 1) { core::Swap(ml, mr); }
+        if (random_swap_th <= buffer_i &&
+            utils::SimpleRandomRotate(&random_seed) % 2 == 1) {
+            utils::Swap(ml, mr);
+        }
 
         if (ml != nullptr) {
             if (buffer_i == buffer_capacity) {
-                ret += detail::CountCore(ml);
+                ret += detail::Count_(ml);
             } else {
                 buffer[buffer_i++] = ml;
             }
@@ -757,7 +773,7 @@ size_t Count(BinTreeNode* n) {
 
         if (mr != nullptr) {
             if (buffer_i == buffer_capacity) {
-                ret += detail::CountCore(mr);
+                ret += detail::Count_(mr);
             } else {
                 buffer[buffer_i++] = mr;
             }
@@ -767,4 +783,4 @@ size_t Count(BinTreeNode* n) {
     return ret;
 }
 
-}  // namespace zeta::core::bin_tree
+}  // namespace zeta::core

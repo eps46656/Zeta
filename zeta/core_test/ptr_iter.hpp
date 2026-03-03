@@ -15,7 +15,7 @@ struct PtrIter {
     using reference = Value&;
     using iterator_category = std::random_access_iterator_tag;
 
-    core::Conditional<core::IsConst<Value>, void const*, void*> ptr;
+    core::meta::Conditional<core::meta::IsConst<Value>, void const*, void*> ptr;
     ptrdiff_t stride;
 
     Value* operator->() const;

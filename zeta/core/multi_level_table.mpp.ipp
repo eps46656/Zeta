@@ -16,38 +16,42 @@
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/mem_check_utils.hpp>
+#include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/multi_level_table.mpp.hpp>
 #include <zeta/core/utils.hpp>
 
-#pragma push_macro("NameSpace")
-#pragma push_macro("TplParamList")
-#pragma push_macro("TplArgList")
-
 #if EnData
 
+#pragma push_macro("NameSpace")
 #define NameSpace multi_level_data_table
-#define TplParamList \
+
+#pragma push_macro("CntrTplParamList")
+#define CntrTplParamList \
     typename NavNodeAllocatorLike, typename DataNodeAllocatorLike
-#define TplArgList NavNodeAllocatorLike, DataNodeAllocatorLike
+
+#pragma push_macro("CntrTplArgList")
+#define CntrTplArgList NavNodeAllocatorLike, DataNodeAllocatorLike
 
 #else
 
+#pragma push_macro("NameSpace")
 #define NameSpace multi_level_ptr_table
-#define TplParamList typename NavNodeAllocatorLike
-#define TplArgList NavNodeAllocatorLike
+
+#pragma push_macro("CntrTplParamList")
+#define CntrTplParamList typename NavNodeAllocatorLike
+
+#pragma push_macro("CntrTplArgList")
+#define CntrTplArgList NavNodeAllocatorLike
 
 #endif
 
-namespace zeta::core::NameSpace {
+namespace zeta::core {
 
-namespace ops {
+namespace NameSpace::ops::detail {
 
-namespace detail {
-
-template <TplParamList>
+template <CntrTplParamList>
 void Check_  // NOLINT(misc-use-internal-linkage)
-    (Cntr<TplArgList>* cntr) {
+    (Cntr<CntrTplArgList>* cntr) {
     ZETA_Core_DebugAssert(cntr != nullptr);
 
     unsigned level{ cntr->level };
@@ -64,9 +68,9 @@ void Check_  // NOLINT(misc-use-internal-linkage)
     }
 }
 
-template <TplParamList>
+template <CntrTplParamList>
 void CheckIdxes_  // NOLINT(misc-use-internal-linkage)
-    (Cntr<TplArgList>* cntr, size_t const* idxes) {
+    (Cntr<CntrTplArgList>* cntr, size_t const* idxes) {
     Check_(cntr);
 
     ZETA_Core_DebugAssert(idxes != nullptr);
@@ -107,8 +111,8 @@ void DeallocateNavNode_  // NOLINT(misc-use-internal-linkage)
 
 inline size_t CalcDataNodeSize_  // NOLINT(misc-use-internal-linkage)
     (size_t stride, size_t branch_num) {
-    return UIntAlignUp(stride * branch_num + sizeof(unsigned long long),
-                       alignof(unsigned long long));
+    return utils::UIntAlignUp(stride * branch_num + sizeof(unsigned long long),
+                              alignof(unsigned long long));
 }
 
 template <typename DataNodeAllocator>
@@ -138,10 +142,10 @@ void DeAllocateDataNode_  // NOLINT(misc-use-internal-linkage)
 
 #endif
 
-}  // namespace detail
+}  // namespace NameSpace::ops::detail
 
-template <TplParamList>
-void Init(Cntr<TplArgList>* cntr) {
+template <CntrTplParamList>
+void NameSpace::ops::Init(Cntr<CntrTplArgList>* cntr) {
     ZETA_Core_DebugAssert(cntr != nullptr);
 
     unsigned level{ cntr->level };
@@ -165,27 +169,27 @@ void Init(Cntr<TplArgList>* cntr) {
 
     cntr->root = nullptr;
 
-    allocator::CheckContract(GetInstPtr(cntr->nav_node_alctr));
+    allocator::ops::CheckContract(cntr->nav_node_alctr);
 
 #if EnData
-    allocator::CheckContract(GetInstPtr(cntr->data_node_alctr));
+    allocator::ops::CheckContract(cntr->data_node_alctr);
 #endif
 }
 
-template <TplParamList>
-void Deinit(Cntr<TplArgList>* cntr) {
+template <CntrTplParamList>
+void NameSpace::ops::Deinit(Cntr<CntrTplArgList>* cntr) {
     EraseAll(cntr);
 }
 
-template <TplParamList>
-size_t GetSize(Cntr<TplArgList>* cntr) {
+template <CntrTplParamList>
+size_t NameSpace::ops::GetSize(Cntr<CntrTplArgList>* cntr) {
     detail::Check_(cntr);
 
     return cntr->size;
 }
 
-template <TplParamList>
-size_t GetCapacity(Cntr<TplArgList>* cntr) {
+template <CntrTplParamList>
+size_t NameSpace::ops::GetCapacity(Cntr<CntrTplArgList>* cntr) {
     detail::Check_(cntr);
 
     size_t ret{ 1 };
@@ -202,8 +206,8 @@ size_t GetCapacity(Cntr<TplArgList>* cntr) {
     return ret;
 }
 
-template <TplParamList>
-void* Access(Cntr<TplArgList>* cntr, size_t* idxes) {
+template <CntrTplParamList>
+void* NameSpace::ops::Access(Cntr<CntrTplArgList>* cntr, size_t* idxes) {
     detail::CheckIdxes_(cntr, idxes);
 
     unsigned level{ cntr->level };
@@ -243,8 +247,8 @@ void* Access(Cntr<TplArgList>* cntr, size_t* idxes) {
 #endif
 }
 
-template <TplParamList>
-void* FindFirst(Cntr<TplArgList>* cntr, size_t* dst_idxes) {
+template <CntrTplParamList>
+void* NameSpace::ops::FindFirst(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes) {
     detail::Check_(cntr);
 
     unsigned level{ cntr->level };
@@ -266,8 +270,8 @@ void* FindFirst(Cntr<TplArgList>* cntr, size_t* dst_idxes) {
     return ret;
 }
 
-template <TplParamList>
-void* FindLast(Cntr<TplArgList>* cntr, size_t* dst_idxes) {
+template <CntrTplParamList>
+void* NameSpace::ops::FindLast(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes) {
     detail::Check_(cntr);
 
     unsigned level{ cntr->level };
@@ -290,8 +294,9 @@ void* FindLast(Cntr<TplArgList>* cntr, size_t* dst_idxes) {
     return ret;
 }
 
-template <TplParamList>
-void* FindPrev(Cntr<TplArgList>* cntr, size_t* idxes, bool included) {
+template <CntrTplParamList>
+void* NameSpace::ops::FindPrev(Cntr<CntrTplArgList>* cntr, size_t* idxes,
+                               bool included) {
     detail::CheckIdxes_(cntr, idxes);
 
     unsigned level{ cntr->level };
@@ -394,8 +399,9 @@ L1:
 #endif
 }
 
-template <TplParamList>
-void* FindNext(Cntr<TplArgList>* cntr, size_t* idxes, bool included) {
+template <CntrTplParamList>
+void* NameSpace::ops::FindNext(Cntr<CntrTplArgList>* cntr, size_t* idxes,
+                               bool included) {
     detail::CheckIdxes_(cntr, idxes);
 
     unsigned level{ cntr->level };
@@ -474,8 +480,9 @@ L1:
 
         node = nodes[level_i];
 
-        int found_idx{ FindNextOne(*static_cast<unsigned long long*>(node),
-                                   static_cast<int>(idxes[level_i])) };
+        int found_idx{ utils::FindNextOne(
+            *static_cast<unsigned long long*>(node),
+            static_cast<int>(idxes[level_i])) };
 
         if (0 <= found_idx) {
             idxes[level_i] = static_cast<size_t>(found_idx);
@@ -487,7 +494,7 @@ L1:
         node = static_cast<NavNode*>(node)->ptrs[idxes[level_i--]];
         nodes[level_i] = node;
         idxes[level_i] = static_cast<size_t>(
-            FindNextOne(*static_cast<unsigned long long*>(node), -1));
+            utils::FindNextOne(*static_cast<unsigned long long*>(node), -1));
     }
 
 #if EnData
@@ -498,8 +505,9 @@ L1:
 #endif
 }
 
-template <TplParamList>
-Pair<void*, bool> Insert(Cntr<TplArgList>* cntr, size_t* idxes) {
+template <CntrTplParamList>
+utils::Pair<void*, bool> NameSpace::ops::Insert(Cntr<CntrTplArgList>* cntr,
+                                                size_t* idxes) {
     detail::CheckIdxes_(cntr, idxes);
 
     unsigned level{ cntr->level };
@@ -509,10 +517,10 @@ Pair<void*, bool> Insert(Cntr<TplArgList>* cntr, size_t* idxes) {
     size_t stride{ cntr->stride };
 #endif
 
-    auto* nav_node_alctr{ GetInstPtr(cntr->nav_node_alctr) };
+    auto* nav_node_alctr{ utils::GetInstPtr(cntr->nav_node_alctr) };
 
 #if EnData
-    auto* data_node_alctr{ GetInstPtr(cntr->data_node_alctr) };
+    auto* data_node_alctr{ utils::GetInstPtr(cntr->data_node_alctr) };
 #endif
 
     if (cntr->root == nullptr) {
@@ -574,8 +582,8 @@ Pair<void*, bool> Insert(Cntr<TplArgList>* cntr, size_t* idxes) {
     return { .first = addr, .second = newly_inserted };
 }
 
-template <TplParamList>
-bool Erase(Cntr<TplArgList>* cntr, size_t* idxes) {
+template <CntrTplParamList>
+bool NameSpace::ops::Erase(Cntr<CntrTplArgList>* cntr, size_t* idxes) {
     detail::CheckIdxes_(cntr, idxes);
 
     unsigned level{ cntr->level };
@@ -589,10 +597,10 @@ bool Erase(Cntr<TplArgList>* cntr, size_t* idxes) {
 
     if (node == nullptr) { return false; }
 
-    auto* nav_node_alctr{ GetInstPtr(cntr->nav_node_alctr) };
+    auto* nav_node_alctr{ utils::GetInstPtr(cntr->nav_node_alctr) };
 
 #if EnData
-    auto* data_node_alctr{ GetInstPtr(cntr->data_node_alctr) };
+    auto* data_node_alctr{ utils::GetInstPtr(cntr->data_node_alctr) };
 #endif
 
     void* nodes[max_level];
@@ -640,20 +648,20 @@ bool Erase(Cntr<TplArgList>* cntr, size_t* idxes) {
     return true;
 }
 
-namespace detail {
+namespace NameSpace::ops::detail {
 
-template <TplParamList>
+template <CntrTplParamList>
 void EraseAllRecursive_  // NOLINT(misc-use-internal-linkage)
-    (Cntr<TplArgList>* cntr, void* node, unsigned level_i) {
+    (Cntr<CntrTplArgList>* cntr, void* node, unsigned level_i) {
 #if EnData
     unsigned branch_num{ cntr->branch_nums[level_i] };
     size_t stride{ cntr->stride };
 #endif
 
-    auto* nav_node_alctr{ GetInstPtr(cntr->nav_node_alctr) };
+    auto* nav_node_alctr{ utils::GetInstPtr(cntr->nav_node_alctr) };
 
 #if EnData
-    auto* data_node_alctr{ GetInstPtr(cntr->data_node_alctr) };
+    auto* data_node_alctr{ utils::GetInstPtr(cntr->data_node_alctr) };
 #endif
 
     if (level_i == 0) {
@@ -667,19 +675,19 @@ void EraseAllRecursive_  // NOLINT(misc-use-internal-linkage)
     }
 
     for (int idx{ -1 };
-         (idx = FindNextOne(*static_cast<unsigned long long*>(node), idx)) !=
-         -1;) {
-        EraseAllRecursive_(cntr, static_cast<NavNode*>(node)->ptrs[idx],
-                           level_i - 1);
+         (idx = utils::FindNextOne(*static_cast<unsigned long long*>(node),
+                                   idx)) != -1;) {
+        (EraseAllRecursive_)(cntr, static_cast<NavNode*>(node)->ptrs[idx],
+                             level_i - 1);
     }
 
-    DeallocateNavNode_(nav_node_alctr, node);
+    (DeallocateNavNode_)(nav_node_alctr, node);
 }
 
-}  // namespace detail
+}  // namespace NameSpace::ops::detail
 
-template <TplParamList>
-void EraseAll(Cntr<TplArgList>* cntr) {
+template <CntrTplParamList>
+void NameSpace::ops::EraseAll(Cntr<CntrTplArgList>* cntr) {
     detail::Check_(cntr);
 
     unsigned level{ cntr->level };
@@ -693,14 +701,14 @@ void EraseAll(Cntr<TplArgList>* cntr) {
     cntr->root = nullptr;
 }
 
-namespace detail {
+namespace NameSpace::ops::detail {
 
 inline size_t SanitizeRecursive_  // NOLINT(
                                   // misc-no-recursion,
                                   // misc-use-internal-linkage)
-    (MemRecorder* dst_nav_node,
+    (mem_recorder::MemRecorder* dst_nav_node,
 #if EnData
-     MemRecorder* dst_data_node,
+     mem_recorder::MemRecorder* dst_data_node,
 #endif
      unsigned level_i, unsigned short const* branch_nums,
 #if EnData
@@ -717,9 +725,10 @@ inline size_t SanitizeRecursive_  // NOLINT(
 #if EnData
     if (level_i == 0) {
         if (dst_data_node != nullptr) {
-            size_t data_node_size{ CalcDataNodeSize_(stride, branch_nums[0]) };
+            size_t data_node_size{ (CalcDataNodeSize_)(stride,
+                                                       branch_nums[0]) };
 
-            MemRecorder::Record(
+            mem_recorder::ops::Record(
                 dst_data_node,
                 static_cast<char*>(node) -
                     (data_node_size - sizeof(unsigned long long)),
@@ -731,9 +740,9 @@ inline size_t SanitizeRecursive_  // NOLINT(
 #endif
 
     if (dst_nav_node != nullptr) {
-        MemRecorder::Record(dst_nav_node,
-                            ZETA_Core_MemberToStruct(NavNode, active_map, node),
-                            sizeof(NavNode));
+        mem_recorder::ops::Record(
+            dst_nav_node, ZETA_Core_MemberToStruct(NavNode, active_map, node),
+            sizeof(NavNode));
     }
 
 #if !EnData
@@ -743,8 +752,8 @@ inline size_t SanitizeRecursive_  // NOLINT(
     size_t size{ 0 };
 
     for (int idx{ -1 };
-         (idx = FindNextOne(*static_cast<unsigned long long*>(node), idx)) !=
-         -1;) {
+         (idx = utils::FindNextOne(*static_cast<unsigned long long*>(node),
+                                   idx)) != -1;) {
         ZETA_Core_DebugAssert(
             TestActiveMap_(*static_cast<unsigned long long*>(node),
                            static_cast<unsigned>(idx)));
@@ -763,13 +772,14 @@ inline size_t SanitizeRecursive_  // NOLINT(
     return size;
 }
 
-}  // namespace detail
+}  // namespace NameSpace::ops::detail
 
-template <TplParamList>
-void Sanitize(Cntr<TplArgList>* cntr, MemRecorder* dst_nav_node
+template <CntrTplParamList>
+void NameSpace::ops::Sanitize(Cntr<CntrTplArgList>* cntr,
+                              mem_recorder::MemRecorder* dst_nav_node
 #if EnData
-              ,
-              MemRecorder* dst_data_node
+                              ,
+                              mem_recorder::MemRecorder* dst_data_node
 #endif
 ) {
 
@@ -799,13 +809,11 @@ void Sanitize(Cntr<TplArgList>* cntr, MemRecorder* dst_nav_node
     ZETA_Core_DebugAssert(size == cntr->size);
 }
 
-}  // namespace ops
-
-}  // namespace zeta::core::NameSpace
+}  // namespace zeta::core
 
 #pragma pop_macro("NameSpace")
-#pragma pop_macro("TplParamList")
-#pragma pop_macro("TplArgList")
+#pragma pop_macro("CntrTplParamList")
+#pragma pop_macro("CntrTplArgList")
 
 #if ZETA_Core_Editing
 

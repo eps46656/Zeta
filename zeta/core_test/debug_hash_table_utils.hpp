@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <zeta/core/assoc_cntr.hpp>
 #include <zeta/core/assoc_cntr.ipp>
+#include <zeta/core/assoc_cntr_ref.ipp>
 #include <zeta/core/debug_hash_table.hpp>
 #include <zeta/core/debug_hash_table.ipp>
 #include <zeta/core/debug_utils.ipp>
@@ -11,15 +12,12 @@
 
 namespace zeta::core_test::debug_hash_table_utils {
 
-using AssocCntrRef = core::assoc_cntr::Ref;
+using AssocCntrRef = core::assoc_cntr_ref::Ref;
 
 namespace DebugHashTableNS = core::debug_hash_table;
 namespace DebugHashTableOps = DebugHashTableNS::ops;
 using DebugHashTable = DebugHashTableNS::Cntr<core::assoc_cntr::FnHash,
                                               core::assoc_cntr::FnCompare>;
-using DebugHashTableView =
-    DebugHashTableNS::AssocCntrView<core::assoc_cntr::FnHash,
-                                    core::assoc_cntr::FnCompare>;
 
 struct DebugHashTablePack {
     DebugHashTable debug_ht;
@@ -41,15 +39,15 @@ AssocCntrRef Create() {
     pack->debug_ht.width = sizeof(Elem);
 
     pack->debug_ht.elem_key_hash_proxy.elem_hash =
-        core::hash::TypeErasedHash<Elem>;
+        core::hash::ops::TypeErasedBasicHash<Elem>;
 
     pack->debug_ht.elem_key_eq_proxy.elem_compare =
-        core::compare::TypeErasedCompare<Elem, Elem>;
+        core::compare::ops::TypeErasedBasicCompare<Elem, Elem>;
 
     DebugHashTableOps::Init(&pack->debug_ht);
 
-    AssocCntrRef assoc_cntr_ref{ zeta::core::assoc_cntr::ops::MakeRef(
-        reinterpret_cast<DebugHashTableView*>(&pack->debug_ht)) };
+    AssocCntrRef assoc_cntr_ref{ zeta::core::assoc_cntr_ref::ops::MakeRef(
+        &pack->debug_ht) };
 
     assoc_cntr_utils::AddSanitizeFunc(&pack->debug_ht, Sanitize);
 

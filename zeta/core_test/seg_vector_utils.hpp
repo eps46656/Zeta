@@ -3,88 +3,89 @@
 #include <cstdlib>
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/allocator.ipp>
+#include <zeta/core/allocator_ref.hpp>
+#include <zeta/core/allocator_ref.ipp>
 #include <zeta/core/seg_vector.ipp>
 #include <zeta/core/seq_cntr.hpp>
 #include <zeta/core/seq_cntr.ipp>
+#include <zeta/core/seq_cntr_ref.ipp>
 #include <zeta/core_test/seq_cntr_utils.hpp>
 #include <zeta/core_test/std_allocator.hpp>
 
 namespace zeta::core_test::seg_vector_utils {
 
-using SeqCntrRef = core::seq_cntr::SeqCntrRef;
-using SegVector = core::SegVector<core::allocator::AllocatorRef,
-                                  core::allocator::AllocatorRef>;
+using SeqCntrRef = core::seq_cntr_ref::Ref;
+
+namespace SegVectorNS = core::seg_vector;
+using SegVector =
+    SegVectorNS::Cntr<core::allocator_ref::Ref, core::allocator_ref::Ref>;
 
 struct Pack {
-    StdAllocator seg_allocator;
-    StdAllocator data_allocator;
+    std_allocator::Allocator seg_alctr;
+    std_allocator::Allocator data_alctr;
 
-    SegVector seg_vector;
+    SegVector sv;
 };
 
 template <typename Elem>
 SeqCntrRef Create(size_t stride, size_t seg_capacity);
 
-void Destroy(SeqCntrRef seq_cntr);
+void Destroy(void* sv);
 
-void Sanitize(SeqCntrRef seq_cntr);
-
-// -----------------------------------------------------------------------------
+void Sanitize(void const* sv);
 
 template <typename Elem>
 SeqCntrRef Create(size_t stride, size_t seg_capacity) {
     Pack* pack{ new Pack{} };
 
-    auto sv{ &pack->seg_vector };
+    auto* sv{ &pack->sv };
 
     sv->stride = stride;
     sv->width = sizeof(Elem);
     sv->seg_capacity = seg_capacity;
 
-    sv->seg_allocator =
-        zeta::core::allocator::MakeAllocatorRef(&pack->seg_allocator);
+    sv->seg_alctr = zeta::core::allocator_ref::ops::MakeRef(pack->seg_alctr);
 
-    sv->data_allocator =
-        zeta::core::allocator::MakeAllocatorRef(&pack->data_allocator);
+    sv->data_alctr = zeta::core::allocator_ref::ops::MakeRef(pack->data_alctr);
 
-    SegVector::Init(&pack->seg_vector);
+    SegVectorNS::ops::Init(&pack->sv);
 
-    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr::MakeSeqCntrRef(sv) };
+    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::ops::MakeRef(sv) };
 
-    seq_cntr_utils::AddSanitizeFunc(seq_cntr_ref.inst, Sanitize);
+    seq_cntr_utils::AddSanitizeFunc(sv, Sanitize);
 
-    seq_cntr_utils::AddDestroyFunc(seq_cntr_ref.inst, Destroy);
+    seq_cntr_utils::AddDestroyFunc(sv, Destroy);
 
     return seq_cntr_ref;
 }
 
-inline void Destroy(SeqCntrRef seq_cntr) {
-    if (seq_cntr.inst == nullptr) { return; }
+inline void Destroy(void* sv_) {
+    SegVector* sv{ static_cast<SegVector*>(sv_) };
 
-    Pack* pack{ ZETA_Core_MemberToStruct(Pack, seg_vector, seq_cntr.inst) };
+    if (sv == nullptr) { return; }
 
-    SegVector::Deinit(&pack->seg_vector);
+    Pack* pack{ ZETA_Core_MemberToStruct(Pack, sv, sv) };
+
+    SegVectorNS::ops::Deinit(&pack->sv);
 
     delete pack;
 }
 
-inline void Sanitize(SeqCntrRef seq_cntr) {
-    if (seq_cntr.inst == nullptr) { return; }
+inline void Sanitize(void const* sv_) {
+    SegVector const* sv{ static_cast<SegVector const*>(sv_) };
 
-    Pack* pack{ ZETA_Core_MemberToStruct(Pack, seg_vector, seq_cntr.inst) };
+    if (sv == nullptr) { return; }
 
-    core::MemRecorder* seg{ core::MemRecorder::Create() };
-    core::MemRecorder* data{ core::MemRecorder::Create() };
+    Pack* pack{ ZETA_Core_MemberToStruct(Pack, sv, sv) };
 
-    SegVector::Sanitize(
-        const_cast<void*>(static_cast<void const*>(&pack->seg_vector)), seg,
-        data);
+    core::mem_recorder::MemRecorder seg;
+    core::mem_recorder::MemRecorder data;
 
-    core::MemRecorder::MatchRecords(pack->seg_allocator.mem_recorder, seg);
-    core::MemRecorder::MatchRecords(pack->data_allocator.mem_recorder, data);
+    SegVectorNS::ops::Sanitize(sv, &seg, &data);
 
-    core::MemRecorder::Destroy(seg);
-    core::MemRecorder::Destroy(data);
+    core::mem_recorder::ops::MatchRecords(&pack->seg_alctr.mem_recorder, &seg);
+    core::mem_recorder::ops::MatchRecords(&pack->data_alctr.mem_recorder,
+                                          &data);
 }
 
 }  // namespace zeta::core_test::seg_vector_utils

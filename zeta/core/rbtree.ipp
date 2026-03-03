@@ -4,90 +4,92 @@
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/mem_check_utils.hpp>
+#include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/rbtree.hpp>
 #include <zeta/core/utils.hpp>
 #include <zeta/core/utils.ipp>
 
-namespace zeta::core::rbtree {
+namespace zeta::core {
+
+template <typename BinTreeNode>
+unsigned rbtree::ops::GetColor(BinTreeNode* n) {
+    return Traits<BinTreeNode>::GetColor(n);
+}
+
+template <typename BinTreeNode>
+void rbtree::ops::SetColor(BinTreeNode* n, unsigned color) {
+    ZETA_Core_StaticAssert(!bin_tree::ops::IsConst<BinTreeNode>());
+    Traits<BinTreeNode>::SetColor(n, color);
+}
 
 template <typename RBTreeNode>
-void CheckContract() {
-    bin_tree::CheckContract<RBTreeNode>();
+void rbtree::ops::CheckContract() {
+    bin_tree::ops::CheckContract<RBTreeNode>();
 
-    using rbtn_t = RemoveConst<RBTreeNode>;
-
-    rbtn_t* rbtn_ptr{ nullptr };
-    rbtn_t const* const_rbtn_ptr{ nullptr };
+    RBTreeNode* rbtn{ nullptr };
 
     unsigned unsigned_val{ 0 };
 
 #pragma push_macro("CheckMethod")
-
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CheckMethod(method, return_type, ...) \
-    ZETA_Core_StaticAssert(                   \
-        IsAnyOf<decltype(RBTreeNode::method(__VA_ARGS__)), return_type>)
+#define CheckMethod(method, ...) \
+    ZETA_Core_Unused([=]() { (method)(__VA_ARGS__); })
 
-    CheckMethod(GetColor, unsigned, rbtn_ptr);
-    CheckMethod(GetColor, unsigned, const_rbtn_ptr);
-
-    CheckMethod(SetColor, TypeAny, rbtn_ptr, unsigned_val);
+    CheckMethod(GetColor, rbtn);
+    CheckMethod(SetColor, rbtn, unsigned_val);
 
 #pragma pop_macro("CheckMethod")
 }
 
-// -----------------------------------------------------------------------------
-
-namespace detail {
+namespace rbtree::ops::detail {
 
 #pragma push_macro("InsertBalance_F_")
 
-#define InsertBalance_F_(D, E)                              \
-    RBTreeNode* nu{ RBTreeNode::Get##E(ng) };               \
-                                                            \
-    if (nu != nullptr && RBTreeNode::GetColor(nu) == red) { \
-        RBTreeNode::SetColor(ng, red);                      \
-        RBTreeNode::SetColor(np, black);                    \
-        RBTreeNode::SetColor(nu, black);                    \
-        n = ng;                                             \
-        continue;                                           \
-    }                                                       \
-                                                            \
-    if (RBTreeNode::Get##E(np) == n) {                      \
-        bin_tree::Rotate##D(np);                            \
-        Swap(n, np);                                        \
-    }                                                       \
-                                                            \
-    RBTreeNode::SetColor(ng, red);                          \
-    RBTreeNode::SetColor(np, black);                        \
-    bin_tree::Rotate##E(ng);
+#define InsertBalance_F_(D, E)                     \
+    RBTreeNode* nu{ (bin_tree::ops::Get##E)(ng) }; \
+                                                   \
+    if (nu != nullptr && (GetColor)(nu) == red) {  \
+        (SetColor)(ng, red);                       \
+        (SetColor)(np, black);                     \
+        (SetColor)(nu, black);                     \
+        n = ng;                                    \
+        continue;                                  \
+    }                                              \
+                                                   \
+    if ((bin_tree::ops::Get##E)(np) == n) {        \
+        bin_tree::ops::Rotate##D(np);              \
+        utils::Swap(n, np);                        \
+    }                                              \
+                                                   \
+    (SetColor)(ng, red);                           \
+    (SetColor)(np, black);                         \
+    bin_tree::ops::Rotate##E(ng);
 
 template <typename RBTreeNode>
 RBTreeNode* InsertBalance_(RBTreeNode* n) {
-    CheckContract<RBTreeNode>();
+    (CheckContract<RBTreeNode>)();
 
     ZETA_Core_DebugAssert(n != nullptr);
 
     for (;;) {
-        RBTreeNode* np{ RBTreeNode::GetP(n) };
+        RBTreeNode* np{ bin_tree::ops::GetP(n) };
 
         if (np == nullptr) {
-            RBTreeNode::SetColor(n, black);
+            (SetColor)(n, black);
             break;
         }
 
-        if (RBTreeNode::GetColor(np) == black) { break; }
+        if ((GetColor)(np) == black) { break; }
 
-        RBTreeNode* ng{ RBTreeNode::GetP(np) };
+        RBTreeNode* ng{ bin_tree::ops::GetP(np) };
 
         if (ng == nullptr) {
-            RBTreeNode::SetColor(np, black);
+            (SetColor)(np, black);
             break;
         }
 
-        if (RBTreeNode::GetL(ng) == np) {
+        if (bin_tree::ops::GetL(ng) == np) {
             InsertBalance_F_(L, R);
         } else {
             InsertBalance_F_(R, L);
@@ -96,170 +98,171 @@ RBTreeNode* InsertBalance_(RBTreeNode* n) {
         break;
     }
 
-    return bin_tree::GetMostP(n).first;
+    return bin_tree::ops::GetMostP(n).first;
 }
 
 #pragma pop_macro("InsertBalance_F_")
 
-}  // namespace detail
+}  // namespace rbtree::ops::detail
 
 #pragma push_macro("Insert_")
-
-#define Insert_(D, E)                                                     \
-    CheckContract<RBTreeNode>();                                          \
-                                                                          \
-    ZETA_Core_DebugAssert(pos != n);                                      \
-    ZETA_Core_DebugAssert(n != nullptr);                                  \
-                                                                          \
-    ZETA_Core_DebugAssert(RBTreeNode::GetP(n) == nullptr);                \
-    ZETA_Core_DebugAssert(RBTreeNode::Get##D(n) == nullptr);              \
-    ZETA_Core_DebugAssert(RBTreeNode::Get##E(n) == nullptr);              \
-                                                                          \
-    if (pos == nullptr) {                                                 \
-        if (RBTreeNode::GetColor(n) != black) {                           \
-            RBTreeNode::SetColor(n, black);                               \
-        }                                                                 \
-        return n;                                                         \
-    }                                                                     \
-                                                                          \
-    if (RBTreeNode::GetColor(n) != red) { RBTreeNode::SetColor(n, red); } \
-                                                                          \
-    RBTreeNode* pos_d{ RBTreeNode::Get##D(pos) };                         \
-                                                                          \
-    if (pos_d == nullptr) {                                               \
-        bin_tree::Attatch##D(pos, n);                                     \
-    } else {                                                              \
-        bin_tree::Attatch##E(bin_tree::GetMost##E(pos_d).first, n);       \
-    }                                                                     \
-                                                                          \
-    return detail::InsertBalance_(n);
+#define Insert_(D, E)                                                         \
+    (CheckContract<RBTreeNode>)();                                            \
+                                                                              \
+    ZETA_Core_DebugAssert(pos != n);                                          \
+    ZETA_Core_DebugAssert(n != nullptr);                                      \
+                                                                              \
+    ZETA_Core_DebugAssert(bin_tree::ops::GetP(n) == nullptr);                 \
+    ZETA_Core_DebugAssert(bin_tree::ops::Get##D(n) == nullptr);               \
+    ZETA_Core_DebugAssert(bin_tree::ops::Get##E(n) == nullptr);               \
+                                                                              \
+    if (pos == nullptr) {                                                     \
+        if ((GetColor)(n) != black) { (SetColor)(n, black); }                 \
+        return n;                                                             \
+    }                                                                         \
+                                                                              \
+    if ((GetColor)(n) != red) { (SetColor)(n, red); }                         \
+                                                                              \
+    RBTreeNode* pos_d{ (bin_tree::ops::Get##D)(pos) };                        \
+                                                                              \
+    if (pos_d == nullptr) {                                                   \
+        bin_tree::ops::Attatch##D(pos, n);                                    \
+    } else {                                                                  \
+        bin_tree::ops::Attatch##E(bin_tree::ops::GetMost##E(pos_d).first, n); \
+    }                                                                         \
+                                                                              \
+    return detail::InsertBalance_(n);                                         \
+                                                                              \
+    ZETA_Core_StaticAssert(true)
 
 template <typename RBTreeNode>
-RBTreeNode* InsertL(RBTreeNode* pos, RBTreeNode* n) {
+RBTreeNode* rbtree::ops::InsertL(RBTreeNode* pos, RBTreeNode* n) {
     Insert_(L, R);
 }
 
 template <typename RBTreeNode>
-RBTreeNode* InsertR(RBTreeNode* pos, RBTreeNode* n) {
+RBTreeNode* rbtree::ops::InsertR(RBTreeNode* pos, RBTreeNode* n) {
     Insert_(R, L);
 }
 
 #pragma pop_macro("Insert_")
 
 template <typename RBTreeNode>
-RBTreeNode* Insert(RBTreeNode* pos_l, RBTreeNode* pos_r, RBTreeNode* n) {
-    CheckContract<RBTreeNode>();
+RBTreeNode* rbtree::ops::Insert(RBTreeNode* pos_l, RBTreeNode* pos_r,
+                                RBTreeNode* n) {
+    (CheckContract<RBTreeNode>)();
 
     ZETA_Core_DebugAssert(pos_l != n);
     ZETA_Core_DebugAssert(pos_r != n);
     ZETA_Core_DebugAssert(n != nullptr);
 
-    ZETA_Core_DebugAssert(RBTreeNode::GetP(n) == nullptr);
-    ZETA_Core_DebugAssert(RBTreeNode::GetL(n) == nullptr);
-    ZETA_Core_DebugAssert(RBTreeNode::GetR(n) == nullptr);
+    ZETA_Core_DebugAssert(bin_tree::ops::GetP(n) == nullptr);
+    ZETA_Core_DebugAssert(bin_tree::ops::GetL(n) == nullptr);
+    ZETA_Core_DebugAssert(bin_tree::ops::GetR(n) == nullptr);
 
-    ZETA_Core_DebugAssert(pos_l == nullptr || bin_tree::StepR(pos_l) == pos_r);
-    ZETA_Core_DebugAssert(pos_r == nullptr || bin_tree::StepL(pos_r) == pos_l);
+    ZETA_Core_DebugAssert(pos_l == nullptr ||
+                          bin_tree::ops::StepR(pos_l) == pos_r);
+    ZETA_Core_DebugAssert(pos_r == nullptr ||
+                          bin_tree::ops::StepL(pos_r) == pos_l);
 
     if (pos_l == nullptr && pos_r == nullptr) {
-        if (RBTreeNode::GetColor(n) != black) {
-            RBTreeNode::SetColor(n, black);
-        }
+        if ((GetColor)(n) != black) { (SetColor)(n, black); }
 
         return n;
     }
 
-    if (RBTreeNode::GetColor(n) != red) { RBTreeNode::SetColor(n, red); }
+    if ((GetColor)(n) != red) { (SetColor)(n, red); }
 
-    if (pos_l != nullptr && RBTreeNode::GetR(pos_l) == nullptr) {
-        bin_tree::AttatchR(pos_l, n);
+    if (pos_l != nullptr && bin_tree::ops::GetR(pos_l) == nullptr) {
+        bin_tree::ops::AttatchR(pos_l, n);
     } else {
-        bin_tree::AttatchL(pos_r, n);
+        bin_tree::ops::AttatchL(pos_r, n);
     }
 
     return detail::InsertBalance_(n);
 }
 
 #pragma push_macro("GeneralInsert_")
-
-#define GeneralInsert_(D, E)                                      \
-    CheckContract<RBTreeNode>();                                  \
-                                                                  \
-    if (pos == nullptr) {                                         \
-        return Insert##E(bin_tree::GetMost##E(root).first, n);    \
-    }                                                             \
-                                                                  \
-    ZETA_Core_DebugAssert(root == bin_tree::GetMostP(pos).first); \
-                                                                  \
-    return Insert##D(pos, n);
+#define GeneralInsert_(D, E)                                           \
+    (CheckContract<RBTreeNode>)();                                     \
+                                                                       \
+    if (pos == nullptr) {                                              \
+        return Insert##E(bin_tree::ops::GetMost##E(root).first, n);    \
+    }                                                                  \
+                                                                       \
+    ZETA_Core_DebugAssert(root == bin_tree::ops::GetMostP(pos).first); \
+                                                                       \
+    return Insert##D(pos, n);                                          \
+                                                                       \
+    ZETA_Core_StaticAssert(true)
 
 template <typename RBTreeNode>
-RBTreeNode* GeneralInsertL(RBTreeNode* root, RBTreeNode* pos, RBTreeNode* n) {
+RBTreeNode* rbtree::ops::GeneralInsertL(RBTreeNode* root, RBTreeNode* pos,
+                                        RBTreeNode* n) {
     GeneralInsert_(L, R);
 }
 
 template <typename RBTreeNode>
-RBTreeNode* GeneralInsertR(RBTreeNode* root, RBTreeNode* pos, RBTreeNode* n) {
+RBTreeNode* rbtree::ops::GeneralInsertR(RBTreeNode* root, RBTreeNode* pos,
+                                        RBTreeNode* n) {
     GeneralInsert_(R, L);
 }
 
 #pragma pop_macro("GeneralInsert_")
 
-namespace detail {
+namespace rbtree::ops::detail {
 
 #pragma push_macro("ExtractBalance_F_")
-
 #define ExtractBalance_F_(D, E)                                               \
-    RBTreeNode* ns{ RBTreeNode::Get##E(np) };                                 \
+    RBTreeNode* ns{ (bin_tree::ops::Get##E)(np) };                            \
                                                                               \
-    if (RBTreeNode::GetColor(ns) == red) {                                    \
-        RBTreeNode::SetColor(np, red);                                        \
-        RBTreeNode::SetColor(ns, black);                                      \
-        bin_tree::Rotate##D(np);                                              \
-        ns = RBTreeNode::Get##E(np);                                          \
+    if ((GetColor)(ns) == red) {                                              \
+        (SetColor)(np, red);                                                  \
+        (SetColor)(ns, black);                                                \
+        bin_tree::ops::Rotate##D(np);                                         \
+        ns = (bin_tree::ops::Get##E)(np);                                     \
     }                                                                         \
                                                                               \
-    RBTreeNode* nsd{ RBTreeNode::Get##D(ns) };                                \
-    RBTreeNode* nse{ RBTreeNode::Get##E(ns) };                                \
+    RBTreeNode* nsd{ (bin_tree::ops::Get##D)(ns) };                           \
+    RBTreeNode* nse{ (bin_tree::ops::Get##E)(ns) };                           \
                                                                               \
-    unsigned nse_color{ nse == nullptr ? black : RBTreeNode::GetColor(nse) }; \
+    unsigned nse_color{ nse == nullptr ? black : (GetColor)(nse) };           \
                                                                               \
-    if ((nsd == nullptr || RBTreeNode::GetColor(nsd) == black) &&             \
-        nse_color == black) {                                                 \
-        RBTreeNode::SetColor(ns, red);                                        \
+    if ((nsd == nullptr || (GetColor)(nsd) == black) && nse_color == black) { \
+        (SetColor)(ns, red);                                                  \
         n = np;                                                               \
         continue;                                                             \
     }                                                                         \
                                                                               \
     if (nse_color == black) {                                                 \
-        RBTreeNode::SetColor(ns, red);                                        \
-        RBTreeNode::SetColor(nsd, black);                                     \
-        bin_tree::Rotate##E(ns);                                              \
+        (SetColor)(ns, red);                                                  \
+        (SetColor)(nsd, black);                                               \
+        bin_tree::ops::Rotate##E(ns);                                         \
         nse = ns;                                                             \
         ns = nsd;                                                             \
-        nsd = RBTreeNode::Get##D(nsd);                                        \
+        nsd = (bin_tree::ops::Get##D)(nsd);                                   \
     }                                                                         \
                                                                               \
-    RBTreeNode::SetColor(ns, RBTreeNode::GetColor(np));                       \
-    RBTreeNode::SetColor(nse, black);                                         \
-    RBTreeNode::SetColor(np, black);                                          \
-    bin_tree::Rotate##D(np);
+    (SetColor)(ns, (GetColor)(np));                                           \
+    (SetColor)(nse, black);                                                   \
+    (SetColor)(np, black);                                                    \
+    bin_tree::ops::Rotate##D(np);
 
 template <typename RBTreeNode>
 void ExtractBalance_(RBTreeNode* n) {
-    CheckContract<RBTreeNode>();
+    (CheckContract<RBTreeNode>)();
 
     for (;;) {
-        if (RBTreeNode::GetColor(n) == red) {
-            RBTreeNode::SetColor(n, black);
+        if ((GetColor)(n) == red) {
+            (SetColor)(n, black);
             break;
         }
 
-        RBTreeNode* np{ RBTreeNode::GetP(n) };
+        RBTreeNode* np{ bin_tree::ops::GetP(n) };
 
         if (np == nullptr) { break; }
 
-        if (RBTreeNode::GetL(np) == n) {
+        if (bin_tree::ops::GetL(np) == n) {
             ExtractBalance_F_(L, R);
         } else {
             ExtractBalance_F_(R, L);
@@ -271,11 +274,11 @@ void ExtractBalance_(RBTreeNode* n) {
 
 #pragma pop_macro("ExtractBalance_F_")
 
-}  // namespace detail
+}  // namespace rbtree::ops::detail
 
 template <typename RBTreeNode>
-RBTreeNode* Extract(RBTreeNode* pos) {
-    CheckContract<RBTreeNode>();
+RBTreeNode* rbtree::ops::Extract(RBTreeNode* pos) {
+    (CheckContract<RBTreeNode>)();
 
     ZETA_Core_DebugAssert(pos != nullptr);
 
@@ -283,98 +286,102 @@ RBTreeNode* Extract(RBTreeNode* pos) {
 
     RBTreeNode* root;
 
-    RBTreeNode* nl{ RBTreeNode::GetL(n) };
-    RBTreeNode* nr{ RBTreeNode::GetR(n) };
+    RBTreeNode* nl{ bin_tree::ops::GetL(n) };
+    RBTreeNode* nr{ bin_tree::ops::GetR(n) };
 
     if (nl == nullptr || nr == nullptr) {
-        root = bin_tree::GetMostP(n).first;
+        root = bin_tree::ops::GetMostP(n).first;
     } else {
-        RBTreeNode* m{ GetRandom() % 2 == 0 ? bin_tree::GetMostL(nr).first
-                                            : bin_tree::GetMostR(nl).first };
+        RBTreeNode* m{ utils::GetRandom() % 2 == 0
+                           ? bin_tree::ops::GetMostL(nr).first
+                           : bin_tree::ops::GetMostR(nl).first };
 
-        bin_tree::Swap(n, m);
+        bin_tree::ops::Swap(n, m);
 
-        unsigned nc{ RBTreeNode::GetColor(n) };
-        unsigned mc{ RBTreeNode::GetColor(m) };
+        unsigned nc{ (GetColor)(n) };
+        unsigned mc{ (GetColor)(m) };
 
         if (nc != mc) {
-            RBTreeNode::SetColor(n, mc);
-            RBTreeNode::SetColor(m, nc);
+            (SetColor)(n, mc);
+            (SetColor)(m, nc);
         }
 
-        root = bin_tree::GetMostP(m).first;
+        root = bin_tree::ops::GetMostP(m).first;
     }
 
-    if (RBTreeNode::GetColor(n) == black) {
-        nl = RBTreeNode::GetL(n);
-        nr = RBTreeNode::GetR(n);
+    if ((GetColor)(n) == black) {
+        nl = bin_tree::ops::GetL(n);
+        nr = bin_tree::ops::GetR(n);
 
         if (nl != nullptr) {
-            bin_tree::RotateR(n);
-            RBTreeNode::SetColor(nl, black);
+            bin_tree::ops::RotateR(n);
+            (SetColor)(nl, black);
         } else if (nr != nullptr) {
-            bin_tree::RotateL(n);
-            RBTreeNode::SetColor(nr, black);
+            bin_tree::ops::RotateL(n);
+            (SetColor)(nr, black);
         } else {
             detail::ExtractBalance_(n);
         }
     }
 
-    root = bin_tree::GetMostP(root).first;
+    root = bin_tree::ops::GetMostP(root).first;
 
     if (root == n) { return nullptr; }
 
-    bin_tree::Detach(n);
+    bin_tree::ops::Detach(n);
 
     return root;
 }
 
-namespace detail {
+namespace rbtree::ops::detail {
 
 template <typename RBTreeNode>
-size_t SanitizeRecursive_(MemRecorder* dst_mr, RBTreeNode* n) {
-    CheckContract<RBTreeNode>();
+size_t SanitizeRecursive_(mem_recorder::MemRecorder* dst_mr, RBTreeNode* n) {
+    (CheckContract<RBTreeNode>)();
 
     if (n == nullptr) { return 0; }
 
-    RBTreeNode* nl{ RBTreeNode::GetL(n) };
-    RBTreeNode* nr{ RBTreeNode::GetR(n) };
+    RBTreeNode* nl{ bin_tree::ops::GetL(n) };
+    RBTreeNode* nr{ bin_tree::ops::GetR(n) };
 
-    if (nl != nullptr) { ZETA_Core_DebugAssert(RBTreeNode::GetP(nl) == n); }
-    if (nr != nullptr) { ZETA_Core_DebugAssert(RBTreeNode::GetP(nr) == n); }
+    if (nl != nullptr) { ZETA_Core_DebugAssert(bin_tree::ops::GetP(nl) == n); }
+    if (nr != nullptr) { ZETA_Core_DebugAssert(bin_tree::ops::GetP(nr) == n); }
 
     size_t lbh{ SanitizeRecursive_(dst_mr, nl) };
 
-    if (dst_mr != nullptr) { MemRecorder::Record(dst_mr, n, sizeof(void*)); }
+    if (dst_mr != nullptr) {
+        mem_recorder::ops::Record(dst_mr, n, sizeof(void*));
+    }
 
     size_t rbh{ SanitizeRecursive_(dst_mr, nr) };
 
     ZETA_Core_DebugAssert(lbh == rbh);
 
-    unsigned nc{ RBTreeNode::GetColor(n) };
+    unsigned nc{ (GetColor)(n) };
 
     ZETA_Core_DebugAssert(nc == black || nc == red);
 
     if (nc == black) { return lbh + 1; }
 
-    ZETA_Core_DebugAssert(nl == nullptr || RBTreeNode::GetColor(nl) == black);
-    ZETA_Core_DebugAssert(nr == nullptr || RBTreeNode::GetColor(nr) == black);
+    ZETA_Core_DebugAssert(nl == nullptr || (GetColor)(nl) == black);
+    ZETA_Core_DebugAssert(nr == nullptr || (GetColor)(nr) == black);
 
     return lbh;
 }
 
-}  // namespace detail
+}  // namespace rbtree::ops::detail
 
 template <typename RBTreeNode>
-void Sanitize(MemRecorder* dst_mr, RBTreeNode* root) {
-    CheckContract<RBTreeNode>();
+void rbtree::ops::Sanitize(mem_recorder::MemRecorder* dst_mr,
+                           RBTreeNode* root) {
+    (CheckContract<RBTreeNode>)();
 
     if (root == nullptr) { return; }
 
-    ZETA_Core_DebugAssert(RBTreeNode::GetP(root) == nullptr);
-    ZETA_Core_DebugAssert(RBTreeNode::GetColor(root) == black);
+    ZETA_Core_DebugAssert(bin_tree::ops::GetP(root) == nullptr);
+    ZETA_Core_DebugAssert((GetColor)(root) == black);
 
     detail::SanitizeRecursive_(dst_mr, root);
 }
 
-}  // namespace zeta::core::rbtree
+}  // namespace zeta::core
