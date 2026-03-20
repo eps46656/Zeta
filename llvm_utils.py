@@ -153,6 +153,39 @@ def get_include_files(
 
 
 @beartype.beartype
+def find_unqualified_calls(
+    tu: clang.cindex.TranslationUnit,
+) -> list[clang.cindex.Cursor]:
+    ret: list[clang.cindex.Cursor] = list()
+
+    q: list[clang.cindex.Cursor] = [tu.cursor]
+
+    while 0 < len(q):
+        n = q.pop()
+
+        children = list(n.get_children())
+        q.extend(children)
+
+        if n.kind != clang.cindex.CursorKind.CALL_EXPR or len(children) == 0:
+            continue
+
+        callee = children[0]
+
+        if callee.kind == clang.cindex.CursorKind.DECL_REF_EXPR:
+            ret.append(n)
+            continue
+
+        if callee.kind == clang.cindex.CursorKind.UNEXPOSED_EXPR:
+            if any(ch.kind in (clang.cindex.CursorKind.FUNCTION_TEMPLATE,
+                               clang.cindex.CursorKind.DECL_REF_EXPR)
+                   for ch in callee.get_children()):
+                ret.append(n)
+                continue
+
+    return ret
+
+
+@beartype.beartype
 @dataclasses.dataclass
 class LLVMCompilerConfig:
     verbose: bool
@@ -273,7 +306,7 @@ class LLVMCompiler:
         c_compile_args = [
             *compile_args,
 
-            "--std", self.standard[utils.Language.C],
+            f"--std={self.standard[utils.Language.C]}",
 
             *(f"--include-directory={include_dir.as_posix()}"
               for include_dir in self.c_include_dirs),
@@ -288,7 +321,7 @@ class LLVMCompiler:
         cpp_compile_args = [
             *compile_args,
 
-            f"-std={self.standard[utils.Language.CPP]}",
+            f"--std={self.standard[utils.Language.CPP]}",
 
             *(f"--include-directory={include_dir}"
               for include_dir in self.cpp_include_dirs),

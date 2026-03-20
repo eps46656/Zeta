@@ -12,7 +12,6 @@ namespace zeta::core_test::debug_deque_utils {
 
 using SeqCntrRef = core::seq_cntr_ref::Ref;
 namespace DebugDequeNS = core::debug_deque;
-namespace DebugDequeOps = DebugDequeNS::ops;
 using DebugDeque = DebugDequeNS::Cntr;
 
 struct Pack {
@@ -32,11 +31,11 @@ SeqCntrRef Create() {
 
     auto* dd{ &pack->debug_deque };
 
-    dd->width = sizeof(Elem);
+    dd->elem_size = sizeof(Elem);
 
-    DebugDequeOps::Init(dd);
+    DebugDequeNS::Init(dd);
 
-    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::ops::MakeRef(dd) };
+    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(dd) };
 
     seq_cntr_utils::AddSanitizeFunc(dd, Sanitize);
 
@@ -52,7 +51,7 @@ inline void Destroy(void* dd_) {
 
     Pack* pack{ ZETA_Core_MemberToStruct(Pack, debug_deque, dd) };
 
-    DebugDequeOps::Deinit(dd);
+    DebugDequeNS::Deinit(dd);
 
     delete pack;
 }

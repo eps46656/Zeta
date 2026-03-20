@@ -8,8 +8,8 @@
 
 namespace zeta::core {
 
-inline int compare::ops::LexMemCompare(void const* a, void const* b,
-                                       size_t a_size, size_t b_size) {
+inline int compare::LexMemCompare(void const* a, void const* b, size_t a_size,
+                                  size_t b_size) {
     if (a == b) { return 0; }
 
     if (0 < a_size) { ZETA_Core_DebugAssert(a != nullptr); }
@@ -28,10 +28,10 @@ inline int compare::ops::LexMemCompare(void const* a, void const* b,
     return __builtin_memcmp(a, b, a_size);
 }
 
-inline int compare::ops::LexElemCompare(void const* a_, void const* b_,
-                                        size_t a_width, size_t b_width,
-                                        size_t a_stride, size_t b_stride,
-                                        size_t a_cnt, size_t b_cnt) {
+inline int compare::LexElemCompare(void const* a_, void const* b_,
+                                   size_t a_width, size_t b_width,
+                                   size_t a_stride, size_t b_stride,
+                                   size_t a_cnt, size_t b_cnt) {
     unsigned char const* a{ static_cast<unsigned char const*>(a_) };
     unsigned char const* b{ static_cast<unsigned char const*>(b_) };
 
@@ -68,62 +68,62 @@ inline int compare::ops::LexElemCompare(void const* a_, void const* b_,
         }
     }
 
+    // NOLINTNEXTLINE(readability-implicit-bool-conversion)
     return cmp == 0 ? (b_cnt < a_cnt) - (a_cnt < b_cnt) : cmp;
 }
 
-namespace compare::ops::detail {
+namespace compare::detail {
 
 template <typename A, typename B>
 struct BasicCompareImplHolder_ {
     static constexpr BasicCompareImpl<A, B> impl;
 };
 
-}  // namespace compare::ops::detail
+}  // namespace compare::detail
 
 template <typename A, typename B>
-int compare::ops::BasicCompare(A const& a, B const& b) {
+int compare::BasicCompare(A const& a, B const& b) {
     return detail::BasicCompareImplHolder_<A, B>::impl(a, b);
 }
 
 template <typename A, typename B>
-int compare::ops::TypeErasedBasicCompare(void const* a, void const* b) {
-    return ops::BasicCompare(*static_cast<A const*>(a),
-                             *static_cast<B const*>(b));
+int compare::TypeErasedBasicCompare(void const* a, void const* b) {
+    return BasicCompare(*static_cast<A const*>(a), *static_cast<B const*>(b));
 }
 
 template <typename A, typename B>
 bool compare::CppStdBasicEqualTo<A, B>::operator()(A const& a,
                                                    B const& b) const {
-    return ops::BasicCompare(a, b) == 0;
+    return BasicCompare(a, b) == 0;
 }
 
 template <typename A, typename B>
 bool compare::CppStdBasicNotEqualTo<A, B>::operator()(A const& a,
                                                       B const& b) const {
-    return ops::BasicCompare(a, b) == 0;
+    return BasicCompare(a, b) == 0;
 }
 
 template <typename A, typename B>
 bool compare::CppStdBasicLess<A, B>::operator()(A const& a, B const& b) const {
-    return ops::BasicCompare(a, b) < 0;
+    return BasicCompare(a, b) < 0;
 }
 
 template <typename A, typename B>
 bool compare::CppStdBasicLessEqual<A, B>::operator()(A const& a,
                                                      B const& b) const {
-    return ops::BasicCompare(a, b) <= 0;
+    return BasicCompare(a, b) <= 0;
 }
 
 template <typename A, typename B>
 bool compare::CppStdBasicGreater<A, B>::operator()(A const& a,
                                                    B const& b) const {
-    return ops::BasicCompare(a, b) > 0;
+    return BasicCompare(a, b) > 0;
 }
 
 template <typename A, typename B>
 bool compare::CppStdBasicGreaterEqual<A, B>::operator()(A const& a,
                                                         B const& b) const {
-    return ops::BasicCompare(a, b) >= 0;
+    return BasicCompare(a, b) >= 0;
 }
 
 template <typename A, typename B>

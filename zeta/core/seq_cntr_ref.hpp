@@ -18,8 +18,6 @@ struct Ref {
     void* cntr;
 };
 
-namespace ops {
-
 constexpr seq_cntr::AbilityFlag GetEnabledAbilityFlag(Ref const*);
 
 constexpr seq_cntr::AbilityFlag GetDisabledAbilityFlag(Ref*);
@@ -36,15 +34,15 @@ seq_cntr::AbilityFlag GetDynamicDisabledAbilityFlag(Ref const*);
 
 size_t GetCursorSize(Ref const*);
 
-size_t GetWidth(Ref const* ref);
+size_t GetElemSize(Ref const* ref);
 
 size_t GetSride(Ref const* ref);
 
 size_t GetOffset(Ref const* ref);
 
-size_t GetSize(Ref const* ref);
+size_t GetElemCnt(Ref const* ref);
 
-size_t GetCapacity(Ref const* ref);
+size_t GetMaxElemCnt(Ref const* ref);
 
 void GetLBCursor(Ref const* ref, void* dst_cursor);
 
@@ -129,14 +127,12 @@ void CheckRef(Ref* ref);
 template <typename SeqCntrLike>
 Ref MakeRef(SeqCntrLike&& cntr);
 
-}  // namespace ops
-
 }  // namespace zeta::core::seq_cntr_ref
 
 namespace zeta::core {
 
 template <>
-struct seq_cntr::Traits<seq_cntr_ref::Ref const, void> {
+struct seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void> {
     static void* GetReferedInstPtr(seq_cntr_ref::Ref const* ref);
 
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
@@ -151,11 +147,11 @@ struct seq_cntr::Traits<seq_cntr_ref::Ref const, void> {
 
     static size_t GetCursorSize(seq_cntr_ref::Ref const* ref);
 
-    static size_t GetWidth(seq_cntr_ref::Ref const* ref);
+    static size_t GetElemSize(seq_cntr_ref::Ref const* ref);
 
-    static size_t GetSize(seq_cntr_ref::Ref const* ref);
+    static size_t GetElemCnt(seq_cntr_ref::Ref const* ref);
 
-    static size_t GetCapacity(seq_cntr_ref::Ref const* ref);
+    static size_t GetMaxElemCnt(seq_cntr_ref::Ref const* ref);
 
     static void GetLBCursor(seq_cntr_ref::Ref const* ref, void* dst_cursor);
 
@@ -204,8 +200,8 @@ struct seq_cntr::Traits<seq_cntr_ref::Ref const, void> {
 };
 
 template <>
-struct seq_cntr::Traits<seq_cntr_ref::Ref, void>
-    : public seq_cntr::Traits<seq_cntr_ref::Ref const, void> {
+struct seq_cntr::CntrTraits<seq_cntr_ref::Ref, void>
+    : public seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void> {
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
 
     static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();

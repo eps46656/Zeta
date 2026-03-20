@@ -13,7 +13,6 @@ namespace zeta::core_test::circular_array_utils {
 using SeqCntrRef = core::seq_cntr_ref::Ref;
 
 namespace CircularArrayNS = core::circular_array;
-namespace CircularArrayOps = CircularArrayNS::ops;
 using CircularArray = CircularArrayNS::Cntr;
 
 template <typename Elem>
@@ -31,13 +30,13 @@ SeqCntrRef Create(size_t stride, size_t capacity) {
     auto* ca{ static_cast<CircularArray*>(std::malloc(sizeof(CircularArray))) };
 
     ca->data = std::malloc(stride * capacity);
-    ca->width = sizeof(Elem);
-    ca->stride = stride;
-    ca->offset = 0;
-    ca->size = 0;
-    ca->capacity = capacity;
+    ca->elem_size = sizeof(Elem);
+    ca->elem_stride = stride;
+    ca->elem_cnt = 0;
+    ca->elem_capacity = capacity;
+    ca->idx_offset = 0;
 
-    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::ops::MakeRef(ca) };
+    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(ca) };
 
     seq_cntr_utils::AddSanitizeFunc(ca, Sanitize);
 
@@ -51,7 +50,7 @@ inline void Destroy(void* ca_) {
 
     if (ca == nullptr) { return; }
 
-    CircularArrayOps::Deinit(ca);
+    CircularArrayNS::Deinit(ca);
 
     delete ca;
 }

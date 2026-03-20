@@ -9,11 +9,11 @@
 #include <zeta/core/value_wrapper.hpp>
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define ZETA_Core_AssocCntr_AllocaCursor(cntr)                  \
-    ({                                                          \
-        __builtin_alloca_with_align(                            \
-            ::zeta::core::assoc_cntr::ops::GetCursorSize(cntr), \
-            __CHAR_BIT__ * alignof(max_align_t));               \
+#define ZETA_Core_AssocCntr_AllocaCursor(cntr)             \
+    ({                                                     \
+        __builtin_alloca_with_align(                       \
+            ::zeta::core::assoc_cntr::GetCursorSize(cntr), \
+            __CHAR_BIT__ * alignof(max_align_t));          \
     })
 
 namespace zeta::core::assoc_cntr {
@@ -24,7 +24,7 @@ using FnCompare = FunctionRef<int(void const*, void const*)>;
 
 // clang-format off
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define ZETA_Core_AssocCntr_Ability_XMacro(func, sep)                          \
+#define ZETA_Core_KKKCntr_Ability_XMacro(func, sep)                          \
     func(GetCursorSize) sep                                                    \
                                                                                \
     func(GetWidth) sep                                                         \
@@ -73,7 +73,7 @@ struct AbilityEnum {
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define F(name) static constexpr size_t name{ __COUNTER__ - NumBase };
 
-    ZETA_Core_AssocCntr_Ability_XMacro(F, );
+    ZETA_Core_KKKCntr_Ability_XMacro(F, );
 
 #pragma pop_macro("F")
 
@@ -92,7 +92,7 @@ struct AbilityFlagBuilder {
 #define F(name) bool const name;
 
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
-    ZETA_Core_AssocCntr_Ability_XMacro(F, );
+    ZETA_Core_KKKCntr_Ability_XMacro(F, );
 
 #pragma pop_macro("F")
 
@@ -103,7 +103,7 @@ struct AbilityFlagBuilder {
 #define F(name) (static_cast<AbilityFlag>(this->name) << AbilityEnum::name)
 
         return (static_cast<AbilityFlag>(1) << AbilityEnum::Always) |
-               ZETA_Core_AssocCntr_Ability_XMacro(F, |);
+               ZETA_Core_KKKCntr_Ability_XMacro(F, |);
 
 #pragma pop_macro("F")
     }
@@ -115,7 +115,7 @@ constexpr AbilityFlag empty_ability_flag{ AbilityFlagBuilder{
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define F(name) .name = false,
 
-    ZETA_Core_AssocCntr_Ability_XMacro(F, )
+    ZETA_Core_KKKCntr_Ability_XMacro(F, )
 
 #pragma pop_macro("F")
 }() };
@@ -126,7 +126,7 @@ constexpr AbilityFlag full_ability_flag{ AbilityFlagBuilder{
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define F(name) .name = true,
 
-    ZETA_Core_AssocCntr_Ability_XMacro(F, )
+    ZETA_Core_KKKCntr_Ability_XMacro(F, )
 
 #pragma pop_macro("F")
 }() };
@@ -191,10 +191,8 @@ ZETA_Core_StaticAssert((non_const_ability_flag & const_ability_flag) ==
 ZETA_Core_StaticAssert((non_const_ability_flag | const_ability_flag) ==
                        full_ability_flag);
 
-template <typename AssocCntr, typename = void>
-struct Traits;
-
-namespace ops {
+template <typename Cntr, typename = void>
+struct CntrTraits;
 
 constexpr bool CheckAbilityFlags(AbilityFlag static_enabled_ability_flag,
                                  AbilityFlag static_disabled_ability_flag);
@@ -204,105 +202,102 @@ bool CheckAbilityFlags(AbilityFlag static_enabled_ability_flag,
                        AbilityFlag dynamic_enabled_ability_flag,
                        AbilityFlag dynamic_disabled_ability_flag);
 
-template <typename AssocCntrLike>
-auto* GetReferedInstPtr(AssocCntrLike&& cntr);
+template <typename CntrLike>
+auto* GetReferedInstPtr(CntrLike&& cntr);
 
-template <typename AssocCntr>
+template <typename Cntr>
 constexpr AbilityFlag GetStaticEnabledAbilityFlag();
 
-template <typename AssocCntr>
+template <typename Cntr>
 constexpr AbilityFlag GetStaticDisabledAbilityFlag();
 
-template <typename AssocCntrLike>
-AbilityFlag GetDynamicEnabledAbilityFlag(AssocCntrLike&& cntr);
+template <typename CntrLike>
+AbilityFlag GetDynamicEnabledAbilityFlag(CntrLike&& cntr);
 
-template <typename AssocCntrLike>
-AbilityFlag GetDynamicDisabledAbilityFlag(AssocCntrLike&& cntr);
+template <typename CntrLike>
+AbilityFlag GetDynamicDisabledAbilityFlag(CntrLike&& cntr);
 
-template <typename AssocCntrLike>
-size_t GetCursorSize(AssocCntrLike&& cntr);
+template <typename CntrLike>
+size_t GetCursorSize(CntrLike&& cntr);
 
-template <typename AssocCntrLike>
-size_t GetWidth(AssocCntrLike&& cntr);
+template <typename CntrLike>
+size_t GetWidth(CntrLike&& cntr);
 
-template <typename AssocCntrLike>
-size_t GetSize(AssocCntrLike&& cntr);
+template <typename CntrLike>
+size_t GetSize(CntrLike&& cntr);
 
-template <typename AssocCntrLike>
-size_t GetCapacity(AssocCntrLike&& cntr);
+template <typename CntrLike>
+size_t GetCapacity(CntrLike&& cntr);
 
-template <typename AssocCntrLike>
-void GetLBCursor(AssocCntrLike&& cntr, void* dst_cursor);
+template <typename CntrLike>
+void GetLBCursor(CntrLike&& cntr, void* dst_cursor);
 
-template <typename AssocCntrLike>
-void GetRBCursor(AssocCntrLike&& cntr, void* dst_cursor);
+template <typename CntrLike>
+void GetRBCursor(CntrLike&& cntr, void* dst_cursor);
 
-template <typename AssocCntrLike>
-void* PeekL(AssocCntrLike&& cntr, bool lazy_copy_elem, void* dst_cursor,
+template <typename CntrLike>
+void* PeekL(CntrLike&& cntr, bool lazy_copy_elem, void* dst_cursor,
             void* dst_elem);
 
-template <typename AssocCntrLike>
-void* PeekR(AssocCntrLike&& cntr, bool lazy_copy_elem, void* dst_cursor,
+template <typename CntrLike>
+void* PeekR(CntrLike&& cntr, bool lazy_copy_elem, void* dst_cursor,
             void* dst_elem);
 
-template <typename AssocCntrLike>
-void* Derefer(AssocCntrLike&& cntr, void const* pos_cursor, bool lazy_copy_elem,
+template <typename CntrLike>
+void* Derefer(CntrLike&& cntr, void const* pos_cursor, bool lazy_copy_elem,
               void* dst_elem);
 
-template <typename AssocCntrLike, typename KeyHash, typename KeyElemCompare>
-void* Find(AssocCntrLike&& cntr, void const* key, KeyHash&& key_hash,
+template <typename CntrLike, typename KeyHash, typename KeyElemCompare>
+void* Find(CntrLike&& cntr, void const* key, KeyHash&& key_hash,
            KeyElemCompare&& key_elem_compare, bool lazy_copy_elem,
            void* dst_cursor, void* dst_elem);
 
-template <typename AssocCntrLike>
-void* Insert(AssocCntrLike&& cntr, void const* elem, void* dst_cursor);
+template <typename CntrLike>
+void* Insert(CntrLike&& cntr, void const* elem, void* dst_cursor);
 
-template <typename AssocCntrLike>
-void PopL(AssocCntrLike&& cntr, size_t cnt);
+template <typename CntrLike>
+void PopL(CntrLike&& cntr, size_t cnt);
 
-template <typename AssocCntrLike>
-void PopR(AssocCntrLike&& cntr, size_t cnt);
+template <typename CntrLike>
+void PopR(CntrLike&& cntr, size_t cnt);
 
-template <typename AssocCntrLike>
-void Erase(AssocCntrLike&& cntr, void* pos_cursor);
+template <typename CntrLike>
+void Erase(CntrLike&& cntr, void* pos_cursor);
 
-template <typename AssocCntrLike>
-void EraseAll(AssocCntrLike&& cntr);
+template <typename CntrLike>
+void EraseAll(CntrLike&& cntr);
 
-template <typename AssocCntrLike>
-void CopyCursor(AssocCntrLike&& cntr, void const* src_cursor, void* dst_cursor);
+template <typename CntrLike>
+void CopyCursor(CntrLike&& cntr, void const* src_cursor, void* dst_cursor);
 
-template <typename AssocCntrLike>
-bool AreEqualCursor(AssocCntrLike&& cntr, void const* cursor_a,
+template <typename CntrLike>
+bool AreEqualCursor(CntrLike&& cntr, void const* cursor_a,
                     void const* cursor_b);
 
-template <typename AssocCntrLike>
-int CompareCursor(AssocCntrLike&& cntr, void const* cursor_a,
-                  void const* cursor_b);
+template <typename CntrLike>
+int CompareCursor(CntrLike&& cntr, void const* cursor_a, void const* cursor_b);
 
-template <typename AssocCntrLike>
-size_t GetCursorDist(AssocCntrLike&& cntr, void const* cursor_a,
+template <typename CntrLike>
+size_t GetCursorDist(CntrLike&& cntr, void const* cursor_a,
                      void const* cursor_b);
 
-template <typename AssocCntrLike>
-size_t GetCursorIdx(AssocCntrLike&& cntr, void const* cursor);
+template <typename CntrLike>
+size_t GetCursorIdx(CntrLike&& cntr, void const* cursor);
 
-template <typename AssocCntrLike>
-void CursorStepL(AssocCntrLike&& cntr, void* cursor);
+template <typename CntrLike>
+void CursorStepL(CntrLike&& cntr, void* cursor);
 
-template <typename AssocCntrLike>
-void CursorStepR(AssocCntrLike&& cntr, void* cursor);
+template <typename CntrLike>
+void CursorStepR(CntrLike&& cntr, void* cursor);
 
-template <typename AssocCntrLike>
-void CursorAdvanceL(AssocCntrLike&& cntr, void* cursor, size_t step);
+template <typename CntrLike>
+void CursorAdvanceL(CntrLike&& cntr, void* cursor, size_t step);
 
-template <typename AssocCntrLike>
-void CursorAdvanceR(AssocCntrLike&& cntr, void* cursor, size_t step);
+template <typename CntrLike>
+void CursorAdvanceR(CntrLike&& cntr, void* cursor, size_t step);
 
-template <typename AssocCntrLike>
-void CheckContract(AssocCntrLike&& cntr);
-
-}  // namespace ops
+template <typename CntrLike>
+void CheckContract(CntrLike&& cntr);
 
 struct VTable {
     size_t (*GetSize)(void* cntr);
@@ -358,22 +353,18 @@ struct VTable {
     void (*CursorAdvanceR)(void* cntr, void* cursor, size_t step);
 };
 
-namespace ops {
-
-template <typename AssocCntr>
+template <typename Cntr>
 constexpr VTable BuildVTableBasic();
 
-template <typename AssocCntr, typename = void>
+template <typename Cntr, typename = void>
 struct BuildVTableImpl {
     static constexpr VTable Call();
 };
 
-template <typename AssocCntr>
+template <typename Cntr>
 constexpr VTable BuildVTable();
 
-template <typename AssocCntr>
+template <typename Cntr>
 constexpr VTable const& GetVTable();
-
-}  // namespace ops
 
 }  // namespace zeta::core::assoc_cntr

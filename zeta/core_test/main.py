@@ -399,6 +399,28 @@ def add_deps(builder: building_utils.Builder, config: Config):
     )
 
     add_src_files_exe(
+        "test_random",
+        CPP,
+        {
+            # zeta_core_out_dir / "cascade_allocator.bc",
+            # zeta_core_out_dir / "debug_hash_table.bc",
+            # zeta_core_out_dir / "dynamic_hash_table.bc",
+            # zeta_out_dir / "dynamic_vector.bc",
+            # zeta_core_out_dir / "generic_hash_table.bc",
+            # zeta_core_out_dir / "logger.bc",
+            # zeta_core_out_dir / "memory.bc",
+            # zeta_core_out_dir / "multi_level_circular_array.bc",
+            # zeta_core_out_dir / "multi_level_ptr_table.bc",
+            # zeta_core_out_dir / "seg_utils.bc",
+            # zeta_core_out_dir / "seg_vector.bc",
+            # zeta_core_out_dir / "seq_cntr.bc",
+            # zeta_core_out_dir / "staging_vector.bc",
+            zeta_core_out_dir / "utils.bc",
+            out_dir / "timer.bc",
+        },
+    )
+
+    add_src_files_exe(
         "test_utf8",
         C,
         {

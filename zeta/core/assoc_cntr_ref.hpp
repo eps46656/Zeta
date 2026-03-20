@@ -18,8 +18,6 @@ struct Ref {
     void* cntr;
 };
 
-namespace ops {
-
 assoc_cntr::AbilityFlag GetDynamicEnabledAbilityFlag(Ref* ref);
 
 assoc_cntr::AbilityFlag GetDynamicEnabledAbilityFlag(Ref const* ref);
@@ -95,14 +93,12 @@ void CheckRef(Ref* ref);
 template <typename AssocCntrLike>
 Ref MakeRef(AssocCntrLike&& cntr);
 
-}  // namespace ops
-
 }  // namespace zeta::core::assoc_cntr_ref
 
 namespace zeta::core {
 
 template <>
-struct assoc_cntr::Traits<assoc_cntr_ref::Ref const, void> {
+struct assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const, void> {
     static void* GetReferedInst(assoc_cntr_ref::Ref const* ref);
 
     static constexpr assoc_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
@@ -168,8 +164,8 @@ struct assoc_cntr::Traits<assoc_cntr_ref::Ref const, void> {
 };
 
 template <>
-struct assoc_cntr::Traits<assoc_cntr_ref::Ref, void>
-    : public assoc_cntr::Traits<assoc_cntr_ref::Ref const, void> {
+struct assoc_cntr::CntrTraits<assoc_cntr_ref::Ref, void>
+    : public assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const, void> {
     static constexpr assoc_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
 
     static constexpr assoc_cntr::AbilityFlag GetStaticDisabledAbilityFlag();

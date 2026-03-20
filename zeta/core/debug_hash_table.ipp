@@ -15,7 +15,7 @@
 
 namespace zeta::core {
 
-namespace debug_hash_table::ops::detail {
+namespace debug_hash_table::detail {
 
 template <CntrTplParamList>
 void CheckCntr_(Cntr<CntrTplArgList> const* cntr) {
@@ -32,7 +32,7 @@ void CheckCursor_(
     ZETA_Core_DebugAssert(cursor != nullptr);
 }
 
-}  // namespace debug_hash_table::ops::detail
+}  // namespace debug_hash_table::detail
 
 template <typename ElemHashLike>
 unsigned long long debug_hash_table::ElemKeyHashProxy<ElemHashLike>::operator()(
@@ -62,7 +62,7 @@ bool debug_hash_table::ElemKeyEqProxy<ElemHashLike>::operator()(
 }
 
 template <CntrTplParamList>
-void debug_hash_table::ops::Init(Cntr<CntrTplArgList>* cntr) {
+void debug_hash_table::Init(Cntr<CntrTplArgList>* cntr) {
     ZETA_Core_DebugAssert(cntr != nullptr);
 
     cntr->hash_table = new hash_table_t<ElemHashLike, ElemCompareLike>{
@@ -71,7 +71,7 @@ void debug_hash_table::ops::Init(Cntr<CntrTplArgList>* cntr) {
 }
 
 template <CntrTplParamList>
-void debug_hash_table::ops::Deinit(Cntr<CntrTplArgList>* cntr) {
+void debug_hash_table::Deinit(Cntr<CntrTplArgList>* cntr) {
     detail::CheckCntr_(cntr);
 
     auto* hash_table{ cntr->hash_table };
@@ -82,7 +82,7 @@ void debug_hash_table::ops::Deinit(Cntr<CntrTplArgList>* cntr) {
 }
 
 template <CntrTplParamList>
-size_t debug_hash_table::ops::GetCursorSize(Cntr<CntrTplArgList> const* cntr) {
+size_t debug_hash_table::GetCursorSize(Cntr<CntrTplArgList> const* cntr) {
     detail::CheckCntr_(cntr);
 
     return sizeof(
@@ -90,14 +90,14 @@ size_t debug_hash_table::ops::GetCursorSize(Cntr<CntrTplArgList> const* cntr) {
 }
 
 template <CntrTplParamList>
-size_t debug_hash_table::ops::GetWidth(Cntr<CntrTplArgList> const* cntr) {
+size_t debug_hash_table::GetWidth(Cntr<CntrTplArgList> const* cntr) {
     detail::CheckCntr_(cntr);
 
     return cntr->width;
 }
 
 template <CntrTplParamList>
-size_t debug_hash_table::ops::GetSize(Cntr<CntrTplArgList> const* cntr) {
+size_t debug_hash_table::GetSize(Cntr<CntrTplArgList> const* cntr) {
     detail::CheckCntr_(cntr);
 
     auto* hash_table{ cntr->hash_table };
@@ -106,14 +106,14 @@ size_t debug_hash_table::ops::GetSize(Cntr<CntrTplArgList> const* cntr) {
 }
 
 template <CntrTplParamList>
-size_t debug_hash_table::ops::GetCapacity(Cntr<CntrTplArgList> const* cntr) {
+size_t debug_hash_table::GetCapacity(Cntr<CntrTplArgList> const* cntr) {
     detail::CheckCntr_(cntr);
 
     return ZETA_Core_max_capacity;
 }
 
 template <CntrTplParamList>
-void debug_hash_table::ops::GetRBCursor(
+void debug_hash_table::GetRBCursor(
     Cntr<CntrTplArgList> const* cntr,
     typename hash_table_t<ElemHashLike, ElemCompareLike>::iterator*
         dst_cursor) {
@@ -129,7 +129,7 @@ void debug_hash_table::ops::GetRBCursor(
 }
 
 template <CntrTplParamList>
-void* debug_hash_table::ops::PeekL(
+void* debug_hash_table::PeekL(
     Cntr<CntrTplArgList> const* cntr, bool lazy_copy_elem,
     typename hash_table_t<ElemHashLike, ElemCompareLike>::iterator* dst_cursor,
     void* dst_elem) {
@@ -154,7 +154,7 @@ void* debug_hash_table::ops::PeekL(
 }
 
 template <CntrTplParamList>
-void* debug_hash_table::ops::PeekR(
+void* debug_hash_table::PeekR(
     Cntr<CntrTplArgList> const* cntr, bool lazy_copy_elem,
     typename hash_table_t<ElemHashLike, ElemCompareLike>::iterator* dst_cursor,
     void* dst_elem) {
@@ -180,7 +180,7 @@ void* debug_hash_table::ops::PeekR(
 }
 
 template <CntrTplParamList>
-void* debug_hash_table::ops::Derefer(
+void* debug_hash_table::Derefer(
     Cntr<CntrTplArgList> const* cntr,
     typename hash_table_t<ElemHashLike, ElemCompareLike>::iterator const*
         pos_cursor,
@@ -201,7 +201,7 @@ void* debug_hash_table::ops::Derefer(
 }
 
 template <CntrTplParamList, typename KeyHash, typename KeyElemCompare>
-void* debug_hash_table::ops::Find(
+void* debug_hash_table::Find(
     Cntr<CntrTplArgList> const* cntr, void const* key, KeyHash const& key_hash,
     KeyElemCompare const& key_elem_compare, bool lazy_copy_elem,
     typename hash_table_t<ElemHashLike, ElemCompareLike>::iterator* dst_cursor,
@@ -230,7 +230,7 @@ void* debug_hash_table::ops::Find(
 }
 
 template <CntrTplParamList>
-void* debug_hash_table::ops::Insert(
+void* debug_hash_table::Insert(
     Cntr<CntrTplArgList>* cntr, void const* elem,
     typename hash_table_t<ElemHashLike, ElemCompareLike>::iterator*
         dst_cursor) {
@@ -252,7 +252,7 @@ void* debug_hash_table::ops::Insert(
 }
 
 template <CntrTplParamList>
-void debug_hash_table::ops::PopL(Cntr<CntrTplArgList>* cntr, size_t cnt) {
+void debug_hash_table::PopL(Cntr<CntrTplArgList>* cntr, size_t cnt) {
     detail::CheckCntr_(cntr);
 
     auto* hash_table{ cntr->hash_table };
@@ -271,7 +271,7 @@ void debug_hash_table::ops::PopL(Cntr<CntrTplArgList>* cntr, size_t cnt) {
 }
 
 template <CntrTplParamList>
-void debug_hash_table::ops::PopR(Cntr<CntrTplArgList>* cntr, size_t cnt) {
+void debug_hash_table::PopR(Cntr<CntrTplArgList>* cntr, size_t cnt) {
     detail::CheckCntr_(cntr);
 
     auto* hash_table{ cntr->hash_table };
@@ -291,7 +291,7 @@ void debug_hash_table::ops::PopR(Cntr<CntrTplArgList>* cntr, size_t cnt) {
 }
 
 template <CntrTplParamList>
-void debug_hash_table::ops::Erase(
+void debug_hash_table::Erase(
     Cntr<CntrTplArgList>* cntr,
     typename hash_table_t<ElemHashLike, ElemCompareLike>::iterator*
         pos_cursor) {
@@ -309,7 +309,7 @@ void debug_hash_table::ops::Erase(
 }
 
 template <CntrTplParamList>
-void debug_hash_table::ops::EraseAll(Cntr<CntrTplArgList>* cntr) {
+void debug_hash_table::EraseAll(Cntr<CntrTplArgList>* cntr) {
     detail::CheckCntr_(cntr);
 
     auto* hash_table{ cntr->hash_table };
@@ -318,7 +318,7 @@ void debug_hash_table::ops::EraseAll(Cntr<CntrTplArgList>* cntr) {
 }
 
 template <CntrTplParamList>
-void debug_hash_table::ops::CopyCursor(
+void debug_hash_table::CopyCursor(
     Cntr<CntrTplArgList> const* cntr,
     typename hash_table_t<ElemHashLike, ElemCompareLike>::iterator const*
         src_cursor,
@@ -330,7 +330,7 @@ void debug_hash_table::ops::CopyCursor(
 }
 
 template <CntrTplParamList>
-bool debug_hash_table::ops::AreEqualCursor(
+bool debug_hash_table::AreEqualCursor(
     Cntr<CntrTplArgList> const* cntr,
     typename hash_table_t<ElemHashLike, ElemCompareLike>::iterator const*
         cursor_a,
@@ -345,7 +345,7 @@ bool debug_hash_table::ops::AreEqualCursor(
 }
 
 template <CntrTplParamList>
-void debug_hash_table::ops::CursorStepL(
+void debug_hash_table::CursorStepL(
     Cntr<CntrTplArgList> const* cntr,
     typename hash_table_t<ElemHashLike, ElemCompareLike>::iterator* cursor) {
     detail::CheckCursor_(cntr, cursor);
@@ -354,7 +354,7 @@ void debug_hash_table::ops::CursorStepL(
 }
 
 template <CntrTplParamList>
-void debug_hash_table::ops::CursorStepR(
+void debug_hash_table::CursorStepR(
     Cntr<CntrTplArgList> const* cntr,
     typename hash_table_t<ElemHashLike, ElemCompareLike>::iterator* cursor) {
     detail::CheckCursor_(cntr, cursor);
@@ -363,15 +363,16 @@ void debug_hash_table::ops::CursorStepR(
 }
 
 template <CntrTplParamList>
-void* assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
-    GetReferedInst(debug_hash_table::Cntr<CntrTplArgList> const* cntr) {
+void* assoc_cntr::CntrTraits<
+    debug_hash_table::Cntr<CntrTplArgList> const,
+    void>::GetReferedInst(debug_hash_table::Cntr<CntrTplArgList> const* cntr) {
     return const_cast<debug_hash_table::Cntr<CntrTplArgList>::Cntr*>(cntr);
 }
 
 template <CntrTplParamList>
 constexpr assoc_cntr::AbilityFlag
-assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList>,
-                   void>::GetStaticEnabledAbilityFlag() {
+assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList>,
+                       void>::GetStaticEnabledAbilityFlag() {
     return assoc_cntr::AbilityFlagBuilder{
         .GetCursorSize = true,
         .GetWidth = true,
@@ -402,17 +403,17 @@ assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList>,
 
 template <CntrTplParamList>
 constexpr assoc_cntr::AbilityFlag
-assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const,
-                   void>::GetStaticEnabledAbilityFlag() {
-    return assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList>,
-                              void>::GetStaticEnabledAbilityFlag() &
+assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const,
+                       void>::GetStaticEnabledAbilityFlag() {
+    return assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList>,
+                                  void>::GetStaticEnabledAbilityFlag() &
            assoc_cntr::const_ability_flag;
 }
 
 template <CntrTplParamList>
 constexpr assoc_cntr::AbilityFlag
-assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList>,
-                   void>::GetStaticDisabledAbilityFlag() {
+assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList>,
+                       void>::GetStaticDisabledAbilityFlag() {
     return assoc_cntr::AbilityFlagBuilder{
         .GetCursorSize = false,
         .GetWidth = false,
@@ -443,16 +444,16 @@ assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList>,
 
 template <CntrTplParamList>
 constexpr assoc_cntr::AbilityFlag
-assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const,
-                   void>::GetStaticDisabledAbilityFlag() {
-    return assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList>,
-                              void>::GetStaticDisabledAbilityFlag() |
+assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const,
+                       void>::GetStaticDisabledAbilityFlag() {
+    return assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList>,
+                                  void>::GetStaticDisabledAbilityFlag() |
            assoc_cntr::non_const_ability_flag;
 }
 
 template <CntrTplParamList>
 constexpr assoc_cntr::AbilityFlag
-assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
+assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
     GetDynamicEnabledAbilityFlag(
         debug_hash_table::Cntr<CntrTplArgList> const*) {
     return assoc_cntr::empty_ability_flag;
@@ -460,52 +461,55 @@ assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
 
 template <CntrTplParamList>
 constexpr assoc_cntr::AbilityFlag
-assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
+assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
     GetDynamicDisabledAbilityFlag(
         debug_hash_table::Cntr<CntrTplArgList> const*) {
     return assoc_cntr::empty_ability_flag;
 }
 
 template <CntrTplParamList>
-constexpr size_t assoc_cntr::Traits<
+constexpr size_t assoc_cntr::CntrTraits<
     debug_hash_table::Cntr<CntrTplArgList> const,
     void>::GetCursorSize(debug_hash_table::Cntr<CntrTplArgList> const* cntr) {
-    return debug_hash_table::ops::GetCursorSize(cntr);
+    return debug_hash_table::GetCursorSize(cntr);
 }
 
 template <CntrTplParamList>
-size_t assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
-    GetWidth(debug_hash_table::Cntr<CntrTplArgList> const* cntr) {
-    return debug_hash_table::ops::GetWidth(cntr);
+size_t assoc_cntr::CntrTraits<
+    debug_hash_table::Cntr<CntrTplArgList> const,
+    void>::GetWidth(debug_hash_table::Cntr<CntrTplArgList> const* cntr) {
+    return debug_hash_table::GetWidth(cntr);
 }
 
 template <CntrTplParamList>
-size_t
-assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::GetSize(
-    debug_hash_table::Cntr<CntrTplArgList> const* cntr) {
-    return debug_hash_table::ops::GetSize(cntr);
+size_t assoc_cntr::CntrTraits<
+    debug_hash_table::Cntr<CntrTplArgList> const,
+    void>::GetSize(debug_hash_table::Cntr<CntrTplArgList> const* cntr) {
+    return debug_hash_table::GetSize(cntr);
 }
 
 template <CntrTplParamList>
-size_t assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
-    GetCapacity(debug_hash_table::Cntr<CntrTplArgList> const* cntr) {
-    return debug_hash_table::ops::GetCapacity(cntr);
+size_t assoc_cntr::CntrTraits<
+    debug_hash_table::Cntr<CntrTplArgList> const,
+    void>::GetCapacity(debug_hash_table::Cntr<CntrTplArgList> const* cntr) {
+    return debug_hash_table::GetCapacity(cntr);
 }
 
 template <CntrTplParamList>
-void assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
-    GetRBCursor(debug_hash_table::Cntr<CntrTplArgList> const* cntr,
-                void* dst_cursor) {
-    debug_hash_table::ops::GetRBCursor(
+void assoc_cntr::
+    CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const, void>::GetRBCursor(
+        debug_hash_table::Cntr<CntrTplArgList> const* cntr, void* dst_cursor) {
+    debug_hash_table::GetRBCursor(
         cntr, static_cast<typename debug_hash_table::hash_table_t<
                   ElemHashLike, ElemCompareLike>::iterator*>(dst_cursor));
 }
 
 template <CntrTplParamList>
-void* assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
-    PeekL(debug_hash_table::Cntr<CntrTplArgList> const* cntr,
-          bool lazy_copy_elem, void* dst_cursor, void* dst_elem) {
-    return debug_hash_table::ops::PeekL(
+void* assoc_cntr::CntrTraits<
+    debug_hash_table::Cntr<CntrTplArgList> const,
+    void>::PeekL(debug_hash_table::Cntr<CntrTplArgList> const* cntr,
+                 bool lazy_copy_elem, void* dst_cursor, void* dst_elem) {
+    return debug_hash_table::PeekL(
         cntr, lazy_copy_elem,
         static_cast<typename debug_hash_table::hash_table_t<
             ElemHashLike, ElemCompareLike>::iterator*>(dst_cursor),
@@ -513,10 +517,11 @@ void* assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
 }
 
 template <CntrTplParamList>
-void* assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
-    PeekR(debug_hash_table::Cntr<CntrTplArgList> const* cntr,
-          bool lazy_copy_elem, void* dst_cursor, void* dst_elem) {
-    return debug_hash_table::ops::PeekR(
+void* assoc_cntr::CntrTraits<
+    debug_hash_table::Cntr<CntrTplArgList> const,
+    void>::PeekR(debug_hash_table::Cntr<CntrTplArgList> const* cntr,
+                 bool lazy_copy_elem, void* dst_cursor, void* dst_elem) {
+    return debug_hash_table::PeekR(
         cntr, lazy_copy_elem,
         static_cast<typename debug_hash_table::hash_table_t<
             ElemHashLike, ElemCompareLike>::iterator*>(dst_cursor),
@@ -524,10 +529,11 @@ void* assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
 }
 
 template <CntrTplParamList>
-void* assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
-    Derefer(debug_hash_table::Cntr<CntrTplArgList> const* cntr,
-            void const* pos_cursor, bool lazy_copy_elem, void* dst_elem) {
-    return debug_hash_table::ops::Derefer(
+void* assoc_cntr::
+    CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const, void>::Derefer(
+        debug_hash_table::Cntr<CntrTplArgList> const* cntr,
+        void const* pos_cursor, bool lazy_copy_elem, void* dst_elem) {
+    return debug_hash_table::Derefer(
         cntr,
         static_cast<typename debug_hash_table::hash_table_t<
             ElemHashLike, ElemCompareLike>::iterator const*>(pos_cursor),
@@ -536,11 +542,12 @@ void* assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
 
 template <CntrTplParamList>
 template <typename KeyHash, typename KeyElemCompare>
-void* assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
-    Find(debug_hash_table::Cntr<CntrTplArgList> const* cntr, void const* key,
-         KeyHash const& key_hash, KeyElemCompare const& key_elem_compare,
-         bool lazy_copy_elem, void* dst_cursor, void* dst_elem) {
-    return debug_hash_table::ops::Find(
+void* assoc_cntr::
+    CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const, void>::Find(
+        debug_hash_table::Cntr<CntrTplArgList> const* cntr, void const* key,
+        KeyHash const& key_hash, KeyElemCompare const& key_elem_compare,
+        bool lazy_copy_elem, void* dst_cursor, void* dst_elem) {
+    return debug_hash_table::Find(
         cntr, key, key_hash, key_elem_compare, lazy_copy_elem,
         static_cast<typename debug_hash_table::hash_table_t<
             ElemHashLike, ElemCompareLike>::iterator*>(dst_cursor),
@@ -548,46 +555,47 @@ void* assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
 }
 
 template <CntrTplParamList>
-void* assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList>, void>::Insert(
-    debug_hash_table::Cntr<CntrTplArgList>* cntr, void const* elem,
-    void* dst_cursor) {
-    return debug_hash_table::ops::Insert(
+void* assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList>, void>::
+    Insert(debug_hash_table::Cntr<CntrTplArgList>* cntr, void const* elem,
+           void* dst_cursor) {
+    return debug_hash_table::Insert(
         cntr, elem,
         static_cast<typename debug_hash_table::hash_table_t<
             ElemHashLike, ElemCompareLike>::iterator*>(dst_cursor));
 }
 
 template <CntrTplParamList>
-void assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList>, void>::PopL(
+void assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList>, void>::PopL(
     debug_hash_table::Cntr<CntrTplArgList>* cntr, size_t cnt) {
-    debug_hash_table::ops::PopL(cntr, cnt);
+    debug_hash_table::PopL(cntr, cnt);
 }
 
 template <CntrTplParamList>
-void assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList>, void>::PopR(
+void assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList>, void>::PopR(
     debug_hash_table::Cntr<CntrTplArgList>* cntr, size_t cnt) {
-    debug_hash_table::ops::PopR(cntr, cnt);
+    debug_hash_table::PopR(cntr, cnt);
 }
 
 template <CntrTplParamList>
-void assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList>, void>::Erase(
-    debug_hash_table::Cntr<CntrTplArgList>* cntr, void* pos_cursor) {
-    debug_hash_table::ops::Erase(
+void assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList>, void>::
+    Erase(debug_hash_table::Cntr<CntrTplArgList>* cntr, void* pos_cursor) {
+    debug_hash_table::Erase(
         cntr, static_cast<typename debug_hash_table::hash_table_t<
                   ElemHashLike, ElemCompareLike>::iterator*>(pos_cursor));
 }
 
 template <CntrTplParamList>
-void assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList>, void>::EraseAll(
-    debug_hash_table::Cntr<CntrTplArgList>* cntr) {
-    debug_hash_table::ops::EraseAll(cntr);
+void assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList>, void>::
+    EraseAll(debug_hash_table::Cntr<CntrTplArgList>* cntr) {
+    debug_hash_table::EraseAll(cntr);
 }
 
 template <CntrTplParamList>
-void assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
-    CopyCursor(debug_hash_table::Cntr<CntrTplArgList> const* cntr,
-               void const* src_cursor, void* dst_cursor) {
-    debug_hash_table::ops::CopyCursor(
+void assoc_cntr::CntrTraits<
+    debug_hash_table::Cntr<CntrTplArgList> const,
+    void>::CopyCursor(debug_hash_table::Cntr<CntrTplArgList> const* cntr,
+                      void const* src_cursor, void* dst_cursor) {
+    debug_hash_table::CopyCursor(
         cntr,
         static_cast<typename debug_hash_table::hash_table_t<
             ElemHashLike, ElemCompareLike>::iterator const*>(src_cursor),
@@ -596,10 +604,11 @@ void assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
 }
 
 template <CntrTplParamList>
-bool assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
-    AreEqualCursor(debug_hash_table::Cntr<CntrTplArgList> const* cntr,
-                   void const* cursor_a, void const* cursor_b) {
-    return debug_hash_table::ops::AreEqualCursor(
+bool assoc_cntr::CntrTraits<
+    debug_hash_table::Cntr<CntrTplArgList> const,
+    void>::AreEqualCursor(debug_hash_table::Cntr<CntrTplArgList> const* cntr,
+                          void const* cursor_a, void const* cursor_b) {
+    return debug_hash_table::AreEqualCursor(
         cntr,
         static_cast<typename debug_hash_table::hash_table_t<
             ElemHashLike, ElemCompareLike>::iterator const*>(cursor_a),
@@ -608,19 +617,19 @@ bool assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
 }
 
 template <CntrTplParamList>
-void assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
-    CursorStepL(debug_hash_table::Cntr<CntrTplArgList> const* cntr,
-                void* cursor) {
-    debug_hash_table::ops::CursorStepL(
+void assoc_cntr::
+    CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const, void>::CursorStepL(
+        debug_hash_table::Cntr<CntrTplArgList> const* cntr, void* cursor) {
+    debug_hash_table::CursorStepL(
         cntr, static_cast<typename debug_hash_table::hash_table_t<
                   ElemHashLike, ElemCompareLike>::iterator*>(cursor));
 }
 
 template <CntrTplParamList>
-void assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void>::
-    CursorStepR(debug_hash_table::Cntr<CntrTplArgList> const* cntr,
-                void* cursor) {
-    debug_hash_table::ops::CursorStepR(
+void assoc_cntr::
+    CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const, void>::CursorStepR(
+        debug_hash_table::Cntr<CntrTplArgList> const* cntr, void* cursor) {
+    debug_hash_table::CursorStepR(
         cntr, static_cast<typename debug_hash_table::hash_table_t<
                   ElemHashLike, ElemCompareLike>::iterator*>(cursor));
 }

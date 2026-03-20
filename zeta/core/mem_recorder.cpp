@@ -4,13 +4,13 @@
 #include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/utils.hpp>
 
-namespace zeta::core::mem_recorder {
+namespace zeta::core {
 
-namespace ops {
+size_t mem_recorder::GetSize(MemRecorder const* mr) {
+    return mr->records.size();
+}
 
-size_t GetSize(MemRecorder const* mr) { return mr->records.size(); }
-
-size_t GetRecordSize(MemRecorder const* mr, void const* ptr) {
+size_t mem_recorder::GetRecordSize(MemRecorder const* mr, void const* ptr) {
     ZETA_Core_DebugAssert(mr != nullptr);
 
     auto iter{ mr->records.find(ptr) };
@@ -19,13 +19,13 @@ size_t GetRecordSize(MemRecorder const* mr, void const* ptr) {
                                      : iter->second;
 }
 
-bool IsRecorded(MemRecorder const* mr, void const* ptr) {
+bool mem_recorder::IsRecorded(MemRecorder const* mr, void const* ptr) {
     ZETA_Core_DebugAssert(mr != nullptr);
 
     return mr->records.contains(ptr);
 }
 
-void Record(MemRecorder* mr, void const* ptr, size_t size) {
+void mem_recorder::Record(MemRecorder* mr, void const* ptr, size_t size) {
     ZETA_Core_DebugAssert(mr != nullptr);
 
     auto iter{ mr->records.lower_bound(ptr) };
@@ -47,19 +47,20 @@ void Record(MemRecorder* mr, void const* ptr, size_t size) {
     ZETA_Core_DebugAssert(b);
 }
 
-bool Unrecord(MemRecorder* mr, void const* ptr) {
+bool mem_recorder::Unrecord(MemRecorder* mr, void const* ptr) {
     ZETA_Core_DebugAssert(mr != nullptr);
 
     return mr->records.erase(ptr) != 0;
 }
 
-void Clear(MemRecorder* mr) {
+void mem_recorder::Clear(MemRecorder* mr) {
     ZETA_Core_DebugAssert(mr != nullptr);
 
     mr->records.clear();
 }
 
-void MatchRecords(MemRecorder const* src_mr, MemRecorder const* dst_mr) {
+void mem_recorder::MatchRecords(MemRecorder const* src_mr,
+                                MemRecorder const* dst_mr) {
     ZETA_Core_DebugAssert(src_mr != nullptr);
     ZETA_Core_DebugAssert(dst_mr != nullptr);
 
@@ -84,5 +85,4 @@ void MatchRecords(MemRecorder const* src_mr, MemRecorder const* dst_mr) {
     }
 }
 
-}  // namespace ops
-}  // namespace zeta::core::mem_recorder
+}  // namespace zeta::core

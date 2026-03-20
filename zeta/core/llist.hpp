@@ -5,9 +5,7 @@
 namespace zeta::core::llist {
 
 template <typename LListNode, typename = void>
-struct Traits;
-
-namespace ops {
+struct NodeTraits;
 
 template <typename LListNode>
 constexpr bool IsConst();
@@ -47,7 +45,5 @@ void InsertSegR(LListNode* n, LListNode* m_beg, LListNode* m_end);
 
 template <typename LListNode>
 void ExtractSeg(LListNode* n_beg, LListNode* n_end);
-
-}  // namespace ops
 
 }  // namespace zeta::core::llist

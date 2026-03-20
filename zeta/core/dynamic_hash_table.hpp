@@ -11,18 +11,21 @@
 #include <zeta/core/value_wrapper.hpp>
 
 #pragma push_macro("CntrTplDeclParamList")
-#define CntrTplDeclParamList                           \
-    typename ElemHashLike_, typename ElemCompareLike_, \
-        typename NodeAllocator_, typename TableNodeAllocatorLike_
+#define CntrTplDeclParamList                                           \
+    typename ElemHashLike_, typename ElemCompareLike_,                 \
+        typename NodeAllocatorLike_, typename TableNodeAllocatorLike_, \
+        typename SaltRandomEngineLike_
 
 #pragma push_macro("CntrTplParamList")
-#define CntrTplParamList                                                     \
-    typename ElemHashLike, typename ElemCompareLike, typename NodeAllocator, \
-        typename TableNodeAllocatorLike
+#define CntrTplParamList                                             \
+    typename ElemHashLike, typename ElemCompareLike,                 \
+        typename NodeAllocatorLike, typename TableNodeAllocatorLike, \
+        typename SaltRandomEngineLike
 
 #pragma push_macro("CntrTplArgList")
-#define CntrTplArgList \
-    ElemHashLike, ElemCompareLike, NodeAllocator, TableNodeAllocatorLike
+#define CntrTplArgList                                                        \
+    ElemHashLike, ElemCompareLike, NodeAllocatorLike, TableNodeAllocatorLike, \
+        SaltRandomEngineLike
 
 namespace zeta::core::dynamic_hash_table {
 
@@ -88,25 +91,32 @@ template <CntrTplDeclParamList>
 struct Cntr {
     using ElemHashLike = ElemHashLike_;
     using ElemCompareLike = ElemCompareLike_;
-    using NodeAllocator = NodeAllocator_;
+    using NodeAllocatorLike = NodeAllocatorLike_;
     using TableNodeAllocatorLike = TableNodeAllocatorLike_;
+    using SaltRandomEngineLike = SaltRandomEngineLike_;
 
     size_t width;
 
     LListNode* lln;
 
-    NodeAllocator node_alctr;
+    NodeAllocatorLike node_alctr;
 
     generic_hash_table::Cntr<NodeHash<ElemHashLike>,
                              NodeCompare<ElemCompareLike>,
-                             TableNodeAllocatorLike>
+                             TableNodeAllocatorLike, SaltRandomEngineLike>
         ght;
 };
 
-namespace ops {
-
-template <CntrTplParamList>
-void Init(Cntr<CntrTplArgList>* cntr);
+template <CntrTplParamList, typename NodeAllocatorInitArg,
+          typename ElemHashLikeInitArg, typename ElemCompareInitArg,
+          typename TableNodeAllocatorInitArg, typename SaltRandomEngineInitArg>
+void Init(Cntr<CntrTplArgList>* cntr, size_t width,
+          NodeAllocatorInitArg&& node_alctr_init_arg,
+          generic_hash_table::RehashingConfig const& rehashing_config,
+          ElemHashLikeInitArg&& elem_hash_init_arg,
+          ElemCompareInitArg&& elem_compare_init_arg,
+          TableNodeAllocatorInitArg&& table_node_alctr_init_arg,
+          SaltRandomEngineInitArg&& salt_random_engine_init_arg);
 
 template <CntrTplParamList>
 void Deinit(Cntr<CntrTplArgList>* cntr);
@@ -191,15 +201,13 @@ void Sanitize(Cntr<CntrTplArgList> const* cntr,
               mem_recorder::MemRecorder* dst_table,
               mem_recorder::MemRecorder* dst_node);
 
-}  // namespace ops
-
 }  // namespace zeta::core::dynamic_hash_table
 
 namespace zeta::core {
 
 template <CntrTplParamList>
-struct assoc_cntr::Traits<dynamic_hash_table::Cntr<CntrTplArgList> const,
-                          void> {
+struct assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList> const,
+                              void> {
     static void* GetReferedInst(
         dynamic_hash_table::Cntr<CntrTplArgList> const* cntr);
 
@@ -259,9 +267,9 @@ struct assoc_cntr::Traits<dynamic_hash_table::Cntr<CntrTplArgList> const,
 };
 
 template <CntrTplParamList>
-struct assoc_cntr::Traits<dynamic_hash_table::Cntr<CntrTplArgList>, void>
-    : public assoc_cntr::Traits<dynamic_hash_table::Cntr<CntrTplArgList> const,
-                                void> {
+struct assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList>, void>
+    : public assoc_cntr::CntrTraits<
+          dynamic_hash_table::Cntr<CntrTplArgList> const, void> {
     static constexpr assoc_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
 
     static constexpr assoc_cntr::AbilityFlag GetStaticDisabledAbilityFlag();

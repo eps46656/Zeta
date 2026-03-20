@@ -30,7 +30,7 @@ inline std::ostream& operator<<(std::ostream& os, PODValue const& val) {
 namespace zeta::core {
 
 template <>
-struct hash::ops::BasicHashImpl<core_test::PODValue> {
+struct hash::BasicHashImpl<core_test::PODValue> {
     unsigned long long operator()(core_test::PODValue const& x,
                                   unsigned long long salt) const {
         return BasicMemHash(x.data, core_test::PODValue::width, salt);
@@ -62,9 +62,9 @@ template <>
 struct compare::BasicCompareImpl<core_test::PODValue, core_test::PODValue> {
     int operator()(core_test::PODValue const& x,
                    core_test::PODValue const& y) const {
-        return compare::ops::LexMemCompare(x.data, y.data,
-                                           core_test::PODValue::width,
-                                           core_test::PODValue::width);
+        return compare::LexMemCompare(x.data, y.data,
+                                      core_test::PODValue::width,
+                                      core_test::PODValue::width);
     }
 };
 
@@ -73,27 +73,27 @@ struct compare::BasicCompareImpl<core_test::PODValue, core_test::PODValue> {
 namespace zeta::core_test {
 
 inline bool operator==(PODValue const& x, PODValue const& y) {
-    return core::compare::ops::BasicCompare(x, y) == 0;
+    return core::compare::BasicCompare(x, y) == 0;
 }
 
 inline bool operator!=(PODValue const& x, PODValue const& y) {
-    return core::compare::ops::BasicCompare(x, y) != 0;
+    return core::compare::BasicCompare(x, y) != 0;
 }
 
 inline bool operator<(PODValue const& x, PODValue const& y) {
-    return core::compare::ops::BasicCompare(x, y) < 0;
+    return core::compare::BasicCompare(x, y) < 0;
 }
 
 inline bool operator<=(PODValue const& x, PODValue const& y) {
-    return core::compare::ops::BasicCompare(x, y) <= 0;
+    return core::compare::BasicCompare(x, y) <= 0;
 }
 
 inline bool operator>(PODValue const& x, PODValue const& y) {
-    return core::compare::ops::BasicCompare(x, y) > 0;
+    return core::compare::BasicCompare(x, y) > 0;
 }
 
 inline bool operator>=(PODValue const& x, PODValue const& y) {
-    return core::compare::ops::BasicCompare(x, y) >= 0;
+    return core::compare::BasicCompare(x, y) >= 0;
 }
 
 }  // namespace zeta::core_test

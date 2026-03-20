@@ -57,8 +57,6 @@ struct Cntr {
     hash_table_t<ElemHashLike, ElemCompareLike>* hash_table;
 };
 
-namespace ops {
-
 template <CntrTplParamList>
 void Init(Cntr<CntrTplArgList>* cntr);
 
@@ -161,14 +159,13 @@ bool CheckCursor(
     typename hash_table_t<ElemHashLike, ElemCompareLike>::iterator const*
         cursor);
 
-}  // namespace ops
-
 }  // namespace zeta::core::debug_hash_table
 
 namespace zeta::core {
 
 template <CntrTplParamList>
-struct assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void> {
+struct assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const,
+                              void> {
     static void* GetReferedInst(
         debug_hash_table::Cntr<CntrTplArgList> const* cntr);
 
@@ -225,9 +222,9 @@ struct assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const, void> {
 };
 
 template <CntrTplParamList>
-struct assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList>, void>
-    : public assoc_cntr::Traits<debug_hash_table::Cntr<CntrTplArgList> const,
-                                void> {
+struct assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList>, void>
+    : public assoc_cntr::CntrTraits<
+          debug_hash_table::Cntr<CntrTplArgList> const, void> {
     static constexpr assoc_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
 
     static constexpr assoc_cntr::AbilityFlag GetStaticDisabledAbilityFlag();

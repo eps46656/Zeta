@@ -131,8 +131,6 @@ template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
 constexpr auto operator/(FixedPoint<FixedPointTplArgList(X)> const& x,
                          FixedPoint<FixedPointTplArgList(Y)> const& y);
 
-namespace ops {
-
 template <typename FractionWidth, typename Num, typename Denom>
 constexpr auto FromFraction(Num num, Denom denom);
 
@@ -148,8 +146,6 @@ constexpr auto Floor(FixedPoint<FixedPointTplArgList()> const& x);
 
 template <FixedPointTplParamList()>
 constexpr auto Ceil(FixedPoint<FixedPointTplArgList()> const& x);
-
-}  // namespace ops
 
 }  // namespace zeta::core::fixed_point
 

@@ -37,8 +37,8 @@
 #pragma push_macro("NameSpace")
 #define NameSpace multi_level_data_table
 
-#pragma push_macro("TplDeclParamList")
-#define TplDeclParamList \
+#pragma push_macro("CntrTplDeclParamList")
+#define CntrTplDeclParamList \
     typename TplNavNodeAllocatorLike, typename TplDataNodeAllocatorLike
 
 #pragma push_macro("CntrTplParamList")
@@ -54,7 +54,7 @@
 #define NameSpace multi_level_ptr_table
 
 #pragma push_macro("CntrTplDeclParamList")
-#define TplDeclParamList typename TplNavNodeAllocatorLike
+#define CntrTplDeclParamList typename TplNavNodeAllocatorLike
 
 #pragma push_macro("CntrTplParamList")
 #define CntrTplParamList typename NavNodeAllocatorLike
@@ -73,7 +73,7 @@ constexpr unsigned max_branch_num{ ZETA_Core_ullong_width };
 
 struct NavNode;
 
-template <TplDeclParamList>
+template <CntrTplDeclParamList>
 struct Cntr;
 
 struct NavNode {
@@ -83,7 +83,7 @@ struct NavNode {
 
 ZETA_Core_StaticAssert(offsetof(NavNode, active_map) == 0);
 
-template <TplDeclParamList>
+template <CntrTplDeclParamList>
 struct Cntr {
     using NavNodeAllocatorLike = TplNavNodeAllocatorLike;
 
@@ -110,15 +110,30 @@ struct Cntr {
 #endif
 };
 
-namespace ops {
-
 /**
  * @brief Initialize the cntr.
  *
  * @param cntr The target cntr.
  */
-template <CntrTplParamList>
-void Init(Cntr<CntrTplArgList>* cntr);
+template <CntrTplParamList, typename NavNodeAllocatorInitArg
+#if EnData
+          ,
+          typename DataNodeAllocatorInitArg
+#endif
+          >
+void Init(Cntr<CntrTplArgList>* cntr, unsigned level,
+          unsigned short const* branch_nums
+#if EnData
+          ,
+          size_t stride
+#endif
+          ,
+          NavNodeAllocatorInitArg&& nav_node_alctr_init_arg
+#if EnData
+          ,
+          DataNodeAllocatorInitArg&& data_node_alctr_init_arg
+#endif
+);
 
 /**
  * @brief Deinitialize the cntr.
@@ -225,8 +240,6 @@ void Sanitize(Cntr<CntrTplArgList>* cntr,
               mem_recorder::MemRecorder* dst_data_node
 #endif
 );
-
-}  // namespace ops
 
 }  // namespace zeta::core::NameSpace
 

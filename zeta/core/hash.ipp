@@ -7,15 +7,14 @@
 
 namespace zeta::core {
 
-inline unsigned long long hash::ops::BasicMemHash(void const* data, size_t size,
-                                                  unsigned long long salt) {
+inline unsigned long long hash::BasicMemHash(void const* data, size_t size,
+                                             unsigned long long salt) {
     return (BasicElemHash)(data, size, 0, 1, salt);
 }
 
-inline unsigned long long hash::ops::BasicElemHash(void const* data_,
-                                                   size_t width, size_t stride,
-                                                   size_t cnt,
-                                                   unsigned long long salt) {
+inline unsigned long long hash::BasicElemHash(void const* data_, size_t width,
+                                              size_t stride, size_t cnt,
+                                              unsigned long long salt) {
     constexpr unsigned long long fnv_offset_basis{ 14695981039346656037ULL };
     constexpr unsigned long long fnv_prime{ 1099511628211ULL };
 
@@ -35,33 +34,33 @@ inline unsigned long long hash::ops::BasicElemHash(void const* data_,
     return ret;
 }
 
-namespace hash::ops::detail {
+namespace hash::detail {
 
 template <typename T>
 struct HashImplHolder_ {
     static constexpr BasicHashImpl<T> impl;
 };
 
-}  // namespace hash::ops::detail
+}  // namespace hash::detail
 
 template <typename T>
-unsigned long long hash::ops::BasicHash(T const& x, unsigned long long salt) {
+unsigned long long hash::BasicHash(T const& x, unsigned long long salt) {
     return detail::HashImplHolder_<T>::impl(x, salt);
 }
 
 template <typename T>
-unsigned long long hash::ops::TypeErasedBasicHash(void const* x,
-                                                  unsigned long long salt) {
+unsigned long long hash::TypeErasedBasicHash(void const* x,
+                                             unsigned long long salt) {
     return BasicHash<T>(*static_cast<T const*>(x), salt);
 }
 
 template <typename T>
 size_t hash::CppStdBasicHash<T>::operator()(T const& x) const {
-    return static_cast<size_t>(ops::BasicHash<T>(x, 0));
+    return static_cast<size_t>(BasicHash<T>(x, 0));
 }
 
 template <typename T>
-struct hash::ops::BasicHashImpl<
+struct hash::BasicHashImpl<
     T, meta::EnableIf<(integral::IsIntegral<T> || meta::IsPointer<T>), void>> {
     unsigned long long operator()(T const& x_, unsigned long long salt) const {
         unsigned long long x;

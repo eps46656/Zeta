@@ -9,34 +9,34 @@
 namespace zeta::core {
 
 template <typename LListNode>
-constexpr bool llist::ops::IsConst() {
-    return Traits<LListNode>::IsConst();
+constexpr bool llist::IsConst() {
+    return NodeTraits<LListNode>::IsConst();
 }
 
 template <typename LListNode>
-constexpr LListNode* llist::ops::GetL(LListNode* n) {
-    return Traits<LListNode>::GetL(n);
+constexpr LListNode* llist::GetL(LListNode* n) {
+    return NodeTraits<LListNode>::GetL(n);
 }
 
 template <typename LListNode>
-constexpr LListNode* llist::ops::GetR(LListNode* n) {
-    return Traits<LListNode>::GetR(n);
+constexpr LListNode* llist::GetR(LListNode* n) {
+    return NodeTraits<LListNode>::GetR(n);
 }
 
 template <typename LListNode>
-void llist::ops::SetL(LListNode* n, LListNode* m) {
+void llist::SetL(LListNode* n, LListNode* m) {
     ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
-    Traits<LListNode>::SetL(n, m);
+    NodeTraits<LListNode>::SetL(n, m);
 }
 
 template <typename LListNode>
-void llist::ops::SetR(LListNode* n, LListNode* m) {
+void llist::SetR(LListNode* n, LListNode* m) {
     ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
-    Traits<LListNode>::SetR(n, m);
+    NodeTraits<LListNode>::SetR(n, m);
 }
 
 template <typename LListNode>
-void llist::ops::CheckContract() {
+void llist::CheckContract() {
     LListNode* lln{ nullptr };
 
     constexpr bool is_const{ (IsConst<LListNode>)() };
@@ -44,7 +44,7 @@ void llist::ops::CheckContract() {
 #pragma push_macro("CheckMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define CheckMethod(method, ...) \
-    ZETA_Core_Unused([=]() { ops::method<LListNode>(__VA_ARGS__); })
+    ZETA_Core_Unused([=]() { method<LListNode>(__VA_ARGS__); })
 
     CheckMethod(GetL, lln);
     CheckMethod(GetR, lln);
@@ -53,10 +53,12 @@ void llist::ops::CheckContract() {
         CheckMethod(SetL, lln, lln);
         CheckMethod(SetR, lln, lln);
     }
+
+#pragma pop_macro("CheckMethod")
 }
 
 template <typename LListNode>
-size_t llist::ops::Count(LListNode* n) {
+size_t llist::Count(LListNode* n) {
     (CheckContract<LListNode>)();
 
     if (n == nullptr) { return 0; }
@@ -69,7 +71,7 @@ size_t llist::ops::Count(LListNode* n) {
 }
 
 template <typename LListNode>
-void llist::ops::InsertL(LListNode* n, LListNode* m) {
+void llist::InsertL(LListNode* n, LListNode* m) {
     (CheckContract<LListNode>)();
 
     ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
@@ -91,7 +93,7 @@ void llist::ops::InsertL(LListNode* n, LListNode* m) {
 }
 
 template <typename LListNode>
-void llist::ops::InsertR(LListNode* n, LListNode* m) {
+void llist::InsertR(LListNode* n, LListNode* m) {
     (CheckContract<LListNode>)();
 
     ZETA_Core_StaticAssert(!LListNode::IsConst());
@@ -113,7 +115,7 @@ void llist::ops::InsertR(LListNode* n, LListNode* m) {
 }
 
 template <typename LListNode>
-void llist::ops::Extract(LListNode* n) {
+void llist::Extract(LListNode* n) {
     (CheckContract<LListNode>)();
 
     ZETA_Core_StaticAssert(!LListNode::IsConst());
@@ -131,7 +133,7 @@ void llist::ops::Extract(LListNode* n) {
 }
 
 template <typename LListNode>
-void llist::ops::InsertSegL(LListNode* n, LListNode* m_beg, LListNode* m_end) {
+void llist::InsertSegL(LListNode* n, LListNode* m_beg, LListNode* m_end) {
     (CheckContract<LListNode>)();
 
     ZETA_Core_StaticAssert(!LListNode::IsConst());
@@ -157,7 +159,7 @@ void llist::ops::InsertSegL(LListNode* n, LListNode* m_beg, LListNode* m_end) {
 }
 
 template <typename LListNode>
-void llist::ops::InsertSegR(LListNode* n, LListNode* m_beg, LListNode* m_end) {
+void llist::InsertSegR(LListNode* n, LListNode* m_beg, LListNode* m_end) {
     (CheckContract<LListNode>)();
 
     ZETA_Core_StaticAssert(!LListNode::IsConst());
@@ -183,7 +185,7 @@ void llist::ops::InsertSegR(LListNode* n, LListNode* m_beg, LListNode* m_end) {
 }
 
 template <typename LListNode>
-void llist::ops::ExtractSeg(LListNode* n_beg, LListNode* n_end) {
+void llist::ExtractSeg(LListNode* n_beg, LListNode* n_end) {
     (CheckContract<LListNode>)();
 
     ZETA_Core_StaticAssert(!LListNode::IsConst());

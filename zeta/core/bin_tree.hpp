@@ -7,9 +7,7 @@
 namespace zeta::core::bin_tree {
 
 template <typename BinTreeNode, typename = void>
-struct Traits;
-
-namespace ops {
+struct NodeTraits;
 
 template <typename BinTreeNode>
 constexpr bool IsConst();
@@ -115,7 +113,5 @@ utils::Pair<size_t, size_t> GetLRAccSize(BinTreeNode* n);
 
 template <typename BinTreeNode>
 void Sanitize(BinTreeNode* root);
-
-}  // namespace ops
 
 }  // namespace zeta::core::bin_tree

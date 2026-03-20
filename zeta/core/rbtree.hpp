@@ -7,7 +7,7 @@
 namespace zeta::core::rbtree {
 
 template <typename RBTreeNode, typename = void>
-struct Traits;
+struct NodeTraits;
 
 constexpr unsigned black{ 1 };
 constexpr unsigned red{ 2 };
@@ -15,8 +15,6 @@ constexpr unsigned red{ 2 };
 constexpr size_t recommended_buffer_capacity{
     static_cast<size_t>(ZETA_Core_ullong_width) * 3
 };
-
-namespace ops {
 
 template <typename BinTreeNode>
 unsigned GetColor(BinTreeNode* n);
@@ -47,7 +45,5 @@ RBTreeNode* Extract(RBTreeNode* pos);
 
 template <typename RBTreeNode>
 void Sanitize(mem_recorder::MemRecorder* dst_mr, RBTreeNode* root);
-
-}  // namespace ops
 
 }  // namespace zeta::core::rbtree

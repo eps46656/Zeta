@@ -5,14 +5,26 @@
 
 namespace zeta::core::seg_utils {
 
-template <typename Writer>
 void SegShoveL(circular_array::Cntr* l_ca, circular_array::Cntr* r_ca,
-               size_t rl_cnt, size_t ins_cnt, size_t shove_cnt,
-               Writer&& writer);
+               size_t shove_cnt);
+
+void SegShoveR(circular_array::Cntr* l_ca, circular_array::Cntr* r_ca,
+               size_t shove_cnt);
 
 template <typename Writer>
-void SegShoveR(circular_array::Cntr* l_ca, circular_array::Cntr* r_ca,
-               size_t lr_cnt, size_t ins_cnt, size_t shove_cnt,
-               Writer&& writer);
+void SegInsertShoveL(circular_array::Cntr* l_ca, circular_array::Cntr* r_ca,
+                     size_t rl_cnt, size_t ins_cnt, size_t shove_cnt,
+                     Writer&& writer);
+
+template <typename Writer>
+void SegInsertShoveR(circular_array::Cntr* l_ca, circular_array::Cntr* r_ca,
+                     size_t lr_cnt, size_t ins_cnt, size_t shove_cnt,
+                     Writer&& writer);
+
+void SegEraseShoveL(circular_array::Cntr* l_ca, circular_array::Cntr* r_ca,
+                    size_t rl_cnt, size_t ers_cnt, size_t shove_cnt);
+
+void SegEraseShoveR(circular_array::Cntr* l_ca, circular_array::Cntr* r_ca,
+                    size_t lr_cnt, size_t ers_cnt, size_t shove_cnt);
 
 }  // namespace zeta::core::seg_utils

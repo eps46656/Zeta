@@ -18,25 +18,25 @@ namespace zeta::core {
         meta::Forward<AllocatorLike>(alctr)))>;                       \
                                                                       \
     if constexpr (ret) {                                              \
-        return Traits<Allocator>::method_name(__VA_ARGS__);           \
+        return AllocatorTraits<Allocator>::method_name(__VA_ARGS__);  \
     } else {                                                          \
-        Traits<Allocator>::method_name(__VA_ARGS__);                  \
+        AllocatorTraits<Allocator>::method_name(__VA_ARGS__);         \
     };                                                                \
                                                                       \
     ZETA_Core_StaticAssert(true)
 
 template <typename AllocatorLike>
-void* allocator::ops::GetReferedInst(AllocatorLike&& alctr) {
+void* allocator::GetReferedInst(AllocatorLike&& alctr) {
     CallMethod(true, GetReferedInst, meta::Forward<AllocatorLike>(alctr));
 }
 
 template <typename AllocatorLike>
-size_t allocator::ops::GetAlign(AllocatorLike&& alctr_) {
+size_t allocator::GetAlign(AllocatorLike&& alctr_) {
     auto* alctr{ utils::GetInstPtr(meta::Forward<AllocatorLike>(alctr_)) };
 
     using Allocator = meta::RemovePointer<decltype(alctr)>;
 
-    size_t align{ Traits<Allocator>::GetAlign(alctr) };
+    size_t align{ AllocatorTraits<Allocator>::GetAlign(alctr) };
 
     ZETA_Core_DebugAssert(0 < align);
 
@@ -44,13 +44,13 @@ size_t allocator::ops::GetAlign(AllocatorLike&& alctr_) {
 }
 
 template <typename AllocatorLike>
-void* allocator::ops::Allocate(AllocatorLike&& alctr, size_t size) {
+void* allocator::Allocate(AllocatorLike&& alctr, size_t size) {
     CallMethod(true, Allocate,
                utils::GetInstPtr(meta::Forward<AllocatorLike>(alctr)), size);
 }
 
 template <typename AllocatorLike>
-void allocator::ops::Deallocate(AllocatorLike&& alctr, void* ptr) {
+void allocator::Deallocate(AllocatorLike&& alctr, void* ptr) {
     CallMethod(false, Deallocate,
                utils::GetInstPtr(meta::Forward<AllocatorLike>(alctr)), ptr);
 }
@@ -58,8 +58,8 @@ void allocator::ops::Deallocate(AllocatorLike&& alctr, void* ptr) {
 #pragma pop_macro("CallMethod")
 
 template <typename AllocatorLike>
-void* allocator::ops::SafeAllocate(AllocatorLike&& alctr_, size_t align,
-                                   size_t size) {
+void* allocator::SafeAllocate(AllocatorLike&& alctr_, size_t align,
+                              size_t size) {
     auto* alctr{ utils::GetInstPtr(meta::Forward<AllocatorLike&&>(alctr_)) };
 
     (CheckContract)(alctr);
@@ -78,7 +78,7 @@ void* allocator::ops::SafeAllocate(AllocatorLike&& alctr_, size_t align,
 }
 
 template <typename AllocatorLike>
-void allocator::ops::CheckContract(AllocatorLike&& alctr_) {
+void allocator::CheckContract(AllocatorLike&& alctr_) {
     auto* alctr{ utils::GetInstPtr(meta::Forward<AllocatorLike&&>(alctr_)) };
 
     void* void_ptr{ nullptr };
@@ -124,7 +124,7 @@ void allocator::ops::CheckContract(AllocatorLike&& alctr_) {
 }
 
 template <typename Allocator>
-constexpr allocator::VTable allocator::ops::BuildVTableBasic() {
+constexpr allocator::VTable allocator::BuildVTableBasic() {
     return {
         .Allocate =
             [](void* alctr, size_t size) {
@@ -139,22 +139,21 @@ constexpr allocator::VTable allocator::ops::BuildVTableBasic() {
 }
 
 template <typename Allocator, typename En>
-constexpr allocator::VTable
-allocator::ops::BuildVTableImpl<Allocator, En>::Call() {
+constexpr allocator::VTable allocator::BuildVTableImpl<Allocator, En>::Call() {
     return (BuildVTableBasic<Allocator>)();
 }
 
-namespace allocator::ops::detail {
+namespace allocator::detail {
 
 template <typename Allocator>
 struct VTableHolder_ {
     static constexpr VTable vtable{ BuildVTableImpl<Allocator>::Call() };
 };
 
-}  // namespace allocator::ops::detail
+}  // namespace allocator::detail
 
 template <typename Allocator>
-constexpr allocator::VTable const& allocator::ops::GetVTable() {
+constexpr allocator::VTable const& allocator::GetVTable() {
     return detail::VTableHolder_<Allocator>::vtable;
 }
 

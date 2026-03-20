@@ -7,10 +7,8 @@
 
 namespace zeta::core::allocator {
 
-template <typename SeqCntr, typename = void>
-struct Traits;
-
-namespace ops {
+template <typename Allocator, typename = void>
+struct AllocatorTraits;
 
 template <typename AllocatorLike>
 void* GetReferedInst(AllocatorLike&& alctr);
@@ -30,15 +28,11 @@ void* SafeAllocate(AllocatorLike&& alctr, size_t align, size_t size);
 template <typename AllocatorLike>
 void CheckContract(AllocatorLike&& alctr);
 
-}  // namespace ops
-
 struct VTable {
     void* (*Allocate)(void* alctr, size_t size);
 
     void (*Deallocate)(void* alctr, void* ptr);
 };
-
-namespace ops {
 
 template <typename Allocator>
 constexpr VTable BuildVTableBasic();
@@ -50,7 +44,5 @@ struct BuildVTableImpl {
 
 template <typename Allocator>
 constexpr VTable const& GetVTable();
-
-}  // namespace ops
 
 }  // namespace zeta::core::allocator

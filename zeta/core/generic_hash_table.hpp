@@ -16,15 +16,16 @@
 #pragma push_macro("CntrTplDeclParamList")
 #define CntrTplDeclParamList                           \
     typename NodeHashLike_, typename NodeCompareLike_, \
-        typename TableNodeAllocatorLike_
+        typename TableNodeAllocatorLike_, typename SaltRandomEngineLike_
 
 #pragma push_macro("CntrTplParamList")
 #define CntrTplParamList                             \
     typename NodeHashLike, typename NodeCompareLike, \
-        typename TableNodeAllocatorLike
+        typename TableNodeAllocatorLike, typename SaltRandomEngineLike
 
 #pragma push_macro("CntrTplArgList")
-#define CntrTplArgList NodeHashLike, NodeCompareLike, TableNodeAllocatorLike
+#define CntrTplArgList \
+    NodeHashLike, NodeCompareLike, TableNodeAllocatorLike, SaltRandomEngineLike
 
 namespace zeta::core::generic_hash_table {
 
@@ -68,7 +69,7 @@ struct TreeNode : public basic_bin_tree_node::Node<
 namespace zeta::core {
 
 template <>
-struct bin_tree::Traits<generic_hash_table::TreeNode const> {
+struct bin_tree::NodeTraits<generic_hash_table::TreeNode const> {
     static constexpr bool IsConst();
 
     static constexpr bool HasAccSize();
@@ -82,8 +83,8 @@ struct bin_tree::Traits<generic_hash_table::TreeNode const> {
 };
 
 template <>
-struct bin_tree::Traits<generic_hash_table::TreeNode>
-    : public bin_tree::Traits<generic_hash_table::TreeNode const> {
+struct bin_tree::NodeTraits<generic_hash_table::TreeNode>
+    : public bin_tree::NodeTraits<generic_hash_table::TreeNode const> {
     static constexpr bool IsConst();
 
     static generic_hash_table::TreeNode* GetP(generic_hash_table::TreeNode* n);
@@ -99,13 +100,13 @@ struct bin_tree::Traits<generic_hash_table::TreeNode>
 };
 
 template <>
-struct rbtree::Traits<generic_hash_table::TreeNode const> {
+struct rbtree::NodeTraits<generic_hash_table::TreeNode const> {
     static unsigned GetColor(generic_hash_table::TreeNode const* n);
 };
 
 template <>
-struct rbtree::Traits<generic_hash_table::TreeNode>
-    : public rbtree::Traits<generic_hash_table::TreeNode const> {
+struct rbtree::NodeTraits<generic_hash_table::TreeNode>
+    : public rbtree::NodeTraits<generic_hash_table::TreeNode const> {
     static void SetColor(generic_hash_table::TreeNode* n, unsigned color);
 };
 
@@ -134,12 +135,7 @@ struct Cntr {
     using NodeHashLike = NodeHashLike_;
     using NodeCompareLike = NodeCompareLike_;
     using TableNodeAllocatorLike = TableNodeAllocatorLike_;
-
-    struct SanitizeTreeRet {
-        size_t cnt;
-        TreeNode* most_l_n;
-        TreeNode* most_r_n;
-    };
+    using SaltRandomEngineLike = SaltRandomEngineLike_;
 
     unsigned long long cur_salt;
     unsigned long long nxt_salt;
@@ -158,21 +154,22 @@ struct Cntr {
     RehashingConfig rehashing_config;
 
     NodeHashLike node_hash;
-    // Should be set before Init().
 
     NodeCompareLike node_compare;
-    // Should be set before Init().
 
     TableNodeAllocatorLike table_node_alctr;
-    // Should be set before Init().
 
-    // SaltRandomGenerator salt_random_gen;
+    SaltRandomEngineLike salt_random_engine;
 };
 
-namespace ops {
-
-template <CntrTplParamList>
-void Init(Cntr<CntrTplArgList>* ght);
+template <CntrTplParamList, typename NodeHashLikeInitArg,
+          typename NodeCompareInitArg, typename TableNodeAllocatorInitArg,
+          typename SaltRandomEngineInitArg>
+void Init(Cntr<CntrTplArgList>* ght, RehashingConfig const& rehashing_config,
+          NodeHashLikeInitArg&& node_hash_init_arg,
+          NodeCompareInitArg&& node_compare_init_arg,
+          TableNodeAllocatorInitArg&& table_node_alctr_init_arg,
+          SaltRandomEngineInitArg&& salt_random_engine_init_arg);
 
 template <CntrTplParamList>
 void Deinit(Cntr<CntrTplArgList>* ght);
@@ -209,8 +206,6 @@ template <CntrTplParamList>
 void Sanitize(Cntr<CntrTplArgList> const* ght,
               mem_recorder::MemRecorder* dst_table,
               mem_recorder::MemRecorder* dst_node);
-
-}  // namespace ops
 
 }  // namespace zeta::core::generic_hash_table
 

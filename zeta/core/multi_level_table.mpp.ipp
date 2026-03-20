@@ -1,14 +1,5 @@
-#if ZETA_Core_Editing
-
-#pragma push_macro("EnData")
-#define EnData 1
-
-#else
-
 #if !defined(EnData)
 #error "EnData is not defined."
-#endif
-
 #endif
 
 #include <zeta/core/allocator.ipp>
@@ -16,6 +7,9 @@
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/integral_bit.ipp>
+#include <zeta/core/integral_math.ipp>
+#include <zeta/core/lifecycle.ipp>
 #include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/multi_level_table.mpp.hpp>
 #include <zeta/core/utils.hpp>
@@ -47,7 +41,7 @@
 
 namespace zeta::core {
 
-namespace NameSpace::ops::detail {
+namespace NameSpace::detail {
 
 template <CntrTplParamList>
 void Check_  // NOLINT(misc-use-internal-linkage)
@@ -92,8 +86,8 @@ template <typename NavNodeAllocator>
 void* AllocateNavNode_  // NOLINT(misc-use-internal-linkage)
     (size_t branch_num, NavNodeAllocator* nav_node_alctr) {
     auto* nav_node{ static_cast<NavNode*>(
-        allocator::ops::SafeAllocate(nav_node_alctr, alignof(NavNode),
-                                     offsetof(NavNode, ptrs[branch_num]))) };
+        allocator::SafeAllocate(nav_node_alctr, alignof(NavNode),
+                                offsetof(NavNode, ptrs[branch_num]))) };
 
     nav_node->active_map = 0;
 
@@ -103,16 +97,17 @@ void* AllocateNavNode_  // NOLINT(misc-use-internal-linkage)
 template <typename NavNodeAllocator>
 void DeallocateNavNode_  // NOLINT(misc-use-internal-linkage)
     (NavNodeAllocator* node_alctr, void* node) {
-    allocator::ops::Deallocate(
-        node_alctr, ZETA_Core_MemberToStruct(NavNode, active_map, node));
+    allocator::Deallocate(node_alctr,
+                          ZETA_Core_MemberToStruct(NavNode, active_map, node));
 }
 
 #if EnData
 
 inline size_t CalcDataNodeSize_  // NOLINT(misc-use-internal-linkage)
     (size_t stride, size_t branch_num) {
-    return utils::UIntAlignUp(stride * branch_num + sizeof(unsigned long long),
-                              alignof(unsigned long long));
+    return integral_math::AlignUp(
+        stride * branch_num + sizeof(unsigned long long),
+        alignof(unsigned long long));
 }
 
 template <typename DataNodeAllocator>
@@ -120,7 +115,7 @@ void* AllocateDataNode_  // NOLINT(misc-use-internal-linkage)
     (size_t stride, size_t branch_num, DataNodeAllocator* data_node_alctr) {
     size_t data_node_size{ CalcDataNodeSize_(stride, branch_num) };
 
-    void* data_node{ static_cast<char*>(allocator::ops::SafeAllocate(
+    void* data_node{ static_cast<char*>(allocator::SafeAllocate(
                          data_node_alctr, alignof(unsigned long long),
                          data_node_size)) +
                      (data_node_size - sizeof(unsigned long long)) };
@@ -134,7 +129,7 @@ template <typename DataNodeAllocator>
 void DeAllocateDataNode_  // NOLINT(misc-use-internal-linkage)
     (size_t stride, size_t branch_num, DataNodeAllocator* data_node_alctr,
      void* node) {
-    allocator::ops::Deallocate(
+    allocator::Deallocate(
         data_node_alctr,
         static_cast<char*>(node) - (CalcDataNodeSize_(stride, branch_num) -
                                     sizeof(unsigned long long)));
@@ -142,17 +137,31 @@ void DeAllocateDataNode_  // NOLINT(misc-use-internal-linkage)
 
 #endif
 
-}  // namespace NameSpace::ops::detail
+}  // namespace NameSpace::detail
 
-template <CntrTplParamList>
-void NameSpace::ops::Init(Cntr<CntrTplArgList>* cntr) {
+template <CntrTplParamList, typename NavNodeAllocatorInitArg
+#if EnData
+          ,
+          typename DataNodeAllocatorInitArg
+#endif
+          >
+void NameSpace::Init(Cntr<CntrTplArgList>* cntr, unsigned level,
+                     unsigned short const* branch_nums
+#if EnData
+                     ,
+                     size_t stride
+#endif
+                     ,
+                     NavNodeAllocatorInitArg&& nav_node_alctr_init_arg
+#if EnData
+                     ,
+                     DataNodeAllocatorInitArg&& data_node_alctr_init_arg
+#endif
+) {
     ZETA_Core_DebugAssert(cntr != nullptr);
 
-    unsigned level{ cntr->level };
     ZETA_Core_DebugAssert(0 < level);
     ZETA_Core_DebugAssert(level <= max_level);
-
-    unsigned short const* branch_nums{ cntr->branch_nums };
 
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
         unsigned branch_num{ branch_nums[level_i] };
@@ -165,31 +174,44 @@ void NameSpace::ops::Init(Cntr<CntrTplArgList>* cntr) {
     ZETA_Core_DebugAssert(0 < cntr->stride);
 #endif
 
+    cntr->level = level;
+    cntr->branch_nums = branch_nums;
+
+#if EnData
+    cntr->stride = stride;
+#endif
+
     cntr->size = 0;
 
     cntr->root = nullptr;
 
-    allocator::ops::CheckContract(cntr->nav_node_alctr);
+    lifecycle::Init(
+        cntr->nav_node_alctr,
+        meta::Forward<NavNodeAllocatorInitArg>(nav_node_alctr_init_arg));
+    allocator::CheckContract(cntr->nav_node_alctr);
 
 #if EnData
-    allocator::ops::CheckContract(cntr->data_node_alctr);
+    lifecycle::Init(
+        cntr->data_node_alctr,
+        meta::Forward<DataNodeAllocatorInitArg>(data_node_alctr_init_arg));
+    allocator::CheckContract(cntr->data_node_alctr);
 #endif
 }
 
 template <CntrTplParamList>
-void NameSpace::ops::Deinit(Cntr<CntrTplArgList>* cntr) {
+void NameSpace::Deinit(Cntr<CntrTplArgList>* cntr) {
     EraseAll(cntr);
 }
 
 template <CntrTplParamList>
-size_t NameSpace::ops::GetSize(Cntr<CntrTplArgList>* cntr) {
+size_t NameSpace::GetSize(Cntr<CntrTplArgList>* cntr) {
     detail::Check_(cntr);
 
     return cntr->size;
 }
 
 template <CntrTplParamList>
-size_t NameSpace::ops::GetCapacity(Cntr<CntrTplArgList>* cntr) {
+size_t NameSpace::GetCapacity(Cntr<CntrTplArgList>* cntr) {
     detail::Check_(cntr);
 
     size_t ret{ 1 };
@@ -207,7 +229,7 @@ size_t NameSpace::ops::GetCapacity(Cntr<CntrTplArgList>* cntr) {
 }
 
 template <CntrTplParamList>
-void* NameSpace::ops::Access(Cntr<CntrTplArgList>* cntr, size_t* idxes) {
+void* NameSpace::Access(Cntr<CntrTplArgList>* cntr, size_t* idxes) {
     detail::CheckIdxes_(cntr, idxes);
 
     unsigned level{ cntr->level };
@@ -248,7 +270,7 @@ void* NameSpace::ops::Access(Cntr<CntrTplArgList>* cntr, size_t* idxes) {
 }
 
 template <CntrTplParamList>
-void* NameSpace::ops::FindFirst(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes) {
+void* NameSpace::FindFirst(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes) {
     detail::Check_(cntr);
 
     unsigned level{ cntr->level };
@@ -271,7 +293,7 @@ void* NameSpace::ops::FindFirst(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes) {
 }
 
 template <CntrTplParamList>
-void* NameSpace::ops::FindLast(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes) {
+void* NameSpace::FindLast(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes) {
     detail::Check_(cntr);
 
     unsigned level{ cntr->level };
@@ -295,8 +317,8 @@ void* NameSpace::ops::FindLast(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes) {
 }
 
 template <CntrTplParamList>
-void* NameSpace::ops::FindPrev(Cntr<CntrTplArgList>* cntr, size_t* idxes,
-                               bool included) {
+void* NameSpace::FindPrev(Cntr<CntrTplArgList>* cntr, size_t* idxes,
+                          bool included) {
     detail::CheckIdxes_(cntr, idxes);
 
     unsigned level{ cntr->level };
@@ -375,8 +397,9 @@ L1:
 
         node = nodes[level_i];
 
-        int found_idx{ FindPrevOne(*static_cast<unsigned long long*>(node),
-                                   static_cast<int>(idxes[level_i])) };
+        long long found_idx{ integral_bit::FindPrevBit(
+            *static_cast<unsigned long long*>(node),
+            static_cast<long long>(idxes[level_i]) - 1) };
 
         if (0 <= found_idx) {
             idxes[level_i] = static_cast<size_t>(found_idx);
@@ -387,8 +410,8 @@ L1:
     while (0 < level_i) {
         node = static_cast<NavNode*>(node)->ptrs[idxes[level_i--]];
         nodes[level_i] = node;
-        idxes[level_i] = static_cast<size_t>(FindPrevOne(
-            *static_cast<unsigned long long*>(node), branch_nums[level_i]));
+        idxes[level_i] = static_cast<size_t>(integral_bit::FindPrevBit(
+            *static_cast<unsigned long long*>(node), branch_nums[level_i] - 1));
     }
 
 #if EnData
@@ -400,8 +423,8 @@ L1:
 }
 
 template <CntrTplParamList>
-void* NameSpace::ops::FindNext(Cntr<CntrTplArgList>* cntr, size_t* idxes,
-                               bool included) {
+void* NameSpace::FindNext(Cntr<CntrTplArgList>* cntr, size_t* idxes,
+                          bool included) {
     detail::CheckIdxes_(cntr, idxes);
 
     unsigned level{ cntr->level };
@@ -480,11 +503,12 @@ L1:
 
         node = nodes[level_i];
 
-        int found_idx{ utils::FindNextOne(
+        long long found_idx{ integral_bit::FindNextBit(
             *static_cast<unsigned long long*>(node),
-            static_cast<int>(idxes[level_i])) };
+            static_cast<long long>(idxes[level_i]) + 1) };
 
-        if (0 <= found_idx) {
+        if (found_idx <
+            static_cast<long long>(integral::WidthOf<unsigned long long>)) {
             idxes[level_i] = static_cast<size_t>(found_idx);
             break;
         }
@@ -493,8 +517,8 @@ L1:
     while (0 < level_i) {
         node = static_cast<NavNode*>(node)->ptrs[idxes[level_i--]];
         nodes[level_i] = node;
-        idxes[level_i] = static_cast<size_t>(
-            utils::FindNextOne(*static_cast<unsigned long long*>(node), -1));
+        idxes[level_i] = static_cast<size_t>(integral_bit::FindNextBit(
+            *static_cast<unsigned long long*>(node), 0));
     }
 
 #if EnData
@@ -506,8 +530,8 @@ L1:
 }
 
 template <CntrTplParamList>
-utils::Pair<void*, bool> NameSpace::ops::Insert(Cntr<CntrTplArgList>* cntr,
-                                                size_t* idxes) {
+utils::Pair<void*, bool> NameSpace::Insert(Cntr<CntrTplArgList>* cntr,
+                                           size_t* idxes) {
     detail::CheckIdxes_(cntr, idxes);
 
     unsigned level{ cntr->level };
@@ -583,7 +607,7 @@ utils::Pair<void*, bool> NameSpace::ops::Insert(Cntr<CntrTplArgList>* cntr,
 }
 
 template <CntrTplParamList>
-bool NameSpace::ops::Erase(Cntr<CntrTplArgList>* cntr, size_t* idxes) {
+bool NameSpace::Erase(Cntr<CntrTplArgList>* cntr, size_t* idxes) {
     detail::CheckIdxes_(cntr, idxes);
 
     unsigned level{ cntr->level };
@@ -648,7 +672,7 @@ bool NameSpace::ops::Erase(Cntr<CntrTplArgList>* cntr, size_t* idxes) {
     return true;
 }
 
-namespace NameSpace::ops::detail {
+namespace NameSpace::detail {
 
 template <CntrTplParamList>
 void EraseAllRecursive_  // NOLINT(misc-use-internal-linkage)
@@ -674,9 +698,10 @@ void EraseAllRecursive_  // NOLINT(misc-use-internal-linkage)
         return;
     }
 
-    for (int idx{ -1 };
-         (idx = utils::FindNextOne(*static_cast<unsigned long long*>(node),
-                                   idx)) != -1;) {
+    for (long long idx{ -1 };
+         (idx = integral_bit::FindNextBit(
+              *static_cast<unsigned long long*>(node), idx + 1)) <
+         static_cast<long long>(integral::WidthOf<unsigned long long>);) {
         (EraseAllRecursive_)(cntr, static_cast<NavNode*>(node)->ptrs[idx],
                              level_i - 1);
     }
@@ -684,10 +709,10 @@ void EraseAllRecursive_  // NOLINT(misc-use-internal-linkage)
     (DeallocateNavNode_)(nav_node_alctr, node);
 }
 
-}  // namespace NameSpace::ops::detail
+}  // namespace NameSpace::detail
 
 template <CntrTplParamList>
-void NameSpace::ops::EraseAll(Cntr<CntrTplArgList>* cntr) {
+void NameSpace::EraseAll(Cntr<CntrTplArgList>* cntr) {
     detail::Check_(cntr);
 
     unsigned level{ cntr->level };
@@ -701,7 +726,7 @@ void NameSpace::ops::EraseAll(Cntr<CntrTplArgList>* cntr) {
     cntr->root = nullptr;
 }
 
-namespace NameSpace::ops::detail {
+namespace NameSpace::detail {
 
 inline size_t SanitizeRecursive_  // NOLINT(
                                   // misc-no-recursion,
@@ -728,7 +753,7 @@ inline size_t SanitizeRecursive_  // NOLINT(
             size_t data_node_size{ (CalcDataNodeSize_)(stride,
                                                        branch_nums[0]) };
 
-            mem_recorder::ops::Record(
+            mem_recorder::Record(
                 dst_data_node,
                 static_cast<char*>(node) -
                     (data_node_size - sizeof(unsigned long long)),
@@ -740,7 +765,7 @@ inline size_t SanitizeRecursive_  // NOLINT(
 #endif
 
     if (dst_nav_node != nullptr) {
-        mem_recorder::ops::Record(
+        mem_recorder::Record(
             dst_nav_node, ZETA_Core_MemberToStruct(NavNode, active_map, node),
             sizeof(NavNode));
     }
@@ -751,9 +776,10 @@ inline size_t SanitizeRecursive_  // NOLINT(
 
     size_t size{ 0 };
 
-    for (int idx{ -1 };
-         (idx = utils::FindNextOne(*static_cast<unsigned long long*>(node),
-                                   idx)) != -1;) {
+    for (long long idx{ -1 };
+         (idx = integral_bit::FindNextBit(
+              *static_cast<unsigned long long*>(node), idx + 1)) <
+         static_cast<long long>(integral::WidthOf<unsigned long long>);) {
         ZETA_Core_DebugAssert(
             TestActiveMap_(*static_cast<unsigned long long*>(node),
                            static_cast<unsigned>(idx)));
@@ -772,14 +798,14 @@ inline size_t SanitizeRecursive_  // NOLINT(
     return size;
 }
 
-}  // namespace NameSpace::ops::detail
+}  // namespace NameSpace::detail
 
 template <CntrTplParamList>
-void NameSpace::ops::Sanitize(Cntr<CntrTplArgList>* cntr,
-                              mem_recorder::MemRecorder* dst_nav_node
+void NameSpace::Sanitize(Cntr<CntrTplArgList>* cntr,
+                         mem_recorder::MemRecorder* dst_nav_node
 #if EnData
-                              ,
-                              mem_recorder::MemRecorder* dst_data_node
+                         ,
+                         mem_recorder::MemRecorder* dst_data_node
 #endif
 ) {
 
@@ -814,9 +840,3 @@ void NameSpace::ops::Sanitize(Cntr<CntrTplArgList>* cntr,
 #pragma pop_macro("NameSpace")
 #pragma pop_macro("CntrTplParamList")
 #pragma pop_macro("CntrTplArgList")
-
-#if ZETA_Core_Editing
-
-#pragma pop_macro("EnData")
-
-#endif

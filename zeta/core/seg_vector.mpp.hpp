@@ -66,6 +66,9 @@
 #pragma push_macro("CntrTplArgList")
 #define CntrTplArgList OriginLike, SegAllocatorLike, DataAllocatorLike
 
+#define IfEnStaging(...) __VA_ARGS__
+#define IfNotEnStaging(...) __VA_ARGS__
+
 #else
 
 #pragma push_macro("CntrTplDeclParamList")
@@ -78,15 +81,19 @@
 #pragma push_macro("CntrTplArgList")
 #define CntrTplArgList SegAllocatorLike, DataAllocatorLike
 
+#define IfEnStaging(...)
+#define IfNotEnStaging(...) __VA_ARGS__
+
 #endif
 
 namespace zeta::core::NameSpace {
 
-constexpr size_t max_seg_capacity{ integral::RangeMaxOf<unsigned short> };
+constexpr size_t max_seg_elem_capacity{ integral::RangeMaxOf<unsigned short> };
 
 #if EnStaging
 static constexpr unsigned ref_color{ 1 };
 static constexpr unsigned dat_color{ 2 };
+static constexpr unsigned null_color{ 3 };
 #endif
 
 using CircularArray = circular_array::Cntr;
@@ -115,7 +122,7 @@ struct TreeNode : public BinTreeNode {};
 namespace zeta::core {
 
 template <>
-struct bin_tree::Traits<NameSpace::TreeNode const> {
+struct bin_tree::NodeTraits<NameSpace::TreeNode const> {
     static constexpr bool IsConst();
 
     static constexpr bool HasAccSize();
@@ -130,8 +137,8 @@ struct bin_tree::Traits<NameSpace::TreeNode const> {
 };
 
 template <>
-struct bin_tree::Traits<NameSpace::TreeNode>
-    : public bin_tree::Traits<NameSpace::TreeNode const> {
+struct bin_tree::NodeTraits<NameSpace::TreeNode>
+    : public bin_tree::NodeTraits<NameSpace::TreeNode const> {
     static constexpr bool IsConst();
 
     static NameSpace::TreeNode* GetP(NameSpace::TreeNode* n);
@@ -146,13 +153,13 @@ struct bin_tree::Traits<NameSpace::TreeNode>
 };
 
 template <>
-struct rbtree::Traits<NameSpace::TreeNode const> {
+struct rbtree::NodeTraits<NameSpace::TreeNode const> {
     static unsigned GetColor(NameSpace::TreeNode const* n);
 };
 
 template <>
-struct rbtree::Traits<NameSpace::TreeNode>
-    : public rbtree::Traits<NameSpace::TreeNode const> {
+struct rbtree::NodeTraits<NameSpace::TreeNode>
+    : public rbtree::NodeTraits<NameSpace::TreeNode const> {
     static void SetColor(NameSpace::TreeNode* n, unsigned color);
 };
 
@@ -171,14 +178,14 @@ struct Seg {
 #if EnStaging
         struct {
             size_t beg;
-            size_t size;
+            size_t elem_cnt;
         } ref;
 #endif
 
         struct {
             void* data;
-            unsigned short offset;
-            unsigned short size;
+            unsigned short elem_cnt;
+            unsigned short idx_offset;
         } dat;
     };
 };
@@ -231,9 +238,9 @@ struct Cntr {
     OriginLike origin;
 #endif
 
-    size_t width;
-    size_t stride;
-    size_t seg_capacity;
+    size_t elem_size;
+    size_t elem_stride;
+    size_t seg_elem_capacity;
 
     TreeNode* root;
 
@@ -244,10 +251,8 @@ struct Cntr {
     DataAllocatorLike data_alctr;
 };
 
-namespace ops {
-
 template <typename SegAllocatorLike, typename DataAllocatorLike>
-void* CopyTree(size_t width, size_t stride, size_t seg_capacity,
+void* CopyTree(size_t elem_size, size_t elem_stride, size_t seg_elem_capacity,
                TreeNode* src_root, TreeNode* src_lb, TreeNode* src_rb,
                TreeNode* dst_lb, TreeNode* dst_rb, SegAllocatorLike&& seg_alctr,
                DataAllocatorLike&& data_alctr);
@@ -257,8 +262,42 @@ utils::Pair<TreeNode*, TreeNode*> EraseTree(TreeNode* root,
                                             SegAllocatorLike&& seg_alctr,
                                             DataAllocatorLike&& data_alctr);
 
-template <CntrTplParamList>
-void Init(Cntr<CntrTplArgList>* cntr);
+template <CntrTplParamList,
+#if EnStaging
+          typename OriginLikeInitArg,
+#endif
+          typename SegAllocatorLikeInitArg, typename DataAllocatorLikeInitArg>
+void Init(Cntr<CntrTplArgList>* cntr,
+#if EnStaging
+          OriginLikeInitArg&& origin_like_init_arg,
+#else
+          size_t elem_size,
+#endif
+          size_t elem_stride, size_t seg_elem_capacity,
+          SegAllocatorLikeInitArg&& seg_alctr_like_init_arg,
+          DataAllocatorLikeInitArg&& data_alctr_like_init_arg);
+
+template <CntrTplParamList,
+#if EnStaging
+          typename OriginLikeInitArg,
+#endif
+          typename SegAllocatorLikeInitArg, typename DataAllocatorLikeInitArg,
+          typename SrcCntrTplArgList, typename SrcSegAllocatorLike,
+          typename SrcDataAllocatorLike>
+void Init(Cntr<CntrTplArgList>* cntr,
+#if EnStaging
+          OriginLikeInitArg&& origin_like_init_arg,
+#else
+          size_t elem_size,
+#endif
+          size_t elem_stride, size_t seg_elem_capacity,
+          SegAllocatorLikeInitArg&& seg_alctr_like_init_arg,
+          DataAllocatorLikeInitArg&& data_alctr_like_init_arg,
+          Cntr<
+#if EnStaging
+              SrcOriginLike,
+#endif
+              SrcSegAllocatorLike, SrcDataAllocatorLike>* src_cntr);
 
 template <CntrTplParamList>
 void CopyInit(Cntr<CntrTplArgList>* cntr, Cntr<CntrTplArgList> const* src_cntr);
@@ -270,13 +309,13 @@ template <CntrTplParamList>
 constexpr size_t GetCursorSize(Cntr<CntrTplArgList> const*);
 
 template <CntrTplParamList>
-size_t GetWidth(Cntr<CntrTplArgList> const* cntr);
+size_t GetElemSize(Cntr<CntrTplArgList> const* cntr);
 
 template <CntrTplParamList>
-size_t GetSize(Cntr<CntrTplArgList> const* cntr);
+size_t GetElemCnt(Cntr<CntrTplArgList> const* cntr);
 
 template <CntrTplParamList>
-size_t GetCapacity(Cntr<CntrTplArgList> const* cntr);
+size_t GetMaxElemCnt(Cntr<CntrTplArgList> const* cntr);
 
 template <CntrTplParamList>
 void GetLBCursor(Cntr<CntrTplArgList> const* cntr, Cursor* dst_cursor);
@@ -400,14 +439,12 @@ void Sanitize(Cntr<CntrTplArgList> const* cntr,
               mem_recorder::MemRecorder* dst_seg,
               mem_recorder::MemRecorder* dst_data);
 
-};  // namespace ops
-
 }  // namespace zeta::core::NameSpace
 
 namespace zeta::core {
 
 template <CntrTplParamList>
-struct seq_cntr::Traits<NameSpace::Cntr<CntrTplArgList> const, void> {
+struct seq_cntr::CntrTraits<NameSpace::Cntr<CntrTplArgList> const, void> {
     static void* GetReferedInst(NameSpace::Cntr<CntrTplArgList> const* cntr);
 
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
@@ -422,11 +459,11 @@ struct seq_cntr::Traits<NameSpace::Cntr<CntrTplArgList> const, void> {
 
     static size_t GetCursorSize(NameSpace::Cntr<CntrTplArgList> const* cntr);
 
-    static size_t GetWidth(NameSpace::Cntr<CntrTplArgList> const* cntr);
+    static size_t GetElemSize(NameSpace::Cntr<CntrTplArgList> const* cntr);
 
-    static size_t GetSize(NameSpace::Cntr<CntrTplArgList> const* cntr);
+    static size_t GetElemCnt(NameSpace::Cntr<CntrTplArgList> const* cntr);
 
-    static size_t GetCapacity(NameSpace::Cntr<CntrTplArgList> const* cntr);
+    static size_t GetMaxElemCnt(NameSpace::Cntr<CntrTplArgList> const* cntr);
 
     static void GetLBCursor(NameSpace::Cntr<CntrTplArgList> const* cntr,
                             void* dst_cursor);
@@ -481,8 +518,8 @@ struct seq_cntr::Traits<NameSpace::Cntr<CntrTplArgList> const, void> {
 };
 
 template <CntrTplParamList>
-struct seq_cntr::Traits<NameSpace::Cntr<CntrTplArgList>, void>
-    : public seq_cntr::Traits<NameSpace::Cntr<CntrTplArgList> const, void> {
+struct seq_cntr::CntrTraits<NameSpace::Cntr<CntrTplArgList>, void>
+    : public seq_cntr::CntrTraits<NameSpace::Cntr<CntrTplArgList> const, void> {
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
 
     static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();

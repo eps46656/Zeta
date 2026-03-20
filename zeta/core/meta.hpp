@@ -303,6 +303,12 @@ constexpr bool IsEmpty{ __is_empty(T) };
 template <typename Base, typename Derived>
 constexpr bool IsBaseOf{ __is_base_of(Base, Derived) };
 
+template <typename T>
+constexpr bool IsTriviallyConstructible{ __is_trivially_constructible(T) };
+
+template <typename T>
+constexpr bool IsTriviallyDestructible{ __is_trivially_destructible(T) };
+
 namespace detail {
 
 template <bool Cond, typename T1, typename T2>
@@ -395,55 +401,73 @@ constexpr T&& Forward(RemoveRef<T>& t) {
 namespace detail {
 
 template <size_t N>
-struct GetNth_ {
+struct GetNthArg_ {
     template <typename Arg0, typename Arg1, typename Arg2, typename Arg3,
+              typename Arg4, typename Arg5, typename Arg6, typename Arg7,
+              typename Arg8, typename Arg9, typename Arg10, typename Arg11,
+              typename Arg12, typename Arg13, typename Arg14, typename Arg15,
               typename... Args>
-    static constexpr decltype(auto) Get(Arg0&&, Arg1&&, Arg2&&, Arg3&&,
-                                        Args&&... args) {
-        return GetNth_<N - 4>::Get(Forward<Args>(args)...);
-    }
-};
+    static constexpr decltype(auto) Get(Arg0&& x0, Arg1&& x1, Arg2&& x2,
+                                        Arg3&& x3, Arg4&& x4, Arg5&& x5,
+                                        Arg6&& x6, Arg7&& x7, Arg8&& x8,
+                                        Arg9&& x9, Arg10&& x10, Arg11&& x11,
+                                        Arg12&& x12, Arg13&& x13, Arg14&& x14,
+                                        Arg15&& x15, Args&&... args) {
+#pragma push_macro("F")
 
-template <>
-struct GetNth_<0> {
-    template <typename Arg0, typename... Args>
-    static constexpr decltype(auto) Get(Arg0&& x, Args&&...) {
-        return Forward<Arg0>(x);
-    }
-};
+#define F(i)                          \
+    if constexpr (N == i) {           \
+        return Forward<Arg##i>(x##i); \
+    } else
 
-template <>
-struct GetNth_<1> {
-    template <typename Arg0, typename Arg1, typename... Args>
-    static constexpr decltype(auto) Get(Arg0&&, Arg1&& x, Args&&...) {
-        return Forward<Arg1>(x);
-    }
-};
+        F(0)
+        F(1)
+        F(2)
+        F(3)
+        F(4)
+        F(5)
+        F(6)
+        F(7)
+        F(8)
+        F(9)
+        F(10)
+        F(11)
+        F(12)
+        F(13)
+        F(14)
+        F(15) {  //
+            return GetNthArg_<N - 16>::Get(Forward<Args>(args)...);
+        }
 
-template <>
-struct GetNth_<2> {
-    template <typename Arg0, typename Arg1, typename Arg2, typename... Args>
-    static constexpr decltype(auto) Get(Arg0&&, Arg1&&, Arg2&& x, Args&&...) {
-        return Forward<Arg2>(x);
-    }
-};
-
-template <>
-struct GetNth_<3> {
-    template <typename Arg0, typename Arg1, typename Arg2, typename Arg3,
-              typename... Args>
-    static constexpr decltype(auto) Get(Arg0&&, Arg1&&, Arg2&&, Arg3&& x,
-                                        Args&&...) {
-        return Forward<Arg3>(x);
+#pragma pop_macro("F")
     }
 };
 
 }  // namespace detail
 
 template <size_t N, typename... Args>
-constexpr decltype(auto) GetNth(Args&&... args) {
-    static_assert(N < 1 + sizeof...(Args));
-    return detail::GetNth_<N>::Get(Forward<Args>(args)...);
+constexpr decltype(auto) GetNthArg(Args&&... args) {
+    static_assert(N < sizeof...(Args));
+    return detail::GetNthArg_<N>::Get(
+        Forward<Args>(args)...,              //
+        nullptr, nullptr, nullptr, nullptr,  // 0 ~ 3
+        nullptr, nullptr, nullptr, nullptr,  // 4 ~ 7
+        nullptr, nullptr, nullptr, nullptr,  // 8 ~ 11
+        nullptr, nullptr, nullptr, nullptr   // 12 ~ 15
+    );
 }
+
+namespace detail {
+
+template <typename T>
+struct GetNthTypeWrapper_ {
+    using type = T;
+};
+
+}  // namespace detail
+
+template <size_t N, typename... Ts>
+using GetNthType = RemoveCVRef<decltype(GetNthArg<N>(
+    detail::GetNthTypeWrapper_<Ts>{}...))>::type;
 
 }  // namespace zeta::core::meta

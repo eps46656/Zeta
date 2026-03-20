@@ -12,8 +12,6 @@ struct Ref {
     void* alctr;
 };
 
-namespace ops {
-
 size_t GetAlign(Ref const* ref);
 
 void* Allocate(Ref* ref, size_t size);
@@ -25,22 +23,20 @@ void CheckRef(Ref* ref);
 template <typename AllocatorLike>
 Ref MakeRef(AllocatorLike&& alctr);
 
-}  // namespace ops
-
 }  // namespace zeta::core::allocator_ref
 
 namespace zeta::core {
 
 template <>
-struct allocator::Traits<allocator_ref::Ref const, void> {
+struct allocator::AllocatorTraits<allocator_ref::Ref const, void> {
     static void* GetReferedInst(allocator_ref::Ref const* ref);
 
     static size_t GetAlign(allocator_ref::Ref const* ref);
 };
 
 template <>
-struct allocator::Traits<allocator_ref::Ref, void>
-    : public allocator::Traits<allocator_ref::Ref const, void> {
+struct allocator::AllocatorTraits<allocator_ref::Ref, void>
+    : public allocator::AllocatorTraits<allocator_ref::Ref const, void> {
     static void* Allocate(allocator_ref::Ref* ref, size_t size);
 
     static void Deallocate(allocator_ref::Ref* ref, void* ptr);

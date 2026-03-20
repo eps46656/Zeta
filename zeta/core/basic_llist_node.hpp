@@ -63,7 +63,7 @@ __attribute__((aligned(8)));
 namespace zeta::core {
 
 template <NodeTplParamList>
-struct llist::Traits<basic_llist_node::Node<NodeTplArgList> const> {
+struct llist::NodeTraits<basic_llist_node::Node<NodeTplArgList> const> {
     static constexpr bool IsConst();
 
     static basic_llist_node::Node<NodeTplArgList> const* GetL(
@@ -74,8 +74,9 @@ struct llist::Traits<basic_llist_node::Node<NodeTplArgList> const> {
 };
 
 template <typename LinkType, typename LColorTag, typename RColorTag>
-struct llist::Traits<basic_llist_node::Node<LinkType, LColorTag, RColorTag> >
-    : public llist::Traits<
+struct llist::NodeTraits<
+    basic_llist_node::Node<LinkType, LColorTag, RColorTag> >
+    : public llist::NodeTraits<
           basic_llist_node::Node<LinkType, LColorTag, RColorTag> const> {
     static constexpr bool IsConst();
 

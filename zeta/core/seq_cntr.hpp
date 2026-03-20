@@ -12,11 +12,11 @@
 namespace zeta::core::seq_cntr {
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define ZETA_Core_SeqCntr_AllocaCursor(cntr)                  \
-    ({                                                        \
-        __builtin_alloca_with_align(                          \
-            ::zeta::core::seq_cntr::ops::GetCursorSize(cntr), \
-            __CHAR_BIT__ * alignof(max_align_t));             \
+#define ZETA_Core_SeqCntr_AllocaCursor(cntr)             \
+    ({                                                   \
+        __builtin_alloca_with_align(                     \
+            ::zeta::core::seq_cntr::GetCursorSize(cntr), \
+            __CHAR_BIT__ * alignof(max_align_t));        \
     })
 
 using FnReader = FunctionRef<void(  //
@@ -41,9 +41,9 @@ using FnReaderWriter = FunctionRef<void(void*,   // data
 #define ZETA_Core_SeqCntr_Ability_XMacro(func, sep) \
     func(GetCursorSize) sep                                                    \
                                                                                \
-    func(GetWidth) sep                                                         \
-    func(GetSize) sep                                                          \
-    func(GetCapacity) sep                                                      \
+    func(GetElemSize) sep                                                      \
+    func(GetElemCnt) sep                                                       \
+    func(GetMaxElemCnt) sep                                                    \
                                                                                \
     func(GetLBCursor) sep                                                      \
     func(GetRBCursor) sep                                                      \
@@ -152,9 +152,9 @@ constexpr AbilityFlag full_ability_flag{ AbilityFlagBuilder{
 
 constexpr AbilityFlag non_const_ability_flag{ AbilityFlagBuilder{
     .GetCursorSize = false,
-    .GetWidth = false,
-    .GetSize = false,
-    .GetCapacity = false,
+    .GetElemSize = false,
+    .GetElemCnt = false,
+    .GetMaxElemCnt = false,
     .GetLBCursor = false,
     .GetRBCursor = false,
     .PeekL = false,
@@ -184,9 +184,9 @@ constexpr AbilityFlag non_const_ability_flag{ AbilityFlagBuilder{
 
 constexpr AbilityFlag const_ability_flag{ AbilityFlagBuilder{
     .GetCursorSize = true,
-    .GetWidth = true,
-    .GetSize = true,
-    .GetCapacity = true,
+    .GetElemSize = true,
+    .GetElemCnt = true,
+    .GetMaxElemCnt = true,
     .GetLBCursor = true,
     .GetRBCursor = true,
     .PeekL = true,
@@ -220,26 +220,32 @@ ZETA_Core_StaticAssert((non_const_ability_flag & const_ability_flag) ==
 ZETA_Core_StaticAssert((non_const_ability_flag | const_ability_flag) ==
                        full_ability_flag);
 
-struct MemReader {
-    void* dst;
-    size_t dst_width;
-    size_t dst_stride;
+struct EmptyReader {
+    constexpr void operator()(void const*, size_t, size_t) const;
+};
 
-    void operator()(void const* src, size_t src_stride, size_t cnt);
+struct EmptyWriter {
+    constexpr void operator()(void*, size_t, size_t) const;
+};
+
+struct MemReader {
+    void* data;
+    size_t elem_size;
+    size_t elem_stride;
+
+    void operator()(void const* src, size_t src_elem_stride, size_t cnt);
 };
 
 struct MemWriter {
-    void const* src;
-    size_t src_width;
-    size_t src_stride;
+    void const* data;
+    size_t elem_size;
+    size_t elem_stride;
 
-    void operator()(void* dst, size_t dst_stride, size_t cnt);
+    void operator()(void* dst, size_t dst_elem_stride, size_t cnt);
 };
 
-template <typename SeqCntr, typename = void>
-struct Traits;
-
-namespace ops {
+template <typename Cntr, typename = void>
+struct CntrTraits;
 
 constexpr bool CheckAbilityFlags(AbilityFlag static_enabled_ability_flag,
                                  AbilityFlag static_disabled_ability_flag);
@@ -249,130 +255,127 @@ bool CheckAbilityFlags(AbilityFlag static_enabled_ability_flag,
                        AbilityFlag dynamic_enabled_ability_flag,
                        AbilityFlag dynamic_disabled_ability_flag);
 
-template <typename SeqCntrLike>
-void* GetReferedInstPtr(SeqCntrLike&& cntr);
+template <typename CntrLike>
+void* GetReferedInstPtr(CntrLike&& cntr);
 
-template <typename SeqCntr>
+template <typename Cntr>
 constexpr AbilityFlag GetStaticEnabledAbilityFlag();
 
-template <typename SeqCntr>
+template <typename Cntr>
 constexpr AbilityFlag GetStaticDisabledAbilityFlag();
 
-template <typename SeqCntrLike>
-AbilityFlag GetDynamicEnabledAbilityFlag(SeqCntrLike&& cntr);
+template <typename CntrLike>
+AbilityFlag GetDynamicEnabledAbilityFlag(CntrLike&& cntr);
 
-template <typename SeqCntrLike>
-AbilityFlag GetDynamicDisabledAbilityFlag(SeqCntrLike&& cntr);
+template <typename CntrLike>
+AbilityFlag GetDynamicDisabledAbilityFlag(CntrLike&& cntr);
 
-template <typename SeqCntrLike>
-size_t GetCursorSize(SeqCntrLike&& cntr);
+template <typename CntrLike>
+size_t GetCursorSize(CntrLike&& cntr);
 
-template <typename SeqCntrLike>
-size_t GetWidth(SeqCntrLike&& cntr);
+template <typename CntrLike>
+size_t GetElemSize(CntrLike&& cntr);
 
-template <typename SeqCntrLike>
-size_t GetSize(SeqCntrLike&& cntr);
+template <typename CntrLike>
+size_t GetElemCnt(CntrLike&& cntr);
 
-template <typename SeqCntrLike>
-size_t GetCapacity(SeqCntrLike&& cntr);
+template <typename CntrLike>
+size_t GetMaxElemCnt(CntrLike&& cntr);
 
-template <typename SeqCntrLike>
-void GetLBCursor(SeqCntrLike&& cntr, void* dst_cursor);
+template <typename CntrLike>
+void GetLBCursor(CntrLike&& cntr, void* dst_cursor);
 
-template <typename SeqCntrLike>
-void GetRBCursor(SeqCntrLike&& cntr, void* dst_cursor);
+template <typename CntrLike>
+void GetRBCursor(CntrLike&& cntr, void* dst_cursor);
 
-template <typename SeqCntrLike>
-void* PeekL(SeqCntrLike&& cntr, bool lazy_copy_elem, void* dst_cursor,
+template <typename CntrLike>
+void* PeekL(CntrLike&& cntr, bool lazy_copy_elem, void* dst_cursor,
             void* dst_elem);
 
-template <typename SeqCntrLike>
-void* PeekR(SeqCntrLike&& cntr, bool lazy_copy_elem, void* dst_cursor,
+template <typename CntrLike>
+void* PeekR(CntrLike&& cntr, bool lazy_copy_elem, void* dst_cursor,
             void* dst_elem);
 
-template <typename SeqCntrLike>
-void* Access(SeqCntrLike&& cntr, size_t idx, bool lazy_copy_elem,
-             void* dst_cursor, void* dst_elem);
+template <typename CntrLike>
+void* Access(CntrLike&& cntr, size_t idx, bool lazy_copy_elem, void* dst_cursor,
+             void* dst_elem);
 
-template <typename SeqCntrLike>
-void* Derefer(SeqCntrLike&& cntr, void const* pos_cursor, bool lazy_copy_elem,
+template <typename CntrLike>
+void* Derefer(CntrLike&& cntr, void const* pos_cursor, bool lazy_copy_elem,
               void* dst_elem);
 
-template <typename SeqCntrLike, typename Reader>
-void Read(SeqCntrLike&& cntr, void const* pos_cursor, size_t cnt,
-          Reader&& reader, void* dst_cursor);
+template <typename CntrLike, typename Reader>
+void Read(CntrLike&& cntr, void const* pos_cursor, size_t cnt, Reader&& reader,
+          void* dst_cursor);
 
-template <typename SeqCntrLike, typename Writer>
-void Write(SeqCntrLike&& cntr, void* pos_cursor, size_t cnt, Writer&& writer,
+template <typename CntrLike, typename Writer>
+void Write(CntrLike&& cntr, void* pos_cursor, size_t cnt, Writer&& writer,
            void* dst_cursor);
 
-template <typename SeqCntrLike, typename ReaderWriter>
-void ReadWrite(SeqCntrLike&& cntr, void* pos_cursor, size_t cnt,
+template <typename CntrLike, typename ReaderWriter>
+void ReadWrite(CntrLike&& cntr, void* pos_cursor, size_t cnt,
                ReaderWriter&& reader_writer, void* dst_cursor);
 
-template <typename SeqCntrLike, typename Writer>
-void* PushL(SeqCntrLike&& cntr, size_t cnt, Writer&& writer, void* dst_cursor);
+template <typename CntrLike, typename Writer>
+void* PushL(CntrLike&& cntr, size_t cnt, Writer&& writer, void* dst_cursor);
 
-template <typename SeqCntrLike, typename Writer>
-void* PushR(SeqCntrLike&& cntr, size_t cnt, Writer&& writer, void* dst_cursor);
+template <typename CntrLike, typename Writer>
+void* PushR(CntrLike&& cntr, size_t cnt, Writer&& writer, void* dst_cursor);
 
-template <typename SeqCntrLike, typename Writer>
-void* Insert(SeqCntrLike&& cntr, void* pos_cursor, size_t cnt, Writer&& writer,
+template <typename CntrLike, typename Writer>
+void* Insert(CntrLike&& cntr, void* pos_cursor, size_t cnt, Writer&& writer,
              void* dst_cursor);
 
-template <typename SeqCntrLike>
-void PopL(SeqCntrLike&& cntr, size_t cnt);
+template <typename CntrLike>
+void PopL(CntrLike&& cntr, size_t cnt);
 
-template <typename SeqCntrLike>
-void PopR(SeqCntrLike&& cntr, size_t cnt);
+template <typename CntrLike>
+void PopR(CntrLike&& cntr, size_t cnt);
 
-template <typename SeqCntrLike>
-void Erase(SeqCntrLike&& cntr, void* pos_cursor, size_t cnt);
+template <typename CntrLike>
+void Erase(CntrLike&& cntr, void* pos_cursor, size_t cnt);
 
-template <typename SeqCntrLike>
-void EraseAll(SeqCntrLike&& cntr);
+template <typename CntrLike>
+void EraseAll(CntrLike&& cntr);
 
-template <typename SeqCntrLike>
-void CopyCursor(SeqCntrLike&& cntr, void const* src_cursor, void* dst_cursor);
+template <typename CntrLike>
+void CopyCursor(CntrLike&& cntr, void const* src_cursor, void* dst_cursor);
 
-template <typename SeqCntrLike>
-bool AreEqualCursor(SeqCntrLike&& cntr, void const* cursor_a,
+template <typename CntrLike>
+bool AreEqualCursor(CntrLike&& cntr, void const* cursor_a,
                     void const* cursor_b);
 
-template <typename SeqCntrLike>
-int CompareCursor(SeqCntrLike&& cntr, void const* cursor_a,
-                  void const* cursor_b);
+template <typename CntrLike>
+int CompareCursor(CntrLike&& cntr, void const* cursor_a, void const* cursor_b);
 
-template <typename SeqCntrLike>
-size_t GetCursorDist(SeqCntrLike&& cntr, void const* cursor_a,
+template <typename CntrLike>
+size_t GetCursorDist(CntrLike&& cntr, void const* cursor_a,
                      void const* cursor_b);
 
-template <typename SeqCntrLike>
-size_t GetCursorIdx(SeqCntrLike&& cntr, void const* cursor);
+template <typename CntrLike>
+size_t GetCursorIdx(CntrLike&& cntr, void const* cursor);
 
-template <typename SeqCntrLike>
-void CursorStepL(SeqCntrLike&& cntr, void* cursor);
+template <typename CntrLike>
+void CursorStepL(CntrLike&& cntr, void* cursor);
 
-template <typename SeqCntrLike>
-void CursorStepR(SeqCntrLike&& cntr, void* cursor);
+template <typename CntrLike>
+void CursorStepR(CntrLike&& cntr, void* cursor);
 
-template <typename SeqCntrLike>
-void CursorAdvanceL(SeqCntrLike&& cntr, void* cursor, size_t step);
+template <typename CntrLike>
+void CursorAdvanceL(CntrLike&& cntr, void* cursor, size_t step);
 
-template <typename SeqCntrLike>
-void CursorAdvanceR(SeqCntrLike&& cntr, void* cursor, size_t step);
+template <typename CntrLike>
+void CursorAdvanceR(CntrLike&& cntr, void* cursor, size_t step);
 
-template <typename SeqCntrLike>
-void CheckContract(SeqCntrLike&& cntr);
-
-}  // namespace ops
+template <typename CntrLike>
+void CheckContract(CntrLike&& cntr);
 
 struct VTable {
     unsigned long long custom_tags[4];
 
-    size_t (*GetSize)(void* cntr);
+    size_t (*GetElemCnt)(void* cntr);
 
-    size_t (*GetCapacity)(void* cntr);
+    size_t (*GetMaxElemCnt)(void* cntr);
 
     void (*GetLBCursor)(void* cntr, void* dst_cursor);
 
@@ -456,25 +459,19 @@ struct VTable {
                                            unsigned long long arg3);
 };
 
-namespace ops {
-
-template <typename SeqCntr>
+template <typename Cntr>
 constexpr VTable BuildVTableBasic();
 
-template <typename SeqCntr, typename = void>
+template <typename Cntr, typename = void>
 struct BuildVTableImpl {
     static constexpr VTable Call();
 };
 
-template <typename SeqCntr>
+template <typename Cntr>
 constexpr VTable BuildVTable();
 
-template <typename SeqCntr>
+template <typename Cntr>
 constexpr VTable const& GetVTable();
-
-}  // namespace ops
-
-namespace ops {
 
 constexpr bool IsReferable(size_t idx, size_t cnt, size_t size);
 
@@ -491,7 +488,5 @@ void RangeAssign(DstSeqCntrLike&& dst_cntr_, SrcSeqCntrLike&& src_cntr_,
 
 template <typename DstSeqCntrLike, typename SrcSeqCntrLike>
 void Assign(DstSeqCntrLike&& dst_cntr, SrcSeqCntrLike&& src_cntr);
-
-}  // namespace ops
 
 }  // namespace zeta::core::seq_cntr

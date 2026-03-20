@@ -13,46 +13,45 @@ namespace zeta::core {
 template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
 bool utils::operator==(Pair<XFirst, XSecond> const& x,
                        Pair<YFirst, YSecond> const& y) {
-    return compare::ops::BasicCompare(x, y) == 0;
+    return compare::BasicCompare(x, y) == 0;
 }
 
 template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
 bool utils::operator!=(Pair<XFirst, XSecond> const& x,
                        Pair<YFirst, YSecond> const& y) {
-    return compare::ops::BasicCompare(x, y) != 0;
+    return compare::BasicCompare(x, y) != 0;
 }
 
 template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
 bool utils::operator<(Pair<XFirst, XSecond> const& x,
                       Pair<YFirst, YSecond> const& y) {
-    return compare::ops::BasicCompare(x, y) < 0;
+    return compare::BasicCompare(x, y) < 0;
 }
 
 template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
 bool utils::operator<=(Pair<XFirst, XSecond> const& x,
                        Pair<YFirst, YSecond> const& y) {
-    return compare::ops::BasicCompare(x, y) <= 0;
+    return compare::BasicCompare(x, y) <= 0;
 }
 
 template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
 bool utils::operator>(Pair<XFirst, XSecond> const& x,
                       Pair<YFirst, YSecond> const& y) {
-    return compare::ops::BasicCompare(x, y) > 0;
+    return compare::BasicCompare(x, y) > 0;
 }
 
 template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
 bool utils::operator>=(Pair<XFirst, XSecond> const& x,
                        Pair<YFirst, YSecond> const& y) {
-    return compare::ops::BasicCompare(x, y) >= 0;
+    return compare::BasicCompare(x, y) >= 0;
 }
 
 template <typename First, typename Second>
-unsigned long long
-hash::ops::BasicHashImpl<utils::Pair<First, Second>>::operator()(
+unsigned long long hash::BasicHashImpl<utils::Pair<First, Second>>::operator()(
     utils::Pair<First, Second> const& x, unsigned long long salt) const {
-    unsigned long long h1{ hash::ops::BasicHash(x.first, salt) };
-    unsigned long long h2{ hash::ops::BasicHash(x.second, h1) };
-    return hash::ops::BasicHash(h2, salt);
+    unsigned long long h1{ hash::BasicHash(x.first, salt) };
+    unsigned long long h2{ hash::BasicHash(x.second, h1) };
+    return hash::BasicHash(h2, salt);
 }
 
 template <typename XFirst, typename XSecond, typename YFirst, typename YSecond>
@@ -60,62 +59,62 @@ int compare::BasicCompareImpl<utils::Pair<XFirst, XSecond>,
                               utils::Pair<YFirst, YSecond>>::
 operator()(utils::Pair<XFirst, XSecond> const& x,
            utils::Pair<YFirst, YSecond> const& y) const {
-    int cmp{ compare::ops::BasicCompare(x.first, y.first) };
+    int cmp{ compare::BasicCompare(x.first, y.first) };
     if (cmp != 0) { return cmp; }
-    return compare::ops::BasicCompare(x.second, y.second);
+    return compare::BasicCompare(x.second, y.second);
 }
 
 template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
           typename YSecond, typename YThird>
 bool utils::operator==(Triplet<XFirst, XSecond, XThird> const& x,
                        Triplet<YFirst, YSecond, YThird> const& y) {
-    return compare::ops::BasicCompare(x, y) == 0;
+    return compare::BasicCompare(x, y) == 0;
 }
 
 template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
           typename YSecond, typename YThird>
 bool utils::operator!=(Triplet<XFirst, XSecond, XThird> const& x,
                        Triplet<YFirst, YSecond, YThird> const& y) {
-    return compare::ops::BasicCompare(x, y) != 0;
+    return compare::BasicCompare(x, y) != 0;
 }
 
 template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
           typename YSecond, typename YThird>
 bool utils::operator<(Triplet<XFirst, XSecond, XThird> const& x,
                       Triplet<YFirst, YSecond, YThird> const& y) {
-    return compare::ops::BasicCompare(x, y) < 0;
+    return compare::BasicCompare(x, y) < 0;
 }
 
 template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
           typename YSecond, typename YThird>
 bool utils::operator<=(Triplet<XFirst, XSecond, XThird> const& x,
                        Triplet<YFirst, YSecond, YThird> const& y) {
-    return compare::ops::BasicCompare(x, y) <= 0;
+    return compare::BasicCompare(x, y) <= 0;
 }
 
 template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
           typename YSecond, typename YThird>
 bool utils::operator>(Triplet<XFirst, XSecond, XThird> const& x,
                       Triplet<YFirst, YSecond, YThird> const& y) {
-    return compare::ops::BasicCompare(x, y) > 0;
+    return compare::BasicCompare(x, y) > 0;
 }
 
 template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
           typename YSecond, typename YThird>
 bool utils::operator>=(Triplet<XFirst, XSecond, XThird> const& x,
                        Triplet<YFirst, YSecond, YThird> const& y) {
-    return compare::ops::BasicCompare(x, y) >= 0;
+    return compare::BasicCompare(x, y) >= 0;
 }
 
 template <typename First, typename Second, typename Third>
 unsigned long long
-hash::ops::BasicHashImpl<utils::Triplet<First, Second, Third>>::operator()(
+hash::BasicHashImpl<utils::Triplet<First, Second, Third>>::operator()(
     utils::Triplet<First, Second, Third> const& x,
     unsigned long long salt) const {
-    unsigned long long h1{ hash::ops::BasicHash(x.first, salt) };
-    unsigned long long h2{ hash::ops::BasicHash(x.second, h1) };
-    unsigned long long h3{ hash::ops::BasicHash(x.third, h2) };
-    return hash::ops::BasicHash(h3, salt);
+    unsigned long long h1{ hash::BasicHash(x.first, salt) };
+    unsigned long long h2{ hash::BasicHash(x.second, h1) };
+    unsigned long long h3{ hash::BasicHash(x.third, h2) };
+    return hash::BasicHash(h3, salt);
 }
 
 template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
@@ -124,11 +123,11 @@ int compare::BasicCompareImpl<utils::Triplet<XFirst, XSecond, XThird>,
                               utils::Triplet<YFirst, YSecond, YThird>>::
 operator()(utils::Triplet<XFirst, XSecond, XThird> const& x,
            utils::Triplet<YFirst, YSecond, YThird> const& y) const {
-    int cmp{ compare::ops::BasicCompare(x.first, y.first) };
+    int cmp{ compare::BasicCompare(x.first, y.first) };
     if (cmp != 0) { return cmp; }
-    cmp = compare::ops::BasicCompare(x.second, y.second);
+    cmp = compare::BasicCompare(x.second, y.second);
     if (cmp != 0) { return cmp; }
-    return compare::ops::BasicCompare(x.third, y.third);
+    return compare::BasicCompare(x.third, y.third);
 }
 
 template <typename X, typename Y>
@@ -205,7 +204,7 @@ template <size_t Beg>
 struct TreeReduce_<Beg, Beg + 1> {
     template <typename Operation, typename... Ts>
     static constexpr decltype(auto) F(Operation const&, Ts&&... xs) {
-        return meta::GetNth<Beg>(meta::Forward<Ts>(xs)...);
+        return meta::GetNthArg<Beg>(meta::Forward<Ts>(xs)...);
     }
 };
 
@@ -581,176 +580,6 @@ Iterator utils::SeqRotate(Iterator beg, Iterator mid, Iterator end) {
     ZETA_Core_Unused(beg);
     ZETA_Core_Unused(mid);
     ZETA_Core_Unused(end);
-}
-
-template <typename UnsignedIntegral>
-constexpr UnsignedIntegral utils::UIntCeilDiv(UnsignedIntegral x,
-                                              UnsignedIntegral y) {
-    ZETA_Core_StaticAssert(integral::IsUnsigned<UnsignedIntegral>);
-
-    ZETA_Core_DebugAssert(0 < y);
-
-    return x == 0 ? 0 : (x - 1) / y + 1;
-}
-
-template <typename UnsignedIntegral>
-constexpr UnsignedIntegral utils::UIntAlignDown(UnsignedIntegral val,
-                                                UnsignedIntegral align) {
-    ZETA_Core_StaticAssert(integral::IsUnsigned<UnsignedIntegral>);
-
-    ZETA_Core_DebugAssert(0 < align);
-
-    return val - val % align;
-}
-
-template <typename UnsignedIntegral>
-constexpr UnsignedIntegral utils::UIntAlignUp(UnsignedIntegral val,
-                                              UnsignedIntegral align) {
-    ZETA_Core_StaticAssert(integral::IsUnsigned<UnsignedIntegral>);
-
-    ZETA_Core_DebugAssert(0 < align);
-
-    return val == 0 ? 0 : val - 1 - (val - 1) % align + align;
-}
-
-constexpr unsigned long long utils::Power(unsigned long long base,
-                                          unsigned exp) {
-    if (base == 0) { return 0; }
-
-    if (__builtin_popcountll(base) == 1) {
-        return 1ULL << (static_cast<unsigned>(__builtin_ctzll(base)) * exp);
-    }
-
-    unsigned long long ret{ 1 };
-
-    for (; 0 < exp; exp /= 2) {
-        if (exp % 2 != 0) { ret *= base; }
-        base *= base;
-    }
-
-    return ret;
-}
-
-constexpr unsigned utils::FloorLog2(unsigned long long x) {
-    ZETA_Core_DebugAssert(0 < x);
-    return ZETA_Core_ullong_width - 1 -
-           static_cast<unsigned>(__builtin_clzll(x));
-}
-
-constexpr unsigned utils::CeilLog2(unsigned long long x) {
-    return x <= 1 ? 0
-                  : ZETA_Core_ullong_width -
-                        static_cast<unsigned>(__builtin_clzll(x - 1));
-}
-
-constexpr unsigned utils::FloorLog(unsigned long long x, unsigned base) {
-    ZETA_Core_DebugAssert(0 < x);
-    ZETA_Core_DebugAssert(1 < base);
-
-    unsigned approx_ans{ FloorLog2(x) / CeilLog2(base) };
-
-    if ((base & (base - 1)) == 0) { return approx_ans; }
-
-    if (approx_ans <= 4) {
-        unsigned ret{ 0 };
-
-        for (; base <= x; x /= base) { ++ret; }
-
-        return ret;
-    }
-
-    unsigned max_k{ FloorLog2(approx_ans) };
-
-    /*
-
-    0   1
-    1   2
-    2   4
-
-    k   base^(2^k)
-
-    max_k   base^(2^max_k) <= x
-
-    2^max_k <= approx_ans
-
-    max_k <= FloorLog2(approx_ans)
-
-    */
-
-    unsigned long long bases[ZETA_Core_ullong_width];
-
-    bases[0] = base;
-
-    for (unsigned k{ 1 }; k <= max_k; ++k) {
-        bases[k] = bases[k - 1] * bases[k - 1];
-    }
-
-    unsigned ret{ 0 };
-
-    while (bases[max_k] <= x) {
-        x /= bases[max_k];
-        ++ret;
-    }
-
-    for (unsigned k{ max_k }; 0 < k; ret *= 2) {
-        --k;
-
-        if (bases[k] <= x) {
-            x /= bases[k];
-            ++ret;
-        }
-    }
-
-    return ret;
-}
-
-constexpr unsigned utils::CeilLog(unsigned long long x, unsigned base) {
-    ZETA_Core_DebugAssert(1 < base);
-
-    return x <= 1 ? 0 : FloorLog(x - 1, base) + 1;
-}
-
-constexpr int utils::FindPrevOne(unsigned long long val, int pos) {
-    ZETA_Core_DebugAssert(-1 <= pos);
-    ZETA_Core_DebugAssert(pos <= ZETA_Core_ullong_width);
-
-    if (pos <= 0) { return -1; }
-
-    val &= ~0ULL >> static_cast<unsigned>(ZETA_Core_ullong_width - pos);
-
-    return val == 0 ? -1 : ZETA_Core_ullong_width - 1 - __builtin_clzll(val);
-}
-
-constexpr int utils::FindNextOne(unsigned long long val, int pos) {
-    ZETA_Core_DebugAssert(-1 <= pos);
-    ZETA_Core_DebugAssert(pos <= ZETA_Core_ullong_width);
-
-    if (ZETA_Core_ullong_width - 1 <= pos) { return -1; }
-
-    val &= ~0ULL << static_cast<unsigned>(pos + 1);
-
-    return val == 0 ? -1 : __builtin_ctzll(val);
-}
-
-inline unsigned long long utils::GCD(unsigned long long x,
-                                     unsigned long long y) {
-    if (x == 0) { return Max(1ULL, y); }
-
-    for (;;) {
-        if ((y %= x) == 0) {  // NOLINT(bugprone-assignment-in-if-condition)
-            return x;
-        }
-
-        if ((x %= y) == 0) {  // NOLINT(bugprone-assignment-in-if-condition)
-            return y;
-        }
-    }
-}
-
-inline unsigned long long utils::LCM(unsigned long long x,
-                                     unsigned long long y) {
-    unsigned long long gcd{ GCD(x, y) };
-    return x / gcd * y;
 }
 
 template <typename T>

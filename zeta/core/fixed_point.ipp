@@ -32,7 +32,7 @@ constexpr fixed_point::FixedPoint<FixedPointTplArgList()>
 fixed_point::FixedPoint<FixedPointTplArgList()>::FromIntegral(
     Integral integral) {
     return static_cast<fixed_point::FixedPoint<FixedPointTplArgList()>>(
-        ops::FromIntegral(integral));
+        fixed_point::FromIntegral(integral));
 }
 
 template <FixedPointTplParamList()>
@@ -41,14 +41,14 @@ constexpr fixed_point::FixedPoint<FixedPointTplArgList()>
 fixed_point::FixedPoint<FixedPointTplArgList()>::FromFraction(Num num,
                                                               Denom denom) {
     return static_cast<fixed_point::FixedPoint<FixedPointTplArgList()>>(
-        ops::FromFraction<FractionWidth>(num, denom));
+        fixed_point::FromFraction<FractionWidth>(num, denom));
 }
 
 template <FixedPointTplParamList()>
 template <typename Integral, typename>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>::FixedPoint(
     Integral const& integral) {
-    *this = ops::FromIntegral(integral);
+    *this = (FromIntegral)(integral);
 }
 
 template <FixedPointTplParamList()>
@@ -63,7 +63,7 @@ template <typename Integral, typename>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>&
 fixed_point::FixedPoint<FixedPointTplArgList()>::operator=(
     Integral const& integral) {
-    return *this = ops::FromIntegral(integral);
+    return *this = (FromIntegral)(integral);
 }
 
 template <FixedPointTplParamList()>
@@ -83,7 +83,7 @@ fixed_point::FixedPoint<FixedPointTplArgList()>::operator=(
                                                             : src.value) };
 
     if constexpr (SrcFractionWidth::value < FractionWidth::value) {
-        op_src_value <<= (FractionWidth::value - SrcFractionWidth::value);
+        op_src_value <<= FractionWidth::value - SrcFractionWidth::value;
     } else if constexpr (SrcFractionWidth::value > FractionWidth::value) {
         constexpr size_t shift{ SrcFractionWidth::value -
                                 FractionWidth::value };
@@ -115,42 +115,42 @@ template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
 constexpr bool fixed_point::operator==(
     FixedPoint<FixedPointTplArgList(X)> const& x,
     FixedPoint<FixedPointTplArgList(Y)> const& y) {
-    return ops::MathCompare(x, y) == 0;
+    return MathCompare(x, y) == 0;
 }
 
 template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
 constexpr bool fixed_point::operator!=(
     FixedPoint<FixedPointTplArgList(X)> const& x,
     FixedPoint<FixedPointTplArgList(Y)> const& y) {
-    return ops::MathCompare(x, y) != 0;
+    return MathCompare(x, y) != 0;
 }
 
 template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
 constexpr bool fixed_point::operator<(
     FixedPoint<FixedPointTplArgList(X)> const& x,
     FixedPoint<FixedPointTplArgList(Y)> const& y) {
-    return ops::MathCompare(x, y) < 0;
+    return MathCompare(x, y) < 0;
 }
 
 template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
 constexpr bool fixed_point::operator<=(
     FixedPoint<FixedPointTplArgList(X)> const& x,
     FixedPoint<FixedPointTplArgList(Y)> const& y) {
-    return ops::MathCompare(x, y) <= 0;
+    return MathCompare(x, y) <= 0;
 }
 
 template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
 constexpr bool fixed_point::operator>(
     FixedPoint<FixedPointTplArgList(X)> const& x,
     FixedPoint<FixedPointTplArgList(Y)> const& y) {
-    return ops::MathCompare(x, y) > 0;
+    return MathCompare(x, y) > 0;
 }
 
 template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
 constexpr bool fixed_point::operator>=(
     FixedPoint<FixedPointTplArgList(X)> const& x,
     FixedPoint<FixedPointTplArgList(Y)> const& y) {
-    return ops::MathCompare(x, y) >= 0;
+    return MathCompare(x, y) >= 0;
 }
 
 template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
@@ -353,13 +353,13 @@ template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
 constexpr auto fixed_point::operator/(
     FixedPoint<FixedPointTplArgList(X)> const& x,
     FixedPoint<FixedPointTplArgList(Y)> const& y) {
-    return ops::FromFraction<value_wrapper::StaticValueWrapper<
-        size_t, utils::Max(XFractionWidth::value, YFractionWidth::value)>>(
-        x.value, y.value);
+    return (FromFraction<value_wrapper::StaticValueWrapper<
+                size_t, utils::Max(XFractionWidth::value,
+                                   YFractionWidth::value)>>)(x.value, y.value);
 }
 
 template <typename FractionWidth, typename Num, typename Denom>
-constexpr auto fixed_point::ops::FromFraction(Num num, Denom denom) {
+constexpr auto fixed_point::FromFraction(Num num, Denom denom) {
     ZETA_Core_StaticAssert(integral::IsIntegral<Num>);
 
     /*
@@ -423,12 +423,14 @@ constexpr auto fixed_point::ops::FromFraction(Num num, Denom denom) {
     using OpIntegral =
         unsigned _BitInt(RIntegralWidth::value + RFractionWidth::value);
 
-    bool num_is_neg{ integral::IsSigned<Num> && num < 0 };
-    bool denom_is_neg{ integral::IsSigned<Denom> && denom < 0 };
+    constexpr Num num_0{ static_cast<Num>(0) };
+
+    bool num_is_neg{ integral::IsSigned<Num> && num < num_0 };
+    bool denom_is_neg{ integral::IsSigned<Denom> && denom < num_0 };
     bool is_neg{ num_is_neg != denom_is_neg };
 
-    OpIntegral a{ static_cast<OpIntegral>(num_is_neg ? -num : num) *
-                  (static_cast<OpIntegral>(1) << FractionWidth::value) };
+    OpIntegral a{ static_cast<OpIntegral>(num_is_neg ? -num : num)
+                  << FractionWidth::value };
 
     OpIntegral b{ static_cast<OpIntegral>(denom_is_neg ? -denom : denom) };
 
@@ -439,7 +441,7 @@ constexpr auto fixed_point::ops::FromFraction(Num num, Denom denom) {
         if (b / 2 < r) {
             ++q;
         } else if (b / 2 == r && b % 2 == 0) {
-            q = q + (q % 2);
+            q += q % 2;
         }
     }
 
@@ -448,13 +450,13 @@ constexpr auto fixed_point::ops::FromFraction(Num num, Denom denom) {
 }
 
 template <typename Integral>
-constexpr auto fixed_point::ops::FromIntegral(Integral integral) {
-    return FromFraction<value_wrapper::StaticValueWrapper<size_t, 0>>(
-        integral, static_cast<Integral>(1));
+constexpr auto fixed_point::FromIntegral(Integral integral) {
+    return (FromFraction<value_wrapper::StaticValueWrapper<
+                size_t, 0>>)(integral, static_cast<Integral>(1));
 }
 
 template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr int fixed_point::ops::MathCompare(
+constexpr int fixed_point::MathCompare(
     FixedPoint<FixedPointTplArgList(X)> const& x,
     FixedPoint<FixedPointTplArgList(Y)> const& y) {
     if constexpr (XSignedTag::value && !YSignedTag::value) {
@@ -476,22 +478,17 @@ constexpr int fixed_point::ops::MathCompare(
     using UOpIntegral = unsigned _BitInt(op_total_width);
     using SOpIntegral = signed _BitInt(op_total_width);
 
-    SOpIntegral a{ static_cast<SOpIntegral>(x.value) *
-                   static_cast<SOpIntegral>(
-                       static_cast<UOpIntegral>(1)
-                       << (op_fraction_width - XFractionWidth::value)) };
+    SOpIntegral a{ static_cast<SOpIntegral>(x.value)
+                   << (op_fraction_width - XFractionWidth::value) };
 
-    SOpIntegral b{ static_cast<SOpIntegral>(y.value) *
-                   static_cast<SOpIntegral>(
-                       static_cast<UOpIntegral>(1)
-                       << (op_fraction_width - YFractionWidth::value)) };
+    SOpIntegral b{ static_cast<SOpIntegral>(y.value)
+                   << (op_fraction_width - YFractionWidth::value) };
 
     return (b < a) - (a < b);
 }
 
 template <FixedPointTplParamList()>
-constexpr auto fixed_point::ops::Floor(
-    FixedPoint<FixedPointTplArgList()> const& x) {
+constexpr auto fixed_point::Floor(FixedPoint<FixedPointTplArgList()> const& x) {
     ZETA_Core_StaticAssert(IntegralWidth::value + FractionWidth::value <=
                            ZETA_Core_bitint_max_width);
 
@@ -514,8 +511,7 @@ constexpr auto fixed_point::ops::Floor(
 }
 
 template <FixedPointTplParamList()>
-constexpr auto fixed_point::ops::Ceil(
-    FixedPoint<FixedPointTplArgList()> const& x) {
+constexpr auto fixed_point::Ceil(FixedPoint<FixedPointTplArgList()> const& x) {
     using Value = FixedPoint<FixedPointTplArgList()>::Value;
 
     using RIntegral =

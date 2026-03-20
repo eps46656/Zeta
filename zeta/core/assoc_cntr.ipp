@@ -8,6 +8,8 @@
 #include <zeta/core/type_wrapper.hpp>
 #include <zeta/core/value_wrapper.hpp>
 
+namespace zeta::core {
+
 #pragma push_macro("TestAbility")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define TestAbility(ability_flag, ability)                                     \
@@ -15,9 +17,7 @@
                         << ::zeta::core::assoc_cntr::AbilityEnum::ability)) != \
      0)
 
-namespace zeta::core {
-
-constexpr bool assoc_cntr::ops::CheckAbilityFlags(
+constexpr bool assoc_cntr::CheckAbilityFlags(
     assoc_cntr::AbilityFlag static_enabled_ability_flag,
     assoc_cntr::AbilityFlag static_disabled_ability_flag) {
     assoc_cntr::AbilityFlag ability_flags[]{ static_enabled_ability_flag,
@@ -37,7 +37,7 @@ constexpr bool assoc_cntr::ops::CheckAbilityFlags(
            empty_ability_flag;
 }
 
-inline bool assoc_cntr::ops::CheckAbilityFlags(
+inline bool assoc_cntr::CheckAbilityFlags(
     AbilityFlag static_enabled_ability_flag,
     AbilityFlag static_disabled_ability_flag,
     AbilityFlag dynamic_enabled_ability_flag,
@@ -72,42 +72,42 @@ inline bool assoc_cntr::ops::CheckAbilityFlags(
 #pragma push_macro("CallMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define CallMethod(ret, ability_name, method_name, ...)                       \
-    using AssocCntr = meta::RemovePointer<decltype(utils::GetInstPtr(         \
-        meta::Forward<AssocCntrLike>(cntr)))>;                                \
+    using Cntr = meta::RemovePointer<decltype(utils::GetInstPtr(              \
+        meta::Forward<CntrLike>(cntr)))>;                                     \
                                                                               \
-    if constexpr (!TestAbility((GetStaticEnabledAbilityFlag<AssocCntr>)(),    \
+    if constexpr (!TestAbility((GetStaticEnabledAbilityFlag<Cntr>)(),         \
                                ability_name)) {                               \
         ZETA_Core_StaticAssert(!TestAbility(                                  \
-            (GetStaticDisabledAbilityFlag<AssocCntr>)(), ability_name));      \
+            (GetStaticDisabledAbilityFlag<Cntr>)(), ability_name));           \
                                                                               \
         ZETA_Core_DebugAssert(                                                \
             TestAbility((GetDynamicEnabledAbilityFlag)(cntr), ability_name)); \
     }                                                                         \
                                                                               \
     if constexpr (ret) {                                                      \
-        return Traits<AssocCntr>::method_name(__VA_ARGS__);                   \
+        return CntrTraits<Cntr>::method_name(__VA_ARGS__);                    \
     } else {                                                                  \
-        Traits<AssocCntr>::method_name(__VA_ARGS__);                          \
+        CntrTraits<Cntr>::method_name(__VA_ARGS__);                           \
     };                                                                        \
                                                                               \
     ZETA_Core_StaticAssert(true)
 
-template <typename AssocCntrLike>
-auto* assoc_cntr::ops::GetReferedInstPtr(AssocCntrLike&& cntr_) {
-    auto* cntr{ utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr_)) };
+template <typename CntrLike>
+auto* assoc_cntr::GetReferedInstPtr(CntrLike&& cntr_) {
+    auto* cntr{ utils::GetInstPtr(meta::Forward<CntrLike>(cntr_)) };
 
-    return Traits<meta::RemovePointer<decltype(cntr)>>::GetReferedInstPtr(cntr);
+    return CntrTraits<meta::RemovePointer<decltype(cntr)>>::GetReferedInstPtr(
+        cntr);
 }
 
-template <typename AssocCntr>
-constexpr assoc_cntr::AbilityFlag
-assoc_cntr::ops::GetStaticEnabledAbilityFlag() {
+template <typename Cntr>
+constexpr assoc_cntr::AbilityFlag assoc_cntr::GetStaticEnabledAbilityFlag() {
     constexpr AbilityFlag static_enabled_ability_flag{
-        Traits<AssocCntr>::GetStaticEnabledAbilityFlag()
+        CntrTraits<Cntr>::GetStaticEnabledAbilityFlag()
     };
 
     constexpr AbilityFlag static_disabled_ability_flag{
-        Traits<AssocCntr>::GetStaticDisabledAbilityFlag()
+        CntrTraits<Cntr>::GetStaticDisabledAbilityFlag()
     };
 
     (CheckAbilityFlags)(static_enabled_ability_flag,
@@ -116,15 +116,14 @@ assoc_cntr::ops::GetStaticEnabledAbilityFlag() {
     return static_enabled_ability_flag;
 }
 
-template <typename AssocCntr>
-constexpr assoc_cntr::AbilityFlag
-assoc_cntr::ops::GetStaticDisabledAbilityFlag() {
+template <typename Cntr>
+constexpr assoc_cntr::AbilityFlag assoc_cntr::GetStaticDisabledAbilityFlag() {
     constexpr AbilityFlag static_enabled_ability_flag{
-        Traits<AssocCntr>::GetStaticEnabledAbilityFlag()
+        CntrTraits<Cntr>::GetStaticEnabledAbilityFlag()
     };
 
     constexpr AbilityFlag static_disabled_ability_flag{
-        Traits<AssocCntr>::GetStaticDisabledAbilityFlag()
+        CntrTraits<Cntr>::GetStaticDisabledAbilityFlag()
     };
 
     (CheckAbilityFlags)(static_enabled_ability_flag,
@@ -133,30 +132,30 @@ assoc_cntr::ops::GetStaticDisabledAbilityFlag() {
     return static_disabled_ability_flag;
 }
 
-template <typename AssocCntrLike>
-assoc_cntr::AbilityFlag assoc_cntr::ops::GetDynamicEnabledAbilityFlag(
-    AssocCntrLike&& cntr_) {
-    auto* cntr{ utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr_)) };
+template <typename CntrLike>
+assoc_cntr::AbilityFlag assoc_cntr::GetDynamicEnabledAbilityFlag(
+    CntrLike&& cntr_) {
+    auto* cntr{ utils::GetInstPtr(meta::Forward<CntrLike>(cntr_)) };
 
-    using AssocCntr = meta::RemovePointer<decltype(cntr)>;
+    using Cntr = meta::RemovePointer<decltype(cntr)>;
 
     constexpr AbilityFlag static_enabled_ability_flag{
-        Traits<AssocCntr>::GetStaticEnabledAbilityFlag()
+        CntrTraits<Cntr>::GetStaticEnabledAbilityFlag()
     };
 
     constexpr AbilityFlag static_disabled_ability_flag{
-        Traits<AssocCntr>::GetStaticDisabledAbilityFlag()
+        CntrTraits<Cntr>::GetStaticDisabledAbilityFlag()
     };
 
     (CheckAbilityFlags)(static_enabled_ability_flag,
                         static_disabled_ability_flag);
 
     AbilityFlag dynamic_enabled_ability_flag{
-        Traits<AssocCntr>::GetDynamicEnabledAbilityFlag(cntr)
+        CntrTraits<Cntr>::GetDynamicEnabledAbilityFlag(cntr)
     };
 
     AbilityFlag dynamic_disabled_ability_flag{
-        Traits<AssocCntr>::GetDynamicDisabledAbilityFlag(cntr)
+        CntrTraits<Cntr>::GetDynamicDisabledAbilityFlag(cntr)
     };
 
     (CheckAbilityFlags)(
@@ -166,30 +165,30 @@ assoc_cntr::AbilityFlag assoc_cntr::ops::GetDynamicEnabledAbilityFlag(
     return dynamic_enabled_ability_flag;
 }
 
-template <typename AssocCntrLike>
-assoc_cntr::AbilityFlag assoc_cntr::ops::GetDynamicDisabledAbilityFlag(
-    AssocCntrLike&& cntr_) {
-    auto* cntr{ utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr_)) };
+template <typename CntrLike>
+assoc_cntr::AbilityFlag assoc_cntr::GetDynamicDisabledAbilityFlag(
+    CntrLike&& cntr_) {
+    auto* cntr{ utils::GetInstPtr(meta::Forward<CntrLike>(cntr_)) };
 
-    using AssocCntr = meta::RemovePointer<decltype(cntr)>;
+    using Cntr = meta::RemovePointer<decltype(cntr)>;
 
     constexpr AbilityFlag static_enabled_ability_flag{
-        Traits<AssocCntr>::GetStaticEnabledAbilityFlag()
+        CntrTraits<Cntr>::GetStaticEnabledAbilityFlag()
     };
 
     constexpr AbilityFlag static_disabled_ability_flag{
-        Traits<AssocCntr>::GetStaticDisabledAbilityFlag()
+        CntrTraits<Cntr>::GetStaticDisabledAbilityFlag()
     };
 
     (CheckAbilityFlags)(static_enabled_ability_flag,
                         static_disabled_ability_flag);
 
     AbilityFlag dynamic_enabled_ability_flag{
-        Traits<AssocCntr>::GetDynamicEnabledAbilityFlag(cntr)
+        CntrTraits<Cntr>::GetDynamicEnabledAbilityFlag(cntr)
     };
 
     AbilityFlag dynamic_disabled_ability_flag{
-        Traits<AssocCntr>::GetDynamicDisabledAbilityFlag(cntr)
+        CntrTraits<Cntr>::GetDynamicDisabledAbilityFlag(cntr)
     };
 
     (CheckAbilityFlags)(
@@ -199,187 +198,176 @@ assoc_cntr::AbilityFlag assoc_cntr::ops::GetDynamicDisabledAbilityFlag(
     return dynamic_enabled_ability_flag;
 }
 
-template <typename AssocCntrLike>
-size_t assoc_cntr::ops::GetCursorSize(AssocCntrLike&& cntr) {
+template <typename CntrLike>
+size_t assoc_cntr::GetCursorSize(CntrLike&& cntr) {
     CallMethod(true, GetCursorSize, GetCursorSize,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)));
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)));
 }
 
-template <typename AssocCntrLike>
-size_t assoc_cntr::ops::GetWidth(AssocCntrLike&& cntr) {
+template <typename CntrLike>
+size_t assoc_cntr::GetWidth(CntrLike&& cntr) {
     CallMethod(true, GetWidth, GetWidth,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)));
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)));
 }
 
-template <typename AssocCntrLike>
-size_t assoc_cntr::ops::GetSize(AssocCntrLike&& cntr) {
+template <typename CntrLike>
+size_t assoc_cntr::GetSize(CntrLike&& cntr) {
     CallMethod(true, GetSize, GetSize,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)));
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)));
 }
 
-template <typename AssocCntrLike>
-size_t assoc_cntr::ops::GetCapacity(AssocCntrLike&& cntr) {
+template <typename CntrLike>
+size_t assoc_cntr::GetCapacity(CntrLike&& cntr) {
     CallMethod(true, GetCapacity, GetCapacity,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)));
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)));
 }
 
-template <typename AssocCntrLike>
-void assoc_cntr::ops::GetLBCursor(AssocCntrLike&& cntr, void* dst_cursor) {
+template <typename CntrLike>
+void assoc_cntr::GetLBCursor(CntrLike&& cntr, void* dst_cursor) {
     CallMethod(false, GetLBCursor, GetLBCursor,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)),
-               dst_cursor);
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), dst_cursor);
 }
 
-template <typename AssocCntrLike>
-void assoc_cntr::ops::GetRBCursor(AssocCntrLike&& cntr, void* dst_cursor) {
+template <typename CntrLike>
+void assoc_cntr::GetRBCursor(CntrLike&& cntr, void* dst_cursor) {
     CallMethod(false, GetRBCursor, GetRBCursor,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)),
-               dst_cursor);
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), dst_cursor);
 }
 
-template <typename AssocCntrLike>
-void* assoc_cntr::ops::PeekL(AssocCntrLike&& cntr, bool lazy_copy_elem,
-                             void* dst_cursor, void* dst_elem) {
+template <typename CntrLike>
+void* assoc_cntr::PeekL(CntrLike&& cntr, bool lazy_copy_elem, void* dst_cursor,
+                        void* dst_elem) {
     CallMethod(true, PeekL, PeekL,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)),
-               lazy_copy_elem, dst_cursor, dst_elem);
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), lazy_copy_elem,
+               dst_cursor, dst_elem);
 }
 
-template <typename AssocCntrLike>
-void* assoc_cntr::ops::PeekR(AssocCntrLike&& cntr, bool lazy_copy_elem,
-                             void* dst_cursor, void* dst_elem) {
+template <typename CntrLike>
+void* assoc_cntr::PeekR(CntrLike&& cntr, bool lazy_copy_elem, void* dst_cursor,
+                        void* dst_elem) {
     CallMethod(true, PeekR, PeekR,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)),
-               lazy_copy_elem, dst_cursor, dst_elem);
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), lazy_copy_elem,
+               dst_cursor, dst_elem);
 }
 
-template <typename AssocCntrLike>
-void* assoc_cntr::ops::Derefer(AssocCntrLike&& cntr, void const* pos_cursor,
-                               bool lazy_copy_elem, void* dst_elem) {
+template <typename CntrLike>
+void* assoc_cntr::Derefer(CntrLike&& cntr, void const* pos_cursor,
+                          bool lazy_copy_elem, void* dst_elem) {
     CallMethod(true, Derefer, Derefer,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)),
-               pos_cursor, lazy_copy_elem, dst_elem);
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), pos_cursor,
+               lazy_copy_elem, dst_elem);
 }
 
-template <typename AssocCntrLike, typename KeyHash, typename KeyElemCompare>
-void* assoc_cntr::ops::Find(AssocCntrLike&& cntr, void const* key,
-                            KeyHash&& key_hash,
-                            KeyElemCompare&& key_elem_compare,
-                            bool lazy_copy_elem, void* dst_cursor,
-                            void* dst_elem) {
+template <typename CntrLike, typename KeyHash, typename KeyElemCompare>
+void* assoc_cntr::Find(CntrLike&& cntr, void const* key, KeyHash&& key_hash,
+                       KeyElemCompare&& key_elem_compare, bool lazy_copy_elem,
+                       void* dst_cursor, void* dst_elem) {
     CallMethod(true, Find, Find,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)), key,
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), key,
                meta::Forward<KeyHash>(key_hash),
                meta::Forward<KeyElemCompare>(key_elem_compare), lazy_copy_elem,
                dst_cursor, dst_elem);
 }
 
-template <typename AssocCntrLike>
-void* assoc_cntr::ops::Insert(AssocCntrLike&& cntr, void const* elem,
-                              void* dst_cursor) {
+template <typename CntrLike>
+void* assoc_cntr::Insert(CntrLike&& cntr, void const* elem, void* dst_cursor) {
     CallMethod(true, Insert, Insert,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)), elem,
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), elem,
                dst_cursor);
 }
 
-template <typename AssocCntrLike>
-void assoc_cntr::ops::PopL(AssocCntrLike&& cntr, size_t cnt) {
+template <typename CntrLike>
+void assoc_cntr::PopL(CntrLike&& cntr, size_t cnt) {
     CallMethod(false, PopL, PopL,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)), cnt);
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), cnt);
 }
 
-template <typename AssocCntrLike>
-void assoc_cntr::ops::PopR(AssocCntrLike&& cntr, size_t cnt) {
+template <typename CntrLike>
+void assoc_cntr::PopR(CntrLike&& cntr, size_t cnt) {
     CallMethod(false, PopR, PopR,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)), cnt);
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), cnt);
 }
 
-template <typename AssocCntrLike>
-void assoc_cntr::ops::Erase(AssocCntrLike&& cntr, void* pos_cursor) {
+template <typename CntrLike>
+void assoc_cntr::Erase(CntrLike&& cntr, void* pos_cursor) {
     CallMethod(false, Erase, Erase,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)),
-               pos_cursor);
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), pos_cursor);
 }
 
-template <typename AssocCntrLike>
-void assoc_cntr::ops::EraseAll(AssocCntrLike&& cntr) {
+template <typename CntrLike>
+void assoc_cntr::EraseAll(CntrLike&& cntr) {
     CallMethod(false, EraseAll, EraseAll,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)));
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)));
 }
 
-template <typename AssocCntrLike>
-void assoc_cntr::ops::CopyCursor(AssocCntrLike&& cntr, void const* src_cursor,
-                                 void* dst_cursor) {
+template <typename CntrLike>
+void assoc_cntr::CopyCursor(CntrLike&& cntr, void const* src_cursor,
+                            void* dst_cursor) {
     CallMethod(false, CopyCursor, CopyCursor,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)),
-               src_cursor, dst_cursor);
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), src_cursor,
+               dst_cursor);
 }
 
-template <typename AssocCntrLike>
-bool assoc_cntr::ops::AreEqualCursor(AssocCntrLike&& cntr, void const* cursor_a,
-                                     void const* cursor_b) {
+template <typename CntrLike>
+bool assoc_cntr::AreEqualCursor(CntrLike&& cntr, void const* cursor_a,
+                                void const* cursor_b) {
     CallMethod(true, AreEqualCursor, AreEqualCursor,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)), cursor_a,
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), cursor_a,
                cursor_b);
 }
 
-template <typename AssocCntrLike>
-int assoc_cntr::ops::CompareCursor(AssocCntrLike&& cntr, void const* cursor_a,
-                                   void const* cursor_b) {
+template <typename CntrLike>
+int assoc_cntr::CompareCursor(CntrLike&& cntr, void const* cursor_a,
+                              void const* cursor_b) {
     CallMethod(true, CompareCursor, CompareCursor,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)), cursor_a,
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), cursor_a,
                cursor_b);
 }
 
-template <typename AssocCntrLike>
-size_t assoc_cntr::ops::GetCursorDist(AssocCntrLike&& cntr,
-                                      void const* cursor_a,
-                                      void const* cursor_b) {
+template <typename CntrLike>
+size_t assoc_cntr::GetCursorDist(CntrLike&& cntr, void const* cursor_a,
+                                 void const* cursor_b) {
     CallMethod(true, GetCursorDist, GetCursorDist,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)), cursor_a,
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), cursor_a,
                cursor_b);
 }
 
-template <typename AssocCntrLike>
-size_t assoc_cntr::ops::GetCursorIdx(AssocCntrLike&& cntr, void const* cursor) {
+template <typename CntrLike>
+size_t assoc_cntr::GetCursorIdx(CntrLike&& cntr, void const* cursor) {
     CallMethod(true, GetCursorIdx, GetCursorIdx,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)), cursor);
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), cursor);
 }
 
-template <typename AssocCntrLike>
-void assoc_cntr::ops::CursorStepL(AssocCntrLike&& cntr, void* cursor) {
+template <typename CntrLike>
+void assoc_cntr::CursorStepL(CntrLike&& cntr, void* cursor) {
     CallMethod(false, CursorStepL, CursorStepL,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)), cursor);
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), cursor);
 }
 
-template <typename AssocCntrLike>
-void assoc_cntr::ops::CursorStepR(AssocCntrLike&& cntr, void* cursor) {
+template <typename CntrLike>
+void assoc_cntr::CursorStepR(CntrLike&& cntr, void* cursor) {
     CallMethod(false, CursorStepR, CursorStepR,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)), cursor);
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), cursor);
 }
 
-template <typename AssocCntrLike>
-void assoc_cntr::ops::CursorAdvanceL(AssocCntrLike&& cntr, void* cursor,
-                                     size_t step) {
+template <typename CntrLike>
+void assoc_cntr::CursorAdvanceL(CntrLike&& cntr, void* cursor, size_t step) {
     CallMethod(false, CursorAdvanceL, CursorAdvanceL,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)), cursor,
-               step);
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), cursor, step);
 }
 
-template <typename AssocCntrLike>
-void assoc_cntr::ops::CursorAdvanceR(AssocCntrLike&& cntr, void* cursor,
-                                     size_t step) {
+template <typename CntrLike>
+void assoc_cntr::CursorAdvanceR(CntrLike&& cntr, void* cursor, size_t step) {
     CallMethod(false, CursorAdvanceR, CursorAdvanceR,
-               utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr)), cursor,
-               step);
+               utils::GetInstPtr(meta::Forward<CntrLike>(cntr)), cursor, step);
 }
 
 #pragma pop_macro("CallMethod")
 
-template <typename AssocCntrLike>
-void assoc_cntr::ops::CheckContract(AssocCntrLike&& cntr_) {
-    auto* cntr{ utils::GetInstPtr(meta::Forward<AssocCntrLike>(cntr_)) };
-    using AssocCntr = meta::RemovePointer<decltype(cntr)>;
+template <typename CntrLike>
+void assoc_cntr::CheckContract(CntrLike&& cntr_) {
+    auto* cntr{ utils::GetInstPtr(meta::Forward<CntrLike>(cntr_)) };
+    using Cntr = meta::RemovePointer<decltype(cntr)>;
 
     bool bool_val{ false };
 
@@ -410,12 +398,12 @@ void assoc_cntr::ops::CheckContract(AssocCntrLike&& cntr_) {
                                                                          \
     ZETA_Core_StaticAssert(true);
 
-    CheckMethod(                                 //
-        GetStaticEnabledAbilityFlag<AssocCntr>,  // method
+    CheckMethod(                            //
+        GetStaticEnabledAbilityFlag<Cntr>,  // method
     );
 
-    CheckMethod(                                  //
-        GetStaticDisabledAbilityFlag<AssocCntr>,  // method
+    CheckMethod(                             //
+        GetStaticDisabledAbilityFlag<Cntr>,  // method
     );
 
     CheckMethod(                       //
@@ -431,7 +419,7 @@ void assoc_cntr::ops::CheckContract(AssocCntrLike&& cntr_) {
     );
 
     constexpr AbilityFlag static_disabled_ability_flag{
-        ops::GetStaticDisabledAbilityFlag<AssocCntr>()
+        GetStaticDisabledAbilityFlag<Cntr>()
     };
 
     CheckMethodOp(      //
@@ -643,10 +631,10 @@ void assoc_cntr::ops::CheckContract(AssocCntrLike&& cntr_) {
 #pragma pop_macro("CheckMethodOp")
 }
 
-template <typename AssocCntr>
-constexpr assoc_cntr::VTable assoc_cntr::ops::BuildVTableBasic() {
+template <typename Cntr>
+constexpr assoc_cntr::VTable assoc_cntr::BuildVTableBasic() {
     constexpr AbilityFlag static_disabled_ability_flag{
-        GetStaticDisabledAbilityFlag<AssocCntr>()
+        GetStaticDisabledAbilityFlag<Cntr>()
     };
 
 #pragma push_macro("F")
@@ -661,143 +649,129 @@ constexpr assoc_cntr::VTable assoc_cntr::ops::BuildVTableBasic() {
     }()
 
     constexpr VTable table{
-        .GetSize = F(GetSize,
-                     [](void* cntr) {
-                         return ops::GetSize(static_cast<AssocCntr*>(cntr));
-                     }),
+        .GetSize =
+            F(GetSize,
+              [](void* cntr) { return GetSize(static_cast<Cntr*>(cntr)); }),
 
         .GetCapacity =
             F(GetCapacity,
-              [](void* cntr) {
-                  return ops::GetCapacity(static_cast<AssocCntr*>(cntr));
-              }),
+              [](void* cntr) { return GetCapacity(static_cast<Cntr*>(cntr)); }),
 
         .GetLBCursor = F(GetLBCursor,
                          [](void* cntr, void* dst_cursor) {
-                             ops::GetLBCursor(static_cast<AssocCntr*>(cntr),
-                                              dst_cursor);
+                             GetLBCursor(static_cast<Cntr*>(cntr), dst_cursor);
                          }),
 
         .GetRBCursor = F(GetRBCursor,
                          [](void* cntr, void* dst_cursor) {
-                             ops::GetRBCursor(static_cast<AssocCntr*>(cntr),
-                                              dst_cursor);
+                             GetRBCursor(static_cast<Cntr*>(cntr), dst_cursor);
                          }),
 
         .PeekL = F(PeekL,
                    [](void* cntr, bool lazy_copy_elem, void* dst_cursor,
                       void* dst_elem) {
-                       return ops::PeekL(static_cast<AssocCntr*>(cntr),
-                                         lazy_copy_elem, dst_cursor, dst_elem);
+                       return PeekL(static_cast<Cntr*>(cntr), lazy_copy_elem,
+                                    dst_cursor, dst_elem);
                    }),
 
         .PeekR = F(PeekR,
                    [](void* cntr, bool lazy_copy_elem, void* dst_cursor,
                       void* dst_elem) {
-                       return ops::PeekR(static_cast<AssocCntr*>(cntr),
-                                         lazy_copy_elem, dst_cursor, dst_elem);
+                       return PeekR(static_cast<Cntr*>(cntr), lazy_copy_elem,
+                                    dst_cursor, dst_elem);
                    }),
 
         .Derefer = F(Derefer,
                      [](void* cntr, void const* pos_cursor, bool lazy_copy_elem,
                         void* dst_elem) {
-                         return ops::Derefer(static_cast<AssocCntr*>(cntr),
-                                             pos_cursor, lazy_copy_elem,
-                                             dst_elem);
+                         return Derefer(static_cast<Cntr*>(cntr), pos_cursor,
+                                        lazy_copy_elem, dst_elem);
                      }),
 
         .FnFind = F(Find,
                     [](void* cntr, void const* key, FnHash const& key_hash,
                        FnCompare const& key_elem_compare, bool lazy_copy_elem,
                        void* dst_cursor, void* dst_elem) {
-                        return ops::Find(static_cast<AssocCntr*>(cntr), key,
-                                         key_hash, key_elem_compare,
-                                         lazy_copy_elem, dst_cursor, dst_elem);
+                        return Find(static_cast<Cntr*>(cntr), key, key_hash,
+                                    key_elem_compare, lazy_copy_elem,
+                                    dst_cursor, dst_elem);
                     }),
 
         .FnInsert = F(Insert,
                       [](void* cntr, void const* elem, void* dst_cursor) {
-                          return ops::Insert(static_cast<AssocCntr*>(cntr),
-                                             elem, dst_cursor);
+                          return Insert(static_cast<Cntr*>(cntr), elem,
+                                        dst_cursor);
                       }),
 
-        .PopL = F(PopL,
-                  [](void* cntr, size_t cnt) {
-                      ops::PopL(static_cast<AssocCntr*>(cntr), cnt);
-                  }),
+        .PopL =
+            F(PopL, [](void* cntr,
+                       size_t cnt) { PopL(static_cast<Cntr*>(cntr), cnt); }),
 
-        .PopR = F(PopR,
-                  [](void* cntr, size_t cnt) {
-                      ops::PopR(static_cast<AssocCntr*>(cntr), cnt);
-                  }),
+        .PopR =
+            F(PopR, [](void* cntr,
+                       size_t cnt) { PopR(static_cast<Cntr*>(cntr), cnt); }),
 
         .Erase = F(Erase,
                    [](void* cntr, void* pos_cursor) {
-                       ops::Erase(static_cast<AssocCntr*>(cntr), pos_cursor);
+                       Erase(static_cast<Cntr*>(cntr), pos_cursor);
                    }),
 
         .EraseAll =
-            F(EraseAll,
-              [](void* cntr) { ops::EraseAll(static_cast<AssocCntr*>(cntr)); }),
+            F(EraseAll, [](void* cntr) { EraseAll(static_cast<Cntr*>(cntr)); }),
 
         .CopyCursor =
             F(CopyCursor,
               [](void* cntr, void const* src_cursor, void* dst_cursor) {
-                  ops::CopyCursor(static_cast<AssocCntr*>(cntr), src_cursor,
-                                  dst_cursor);
+                  CopyCursor(static_cast<Cntr*>(cntr), src_cursor, dst_cursor);
               }),
 
         .AreEqualCursor =
             F(AreEqualCursor,
               [](void* cntr, void const* cursor_a, void const* cursor_b) {
-                  return ops::AreEqualCursor(static_cast<AssocCntr*>(cntr),
-                                             cursor_a, cursor_b);
+                  return AreEqualCursor(static_cast<Cntr*>(cntr), cursor_a,
+                                        cursor_b);
               }),
 
         .CompareCursor =
             F(CompareCursor,
               [](void* cntr, void const* cursor_a, void const* cursor_b) {
-                  return ops::CompareCursor(static_cast<AssocCntr*>(cntr),
-                                            cursor_a, cursor_b);
+                  return CompareCursor(static_cast<Cntr*>(cntr), cursor_a,
+                                       cursor_b);
               }),
 
         .GetCursorDist =
             F(GetCursorDist,
               [](void* cntr, void const* cursor_a, void const* cursor_b) {
-                  return ops::GetCursorDist(static_cast<AssocCntr*>(cntr),
-                                            cursor_a, cursor_b);
+                  return GetCursorDist(static_cast<Cntr*>(cntr), cursor_a,
+                                       cursor_b);
               }),
 
         .GetCursorIdx = F(GetCursorIdx,
                           [](void* cntr, void const* cursor) {
-                              return ops::GetCursorIdx(
-                                  static_cast<AssocCntr*>(cntr), cursor);
+                              return GetCursorIdx(static_cast<Cntr*>(cntr),
+                                                  cursor);
                           }),
 
         .CursorStepL = F(CursorStepL,
                          [](void* cntr, void* cursor) {
-                             ops::CursorStepL(static_cast<AssocCntr*>(cntr),
-                                              cursor);
+                             CursorStepL(static_cast<Cntr*>(cntr), cursor);
                          }),
 
         .CursorStepR = F(CursorStepR,
                          [](void* cntr, void* cursor) {
-                             ops::CursorStepR(static_cast<AssocCntr*>(cntr),
-                                              cursor);
+                             CursorStepR(static_cast<Cntr*>(cntr), cursor);
                          }),
 
         .CursorAdvanceL = F(CursorAdvanceL,
                             [](void* cntr, void* cursor, size_t step) {
-                                ops::CursorAdvanceL(
-                                    static_cast<AssocCntr*>(cntr), cursor,
-                                    step);
+                                CursorAdvanceL(static_cast<Cntr*>(cntr), cursor,
+                                               step);
                             }),
 
         .CursorAdvanceR = F(CursorAdvanceR,
                             [](void* cntr, void* cursor, size_t step) {
-                                ops::CursorAdvanceR(
-                                    static_cast<AssocCntr*>(cntr), cursor,
-                                    step);
+                                CursorAdvanceR(static_cast<Cntr*>(cntr), cursor,
+                                               step);
                             }),
 
     };
@@ -807,29 +781,30 @@ constexpr assoc_cntr::VTable assoc_cntr::ops::BuildVTableBasic() {
     return table;
 }
 
-template <typename AssocCntr, typename En>
-constexpr assoc_cntr::VTable
-assoc_cntr::ops::BuildVTableImpl<AssocCntr, En>::Call() {
-    return (BuildVTableBasic<AssocCntr>)();
+template <typename Cntr, typename En>
+constexpr assoc_cntr::VTable assoc_cntr::BuildVTableImpl<Cntr, En>::Call() {
+    return (BuildVTableBasic<Cntr>)();
 }
 
-template <typename AssocCntr>
-constexpr assoc_cntr::VTable assoc_cntr::ops::BuildVTable() {
-    return BuildVTableImpl<AssocCntr>::Call();
+template <typename Cntr>
+constexpr assoc_cntr::VTable assoc_cntr::BuildVTable() {
+    return BuildVTableImpl<Cntr>::Call();
 };
 
-namespace assoc_cntr::ops::detail {
+namespace assoc_cntr::detail {
 
-template <typename AssocCntr>
+template <typename Cntr>
 struct VTableHolder_ {
-    static constexpr assoc_cntr::VTable vtable{ (BuildVTable<AssocCntr>)() };
+    static constexpr assoc_cntr::VTable vtable{ (BuildVTable<Cntr>)() };
 };
 
-}  // namespace assoc_cntr::ops::detail
+}  // namespace assoc_cntr::detail
 
-template <typename AssocCntr>
-constexpr assoc_cntr::VTable const& assoc_cntr::ops::GetVTable() {
-    return detail::VTableHolder_<AssocCntr>::vtable;
+template <typename Cntr>
+constexpr assoc_cntr::VTable const& assoc_cntr::GetVTable() {
+    return detail::VTableHolder_<Cntr>::vtable;
 }
+
+#pragma pop_macro("TestAbility")
 
 }  // namespace zeta::core

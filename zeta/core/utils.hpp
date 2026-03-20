@@ -48,7 +48,7 @@ bool operator>=(Pair<XFirst, XSecond> const& x, Pair<YFirst, YSecond> const& y);
 namespace zeta::core {
 
 template <typename First, typename Second>
-struct hash::ops::BasicHashImpl<utils::Pair<First, Second>> {
+struct hash::BasicHashImpl<utils::Pair<First, Second>> {
     unsigned long long operator()(utils::Pair<First, Second> const& x,
                                   unsigned long long salt) const;
 };
@@ -106,7 +106,7 @@ bool operator>=(Triplet<XFirst, XSecond, XThird> const& x,
 namespace zeta::core {
 
 template <typename First, typename Second, typename Third>
-struct hash::ops::BasicHashImpl<utils::Triplet<First, Second, Third>> {
+struct hash::BasicHashImpl<utils::Triplet<First, Second, Third>> {
     unsigned long long operator()(utils::Triplet<First, Second, Third> const& x,
                                   unsigned long long salt) const;
 };
@@ -185,31 +185,6 @@ void SeqMove(DstIterator dst, SrcIterator src, size_t size);
 template <typename Iterator>
 Iterator SeqRotate(Iterator beg, Iterator mid, Iterator end);
 
-template <typename UnsignedIntegral>
-constexpr UnsignedIntegral UIntCeilDiv(UnsignedIntegral x, UnsignedIntegral y);
-
-template <typename UnsignedIntegral>
-constexpr UnsignedIntegral UIntAlignDown(UnsignedIntegral val,
-                                         UnsignedIntegral align);
-
-template <typename UnsignedIntegral>
-constexpr UnsignedIntegral UIntAlignUp(UnsignedIntegral val,
-                                       UnsignedIntegral align);
-
-constexpr unsigned long long Power(unsigned long long base, unsigned exp);
-
-constexpr unsigned FloorLog2(unsigned long long x);
-
-constexpr unsigned CeilLog2(unsigned long long x);
-
-constexpr unsigned FloorLog(unsigned long long x, unsigned base);
-
-constexpr unsigned CeilLog(unsigned long long x, unsigned base);
-
-constexpr int FindPrevOne(unsigned long long val, int pos);
-
-constexpr int FindNextOne(unsigned long long val, int pos);
-
 unsigned long long ULLHash(unsigned long long x, unsigned long long salt);
 unsigned long long SLLHash(long long x, unsigned long long salt);
 
@@ -221,10 +196,6 @@ int Choose2(bool cond0, bool cond1, unsigned long long* random_seed);
 
 int Choose3(bool cond0, bool cond1, bool cond2,
             unsigned long long* random_seed);
-
-unsigned long long GCD(unsigned long long x, unsigned long long y);
-
-unsigned long long LCM(unsigned long long x, unsigned long long y);
 
 template <typename T>
 T& GetInstRef(T* inst);

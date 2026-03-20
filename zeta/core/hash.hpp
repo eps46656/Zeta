@@ -4,8 +4,6 @@
 
 namespace zeta::core::hash {
 
-namespace ops {
-
 unsigned long long BasicMemHash(void const* data, size_t size,
                                 unsigned long long salt);
 
@@ -20,8 +18,6 @@ unsigned long long BasicHash(T const& x, unsigned long long salt);
 
 template <typename T>
 unsigned long long TypeErasedBasicHash(void const* x, unsigned long long salt);
-
-}  // namespace ops
 
 template <typename T>
 struct CppStdBasicHash {

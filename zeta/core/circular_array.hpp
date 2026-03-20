@@ -8,11 +8,11 @@ namespace zeta::core::circular_array {
 
 struct Cntr {
     void* data;
-    size_t width;
-    size_t stride;
-    size_t offset;
-    size_t size;
-    size_t capacity;
+    size_t elem_size;
+    size_t elem_stride;
+    size_t elem_cnt;
+    size_t elem_capacity;
+    size_t idx_offset;
 };
 
 struct Cursor {
@@ -21,16 +21,14 @@ struct Cursor {
     void* elem;
 };
 
-namespace ops {
+void* ReferElem(void* data, size_t elem_stride, size_t elem_capacity,
+                size_t idx_offset, size_t idx);
 
-void* ReferElem(void* data, size_t stride, size_t offset, size_t idx,
-                size_t capacity);
+size_t GetLongestContSucr(size_t elem_cnt, size_t elem_capacity,
+                          size_t idx_offset, size_t idx);
 
-size_t GetLongestContSucr(size_t offset, size_t idx, size_t size,
-                          size_t capacity);
-
-size_t GetLongestContPred(size_t offset, size_t idx, size_t size,
-                          size_t capacity);
+size_t GetLongestContPred(size_t elem_cnt, size_t elem_capacity,
+                          size_t idx_offset, size_t idx);
 
 template <typename SrcSeqCntr>
 void AssignFromSeqCntr(Cntr* cntr, size_t dst_beg,
@@ -46,15 +44,15 @@ void Deinit(Cntr* cntr);
 
 constexpr size_t GetCursorSize(Cntr const* cntr);
 
-size_t GetWidth(Cntr const* cntr);
+size_t GetElemSize(Cntr const* cntr);
 
-size_t GetStride(Cntr const* cntr);
+size_t GetElemStride(Cntr const* cntr);
 
-size_t GetOffset(Cntr const* cntr);
+size_t GetIdxOffset(Cntr const* cntr);
 
-size_t GetSize(Cntr const* cntr);
+size_t GetElemCount(Cntr const* cntr);
 
-size_t GetCapacity(Cntr const* cntr);
+size_t GetMaxElemCnt(Cntr const* cntr);
 
 void GetLBCursor(Cntr const* cntr, Cursor* dst_cursor);
 
@@ -138,14 +136,12 @@ void CursorAdvanceL(Cntr const* cntr, Cursor* cursor, size_t step);
 
 void CursorAdvanceR(Cntr const* cntr, Cursor* cursor, size_t step);
 
-}  // namespace ops
-
 }  // namespace zeta::core::circular_array
 
 namespace zeta::core {
 
 template <>
-struct seq_cntr::Traits<circular_array::Cntr const, void> {
+struct seq_cntr::CntrTraits<circular_array::Cntr const, void> {
     static void* GetReferedInst(circular_array::Cntr const* cntr);
 
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
@@ -160,11 +156,11 @@ struct seq_cntr::Traits<circular_array::Cntr const, void> {
 
     static size_t GetCursorSize(circular_array::Cntr const* cntr);
 
-    static size_t GetWidth(circular_array::Cntr const* cntr);
+    static size_t GetElemSize(circular_array::Cntr const* cntr);
 
-    static size_t GetSize(circular_array::Cntr const* cntr);
+    static size_t GetElemCnt(circular_array::Cntr const* cntr);
 
-    static size_t GetCapacity(circular_array::Cntr const* cntr);
+    static size_t GetMaxElemCnt(circular_array::Cntr const* cntr);
 
     static void GetLBCursor(circular_array::Cntr const* cntr, void* dst_cursor);
 
@@ -214,8 +210,8 @@ struct seq_cntr::Traits<circular_array::Cntr const, void> {
 };
 
 template <>
-struct seq_cntr::Traits<circular_array::Cntr, void>
-    : public seq_cntr::Traits<circular_array::Cntr const, void> {
+struct seq_cntr::CntrTraits<circular_array::Cntr, void>
+    : public seq_cntr::CntrTraits<circular_array::Cntr const, void> {
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
 
     static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();

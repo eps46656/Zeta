@@ -11,7 +11,7 @@ namespace zeta::core::debug_deque {
 struct Cntr {
     std::deque<void*>* deque;
 
-    unsigned short width;
+    size_t elem_size;
 };
 
 struct Cursor {
@@ -19,19 +19,17 @@ struct Cursor {
     size_t idx;
 };
 
-namespace ops {
-
 void Init(Cntr* cntr);
 
 void Deinit(Cntr* cntr);
 
 size_t GetCursorSize(Cntr const* cntr);
 
-size_t GetWidth(Cntr const* cntr);
+size_t GetElemSize(Cntr const* cntr);
 
-size_t GetSize(Cntr const* cntr);
+size_t GetElemCnt(Cntr const* cntr);
 
-size_t GetCapacity(Cntr const* cntr);
+size_t GetMaxElemCnt(Cntr const* cntr);
 
 void GetLBCursor(Cntr const* cntr, Cursor* dst_cursor);
 
@@ -100,14 +98,12 @@ void CursorAdvanceL(Cntr const* cntr, Cursor* cursor, size_t step);
 
 void CursorAdvanceR(Cntr const* cntr, Cursor* cursor, size_t step);
 
-}  // namespace ops
-
 }  // namespace zeta::core::debug_deque
 
 namespace zeta::core {
 
 template <>
-struct seq_cntr::Traits<debug_deque::Cntr const, void> {
+struct seq_cntr::CntrTraits<debug_deque::Cntr const, void> {
     static void* GetReferedInst(debug_deque::Cntr const* cntr);
 
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
@@ -122,11 +118,11 @@ struct seq_cntr::Traits<debug_deque::Cntr const, void> {
 
     static size_t GetCursorSize(debug_deque::Cntr const* cntr);
 
-    static size_t GetWidth(debug_deque::Cntr const* cntr);
+    static size_t GetElemSize(debug_deque::Cntr const* cntr);
 
-    static size_t GetSize(debug_deque::Cntr const* cntr);
+    static size_t GetElemCnt(debug_deque::Cntr const* cntr);
 
-    static size_t GetCapacity(debug_deque::Cntr const* cntr);
+    static size_t GetMaxElemCnt(debug_deque::Cntr const* cntr);
 
     static void GetLBCursor(debug_deque::Cntr const* cntr, void* dst_cursor);
 
@@ -175,8 +171,8 @@ struct seq_cntr::Traits<debug_deque::Cntr const, void> {
 };
 
 template <>
-struct seq_cntr::Traits<debug_deque::Cntr, void>
-    : public seq_cntr::Traits<debug_deque::Cntr const, void> {
+struct seq_cntr::CntrTraits<debug_deque::Cntr, void>
+    : public seq_cntr::CntrTraits<debug_deque::Cntr const, void> {
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
 
     static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();

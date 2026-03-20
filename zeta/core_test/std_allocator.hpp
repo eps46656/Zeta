@@ -31,8 +31,7 @@ struct Allocator {
         void* ptr{ std::malloc(size) };
 
 #if ZETA_Core_EnableDebug
-        core::mem_recorder::ops::Record(&std_allocator->mem_recorder, ptr,
-                                        size);
+        core::mem_recorder::Record(&std_allocator->mem_recorder, ptr, size);
         std_allocator->usage += size;
 #endif
 
@@ -44,8 +43,8 @@ struct Allocator {
 
         if (ptr == nullptr) { return; }
 
-        bool b{ core::mem_recorder::ops::Unrecord(&std_allocator->mem_recorder,
-                                                  ptr) };
+        bool b{ core::mem_recorder::Unrecord(&std_allocator->mem_recorder,
+                                             ptr) };
 
         ZETA_Core_DebugAssert(b);
 
@@ -62,7 +61,7 @@ struct Allocator {
 namespace zeta::core {
 
 template <typename Allocator>
-struct allocator::Traits<
+struct allocator::AllocatorTraits<
     Allocator, meta::EnableIf<meta::IsAnyOf<
                    Allocator, zeta::core_test::std_allocator::Allocator,
                    zeta::core_test::std_allocator::Allocator const>>> {

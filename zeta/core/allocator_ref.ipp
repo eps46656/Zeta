@@ -18,21 +18,19 @@ namespace zeta::core {
     }                                                 \
     ZETA_Core_StaticAssert(true);
 
-inline size_t allocator_ref::ops::GetAlign(Ref const* ref) {
-    return ref->align;
-}
+inline size_t allocator_ref::GetAlign(Ref const* ref) { return ref->align; }
 
-inline void* allocator_ref::ops::Allocate(Ref* ref, size_t size) {
+inline void* allocator_ref::Allocate(Ref* ref, size_t size) {
     CallMethod(Allocate, size);
 }
 
-inline void allocator_ref::ops::Deallocate(Ref* ref, void* ptr) {
+inline void allocator_ref::Deallocate(Ref* ref, void* ptr) {
     CallMethod(Deallocate, ptr);
 }
 
 #pragma pop_macro("CallMethod")
 
-inline void allocator_ref::ops::CheckRef(Ref* ref) {
+inline void allocator_ref::CheckRef(Ref* ref) {
     ZETA_Core_DebugAssert(ref != nullptr);
     ZETA_Core_DebugAssert(0 < ref->align);
     ZETA_Core_DebugAssert(ref->vtable != nullptr);
@@ -51,40 +49,40 @@ inline void allocator_ref::ops::CheckRef(Ref* ref) {
 }
 
 template <typename AllocatorLike>
-allocator_ref::Ref
-    allocator_ref::ops::MakeRef  // NOLINT(misc-use-internal-linkage)
+allocator_ref::Ref allocator_ref::MakeRef  // NOLINT(misc-use-internal-linkage)
     (AllocatorLike&& alctr_) {
     auto* alctr{ utils::GetInstPtr(meta::Forward<AllocatorLike>(alctr_)) };
     using Allocator = meta::RemovePointer<decltype(alctr)>;
 
-    allocator::ops::CheckContract(alctr);
+    allocator::CheckContract(alctr);
 
     return {
-        .align = allocator::ops::GetAlign(alctr),
-        .vtable = &allocator::ops::GetVTable<Allocator>(),
+        .align = allocator::GetAlign(alctr),
+        .vtable = &allocator::GetVTable<Allocator>(),
 
         .alctr = const_cast<void*>(static_cast<void const*>(alctr)),
     };
 }
 
-inline void* allocator::Traits<allocator_ref::Ref const, void>::GetReferedInst(
+inline void*
+allocator::AllocatorTraits<allocator_ref::Ref const, void>::GetReferedInst(
     allocator_ref::Ref const* ref) {
     return ref->alctr;
 }
 
-inline size_t allocator::Traits<allocator_ref::Ref const, void>::GetAlign(
-    allocator_ref::Ref const* ref) {
-    return allocator_ref::ops::GetAlign(ref);
+inline size_t allocator::AllocatorTraits<
+    allocator_ref::Ref const, void>::GetAlign(allocator_ref::Ref const* ref) {
+    return allocator_ref::GetAlign(ref);
 }
 
-inline void* allocator::Traits<allocator_ref::Ref, void>::Allocate(
+inline void* allocator::AllocatorTraits<allocator_ref::Ref, void>::Allocate(
     allocator_ref::Ref* ref, size_t size) {
-    return allocator_ref::ops::Allocate(ref, size);
+    return allocator_ref::Allocate(ref, size);
 }
 
-inline void allocator::Traits<allocator_ref::Ref, void>::Deallocate(
+inline void allocator::AllocatorTraits<allocator_ref::Ref, void>::Deallocate(
     allocator_ref::Ref* ref, void* ptr) {
-    allocator_ref::ops::Deallocate(ref, ptr);
+    allocator_ref::Deallocate(ref, ptr);
 }
 
 }  // namespace zeta::core
