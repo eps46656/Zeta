@@ -185,9 +185,6 @@ void SeqMove(DstIterator dst, SrcIterator src, size_t size);
 template <typename Iterator>
 Iterator SeqRotate(Iterator beg, Iterator mid, Iterator end);
 
-unsigned long long ULLHash(unsigned long long x, unsigned long long salt);
-unsigned long long SLLHash(long long x, unsigned long long salt);
-
 unsigned long long GetRandom();
 
 unsigned long long SimpleRandomRotate(unsigned long long* random_seed);

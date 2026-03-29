@@ -255,8 +255,8 @@ bool CheckAbilityFlags(AbilityFlag static_enabled_ability_flag,
                        AbilityFlag dynamic_enabled_ability_flag,
                        AbilityFlag dynamic_disabled_ability_flag);
 
-template <typename CntrLike>
-void* GetReferedInstPtr(CntrLike&& cntr);
+template <typename Cntr>
+void* GetReferedInstPtr(Cntr& cntr);
 
 template <typename Cntr>
 constexpr AbilityFlag GetStaticEnabledAbilityFlag();
@@ -264,111 +264,107 @@ constexpr AbilityFlag GetStaticEnabledAbilityFlag();
 template <typename Cntr>
 constexpr AbilityFlag GetStaticDisabledAbilityFlag();
 
-template <typename CntrLike>
-AbilityFlag GetDynamicEnabledAbilityFlag(CntrLike&& cntr);
+template <typename Cntr>
+AbilityFlag GetDynamicEnabledAbilityFlag(Cntr& cntr);
 
-template <typename CntrLike>
-AbilityFlag GetDynamicDisabledAbilityFlag(CntrLike&& cntr);
+template <typename Cntr>
+AbilityFlag GetDynamicDisabledAbilityFlag(Cntr& cntr);
 
-template <typename CntrLike>
-size_t GetCursorSize(CntrLike&& cntr);
+template <typename Cntr>
+size_t GetCursorSize(Cntr& cntr);
 
-template <typename CntrLike>
-size_t GetElemSize(CntrLike&& cntr);
+template <typename Cntr>
+size_t GetElemSize(Cntr& cntr);
 
-template <typename CntrLike>
-size_t GetElemCnt(CntrLike&& cntr);
+template <typename Cntr>
+size_t GetElemCnt(Cntr& cntr);
 
-template <typename CntrLike>
-size_t GetMaxElemCnt(CntrLike&& cntr);
+template <typename Cntr>
+size_t GetMaxElemCnt(Cntr& cntr);
 
-template <typename CntrLike>
-void GetLBCursor(CntrLike&& cntr, void* dst_cursor);
+template <typename Cntr>
+void GetLBCursor(Cntr& cntr, void* dst_cursor);
 
-template <typename CntrLike>
-void GetRBCursor(CntrLike&& cntr, void* dst_cursor);
+template <typename Cntr>
+void GetRBCursor(Cntr& cntr, void* dst_cursor);
 
-template <typename CntrLike>
-void* PeekL(CntrLike&& cntr, bool lazy_copy_elem, void* dst_cursor,
-            void* dst_elem);
+template <typename Cntr>
+void* PeekL(Cntr& cntr, bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
 
-template <typename CntrLike>
-void* PeekR(CntrLike&& cntr, bool lazy_copy_elem, void* dst_cursor,
-            void* dst_elem);
+template <typename Cntr>
+void* PeekR(Cntr& cntr, bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
 
-template <typename CntrLike>
-void* Access(CntrLike&& cntr, size_t idx, bool lazy_copy_elem, void* dst_cursor,
+template <typename Cntr>
+void* Access(Cntr& cntr, size_t idx, bool lazy_copy_elem, void* dst_cursor,
              void* dst_elem);
 
-template <typename CntrLike>
-void* Derefer(CntrLike&& cntr, void const* pos_cursor, bool lazy_copy_elem,
+template <typename Cntr>
+void* Derefer(Cntr& cntr, void const* pos_cursor, bool lazy_copy_elem,
               void* dst_elem);
 
-template <typename CntrLike, typename Reader>
-void Read(CntrLike&& cntr, void const* pos_cursor, size_t cnt, Reader&& reader,
+template <typename Cntr, typename Reader>
+void Read(Cntr& cntr, void const* pos_cursor, size_t cnt, Reader&& reader,
           void* dst_cursor);
 
-template <typename CntrLike, typename Writer>
-void Write(CntrLike&& cntr, void* pos_cursor, size_t cnt, Writer&& writer,
+template <typename Cntr, typename Writer>
+void Write(Cntr& cntr, void* pos_cursor, size_t cnt, Writer&& writer,
            void* dst_cursor);
 
-template <typename CntrLike, typename ReaderWriter>
-void ReadWrite(CntrLike&& cntr, void* pos_cursor, size_t cnt,
+template <typename Cntr, typename ReaderWriter>
+void ReadWrite(Cntr& cntr, void* pos_cursor, size_t cnt,
                ReaderWriter&& reader_writer, void* dst_cursor);
 
-template <typename CntrLike, typename Writer>
-void* PushL(CntrLike&& cntr, size_t cnt, Writer&& writer, void* dst_cursor);
+template <typename Cntr, typename Writer>
+void* PushL(Cntr& cntr, size_t cnt, Writer&& writer, void* dst_cursor);
 
-template <typename CntrLike, typename Writer>
-void* PushR(CntrLike&& cntr, size_t cnt, Writer&& writer, void* dst_cursor);
+template <typename Cntr, typename Writer>
+void* PushR(Cntr& cntr, size_t cnt, Writer&& writer, void* dst_cursor);
 
-template <typename CntrLike, typename Writer>
-void* Insert(CntrLike&& cntr, void* pos_cursor, size_t cnt, Writer&& writer,
+template <typename Cntr, typename Writer>
+void* Insert(Cntr& cntr, void* pos_cursor, size_t cnt, Writer&& writer,
              void* dst_cursor);
 
-template <typename CntrLike>
-void PopL(CntrLike&& cntr, size_t cnt);
+template <typename Cntr>
+void PopL(Cntr& cntr, size_t cnt);
 
-template <typename CntrLike>
-void PopR(CntrLike&& cntr, size_t cnt);
+template <typename Cntr>
+void PopR(Cntr& cntr, size_t cnt);
 
-template <typename CntrLike>
-void Erase(CntrLike&& cntr, void* pos_cursor, size_t cnt);
+template <typename Cntr>
+void Erase(Cntr& cntr, void* pos_cursor, size_t cnt);
 
-template <typename CntrLike>
-void EraseAll(CntrLike&& cntr);
+template <typename Cntr>
+void EraseAll(Cntr& cntr);
 
-template <typename CntrLike>
-void CopyCursor(CntrLike&& cntr, void const* src_cursor, void* dst_cursor);
+template <typename Cntr>
+void CopyCursor(Cntr& cntr, void const* src_cursor, void* dst_cursor);
 
-template <typename CntrLike>
-bool AreEqualCursor(CntrLike&& cntr, void const* cursor_a,
-                    void const* cursor_b);
+template <typename Cntr>
+bool AreEqualCursor(Cntr& cntr, void const* cursor_a, void const* cursor_b);
 
-template <typename CntrLike>
-int CompareCursor(CntrLike&& cntr, void const* cursor_a, void const* cursor_b);
+template <typename Cntr>
+int CompareCursor(Cntr& cntr, void const* cursor_a, void const* cursor_b);
 
-template <typename CntrLike>
-size_t GetCursorDist(CntrLike&& cntr, void const* cursor_a,
-                     void const* cursor_b);
+template <typename Cntr>
+size_t GetCursorDist(Cntr& cntr, void const* cursor_a, void const* cursor_b);
 
-template <typename CntrLike>
-size_t GetCursorIdx(CntrLike&& cntr, void const* cursor);
+template <typename Cntr>
+size_t GetCursorIdx(Cntr& cntr, void const* cursor);
 
-template <typename CntrLike>
-void CursorStepL(CntrLike&& cntr, void* cursor);
+template <typename Cntr>
+void CursorStepL(Cntr& cntr, void* cursor);
 
-template <typename CntrLike>
-void CursorStepR(CntrLike&& cntr, void* cursor);
+template <typename Cntr>
+void CursorStepR(Cntr& cntr, void* cursor);
 
-template <typename CntrLike>
-void CursorAdvanceL(CntrLike&& cntr, void* cursor, size_t step);
+template <typename Cntr>
+void CursorAdvanceL(Cntr& cntr, void* cursor, size_t step);
 
-template <typename CntrLike>
-void CursorAdvanceR(CntrLike&& cntr, void* cursor, size_t step);
+template <typename Cntr>
+void CursorAdvanceR(Cntr& cntr, void* cursor, size_t step);
 
-template <typename CntrLike>
-void CheckContract(CntrLike&& cntr);
+template <typename Cntr>
+void CheckContract(Cntr& cntr);
 
 struct VTable {
     unsigned long long custom_tags[4];
@@ -482,11 +478,11 @@ constexpr bool IsInsertable(size_t idx, size_t cnt, size_t size,
 
 constexpr bool IsErasable(size_t idx, size_t cnt, size_t size);
 
-template <typename DstSeqCntrLike, typename SrcSeqCntrLike>
-void RangeAssign(DstSeqCntrLike&& dst_cntr_, SrcSeqCntrLike&& src_cntr_,
-                 size_t dst_beg, size_t src_beg, size_t cnt);
+template <typename DstSeqCntr, typename SrcSeqCntr>
+void RangeAssign(DstSeqCntr& dst_cntr, SrcSeqCntr& src_cntr, size_t dst_beg,
+                 size_t src_beg, size_t cnt);
 
-template <typename DstSeqCntrLike, typename SrcSeqCntrLike>
-void Assign(DstSeqCntrLike&& dst_cntr, SrcSeqCntrLike&& src_cntr);
+template <typename DstSeqCntr, typename SrcSeqCntr>
+void Assign(DstSeqCntr& dst_cntr, SrcSeqCntr& src_cntr);
 
 }  // namespace zeta::core::seq_cntr

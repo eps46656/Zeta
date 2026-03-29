@@ -34,7 +34,8 @@ void rbtree::CheckContract() {
 #pragma push_macro("CheckMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define CheckMethod(method, ...) \
-    ZETA_Core_Unused([=]() { (method)(__VA_ARGS__); })
+    ZETA_Core_Unused(            \
+        (meta::Conditional<false, decltype((method)(__VA_ARGS__)), int>{}))
 
     CheckMethod(GetColor, rbtn);
     CheckMethod(SetColor, rbtn, unsigned_val);

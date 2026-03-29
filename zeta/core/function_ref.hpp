@@ -37,7 +37,10 @@ struct FunctionRef<Ret(Args...)> {
 
     FunctionRef(FunctionRef&&) = default;
 
-    FunctionRef(Ret (*func)(Args... args));
+    FunctionRef  // NOLINT(
+                 // google-explicit-constructor,
+                 // hicpp-explicit-conversions)
+        (Ret (*func)(Args... args));
 
     FunctionRef(void* context,
                 Ret (*contextual_func)(void* context, Args... args));
@@ -50,6 +53,15 @@ struct FunctionRef<Ret(Args...)> {
                  // google-explicit-constructor,
                  // hicpp-explicit-conversions)
         (Callable& callable);
+
+    template <typename Callable>
+    FunctionRef  // NOLINT(
+                 // google-explicit-constructor,
+                 // hicpp-explicit-conversions)
+        (Callable const& callable);
+
+    template <typename Callable>
+    FunctionRef(Callable&& callable) = delete;
 
     ~FunctionRef() = default;
 

@@ -46,17 +46,15 @@ SeqCntrRef Create(SeqCntrRef origin_seq_cntr_ref, size_t stride,
 
     auto* sv{ &pack->sv };
 
-    sv->stride = stride;
-    sv->origin = origin_seq_cntr_ref;
-    sv->seg_capacity = seg_capacity;
+    sv->seg_alctr = zeta::core::allocator_ref::MakeRef(pack->seg_alctr);
 
-    sv->seg_alctr = zeta::core::allocator_ref::MakeRef(&pack->seg_alctr);
+    sv->data_alctr = zeta::core::allocator_ref::MakeRef(pack->data_alctr);
 
-    sv->data_alctr = zeta::core::allocator_ref::MakeRef(&pack->data_alctr);
+    StagingSegVectorNS::Init(*sv, origin_seq_cntr_ref, stride, seg_capacity,
+                             zeta::core::lifecycle::SkipInitTag{},
+                             zeta::core::lifecycle::SkipInitTag{});
 
-    StagingSegVectorNS::Init(sv);
-
-    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(sv) };
+    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(*sv) };
 
     seq_cntr_utils::AddSanitizeFunc(sv, Sanitize);
 
@@ -68,7 +66,7 @@ SeqCntrRef Create(SeqCntrRef origin_seq_cntr_ref, size_t stride,
 inline void Destroy(void* sv) {
     Pack* pack{ ZETA_Core_MemberToStruct(Pack, sv, sv) };
 
-    StagingSegVectorNS::Deinit(&pack->sv);
+    StagingSegVectorNS::Deinit(pack->sv);
 
     delete pack;
 }
@@ -79,7 +77,7 @@ inline void Sanitize(void const* sv) {
     core::mem_recorder::MemRecorder seg;
     core::mem_recorder::MemRecorder data;
 
-    StagingSegVectorNS::Sanitize(&pack->sv, &seg, &data);
+    StagingSegVectorNS::Sanitize(pack->sv, &seg, &data);
 
     core::mem_recorder::MatchRecords(&pack->seg_alctr.mem_recorder, &seg);
     core::mem_recorder::MatchRecords(&pack->data_alctr.mem_recorder, &data);

@@ -33,9 +33,9 @@ SeqCntrRef Create() {
 
     dd->elem_size = sizeof(Elem);
 
-    DebugDequeNS::Init(dd);
+    DebugDequeNS::Init(*dd);
 
-    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(dd) };
+    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(*dd) };
 
     seq_cntr_utils::AddSanitizeFunc(dd, Sanitize);
 
@@ -51,7 +51,7 @@ inline void Destroy(void* dd_) {
 
     Pack* pack{ ZETA_Core_MemberToStruct(Pack, debug_deque, dd) };
 
-    DebugDequeNS::Deinit(dd);
+    DebugDequeNS::Deinit(*dd);
 
     delete pack;
 }

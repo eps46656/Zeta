@@ -10,21 +10,18 @@
 
 namespace zeta::core {
 
-inline void seg_utils::SegShoveL(circular_array::Cntr* l_ca,
-                                 circular_array::Cntr* r_ca, size_t shove_cnt) {
-    ZETA_Core_DebugAssert(l_ca != nullptr);
-    ZETA_Core_DebugAssert(r_ca != nullptr);
+inline void seg_utils::SegShoveL(circular_array::Cntr& l_ca,
+                                 circular_array::Cntr& r_ca, size_t shove_cnt) {
+    ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
-    ZETA_Core_DebugAssert(l_ca->elem_size == r_ca->elem_size);
-
-    size_t l_vac{ l_ca->elem_capacity - l_ca->elem_cnt };
+    size_t l_vac{ l_ca.elem_capacity - l_ca.elem_cnt };
 
     ZETA_Core_DebugAssert(shove_cnt <= l_vac);
-    ZETA_Core_DebugAssert(shove_cnt <= r_ca->elem_cnt);
+    ZETA_Core_DebugAssert(shove_cnt <= r_ca.elem_cnt);
 
     if (shove_cnt == 0) { return; }
 
-    size_t l_elem_cnt{ l_ca->elem_cnt };
+    size_t l_elem_cnt{ l_ca.elem_cnt };
 
     circular_array::PushR(l_ca, shove_cnt, seq_cntr::EmptyWriter{}, nullptr);
 
@@ -34,21 +31,18 @@ inline void seg_utils::SegShoveL(circular_array::Cntr* l_ca,
     circular_array::PopL(r_ca, shove_cnt);
 }
 
-inline void seg_utils::SegShoveR(circular_array::Cntr* l_ca,
-                                 circular_array::Cntr* r_ca, size_t shove_cnt) {
-    ZETA_Core_DebugAssert(l_ca != nullptr);
-    ZETA_Core_DebugAssert(r_ca != nullptr);
+inline void seg_utils::SegShoveR(circular_array::Cntr& l_ca,
+                                 circular_array::Cntr& r_ca, size_t shove_cnt) {
+    ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
-    ZETA_Core_DebugAssert(l_ca->elem_size == r_ca->elem_size);
-
-    size_t r_vac{ r_ca->elem_capacity - r_ca->elem_cnt };
+    size_t r_vac{ r_ca.elem_capacity - r_ca.elem_cnt };
 
     ZETA_Core_DebugAssert(shove_cnt <= r_vac);
-    ZETA_Core_DebugAssert(shove_cnt <= l_ca->elem_cnt);
+    ZETA_Core_DebugAssert(shove_cnt <= l_ca.elem_cnt);
 
     if (shove_cnt == 0) { return; }
 
-    size_t l_elem_cnt{ l_ca->elem_cnt };
+    size_t l_elem_cnt{ l_ca.elem_cnt };
 
     circular_array::PushL(r_ca, shove_cnt, seq_cntr::EmptyWriter{}, nullptr);
 
@@ -59,24 +53,21 @@ inline void seg_utils::SegShoveR(circular_array::Cntr* l_ca,
 }
 
 template <typename Writer>
-void seg_utils::SegInsertShoveL(circular_array::Cntr* l_ca,
-                                circular_array::Cntr* r_ca, size_t rl_cnt,
+void seg_utils::SegInsertShoveL(circular_array::Cntr& l_ca,
+                                circular_array::Cntr& r_ca, size_t rl_cnt,
                                 size_t ins_cnt, size_t shove_cnt,
                                 Writer&& writer) {
-    ZETA_Core_DebugAssert(l_ca != nullptr);
-    ZETA_Core_DebugAssert(r_ca != nullptr);
+    ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
-    ZETA_Core_DebugAssert(l_ca->elem_size == r_ca->elem_size);
+    size_t l_vac{ l_ca.elem_capacity - l_ca.elem_cnt };
+    size_t r_vac{ r_ca.elem_capacity - r_ca.elem_cnt };
 
-    size_t l_vac{ l_ca->elem_capacity - l_ca->elem_cnt };
-    size_t r_vac{ r_ca->elem_capacity - r_ca->elem_cnt };
-
-    ZETA_Core_DebugAssert(rl_cnt <= r_ca->elem_cnt);
+    ZETA_Core_DebugAssert(rl_cnt <= r_ca.elem_cnt);
     ZETA_Core_DebugAssert(ins_cnt <= l_vac + r_vac);
     ZETA_Core_DebugAssert(shove_cnt <= l_vac);
-    ZETA_Core_DebugAssert(shove_cnt <= r_ca->elem_cnt + ins_cnt);
-    ZETA_Core_DebugAssert(r_ca->elem_cnt + ins_cnt - shove_cnt <=
-                          r_ca->elem_capacity);
+    ZETA_Core_DebugAssert(shove_cnt <= r_ca.elem_cnt + ins_cnt);
+    ZETA_Core_DebugAssert(r_ca.elem_cnt + ins_cnt - shove_cnt <=
+                          r_ca.elem_capacity);
 
     if (ins_cnt == 0 && shove_cnt == 0) { return; }
 
@@ -84,7 +75,7 @@ void seg_utils::SegInsertShoveL(circular_array::Cntr* l_ca,
     size_t cnt_b{ utils::Min(ins_cnt, shove_cnt - cnt_a) };
     size_t cnt_c{ shove_cnt - cnt_a - cnt_b };
 
-    size_t l_elem_cnt{ l_ca->elem_cnt };
+    size_t l_elem_cnt{ l_ca.elem_cnt };
 
     circular_array::PushR(l_ca, shove_cnt, seq_cntr::EmptyWriter{}, nullptr);
 
@@ -112,24 +103,21 @@ void seg_utils::SegInsertShoveL(circular_array::Cntr* l_ca,
 }
 
 template <typename Writer>
-void seg_utils::SegInsertShoveR(circular_array::Cntr* l_ca,
-                                circular_array::Cntr* r_ca, size_t lr_cnt,
+void seg_utils::SegInsertShoveR(circular_array::Cntr& l_ca,
+                                circular_array::Cntr& r_ca, size_t lr_cnt,
                                 size_t ins_cnt, size_t shove_cnt,
                                 Writer&& writer) {
-    ZETA_Core_DebugAssert(l_ca != nullptr);
-    ZETA_Core_DebugAssert(r_ca != nullptr);
+    ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
-    ZETA_Core_DebugAssert(l_ca->elem_size == r_ca->elem_size);
+    size_t l_vac{ l_ca.elem_capacity - l_ca.elem_cnt };
+    size_t r_vac{ r_ca.elem_capacity - r_ca.elem_cnt };
 
-    size_t l_vac{ l_ca->elem_capacity - l_ca->elem_cnt };
-    size_t r_vac{ r_ca->elem_capacity - r_ca->elem_cnt };
-
-    ZETA_Core_DebugAssert(lr_cnt <= l_ca->elem_cnt);
+    ZETA_Core_DebugAssert(lr_cnt <= l_ca.elem_cnt);
     ZETA_Core_DebugAssert(ins_cnt <= l_vac + r_vac);
     ZETA_Core_DebugAssert(shove_cnt <= r_vac);
-    ZETA_Core_DebugAssert(shove_cnt <= l_ca->elem_cnt + ins_cnt);
-    ZETA_Core_DebugAssert(l_ca->elem_cnt + ins_cnt - shove_cnt <=
-                          l_ca->elem_capacity);
+    ZETA_Core_DebugAssert(shove_cnt <= l_ca.elem_cnt + ins_cnt);
+    ZETA_Core_DebugAssert(l_ca.elem_cnt + ins_cnt - shove_cnt <=
+                          l_ca.elem_capacity);
 
     if (ins_cnt == 0 && shove_cnt == 0) { return; }
 
@@ -137,7 +125,7 @@ void seg_utils::SegInsertShoveR(circular_array::Cntr* l_ca,
     size_t cnt_b{ utils::Min(ins_cnt, shove_cnt - cnt_a) };
     size_t cnt_c{ shove_cnt - cnt_a - cnt_b };
 
-    size_t l_elem_cnt{ l_ca->elem_cnt };
+    size_t l_elem_cnt{ l_ca.elem_cnt };
 
     circular_array::PushL(r_ca, shove_cnt, seq_cntr::EmptyWriter{}, nullptr);
 
@@ -164,20 +152,17 @@ void seg_utils::SegInsertShoveR(circular_array::Cntr* l_ca,
     }
 }
 
-inline void seg_utils::SegEraseShoveL(circular_array::Cntr* l_ca,
-                                      circular_array::Cntr* r_ca, size_t rl_cnt,
+inline void seg_utils::SegEraseShoveL(circular_array::Cntr& l_ca,
+                                      circular_array::Cntr& r_ca, size_t rl_cnt,
                                       size_t ers_cnt, size_t shove_cnt) {
-    ZETA_Core_DebugAssert(l_ca != nullptr);
-    ZETA_Core_DebugAssert(r_ca != nullptr);
+    ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
-    ZETA_Core_DebugAssert(l_ca->elem_size == r_ca->elem_size);
+    size_t l_vac{ l_ca.elem_capacity - l_ca.elem_cnt };
 
-    size_t l_vac{ l_ca->elem_capacity - l_ca->elem_cnt };
-
-    ZETA_Core_DebugAssert(rl_cnt <= r_ca->elem_cnt);
-    ZETA_Core_DebugAssert(ers_cnt <= r_ca->elem_cnt - rl_cnt);
+    ZETA_Core_DebugAssert(rl_cnt <= r_ca.elem_cnt);
+    ZETA_Core_DebugAssert(ers_cnt <= r_ca.elem_cnt - rl_cnt);
     ZETA_Core_DebugAssert(shove_cnt <= l_vac);
-    ZETA_Core_DebugAssert(shove_cnt <= r_ca->elem_cnt - ers_cnt);
+    ZETA_Core_DebugAssert(shove_cnt <= r_ca.elem_cnt - ers_cnt);
 
     if (ers_cnt == 0 && shove_cnt == 0) { return; }
 
@@ -185,7 +170,7 @@ inline void seg_utils::SegEraseShoveL(circular_array::Cntr* l_ca,
     size_t cnt_b{ ers_cnt };
     size_t cnt_c{ shove_cnt - cnt_a };
 
-    size_t l_elem_cnt{ l_ca->elem_cnt };
+    size_t l_elem_cnt{ l_ca.elem_cnt };
 
     circular_array::PushR(l_ca, shove_cnt, seq_cntr::EmptyWriter{}, nullptr);
 
@@ -202,20 +187,17 @@ inline void seg_utils::SegEraseShoveL(circular_array::Cntr* l_ca,
     circular_array::PopL(r_ca, cnt_a + cnt_b + cnt_c);
 }
 
-inline void seg_utils::SegEraseShoveR(circular_array::Cntr* l_ca,
-                                      circular_array::Cntr* r_ca, size_t lr_cnt,
+inline void seg_utils::SegEraseShoveR(circular_array::Cntr& l_ca,
+                                      circular_array::Cntr& r_ca, size_t lr_cnt,
                                       size_t ers_cnt, size_t shove_cnt) {
-    ZETA_Core_DebugAssert(l_ca != nullptr);
-    ZETA_Core_DebugAssert(r_ca != nullptr);
+    ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
-    ZETA_Core_DebugAssert(l_ca->elem_size == r_ca->elem_size);
+    size_t r_vac{ r_ca.elem_capacity - r_ca.elem_cnt };
 
-    size_t r_vac{ r_ca->elem_capacity - r_ca->elem_cnt };
-
-    ZETA_Core_DebugAssert(lr_cnt <= l_ca->elem_cnt);
-    ZETA_Core_DebugAssert(ers_cnt <= l_ca->elem_cnt - lr_cnt);
+    ZETA_Core_DebugAssert(lr_cnt <= l_ca.elem_cnt);
+    ZETA_Core_DebugAssert(ers_cnt <= l_ca.elem_cnt - lr_cnt);
     ZETA_Core_DebugAssert(shove_cnt <= r_vac);
-    ZETA_Core_DebugAssert(shove_cnt <= l_ca->elem_cnt - ers_cnt);
+    ZETA_Core_DebugAssert(shove_cnt <= l_ca.elem_cnt - ers_cnt);
 
     if (ers_cnt == 0 && shove_cnt == 0) { return; }
 
@@ -227,12 +209,12 @@ inline void seg_utils::SegEraseShoveR(circular_array::Cntr* l_ca,
 
     if (0 < cnt_c) {
         circular_array::AssignFromCircularArray(
-            r_ca, 0, l_ca, l_ca->elem_cnt - cnt_a - cnt_b - cnt_c, cnt_c);
+            r_ca, 0, l_ca, l_ca.elem_cnt - cnt_a - cnt_b - cnt_c, cnt_c);
     }
 
     if (0 < cnt_a) {
         circular_array::AssignFromCircularArray(r_ca, cnt_c, l_ca,
-                                                l_ca->elem_cnt - cnt_a, cnt_a);
+                                                l_ca.elem_cnt - cnt_a, cnt_a);
     }
 
     circular_array::PopR(l_ca, cnt_a + cnt_b + cnt_c);

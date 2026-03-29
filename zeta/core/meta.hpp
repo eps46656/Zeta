@@ -87,120 +87,120 @@ constexpr bool IsAnyOf{ detail::IsAnyOf_<X, Ts...>::value };
 
 namespace detail {
 
-template <typename T>
+template <typename Type_>
 struct RemoveConst_ {
-    using type = T;
+    using Type = Type_;
 };
 
 template <typename T>
 struct RemoveConst_<T const> {
-    using type = T;
+    using Type = T;
 };
 
 }  // namespace detail
 
 template <typename T>
-using RemoveConst = typename detail::RemoveConst_<T>::type;
+using RemoveConst = typename detail::RemoveConst_<T>::Type;
 
 namespace detail {
 
 template <typename T>
 struct RemoveVolatile_ {
-    using type = T;
+    using Type = T;
 };
 
 template <typename T>
 struct RemoveVolatile_<volatile T> {
-    using type = T;
+    using Type = T;
 };
 
 }  // namespace detail
 
 template <typename T>
-using RemoveVolatile = typename detail::RemoveVolatile_<T>::type;
+using RemoveVolatile = typename detail::RemoveVolatile_<T>::Type;
 
 namespace detail {
 
 template <typename T>
 struct RemovePointer_ {
-    using type = T;
+    using Type = T;
 };
 
 template <typename T>
 struct RemovePointer_<T*> {
-    using type = T;
+    using Type = T;
 };
 
 }  // namespace detail
 
 template <typename T>
-using RemovePointer = typename detail::RemovePointer_<T>::type;
+using RemovePointer = typename detail::RemovePointer_<T>::Type;
 
 namespace detail {
 
 template <typename T>
 struct RemoveRef_ {
-    using type = T;
+    using Type = T;
 };
 
 template <typename T>
 struct RemoveRef_<T&> {
-    using type = T;
+    using Type = T;
 };
 
 template <typename T>
 struct RemoveRef_<T&&> {
-    using type = T;
+    using Type = T;
 };
 
 }  // namespace detail
 
 template <typename T>
-using RemoveRef = typename detail::RemoveRef_<T>::type;
+using RemoveRef = typename detail::RemoveRef_<T>::Type;
 
 namespace detail {
 
 template <typename T>
 struct RemoveArray_ {
-    using type = T;
+    using Type = T;
 };
 
 template <typename T>
 struct RemoveArray_<T[]> {
-    using type = T;
+    using Type = T;
 };
 
 template <typename T, size_t N>
 struct RemoveArray_<T[N]> {
-    using type = T;
+    using Type = T;
 };
 
 }  // namespace detail
 
 template <typename T>
-using RemoveArray = typename detail::RemoveArray_<T>::type;
+using RemoveArray = typename detail::RemoveArray_<T>::Type;
 
 namespace detail {
 
 template <typename T>
 struct RemoveAllArrays_ {
-    using type = T;
+    using Type = T;
 };
 
 template <typename T>
 struct RemoveAllArrays_<T[]> {
-    using type = typename RemoveAllArrays_<T>::type;
+    using Type = typename RemoveAllArrays_<T>::Type;
 };
 
 template <typename T, size_t N>
 struct RemoveAllArrays_<T[N]> {
-    using type = typename RemoveAllArrays_<T>::type;
+    using Type = typename RemoveAllArrays_<T>::Type;
 };
 
 }  // namespace detail
 
 template <typename T>
-using RemoveAllArrays = typename detail::RemoveAllArrays_<T>::type;
+using RemoveAllArrays = typename detail::RemoveAllArrays_<T>::Type;
 
 template <typename T>
 using RemoveCV = RemoveConst<RemoveVolatile<T>>;
@@ -309,6 +309,9 @@ constexpr bool IsTriviallyConstructible{ __is_trivially_constructible(T) };
 template <typename T>
 constexpr bool IsTriviallyDestructible{ __is_trivially_destructible(T) };
 
+template <typename T>
+using VoidT = void;
+
 namespace detail {
 
 template <bool Cond, typename T1, typename T2>
@@ -316,18 +319,18 @@ struct Conditional_;
 
 template <typename T1, typename T2>
 struct Conditional_<true, T1, T2> {
-    using type = T1;
+    using Type = T1;
 };
 
 template <typename T1, typename T2>
 struct Conditional_<false, T1, T2> {
-    using type = T2;
+    using Type = T2;
 };
 
 }  // namespace detail
 
 template <bool Cond, typename T1, typename T2>
-using Conditional = typename detail::Conditional_<Cond, T1, T2>::type;
+using Conditional = typename detail::Conditional_<Cond, T1, T2>::Type;
 
 namespace detail {
 
@@ -336,7 +339,7 @@ struct EnableIf_;
 
 template <>
 struct EnableIf_<true, void> {
-    using type = void;
+    using Type = void;
 };
 
 template <>
@@ -345,43 +348,7 @@ struct EnableIf_<false, void> {};
 }  // namespace detail
 
 template <bool Cond, typename _ = void>
-using EnableIf = typename detail::EnableIf_<Cond, _>::type;
-
-namespace detail {
-
-template <typename, typename Func, typename... Args>
-struct IsInvocable_ {
-    static constexpr bool value{ false };
-};
-
-template <typename Func, typename... Args>
-struct IsInvocable_<decltype((
-                        Declval<Func>()(Forward<Args>(Declval<Args>())...), 0)),
-                    Func, Args...> {
-    static constexpr bool value{ true };
-};
-
-}  // namespace detail
-
-template <typename Func, typename... Args>
-constexpr bool IsInvocable{ detail::IsInvocable_<int, Func, Args...>::value };
-
-namespace detail {
-
-template <auto FuncInst, typename FuncType>
-struct IsInvocableAny_;
-
-template <auto FuncInst, typename Ret, typename... Args>
-struct IsInvocableAny_<FuncInst, Ret(Args...)> {
-    static constexpr bool value{ IsInvocable<Ret(Args...), Args...> };
-};
-
-}  // namespace detail
-
-template <auto FuncInst>
-constexpr bool IsInvocableAny{
-    detail::IsInvocableAny_<FuncInst, decltype(FuncInst)>::value
-};
+using EnableIf = typename detail::EnableIf_<Cond, _>::Type;
 
 template <typename FromT, typename ToT>
 constexpr bool IsConvertible{ __is_convertible(FromT, ToT) };
@@ -397,6 +364,54 @@ template <typename T>
 constexpr T&& Forward(RemoveRef<T>& t) {
     return static_cast<T&&>(t);
 }
+
+namespace detail {
+
+template <typename, typename Func, typename... Args>
+struct IsInvocable_ {
+    static constexpr bool value{ false };
+};
+
+template <typename Func, typename... Args>
+struct IsInvocable_<VoidT<decltype(Declval<Func>()(Declval<Args>()...))>, Func,
+                    Args...> {
+    static constexpr bool value{ true };
+};
+
+template <typename, typename Ret, typename Func, typename... Args>
+struct IsInvocableR_ {
+    static constexpr bool value{ false };
+};
+
+template <typename Ret, typename Func, typename... Args>
+struct IsInvocableR_<
+    EnableIf<IsConvertible<decltype(Declval<Func>()(Declval<Args>()...)), Ret>>,
+    Ret, Func, Args...> {
+    static constexpr bool value{ true };
+};
+
+}  // namespace detail
+
+template <typename Func, typename... Args>
+constexpr bool IsInvocable{ detail::IsInvocable_<void, Func, Args...>::value };
+
+template <typename Ret, typename Func, typename... Args>
+constexpr bool IsInvocableR{
+    detail::IsInvocableR_<void, Ret, Func, Args...>::value
+};
+
+template <typename Type_>
+struct TypeWrapper {
+    using Type = Type_;
+
+    constexpr TypeWrapper() = default;
+
+    template <typename T, typename = EnableIf<IsConvertible<T, Type>>>
+    constexpr TypeWrapper  // NOLINT(
+                           // google-explicit-constructor,
+                           // hicpp-explicit-conversions)
+        (TypeWrapper<T> const&){};
+};
 
 namespace detail {
 
@@ -457,17 +472,8 @@ constexpr decltype(auto) GetNthArg(Args&&... args) {
     );
 }
 
-namespace detail {
-
-template <typename T>
-struct GetNthTypeWrapper_ {
-    using type = T;
-};
-
-}  // namespace detail
-
 template <size_t N, typename... Ts>
-using GetNthType = RemoveCVRef<decltype(GetNthArg<N>(
-    detail::GetNthTypeWrapper_<Ts>{}...))>::type;
+using GetNthType =
+    RemoveCVRef<decltype(GetNthArg<N>(TypeWrapper<Ts>{}...))>::Type;
 
 }  // namespace zeta::core::meta

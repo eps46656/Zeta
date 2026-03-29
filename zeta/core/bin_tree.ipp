@@ -85,8 +85,10 @@ void bin_tree::CheckContract() {
 
 #pragma push_macro("CheckMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CheckMethod(method, ...) \
-    ZETA_Core_Unused([=]() { method<BinTreeNode>(__VA_ARGS__); })
+#define CheckMethod(method, ...)                                               \
+    ZETA_Core_Unused((                                                         \
+        meta::Conditional<false, decltype((method<BinTreeNode>)(__VA_ARGS__)), \
+                          int>{}))
 
     CheckMethod(GetP, btn);
     CheckMethod(GetL, btn);
@@ -345,8 +347,8 @@ void bin_tree::Swap(BinTreeNode* n, BinTreeNode* m) {
         (SetAccSize)(n, m_acc_size);
         (SetAccSize)(m, n_acc_size);
 
-        AddDiffSize(n, n_size - m_size);
-        AddDiffSize(m, m_size - n_size);
+        (AddDiffSize)(n, n_size - m_size);
+        (AddDiffSize)(m, m_size - n_size);
     }
 }
 
@@ -486,20 +488,20 @@ BinTreeNode* bin_tree::StepPR(BinTreeNode* n) {
 
 #pragma push_macro("Step_")
 
-#define Step_(D, E)                                     \
-    (CheckContract<BinTreeNode>)();                     \
-                                                        \
-    ZETA_Core_DebugAssert(n != nullptr);                \
-                                                        \
-    BinTreeNode* nd{ (Get##D)(n) };                     \
-                                                        \
-    if (nd != nullptr) { return GetMost##E(nd).first; } \
-                                                        \
-    for (;;) {                                          \
-        BinTreeNode* np{ (GetP)(n) };                   \
-        if (np == nullptr) { return nullptr; }          \
-        if ((Get##E)(np) == n) { return np; }           \
-        n = np;                                         \
+#define Step_(D, E)                                       \
+    (CheckContract<BinTreeNode>)();                       \
+                                                          \
+    ZETA_Core_DebugAssert(n != nullptr);                  \
+                                                          \
+    BinTreeNode* nd{ (Get##D)(n) };                       \
+                                                          \
+    if (nd != nullptr) { return (GetMost##E)(nd).first; } \
+                                                          \
+    for (;;) {                                            \
+        BinTreeNode* np{ (GetP)(n) };                     \
+        if (np == nullptr) { return nullptr; }            \
+        if ((Get##E)(np) == n) { return np; }             \
+        n = np;                                           \
     }
 
 template <typename BinTreeNode>

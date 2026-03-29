@@ -121,7 +121,7 @@ template <CntrTplParamList, typename NavNodeAllocatorInitArg
           typename DataNodeAllocatorInitArg
 #endif
           >
-void Init(Cntr<CntrTplArgList>* cntr, unsigned level,
+void Init(Cntr<CntrTplArgList>& cntr, unsigned level,
           unsigned short const* branch_nums
 #if EnData
           ,
@@ -141,7 +141,7 @@ void Init(Cntr<CntrTplArgList>* cntr, unsigned level,
  * @param cntr The target cntr.
  */
 template <CntrTplParamList>
-void Deinit(Cntr<CntrTplArgList>* cntr);
+void Deinit(Cntr<CntrTplArgList>& cntr);
 
 /**
  * @brief Get the size of cntr. Assume the value does not overflow max range
@@ -150,7 +150,7 @@ void Deinit(Cntr<CntrTplArgList>* cntr);
  * @param cntr The target cntr.
  */
 template <CntrTplParamList>
-size_t GetSize(Cntr<CntrTplArgList>* cntr);
+size_t GetSize(Cntr<CntrTplArgList>& cntr);
 
 /**
  * @brief Get the total capacity of cntr. Assume the value does not overflow
@@ -159,7 +159,7 @@ size_t GetSize(Cntr<CntrTplArgList>* cntr);
  * @param cntr The target cntr.
  */
 template <CntrTplParamList>
-size_t GetCapacity(Cntr<CntrTplArgList>* cntr);
+size_t GetCapacity(Cntr<CntrTplArgList>& cntr);
 
 /**
  * @brief Get the reference of target entry by indexes.
@@ -171,13 +171,13 @@ size_t GetCapacity(Cntr<CntrTplArgList>* cntr);
  * nullptr.
  */
 template <CntrTplParamList>
-void* Access(Cntr<CntrTplArgList>* cntr, size_t* idxes);
+void* Access(Cntr<CntrTplArgList>& cntr, size_t* idxes);
 
 template <CntrTplParamList>
-void* FindFirst(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes);
+void* FindFirst(Cntr<CntrTplArgList>& cntr, size_t* dst_idxes);
 
 template <CntrTplParamList>
-void* FindLast(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes);
+void* FindLast(Cntr<CntrTplArgList>& cntr, size_t* dst_idxes);
 
 /**
  * @brief Find the first entry before idx.
@@ -188,7 +188,7 @@ void* FindLast(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes);
  * @return The reference of target entry.
  */
 template <CntrTplParamList>
-void* FindPrev(Cntr<CntrTplArgList>* cntr, size_t* idxes, bool included);
+void* FindPrev(Cntr<CntrTplArgList>& cntr, size_t* idxes, bool included);
 
 /**
  * @brief Find the first entry after idx.
@@ -199,7 +199,7 @@ void* FindPrev(Cntr<CntrTplArgList>* cntr, size_t* idxes, bool included);
  * @return The reference of target entry.
  */
 template <CntrTplParamList>
-void* FindNext(Cntr<CntrTplArgList>* cntr, size_t* idxes, bool included);
+void* FindNext(Cntr<CntrTplArgList>& cntr, size_t* idxes, bool included);
 
 /**
  * @brief Insert a new entry at idxes then return its reference. If
@@ -211,7 +211,7 @@ void* FindNext(Cntr<CntrTplArgList>* cntr, size_t* idxes, bool included);
  * @return The reference of target entry.
  */
 template <CntrTplParamList>
-utils::Pair<void*, bool> Insert(Cntr<CntrTplArgList>* cntr, size_t* idxes);
+utils::Pair<void*, bool> Insert(Cntr<CntrTplArgList>& cntr, size_t* idxes);
 
 /**
  * @brief Erase the target entry by indexes. If it has not existen.
@@ -222,7 +222,7 @@ utils::Pair<void*, bool> Insert(Cntr<CntrTplArgList>* cntr, size_t* idxes);
  * @return The reference of target entry.
  */
 template <CntrTplParamList>
-bool Erase(Cntr<CntrTplArgList>* cntr, size_t* idxes);
+bool Erase(Cntr<CntrTplArgList>& cntr, size_t* idxes);
 
 /**
  * @brief Erase all existed entries.
@@ -230,10 +230,10 @@ bool Erase(Cntr<CntrTplArgList>* cntr, size_t* idxes);
  * @param cntr The target cntr.
  */
 template <CntrTplParamList>
-void EraseAll(Cntr<CntrTplArgList>* cntr);
+void EraseAll(Cntr<CntrTplArgList>& cntr);
 
 template <CntrTplParamList>
-void Sanitize(Cntr<CntrTplArgList>* cntr,
+void Sanitize(Cntr<CntrTplArgList>& cntr,
               mem_recorder::MemRecorder* dst_nav_node
 #if EnData
               ,

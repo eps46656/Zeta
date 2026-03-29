@@ -12,16 +12,16 @@ struct Ref {
     void* alctr;
 };
 
-size_t GetAlign(Ref const* ref);
+size_t GetAlign(Ref const& ref);
 
-void* Allocate(Ref* ref, size_t size);
+void* Allocate(Ref& ref, size_t size);
 
-void Deallocate(Ref* ref, void* ptr);
+void Deallocate(Ref& ref, void* ptr);
 
-void CheckRef(Ref* ref);
+void CheckRef(Ref& ref);
 
-template <typename AllocatorLike>
-Ref MakeRef(AllocatorLike&& alctr);
+template <typename Allocator>
+Ref MakeRef(Allocator& alctr);
 
 }  // namespace zeta::core::allocator_ref
 
@@ -29,17 +29,17 @@ namespace zeta::core {
 
 template <>
 struct allocator::AllocatorTraits<allocator_ref::Ref const, void> {
-    static void* GetReferedInst(allocator_ref::Ref const* ref);
+    static void* GetReferedInst(allocator_ref::Ref const& ref);
 
-    static size_t GetAlign(allocator_ref::Ref const* ref);
+    static size_t GetAlign(allocator_ref::Ref const& ref);
 };
 
 template <>
 struct allocator::AllocatorTraits<allocator_ref::Ref, void>
     : public allocator::AllocatorTraits<allocator_ref::Ref const, void> {
-    static void* Allocate(allocator_ref::Ref* ref, size_t size);
+    static void* Allocate(allocator_ref::Ref& ref, size_t size);
 
-    static void Deallocate(allocator_ref::Ref* ref, void* ptr);
+    static void Deallocate(allocator_ref::Ref& ref, void* ptr);
 };
 
 }  // namespace zeta::core

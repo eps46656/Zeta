@@ -45,14 +45,12 @@ namespace NameSpace::detail {
 
 template <CntrTplParamList>
 void Check_  // NOLINT(misc-use-internal-linkage)
-    (Cntr<CntrTplArgList>* cntr) {
-    ZETA_Core_DebugAssert(cntr != nullptr);
-
-    unsigned level{ cntr->level };
+    (Cntr<CntrTplArgList>& cntr) {
+    unsigned level{ cntr.level };
     ZETA_Core_DebugAssert(0 < level);
     ZETA_Core_DebugAssert(level <= max_level);
 
-    unsigned short const* branch_nums{ cntr->branch_nums };
+    unsigned short const* branch_nums{ cntr.branch_nums };
 
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
         unsigned branch_num{ branch_nums[level_i] };
@@ -64,13 +62,13 @@ void Check_  // NOLINT(misc-use-internal-linkage)
 
 template <CntrTplParamList>
 void CheckIdxes_  // NOLINT(misc-use-internal-linkage)
-    (Cntr<CntrTplArgList>* cntr, size_t const* idxes) {
-    Check_(cntr);
+    (Cntr<CntrTplArgList>& cntr, size_t const* idxes) {
+    (Check_)(cntr);
 
     ZETA_Core_DebugAssert(idxes != nullptr);
 
-    unsigned level{ cntr->level };
-    unsigned short const* branch_nums{ cntr->branch_nums };
+    unsigned level{ cntr.level };
+    unsigned short const* branch_nums{ cntr.branch_nums };
 
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
         ZETA_Core_DebugAssert(idxes[level_i] < branch_nums[level_i]);
@@ -84,7 +82,7 @@ constexpr bool TestActiveMap_  // NOLINT(misc-use-internal-linkage)
 
 template <typename NavNodeAllocator>
 void* AllocateNavNode_  // NOLINT(misc-use-internal-linkage)
-    (size_t branch_num, NavNodeAllocator* nav_node_alctr) {
+    (size_t branch_num, NavNodeAllocator& nav_node_alctr) {
     auto* nav_node{ static_cast<NavNode*>(
         allocator::SafeAllocate(nav_node_alctr, alignof(NavNode),
                                 offsetof(NavNode, ptrs[branch_num]))) };
@@ -96,14 +94,14 @@ void* AllocateNavNode_  // NOLINT(misc-use-internal-linkage)
 
 template <typename NavNodeAllocator>
 void DeallocateNavNode_  // NOLINT(misc-use-internal-linkage)
-    (NavNodeAllocator* node_alctr, void* node) {
+    (NavNodeAllocator& node_alctr, void* node) {
     allocator::Deallocate(node_alctr,
                           ZETA_Core_MemberToStruct(NavNode, active_map, node));
 }
 
 #if EnData
 
-inline size_t CalcDataNodeSize_  // NOLINT(misc-use-internal-linkage)
+inline size_t(CalcDataNodeSize_)  // NOLINT(misc-use-internal-linkage)
     (size_t stride, size_t branch_num) {
     return integral_math::AlignUp(
         stride * branch_num + sizeof(unsigned long long),
@@ -112,8 +110,8 @@ inline size_t CalcDataNodeSize_  // NOLINT(misc-use-internal-linkage)
 
 template <typename DataNodeAllocator>
 void* AllocateDataNode_  // NOLINT(misc-use-internal-linkage)
-    (size_t stride, size_t branch_num, DataNodeAllocator* data_node_alctr) {
-    size_t data_node_size{ CalcDataNodeSize_(stride, branch_num) };
+    (size_t stride, size_t branch_num, DataNodeAllocator& data_node_alctr) {
+    size_t data_node_size{ (CalcDataNodeSize_)(stride, branch_num) };
 
     void* data_node{ static_cast<char*>(allocator::SafeAllocate(
                          data_node_alctr, alignof(unsigned long long),
@@ -127,7 +125,7 @@ void* AllocateDataNode_  // NOLINT(misc-use-internal-linkage)
 
 template <typename DataNodeAllocator>
 void DeAllocateDataNode_  // NOLINT(misc-use-internal-linkage)
-    (size_t stride, size_t branch_num, DataNodeAllocator* data_node_alctr,
+    (size_t stride, size_t branch_num, DataNodeAllocator& data_node_alctr,
      void* node) {
     allocator::Deallocate(
         data_node_alctr,
@@ -145,7 +143,7 @@ template <CntrTplParamList, typename NavNodeAllocatorInitArg
           typename DataNodeAllocatorInitArg
 #endif
           >
-void NameSpace::Init(Cntr<CntrTplArgList>* cntr, unsigned level,
+void NameSpace::Init(Cntr<CntrTplArgList>& cntr, unsigned level,
                      unsigned short const* branch_nums
 #if EnData
                      ,
@@ -171,53 +169,52 @@ void NameSpace::Init(Cntr<CntrTplArgList>* cntr, unsigned level,
     }
 
 #if EnData
-    ZETA_Core_DebugAssert(0 < cntr->stride);
+    ZETA_Core_DebugAssert(0 < cntr.stride);
 #endif
 
-    cntr->level = level;
-    cntr->branch_nums = branch_nums;
+    cntr.level = level;
+    cntr.branch_nums = branch_nums;
 
 #if EnData
-    cntr->stride = stride;
+    cntr.stride = stride;
 #endif
 
-    cntr->size = 0;
+    cntr.size = 0;
 
-    cntr->root = nullptr;
+    cntr.root = nullptr;
 
-    lifecycle::Init(
-        cntr->nav_node_alctr,
-        meta::Forward<NavNodeAllocatorInitArg>(nav_node_alctr_init_arg));
-    allocator::CheckContract(cntr->nav_node_alctr);
+    lifecycle::Init(cntr.nav_node_alctr, meta::Forward<NavNodeAllocatorInitArg>(
+                                             nav_node_alctr_init_arg));
+    allocator::CheckContract(cntr.nav_node_alctr);
 
 #if EnData
     lifecycle::Init(
-        cntr->data_node_alctr,
+        cntr.data_node_alctr,
         meta::Forward<DataNodeAllocatorInitArg>(data_node_alctr_init_arg));
-    allocator::CheckContract(cntr->data_node_alctr);
+    allocator::CheckContract(cntr.data_node_alctr);
 #endif
 }
 
 template <CntrTplParamList>
-void NameSpace::Deinit(Cntr<CntrTplArgList>* cntr) {
+void NameSpace::Deinit(Cntr<CntrTplArgList>& cntr) {
     EraseAll(cntr);
 }
 
 template <CntrTplParamList>
-size_t NameSpace::GetSize(Cntr<CntrTplArgList>* cntr) {
+size_t NameSpace::GetSize(Cntr<CntrTplArgList>& cntr) {
     detail::Check_(cntr);
 
-    return cntr->size;
+    return cntr.size;
 }
 
 template <CntrTplParamList>
-size_t NameSpace::GetCapacity(Cntr<CntrTplArgList>* cntr) {
+size_t NameSpace::GetCapacity(Cntr<CntrTplArgList>& cntr) {
     detail::Check_(cntr);
 
     size_t ret{ 1 };
 
-    unsigned level{ cntr->level };
-    unsigned short const* branch_nums{ cntr->branch_nums };
+    unsigned level{ cntr.level };
+    unsigned short const* branch_nums{ cntr.branch_nums };
 
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
         if (__builtin_umulll_overflow(ret, branch_nums[level_i], &ret)) {
@@ -229,17 +226,17 @@ size_t NameSpace::GetCapacity(Cntr<CntrTplArgList>* cntr) {
 }
 
 template <CntrTplParamList>
-void* NameSpace::Access(Cntr<CntrTplArgList>* cntr, size_t* idxes) {
+void* NameSpace::Access(Cntr<CntrTplArgList>& cntr, size_t* idxes) {
     detail::CheckIdxes_(cntr, idxes);
 
-    unsigned level{ cntr->level };
+    unsigned level{ cntr.level };
 
 #if EnData
-    unsigned short const* branch_nums{ cntr->branch_nums };
-    size_t stride{ cntr->stride };
+    unsigned short const* branch_nums{ cntr.branch_nums };
+    size_t stride{ cntr.stride };
 #endif
 
-    void* node{ cntr->root };
+    void* node{ cntr.root };
 
     if (node == nullptr) { return nullptr; }
 
@@ -263,17 +260,17 @@ void* NameSpace::Access(Cntr<CntrTplArgList>* cntr, size_t* idxes) {
 
 #if EnData
     return static_cast<char*>(node) + sizeof(unsigned long long) -
-           CalcDataNodeSize_(stride, branch_nums[0]) + stride * last_idx;
+           (CalcDataNodeSize_)(stride, branch_nums[0]) + stride * last_idx;
 #else
     return static_cast<void*>(static_cast<NavNode*>(node)->ptrs + last_idx);
 #endif
 }
 
 template <CntrTplParamList>
-void* NameSpace::FindFirst(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes) {
+void* NameSpace::FindFirst(Cntr<CntrTplArgList>& cntr, size_t* dst_idxes) {
     detail::Check_(cntr);
 
-    unsigned level{ cntr->level };
+    unsigned level{ cntr.level };
 
     size_t idxes[max_level];
 
@@ -293,11 +290,11 @@ void* NameSpace::FindFirst(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes) {
 }
 
 template <CntrTplParamList>
-void* NameSpace::FindLast(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes) {
+void* NameSpace::FindLast(Cntr<CntrTplArgList>& cntr, size_t* dst_idxes) {
     detail::Check_(cntr);
 
-    unsigned level{ cntr->level };
-    unsigned short const* branch_nums{ cntr->branch_nums };
+    unsigned level{ cntr.level };
+    unsigned short const* branch_nums{ cntr.branch_nums };
 
     size_t idxes[max_level];
 
@@ -305,7 +302,7 @@ void* NameSpace::FindLast(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes) {
         idxes[level_i] = branch_nums[level_i] - 1;
     }
 
-    void* ret{ FindPrev(cntr, idxes, true) };
+    void* ret{ (FindPrev)(cntr, idxes, true) };
 
     if (dst_idxes != nullptr) {
         for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
@@ -317,16 +314,16 @@ void* NameSpace::FindLast(Cntr<CntrTplArgList>* cntr, size_t* dst_idxes) {
 }
 
 template <CntrTplParamList>
-void* NameSpace::FindPrev(Cntr<CntrTplArgList>* cntr, size_t* idxes,
+void* NameSpace::FindPrev(Cntr<CntrTplArgList>& cntr, size_t* idxes,
                           bool included) {
     detail::CheckIdxes_(cntr, idxes);
 
-    unsigned level{ cntr->level };
-    unsigned short const* branch_nums{ cntr->branch_nums };
+    unsigned level{ cntr.level };
+    unsigned short const* branch_nums{ cntr.branch_nums };
 
 #if EnData
-    size_t stride{ cntr->stride };
-    size_t data_node_size{ CalcDataNodeSize_(stride, branch_nums[0]) };
+    size_t stride{ cntr.stride };
+    size_t data_node_size{ (CalcDataNodeSize_)(stride, branch_nums[0]) };
 #endif
 
     if (!included) {
@@ -344,7 +341,7 @@ void* NameSpace::FindPrev(Cntr<CntrTplArgList>* cntr, size_t* idxes,
 
 L1:
 
-    void* root{ cntr->root };
+    void* root{ cntr.root };
 
     if (root == nullptr) {
         for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
@@ -416,23 +413,23 @@ L1:
 
 #if EnData
     return static_cast<char*>(nodes[0]) + sizeof(unsigned long long) -
-           CalcDataNodeSize_(stride, branch_nums[0]) + stride * idxes[0];
+           (CalcDataNodeSize_)(stride, branch_nums[0]) + stride * idxes[0];
 #else
     return static_cast<void*>(static_cast<NavNode*>(nodes[0])->ptrs + idxes[0]);
 #endif
 }
 
 template <CntrTplParamList>
-void* NameSpace::FindNext(Cntr<CntrTplArgList>* cntr, size_t* idxes,
+void* NameSpace::FindNext(Cntr<CntrTplArgList>& cntr, size_t* idxes,
                           bool included) {
     detail::CheckIdxes_(cntr, idxes);
 
-    unsigned level{ cntr->level };
-    unsigned short const* branch_nums{ cntr->branch_nums };
+    unsigned level{ cntr.level };
+    unsigned short const* branch_nums{ cntr.branch_nums };
 
 #if EnData
-    size_t stride{ cntr->stride };
-    size_t data_node_size{ CalcDataNodeSize_(stride, branch_nums[0]) };
+    size_t stride{ cntr.stride };
+    size_t data_node_size{ (CalcDataNodeSize_)(stride, branch_nums[0]) };
 #endif
 
     if (!included) {
@@ -450,7 +447,7 @@ void* NameSpace::FindNext(Cntr<CntrTplArgList>* cntr, size_t* idxes,
 
 L1:
 
-    void* root{ cntr->root };
+    void* root{ cntr.root };
 
     if (root == nullptr) {
         for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
@@ -523,45 +520,45 @@ L1:
 
 #if EnData
     return static_cast<char*>(nodes[0]) + sizeof(unsigned long long) -
-           CalcDataNodeSize_(stride, branch_nums[0]) + stride * idxes[0];
+           (CalcDataNodeSize_)(stride, branch_nums[0]) + stride * idxes[0];
 #else
     return static_cast<void*>(static_cast<NavNode*>(nodes[0])->ptrs + idxes[0]);
 #endif
 }
 
 template <CntrTplParamList>
-utils::Pair<void*, bool> NameSpace::Insert(Cntr<CntrTplArgList>* cntr,
+utils::Pair<void*, bool> NameSpace::Insert(Cntr<CntrTplArgList>& cntr,
                                            size_t* idxes) {
     detail::CheckIdxes_(cntr, idxes);
 
-    unsigned level{ cntr->level };
-    unsigned short const* branch_nums{ cntr->branch_nums };
+    unsigned level{ cntr.level };
+    unsigned short const* branch_nums{ cntr.branch_nums };
 
 #if EnData
-    size_t stride{ cntr->stride };
+    size_t stride{ cntr.stride };
 #endif
 
-    auto* nav_node_alctr{ utils::GetInstPtr(cntr->nav_node_alctr) };
+    auto& nav_node_alctr{ utils::GetInstRef(cntr.nav_node_alctr) };
 
 #if EnData
-    auto* data_node_alctr{ utils::GetInstPtr(cntr->data_node_alctr) };
+    auto& data_node_alctr{ utils::GetInstRef(cntr.data_node_alctr) };
 #endif
 
-    if (cntr->root == nullptr) {
+    if (cntr.root == nullptr) {
 #if EnData
         if (level == 1) {
-            cntr->root = detail::AllocateDataNode_(stride, branch_nums[0],
-                                                   data_node_alctr);
+            cntr.root = detail::AllocateDataNode_(stride, branch_nums[0],
+                                                  data_node_alctr);
         } else
 #endif
         {
-            cntr->root = detail::AllocateNavNode_(branch_nums[level - 1],
-                                                  nav_node_alctr);
+            cntr.root = detail::AllocateNavNode_(branch_nums[level - 1],
+                                                 nav_node_alctr);
         }
     }
 
     unsigned level_i{ level - 1 };
-    void* node{ cntr->root };
+    void* node{ cntr.root };
 
     for (; 0 < level_i &&
            detail::TestActiveMap_(*static_cast<unsigned long long*>(node),
@@ -588,7 +585,7 @@ utils::Pair<void*, bool> NameSpace::Insert(Cntr<CntrTplArgList>* cntr,
     void* addr{
 #if EnData
         static_cast<char*>(node) + sizeof(unsigned long long) -
-        CalcDataNodeSize_(stride, branch_nums[0]) + stride * last_idx
+        (CalcDataNodeSize_)(stride, branch_nums[0]) + stride * last_idx
 #else
         static_cast<void*>(static_cast<NavNode*>(node)->ptrs + last_idx)
 #endif
@@ -599,7 +596,7 @@ utils::Pair<void*, bool> NameSpace::Insert(Cntr<CntrTplArgList>* cntr,
         static_cast<unsigned>(last_idx)) };
 
     if (newly_inserted) {
-        ++cntr->size;
+        ++cntr.size;
         *static_cast<unsigned long long*>(node) += (1ULL << last_idx);
     }
 
@@ -607,24 +604,24 @@ utils::Pair<void*, bool> NameSpace::Insert(Cntr<CntrTplArgList>* cntr,
 }
 
 template <CntrTplParamList>
-bool NameSpace::Erase(Cntr<CntrTplArgList>* cntr, size_t* idxes) {
+bool NameSpace::Erase(Cntr<CntrTplArgList>& cntr, size_t* idxes) {
     detail::CheckIdxes_(cntr, idxes);
 
-    unsigned level{ cntr->level };
+    unsigned level{ cntr.level };
 
 #if EnData
-    unsigned short const* branch_nums{ cntr->branch_nums };
-    size_t stride{ cntr->stride };
+    unsigned short const* branch_nums{ cntr.branch_nums };
+    size_t stride{ cntr.stride };
 #endif
 
-    void* node{ cntr->root };
+    void* node{ cntr.root };
 
     if (node == nullptr) { return false; }
 
-    auto* nav_node_alctr{ utils::GetInstPtr(cntr->nav_node_alctr) };
+    auto& nav_node_alctr{ utils::GetInstRef(cntr.nav_node_alctr) };
 
 #if EnData
-    auto* data_node_alctr{ utils::GetInstPtr(cntr->data_node_alctr) };
+    auto& data_node_alctr{ utils::GetInstRef(cntr.data_node_alctr) };
 #endif
 
     void* nodes[max_level];
@@ -647,7 +644,7 @@ bool NameSpace::Erase(Cntr<CntrTplArgList>* cntr, size_t* idxes) {
         return false;
     }
 
-    --cntr->size;
+    --cntr.size;
 
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
         node = nodes[level_i];
@@ -667,7 +664,7 @@ bool NameSpace::Erase(Cntr<CntrTplArgList>* cntr, size_t* idxes) {
         }
     }
 
-    cntr->root = nullptr;
+    cntr.root = nullptr;
 
     return true;
 }
@@ -676,16 +673,16 @@ namespace NameSpace::detail {
 
 template <CntrTplParamList>
 void EraseAllRecursive_  // NOLINT(misc-use-internal-linkage)
-    (Cntr<CntrTplArgList>* cntr, void* node, unsigned level_i) {
+    (Cntr<CntrTplArgList>& cntr, void* node, unsigned level_i) {
 #if EnData
-    unsigned branch_num{ cntr->branch_nums[level_i] };
-    size_t stride{ cntr->stride };
+    unsigned branch_num{ cntr.branch_nums[level_i] };
+    size_t stride{ cntr.stride };
 #endif
 
-    auto* nav_node_alctr{ utils::GetInstPtr(cntr->nav_node_alctr) };
+    auto& nav_node_alctr{ utils::GetInstRef(cntr.nav_node_alctr) };
 
 #if EnData
-    auto* data_node_alctr{ utils::GetInstPtr(cntr->data_node_alctr) };
+    auto& data_node_alctr{ utils::GetInstRef(cntr.data_node_alctr) };
 #endif
 
     if (level_i == 0) {
@@ -712,18 +709,18 @@ void EraseAllRecursive_  // NOLINT(misc-use-internal-linkage)
 }  // namespace NameSpace::detail
 
 template <CntrTplParamList>
-void NameSpace::EraseAll(Cntr<CntrTplArgList>* cntr) {
+void NameSpace::EraseAll(Cntr<CntrTplArgList>& cntr) {
     detail::Check_(cntr);
 
-    unsigned level{ cntr->level };
-    void* root{ cntr->root };
+    unsigned level{ cntr.level };
+    void* root{ cntr.root };
 
     if (root == nullptr) { return; }
 
     detail::EraseAllRecursive_(cntr, root, level - 1);
 
-    cntr->size = 0;
-    cntr->root = nullptr;
+    cntr.size = 0;
+    cntr.root = nullptr;
 }
 
 namespace NameSpace::detail {
@@ -781,8 +778,8 @@ inline size_t SanitizeRecursive_  // NOLINT(
               *static_cast<unsigned long long*>(node), idx + 1)) <
          static_cast<long long>(integral::WidthOf<unsigned long long>);) {
         ZETA_Core_DebugAssert(
-            TestActiveMap_(*static_cast<unsigned long long*>(node),
-                           static_cast<unsigned>(idx)));
+            (TestActiveMap_)(*static_cast<unsigned long long*>(node),
+                             static_cast<unsigned>(idx)));
 
         size += SanitizeRecursive_(dst_nav_node,
 #if EnData
@@ -801,7 +798,7 @@ inline size_t SanitizeRecursive_  // NOLINT(
 }  // namespace NameSpace::detail
 
 template <CntrTplParamList>
-void NameSpace::Sanitize(Cntr<CntrTplArgList>* cntr,
+void NameSpace::Sanitize(Cntr<CntrTplArgList>& cntr,
                          mem_recorder::MemRecorder* dst_nav_node
 #if EnData
                          ,
@@ -811,14 +808,14 @@ void NameSpace::Sanitize(Cntr<CntrTplArgList>* cntr,
 
     detail::Check_(cntr);
 
-    unsigned level{ cntr->level };
-    unsigned short const* branch_nums{ cntr->branch_nums };
+    unsigned level{ cntr.level };
+    unsigned short const* branch_nums{ cntr.branch_nums };
 
 #if EnData
-    size_t stride{ cntr->stride };
+    size_t stride{ cntr.stride };
 #endif
 
-    void* root{ cntr->root };
+    void* root{ cntr.root };
 
     size_t size{ root == nullptr
                      ? 0
@@ -832,7 +829,7 @@ void NameSpace::Sanitize(Cntr<CntrTplArgList>* cntr,
 #endif
                                                   root) };
 
-    ZETA_Core_DebugAssert(size == cntr->size);
+    ZETA_Core_DebugAssert(size == cntr.size);
 }
 
 }  // namespace zeta::core

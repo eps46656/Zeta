@@ -475,7 +475,6 @@ constexpr int fixed_point::MathCompare(
 
     constexpr size_t op_total_width{ op_integral_width + op_fraction_width };
 
-    using UOpIntegral = unsigned _BitInt(op_total_width);
     using SOpIntegral = signed _BitInt(op_total_width);
 
     SOpIntegral a{ static_cast<SOpIntegral>(x.value)

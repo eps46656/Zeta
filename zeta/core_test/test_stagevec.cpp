@@ -111,14 +111,12 @@ inline void test_seq_cntr() {
     seq_cntr_utils::Destroy(&seq_cntr_a_origin);
 }
 
-#if 0
-
 inline void test_staging_seg_vector() {
     unsigned random_seed{ static_cast<unsigned>(time(nullptr)) };
-    unsigned fixed_seed{ 17354519 };
+    unsigned fixed_seed{ 17354521 };
 
-    unsigned seed = random_seed;
-    // unsigned seed = fixed_seed;
+    // unsigned seed = random_seed;
+    unsigned seed = fixed_seed;
 
     ZETA_Core_PrintCurPos;
 
@@ -149,12 +147,12 @@ inline void test_staging_seg_vector() {
     for (size_t _ = 0; _ < 4; ++_) {
         ZETA_Core_PrintVar(_);
 
-        zeta::core::seq_cntr::Assign(&seq_cntr_a, &seq_cntr_a_origin);
+        zeta::core::seq_cntr::Assign(seq_cntr_a, seq_cntr_a_origin);
 
-        zeta::core::seq_cntr::Assign(&seq_cntr_b_origin, &seq_cntr_a_origin);
+        zeta::core::seq_cntr::Assign(seq_cntr_b_origin, seq_cntr_a_origin);
 
         zeta::core::staging_seg_vector::Reset(
-            static_cast<
+            *static_cast<
                 zeta::core_test::staging_seg_vector_utils::StagingSegVector*>(
                 seq_cntr_b.cntr));
 
@@ -188,6 +186,7 @@ inline void test_staging_seg_vector() {
     seq_cntr_utils::Destroy(&seq_cntr_b_origin);
 }
 
+#if 0
 
 void test_staging_vector_copy() {
     unsigned random_seed = time(nullptr);
@@ -568,8 +567,8 @@ int main() {
 
     unsigned long long beg_time{ zeta::core_test::GetTime() };
 
-    test_seq_cntr();
-    // test_staging_seg_vector();
+    // test_seq_cntr();
+    test_staging_seg_vector();
 
     unsigned long long end_time{ zeta::core_test::GetTime() };
 

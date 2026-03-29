@@ -165,45 +165,45 @@ struct Cntr {
 template <CntrTplParamList, typename NodeHashLikeInitArg,
           typename NodeCompareInitArg, typename TableNodeAllocatorInitArg,
           typename SaltRandomEngineInitArg>
-void Init(Cntr<CntrTplArgList>* ght, RehashingConfig const& rehashing_config,
+void Init(Cntr<CntrTplArgList>& ght, RehashingConfig const& rehashing_config,
           NodeHashLikeInitArg&& node_hash_init_arg,
           NodeCompareInitArg&& node_compare_init_arg,
           TableNodeAllocatorInitArg&& table_node_alctr_init_arg,
           SaltRandomEngineInitArg&& salt_random_engine_init_arg);
 
 template <CntrTplParamList>
-void Deinit(Cntr<CntrTplArgList>* ght);
+void Deinit(Cntr<CntrTplArgList>& ght);
 
 template <CntrTplParamList>
-size_t GetSize(Cntr<CntrTplArgList> const* ght);
+size_t GetSize(Cntr<CntrTplArgList> const& ght);
 
 template <CntrTplParamList>
-bool Contain(Cntr<CntrTplArgList> const* ght, Node const* node);
+bool Contain(Cntr<CntrTplArgList> const& ght, Node const* node);
 
 template <CntrTplParamList, typename KeyHash, typename KeyNodeCompare>
-Node* Find(Cntr<CntrTplArgList> const* ght, void const* key,
+Node* Find(Cntr<CntrTplArgList> const& ght, void const* key,
            KeyHash const& key_hash, KeyNodeCompare const& key_node_compare);
 
 template <CntrTplParamList>
-void Insert(Cntr<CntrTplArgList>* ght, Node* node);
+void Insert(Cntr<CntrTplArgList>& ght, Node* node);
 
 template <CntrTplParamList>
-void Extract(Cntr<CntrTplArgList>* ght, Node* node);
+void Extract(Cntr<CntrTplArgList>& ght, Node* node);
 
 template <CntrTplParamList>
-Node* ExtractAny(Cntr<CntrTplArgList>* ght);
+Node* ExtractAny(Cntr<CntrTplArgList>& ght);
 
 template <CntrTplParamList>
-void ExtractAll(Cntr<CntrTplArgList>* ght);
+void ExtractAll(Cntr<CntrTplArgList>& ght);
 
 template <CntrTplParamList>
-bool RunPending(Cntr<CntrTplArgList>* ght, size_t quata);
+bool RunPending(Cntr<CntrTplArgList>& ght, size_t quata);
 
 template <CntrTplParamList>
-unsigned long long GetEffFactor(Cntr<CntrTplArgList> const* ght);
+unsigned long long GetEffFactor(Cntr<CntrTplArgList> const& ght);
 
 template <CntrTplParamList>
-void Sanitize(Cntr<CntrTplArgList> const* ght,
+void Sanitize(Cntr<CntrTplArgList> const& ght,
               mem_recorder::MemRecorder* dst_table,
               mem_recorder::MemRecorder* dst_node);
 

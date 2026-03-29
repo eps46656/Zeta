@@ -582,6 +582,85 @@ Iterator utils::SeqRotate(Iterator beg, Iterator mid, Iterator end) {
     ZETA_Core_Unused(end);
 }
 
+namespace utils::detail {
+
+inline unsigned long long SimpleULLHash_(unsigned long long x) {
+#if ZETA_Core_ullong_width == 32
+    x = (x ^ (x >> 16U)) * 0x45d9f3bULL;
+    x = (x ^ (x >> 16U)) * 0x45d9f3bULL;
+    x = x ^ (x >> 16U);
+#elif ZETA_Core_ullong_width == 64
+    x = (x ^ (x >> 30U)) * 0xbf58476d1ce4e5b9ULL;
+    x = (x ^ (x >> 27U)) * 0x94d049bb133111ebULL;
+    x = x ^ (x >> 31U);
+#else
+#error "Unsupported architecture."
+#endif
+
+    return x;
+}
+
+}  // namespace utils::detail
+
+inline unsigned long long utils::SimpleRandomRotate(
+    unsigned long long* random_seed) {
+#if ZETA_Core_ullong_width == 32
+    constexpr unsigned long long lcg_mul{ 0x1010101ULL };
+    constexpr unsigned long long lcg_inc{ 0x24924907ULL };
+#elif ZETA_Core_ullong_width == 64
+    constexpr unsigned long long lcg_mul{ 0x1010101ULL };
+    constexpr unsigned long long lcg_inc{ 0x2492492492492479ULL };
+#else
+#error "Unsupported architecture."
+#endif
+
+    return detail::SimpleULLHash_(*random_seed =
+                                      (*random_seed * lcg_mul + lcg_inc));
+}
+
+inline unsigned long long utils::GetRandom() {
+    static unsigned long long seed{ 0x114514 };
+
+    // unsigned long long time{ __builtin_readcyclecounter() };
+    unsigned long long time{ 0 };
+
+    seed ^= time;
+
+    return SimpleRandomRotate(&seed);
+}
+
+inline int utils::Choose2(bool cond0, bool cond1,
+                          unsigned long long* random_seed) {
+    ZETA_Core_DebugAssert(cond0 || cond1);
+
+    switch (static_cast<int>(cond1) * 0b10 + static_cast<int>(cond0) * 0b01) {
+    case 0b01: return 0;
+    case 0b10: return 1;
+    case 0b11: return static_cast<int>((SimpleRandomRotate)(random_seed) % 2);
+    default: __builtin_unreachable();
+    }
+}
+
+inline int utils::Choose3(bool cond0, bool cond1, bool cond2,
+                          unsigned long long* random_seed) {
+    ZETA_Core_DebugAssert(cond0 || cond1 || cond2);
+
+    switch (static_cast<int>(cond2) * 0b100 +  //
+            static_cast<int>(cond1) * 0b010 +  //
+            static_cast<int>(cond0) * 0b001) {
+    case 0b001: return 0;
+    case 0b010: return 1;
+    case 0b100: return 2;
+    case 0b011: return static_cast<int>((SimpleRandomRotate)(random_seed) % 2);
+    case 0b101:
+        return static_cast<int>((SimpleRandomRotate)(random_seed) % 2) * 2;
+    case 0b110:
+        return static_cast<int>((SimpleRandomRotate)(random_seed) % 2) + 1;
+    case 0b111: return static_cast<int>((SimpleRandomRotate)(random_seed) % 3);
+    default: __builtin_unreachable();
+    }
+}
+
 template <typename T>
 T& utils::GetInstRef(T* inst) {
     return *inst;

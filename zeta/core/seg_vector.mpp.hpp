@@ -2,6 +2,8 @@
 #error "EnStaging is not defined."
 #endif
 
+// #define EnStaging 1
+
 #pragma push_macro("Skip")
 
 #if EnStaging
@@ -66,9 +68,6 @@
 #pragma push_macro("CntrTplArgList")
 #define CntrTplArgList OriginLike, SegAllocatorLike, DataAllocatorLike
 
-#define IfEnStaging(...) __VA_ARGS__
-#define IfNotEnStaging(...) __VA_ARGS__
-
 #else
 
 #pragma push_macro("CntrTplDeclParamList")
@@ -80,9 +79,6 @@
 
 #pragma push_macro("CntrTplArgList")
 #define CntrTplArgList SegAllocatorLike, DataAllocatorLike
-
-#define IfEnStaging(...)
-#define IfNotEnStaging(...) __VA_ARGS__
 
 #endif
 
@@ -267,7 +263,7 @@ template <CntrTplParamList,
           typename OriginLikeInitArg,
 #endif
           typename SegAllocatorLikeInitArg, typename DataAllocatorLikeInitArg>
-void Init(Cntr<CntrTplArgList>* cntr,
+void Init(Cntr<CntrTplArgList>& cntr,
 #if EnStaging
           OriginLikeInitArg&& origin_like_init_arg,
 #else
@@ -282,9 +278,9 @@ template <CntrTplParamList,
           typename OriginLikeInitArg,
 #endif
           typename SegAllocatorLikeInitArg, typename DataAllocatorLikeInitArg,
-          typename SrcCntrTplArgList, typename SrcSegAllocatorLike,
+          typename SrcOriginLike, typename SrcSegAllocatorLike,
           typename SrcDataAllocatorLike>
-void Init(Cntr<CntrTplArgList>* cntr,
+void Init(Cntr<CntrTplArgList>& cntr,
 #if EnStaging
           OriginLikeInitArg&& origin_like_init_arg,
 #else
@@ -300,95 +296,95 @@ void Init(Cntr<CntrTplArgList>* cntr,
               SrcSegAllocatorLike, SrcDataAllocatorLike>* src_cntr);
 
 template <CntrTplParamList>
-void CopyInit(Cntr<CntrTplArgList>* cntr, Cntr<CntrTplArgList> const* src_cntr);
+void CopyInit(Cntr<CntrTplArgList>& cntr, Cntr<CntrTplArgList> const& src_cntr);
 
 template <CntrTplParamList>
-void Deinit(Cntr<CntrTplArgList>* cntr);
+void Deinit(Cntr<CntrTplArgList>& cntr);
 
 template <CntrTplParamList>
-constexpr size_t GetCursorSize(Cntr<CntrTplArgList> const*);
+constexpr size_t GetCursorSize(Cntr<CntrTplArgList> const&);
 
 template <CntrTplParamList>
-size_t GetElemSize(Cntr<CntrTplArgList> const* cntr);
+size_t GetElemSize(Cntr<CntrTplArgList> const& cntr);
 
 template <CntrTplParamList>
-size_t GetElemCnt(Cntr<CntrTplArgList> const* cntr);
+size_t GetElemCnt(Cntr<CntrTplArgList> const& cntr);
 
 template <CntrTplParamList>
-size_t GetMaxElemCnt(Cntr<CntrTplArgList> const* cntr);
+size_t GetMaxElemCnt(Cntr<CntrTplArgList> const& cntr);
 
 template <CntrTplParamList>
-void GetLBCursor(Cntr<CntrTplArgList> const* cntr, Cursor* dst_cursor);
+void GetLBCursor(Cntr<CntrTplArgList> const& cntr, Cursor* dst_cursor);
 
 template <CntrTplParamList>
-void GetRBCursor(Cntr<CntrTplArgList> const* cntr, Cursor* dst_cursor);
+void GetRBCursor(Cntr<CntrTplArgList> const& cntr, Cursor* dst_cursor);
 
 template <CntrTplParamList>
-void* PeekL(Cntr<CntrTplArgList> const* cntr, bool lazy_copy_elem,
+void* PeekL(Cntr<CntrTplArgList> const& cntr, bool lazy_copy_elem,
             Cursor* dst_cursor, void* dst_elem);
 
 template <CntrTplParamList>
-void* PeekR(Cntr<CntrTplArgList> const* cntr, bool lazy_copy_elem,
+void* PeekR(Cntr<CntrTplArgList> const& cntr, bool lazy_copy_elem,
             Cursor* dst_cursor, void* dst_elem);
 
 template <CntrTplParamList>
-void* Access(Cntr<CntrTplArgList> const* cntr, size_t idx, bool lazy_copy_elem,
+void* Access(Cntr<CntrTplArgList> const& cntr, size_t idx, bool lazy_copy_elem,
              Cursor* dst_cursor, void* dst_elem);
 
 template <CntrTplParamList>
-void* Derefer(Cntr<CntrTplArgList> const* cntr, Cursor const* pos_cursor,
+void* Derefer(Cntr<CntrTplArgList> const& cntr, Cursor const* pos_cursor,
               bool lazy_copy_elem, void* dst_elem);
 
 template <CntrTplParamList, typename Predictor>
-void* FindFirst(Cntr<CntrTplArgList>* cntr, Predictor&& predictor,
+void* FindFirst(Cntr<CntrTplArgList>& cntr, Predictor&& predictor,
                 Cursor* dst_cursor, void* dst_elem);
 
 template <CntrTplParamList, typename Reader>
-void Read(Cntr<CntrTplArgList> const* cntr, Cursor const* pos_cursor,
+void Read(Cntr<CntrTplArgList> const& cntr, Cursor const* pos_cursor,
           size_t cnt, Reader&& reader, Cursor* dst_cursor);
 
 template <CntrTplParamList, typename Writer>
-static void Write(Cntr<CntrTplArgList>* cntr, Cursor* pos_cursor, size_t cnt,
+static void Write(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor, size_t cnt,
                   Writer&& writer, Cursor* dst_cursor);
 
 template <CntrTplParamList, typename ReaderWriter>
-void ReadWrite(Cntr<CntrTplArgList>* cntr, Cursor* pos_cursor, size_t cnt,
+void ReadWrite(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor, size_t cnt,
                ReaderWriter&& reader_writer, Cursor* dst_cursor);
 
 template <CntrTplParamList, typename Writer>
-void* PushL(Cntr<CntrTplArgList>* cntr, size_t cnt, Writer&& writer,
+void* PushL(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
             Cursor* dst_cursor);
 
 template <CntrTplParamList, typename Writer>
-void* PushR(Cntr<CntrTplArgList>* cntr, size_t cnt, Writer&& writer,
+void* PushR(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
             Cursor* dst_cursor);
 
 template <CntrTplParamList, typename Writer>
-void* Insert(Cntr<CntrTplArgList>* cntr, Cursor* pos_cursor, size_t cnt,
+void* Insert(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor, size_t cnt,
              Writer&& writer, Cursor* dst_cursor);
 
 template <CntrTplParamList>
-void PopL(Cntr<CntrTplArgList>* cntr, size_t cnt);
+void PopL(Cntr<CntrTplArgList>& cntr, size_t cnt);
 
 template <CntrTplParamList>
-void PopR(Cntr<CntrTplArgList>* cntr, size_t cnt);
+void PopR(Cntr<CntrTplArgList>& cntr, size_t cnt);
 
 template <CntrTplParamList>
-void Erase(Cntr<CntrTplArgList>* cntr, Cursor* pos_cursor, size_t cnt);
+void Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor, size_t cnt);
 
 template <CntrTplParamList>
-void EraseAll(Cntr<CntrTplArgList>* cntr);
+void EraseAll(Cntr<CntrTplArgList>& cntr);
 
 template <CntrTplParamList>
-void Reset(Cntr<CntrTplArgList>* cntr);
+void Reset(Cntr<CntrTplArgList>& cntr);
 
 #if EnStaging
 
 template <CntrTplParamList>
-void Collapse(Cntr<CntrTplArgList>* cntr);
+void Collapse(Cntr<CntrTplArgList>& cntr);
 
 template <CntrTplParamList>
-void WriteBack(Cntr<CntrTplArgList>* cntr, int write_back_strategy,
+void WriteBack(Cntr<CntrTplArgList>& cntr, int write_back_strategy,
                unsigned long long cost_coeff_read,
                unsigned long long cost_coeff_write,
                unsigned long long cost_coeff_insert,
@@ -396,46 +392,46 @@ void WriteBack(Cntr<CntrTplArgList>* cntr, int write_back_strategy,
 #endif
 
 template <CntrTplParamList>
-void CopyCursor(Cntr<CntrTplArgList> const* cntr, Cursor const* src_cursor,
+void CopyCursor(Cntr<CntrTplArgList> const& cntr, Cursor const* src_cursor,
                 Cursor* dst_cursor);
 
 template <CntrTplParamList>
-bool AreEqualCursor(Cntr<CntrTplArgList> const* cntr, Cursor const* cursor_a,
+bool AreEqualCursor(Cntr<CntrTplArgList> const& cntr, Cursor const* cursor_a,
                     Cursor const* cursor_b);
 
 template <CntrTplParamList>
-int CompareCursor(Cntr<CntrTplArgList> const* cntr, Cursor const* cursor_a,
+int CompareCursor(Cntr<CntrTplArgList> const& cntr, Cursor const* cursor_a,
                   Cursor const* cursor_b);
 
 template <CntrTplParamList>
-size_t GetCursorDist(Cntr<CntrTplArgList> const* cntr, Cursor const* cursor_a,
+size_t GetCursorDist(Cntr<CntrTplArgList> const& cntr, Cursor const* cursor_a,
                      Cursor const* cursor_b);
 
 template <CntrTplParamList>
-size_t GetCursorIdx(Cntr<CntrTplArgList> const* cntr, Cursor const* cursor);
+size_t GetCursorIdx(Cntr<CntrTplArgList> const& cntr, Cursor const* cursor);
 
 template <CntrTplParamList>
-void CursorStepL(Cntr<CntrTplArgList> const* cntr, Cursor* cursor);
+void CursorStepL(Cntr<CntrTplArgList> const& cntr, Cursor* cursor);
 
 template <CntrTplParamList>
-void CursorStepR(Cntr<CntrTplArgList> const* cntr, Cursor* cursor);
+void CursorStepR(Cntr<CntrTplArgList> const& cntr, Cursor* cursor);
 
 template <CntrTplParamList>
-void CursorAdvanceL(Cntr<CntrTplArgList> const* cntr, Cursor* cursor,
+void CursorAdvanceL(Cntr<CntrTplArgList> const& cntr, Cursor* cursor,
                     size_t step);
 
 template <CntrTplParamList>
-void CursorAdvanceR(Cntr<CntrTplArgList> const* cntr, Cursor* cursor,
+void CursorAdvanceR(Cntr<CntrTplArgList> const& cntr, Cursor* cursor,
                     size_t step);
 
 template <CntrTplParamList>
-void PrintState(Cntr<CntrTplArgList> const* cntr);
+void PrintState(Cntr<CntrTplArgList> const& cntr);
 
 template <CntrTplParamList>
-Stats GetStats(Cntr<CntrTplArgList> const* cntr);
+Stats GetStats(Cntr<CntrTplArgList> const& cntr);
 
 template <CntrTplParamList>
-void Sanitize(Cntr<CntrTplArgList> const* cntr,
+void Sanitize(Cntr<CntrTplArgList> const& cntr,
               mem_recorder::MemRecorder* dst_seg,
               mem_recorder::MemRecorder* dst_data);
 
@@ -445,75 +441,75 @@ namespace zeta::core {
 
 template <CntrTplParamList>
 struct seq_cntr::CntrTraits<NameSpace::Cntr<CntrTplArgList> const, void> {
-    static void* GetReferedInst(NameSpace::Cntr<CntrTplArgList> const* cntr);
+    static void* GetReferedInst(NameSpace::Cntr<CntrTplArgList> const& cntr);
 
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
 
     static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();
 
     static constexpr seq_cntr::AbilityFlag GetDynamicEnabledAbilityFlag(
-        NameSpace::Cntr<CntrTplArgList> const* cntr);
+        NameSpace::Cntr<CntrTplArgList> const& cntr);
 
     static constexpr seq_cntr::AbilityFlag GetDynamicDisabledAbilityFlag(
-        NameSpace::Cntr<CntrTplArgList> const* cntr);
+        NameSpace::Cntr<CntrTplArgList> const& cntr);
 
-    static size_t GetCursorSize(NameSpace::Cntr<CntrTplArgList> const* cntr);
+    static size_t GetCursorSize(NameSpace::Cntr<CntrTplArgList> const& cntr);
 
-    static size_t GetElemSize(NameSpace::Cntr<CntrTplArgList> const* cntr);
+    static size_t GetElemSize(NameSpace::Cntr<CntrTplArgList> const& cntr);
 
-    static size_t GetElemCnt(NameSpace::Cntr<CntrTplArgList> const* cntr);
+    static size_t GetElemCnt(NameSpace::Cntr<CntrTplArgList> const& cntr);
 
-    static size_t GetMaxElemCnt(NameSpace::Cntr<CntrTplArgList> const* cntr);
+    static size_t GetMaxElemCnt(NameSpace::Cntr<CntrTplArgList> const& cntr);
 
-    static void GetLBCursor(NameSpace::Cntr<CntrTplArgList> const* cntr,
+    static void GetLBCursor(NameSpace::Cntr<CntrTplArgList> const& cntr,
                             void* dst_cursor);
 
-    static void GetRBCursor(NameSpace::Cntr<CntrTplArgList> const* cntr,
+    static void GetRBCursor(NameSpace::Cntr<CntrTplArgList> const& cntr,
                             void* dst_cursor);
 
-    static void* PeekL(NameSpace::Cntr<CntrTplArgList> const* cntr,
+    static void* PeekL(NameSpace::Cntr<CntrTplArgList> const& cntr,
                        bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
 
-    static void* PeekR(NameSpace::Cntr<CntrTplArgList> const* cntr,
+    static void* PeekR(NameSpace::Cntr<CntrTplArgList> const& cntr,
                        bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
 
-    static void* Access(NameSpace::Cntr<CntrTplArgList> const* cntr, size_t idx,
+    static void* Access(NameSpace::Cntr<CntrTplArgList> const& cntr, size_t idx,
                         bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
 
-    static void* Derefer(NameSpace::Cntr<CntrTplArgList> const* cntr,
+    static void* Derefer(NameSpace::Cntr<CntrTplArgList> const& cntr,
                          void const* pos_cursor, bool lazy_copy_elem,
                          void* dst_elem);
 
     template <typename Reader>
-    static void Read(NameSpace::Cntr<CntrTplArgList> const* cntr,
+    static void Read(NameSpace::Cntr<CntrTplArgList> const& cntr,
                      void const* pos_cursor, size_t cnt, Reader&& reader,
                      void* dst_cursor);
 
-    static void CopyCursor(NameSpace::Cntr<CntrTplArgList> const* cntr,
+    static void CopyCursor(NameSpace::Cntr<CntrTplArgList> const& cntr,
                            void const* src_cursor, void* dst_cursor);
 
-    static bool AreEqualCursor(NameSpace::Cntr<CntrTplArgList> const* cntr,
+    static bool AreEqualCursor(NameSpace::Cntr<CntrTplArgList> const& cntr,
                                void const* cursor_a, void const* cursor_b);
 
-    static int CompareCursor(NameSpace::Cntr<CntrTplArgList> const* cntr,
+    static int CompareCursor(NameSpace::Cntr<CntrTplArgList> const& cntr,
                              void const* cursor_a, void const* cursor_b);
 
-    static size_t GetCursorDist(NameSpace::Cntr<CntrTplArgList> const* cntr,
+    static size_t GetCursorDist(NameSpace::Cntr<CntrTplArgList> const& cntr,
                                 void const* cursor_a, void const* cursor_b);
 
-    static size_t GetCursorIdx(NameSpace::Cntr<CntrTplArgList> const* cntr,
+    static size_t GetCursorIdx(NameSpace::Cntr<CntrTplArgList> const& cntr,
                                void const* cursor);
 
-    static void CursorStepL(NameSpace::Cntr<CntrTplArgList> const* cntr,
+    static void CursorStepL(NameSpace::Cntr<CntrTplArgList> const& cntr,
                             void* cursor);
 
-    static void CursorStepR(NameSpace::Cntr<CntrTplArgList> const* cntr,
+    static void CursorStepR(NameSpace::Cntr<CntrTplArgList> const& cntr,
                             void* cursor);
 
-    static void CursorAdvanceL(NameSpace::Cntr<CntrTplArgList> const* cntr,
+    static void CursorAdvanceL(NameSpace::Cntr<CntrTplArgList> const& cntr,
                                void* cursor, size_t step);
 
-    static void CursorAdvanceR(NameSpace::Cntr<CntrTplArgList> const* cntr,
+    static void CursorAdvanceR(NameSpace::Cntr<CntrTplArgList> const& cntr,
                                void* cursor, size_t step);
 };
 
@@ -525,34 +521,34 @@ struct seq_cntr::CntrTraits<NameSpace::Cntr<CntrTplArgList>, void>
     static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();
 
     template <typename Writer>
-    static void Write(NameSpace::Cntr<CntrTplArgList>* cntr, void* pos_cursor,
+    static void Write(NameSpace::Cntr<CntrTplArgList>& cntr, void* pos_cursor,
                       size_t cnt, Writer&& writer, void* dst_cursor);
 
     template <typename ReaderWriter>
-    static void ReadWrite(NameSpace::Cntr<CntrTplArgList>* cntr,
+    static void ReadWrite(NameSpace::Cntr<CntrTplArgList>& cntr,
                           void* pos_cursor, size_t cnt,
                           ReaderWriter&& reader_writer, void* dst_cursor);
 
     template <typename Writer>
-    static void* PushL(NameSpace::Cntr<CntrTplArgList>* cntr, size_t cnt,
+    static void* PushL(NameSpace::Cntr<CntrTplArgList>& cntr, size_t cnt,
                        Writer&& writer, void* dst_cursor);
 
     template <typename Writer>
-    static void* PushR(NameSpace::Cntr<CntrTplArgList>* cntr, size_t cnt,
+    static void* PushR(NameSpace::Cntr<CntrTplArgList>& cntr, size_t cnt,
                        Writer&& writer, void* dst_cursor);
 
     template <typename Writer>
-    static void* Insert(NameSpace::Cntr<CntrTplArgList>* cntr, void* pos_cursor,
+    static void* Insert(NameSpace::Cntr<CntrTplArgList>& cntr, void* pos_cursor,
                         size_t cnt, Writer&& writer, void* dst_cursor);
 
-    static void PopL(NameSpace::Cntr<CntrTplArgList>* cntr, size_t cnt);
+    static void PopL(NameSpace::Cntr<CntrTplArgList>& cntr, size_t cnt);
 
-    static void PopR(NameSpace::Cntr<CntrTplArgList>* cntr, size_t cnt);
+    static void PopR(NameSpace::Cntr<CntrTplArgList>& cntr, size_t cnt);
 
-    static void Erase(NameSpace::Cntr<CntrTplArgList>* cntr, void* pos_cursor,
+    static void Erase(NameSpace::Cntr<CntrTplArgList>& cntr, void* pos_cursor,
                       size_t cnt);
 
-    static void EraseAll(NameSpace::Cntr<CntrTplArgList>* cntr);
+    static void EraseAll(NameSpace::Cntr<CntrTplArgList>& cntr);
 };
 
 }  // namespace zeta::core

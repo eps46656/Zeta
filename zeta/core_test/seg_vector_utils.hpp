@@ -40,15 +40,13 @@ SeqCntrRef Create(size_t stride, size_t seg_capacity) {
 
     auto* sv{ &pack->sv };
 
-    sv->stride = stride;
-    sv->width = sizeof(Elem);
-    sv->seg_capacity = seg_capacity;
-
     sv->seg_alctr = zeta::core::allocator_ref::MakeRef(pack->seg_alctr);
 
     sv->data_alctr = zeta::core::allocator_ref::MakeRef(pack->data_alctr);
 
-    SegVectorNS::Init(&pack->sv);
+    SegVectorNS::Init(*sv, sizeof(Elem), stride, seg_capacity,
+                      zeta::core::lifecycle::SkipInitTag{},
+                      zeta::core::lifecycle::SkipInitTag{});
 
     SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(sv) };
 
@@ -66,7 +64,7 @@ inline void Destroy(void* sv_) {
 
     Pack* pack{ ZETA_Core_MemberToStruct(Pack, sv, sv) };
 
-    SegVectorNS::Deinit(&pack->sv);
+    SegVectorNS::Deinit(pack->sv);
 
     delete pack;
 }
@@ -81,7 +79,7 @@ inline void Sanitize(void const* sv_) {
     core::mem_recorder::MemRecorder seg;
     core::mem_recorder::MemRecorder data;
 
-    SegVectorNS::Sanitize(sv, &seg, &data);
+    SegVectorNS::Sanitize(*sv, &seg, &data);
 
     core::mem_recorder::MatchRecords(&pack->seg_alctr.mem_recorder, &seg);
     core::mem_recorder::MatchRecords(&pack->data_alctr.mem_recorder, &data);

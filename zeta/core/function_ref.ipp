@@ -26,29 +26,27 @@ FunctionRef<Ret(Args...)>::FunctionRef(
 
 template <typename Ret, typename... Args>
 template <typename Callable>
-FunctionRef<Ret(Args...)>::FunctionRef(Callable& callable) {
-    if constexpr (meta::IsConst<Callable>) {
-        this->const_contextual_func = {
-            .context = &callable,
+FunctionRef<Ret(Args...)>::FunctionRef(Callable& callable)
+    : contextual_func {
+        .context = &callable,
+        .ptr = [](void* context, Args... args) -> Ret {
+            return static_cast<Ret>((*static_cast<Callable*>(context))(
+                meta::Forward<Args>(args)...));
+        },
+    },
+    kind { FunctionRefKind::ContextualFunc} {}
+
+template <typename Ret, typename... Args>
+template <typename Callable>
+FunctionRef<Ret(Args...)>::FunctionRef(Callable const& callable):
+    const_contextual_func{
+        .context = &callable,
             .ptr = [](void const* context, Args... args) -> Ret {
                 return static_cast<Ret>((*static_cast<Callable*>(context))(
                     meta::Forward<Args>(args)...));
             },
-        };
-
-        this->kind = FunctionRefKind::ConstContextualFunc;
-    } else {
-        this->contextual_func = {
-            .context = &callable,
-            .ptr = [](void* context, Args... args) -> Ret {
-                return static_cast<Ret>((*static_cast<Callable*>(context))(
-                    meta::Forward<Args>(args)...));
-            },
-        };
-
-        this->kind = FunctionRefKind::ContextualFunc;
-    }
-}
+    },
+    kind { FunctionRefKind::ConstContextualFunc } {}
 
 template <typename Ret, typename... Args>
 Ret FunctionRef<Ret(Args...)>::operator()(Args... args) const {
@@ -70,9 +68,9 @@ Ret FunctionRef<Ret(Args...)>::operator()(Args... args) const {
         ZETA_Core_DebugAssert(this->const_contextual_func.ptr != nullptr);
         return this->const_contextual_func.ptr(
             this->const_contextual_func.context, meta::Forward<Args>(args)...);
-    }
 
-    __builtin_unreachable();
+    default: __builtin_unreachable();
+    }
 }
 
 }  // namespace zeta::core

@@ -5,7 +5,6 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
-#include <zeta/core/type_wrapper.hpp>
 #include <zeta/core/utils.ipp>
 #include <zeta/core/value_wrapper.hpp>
 
@@ -13,29 +12,22 @@ namespace zeta::core {
 
 #pragma push_macro("CallMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CallMethod(ret, method_name, ...)                             \
-    using Allocator = meta::RemovePointer<decltype(utils::GetInstPtr( \
-        meta::Forward<AllocatorLike>(alctr)))>;                       \
-                                                                      \
-    if constexpr (ret) {                                              \
-        return AllocatorTraits<Allocator>::method_name(__VA_ARGS__);  \
-    } else {                                                          \
-        AllocatorTraits<Allocator>::method_name(__VA_ARGS__);         \
-    };                                                                \
-                                                                      \
+#define CallMethod(ret, method_name, ...)                            \
+    if constexpr (ret) {                                             \
+        return AllocatorTraits<Allocator>::method_name(__VA_ARGS__); \
+    } else {                                                         \
+        AllocatorTraits<Allocator>::method_name(__VA_ARGS__);        \
+    };                                                               \
+                                                                     \
     ZETA_Core_StaticAssert(true)
 
-template <typename AllocatorLike>
-void* allocator::GetReferedInst(AllocatorLike&& alctr) {
-    CallMethod(true, GetReferedInst, meta::Forward<AllocatorLike>(alctr));
+template <typename Allocator>
+void* allocator::GetReferedInst(Allocator& alctr) {
+    CallMethod(true, GetReferedInst, alctr);
 }
 
-template <typename AllocatorLike>
-size_t allocator::GetAlign(AllocatorLike&& alctr_) {
-    auto* alctr{ utils::GetInstPtr(meta::Forward<AllocatorLike>(alctr_)) };
-
-    using Allocator = meta::RemovePointer<decltype(alctr)>;
-
+template <typename Allocator>
+size_t allocator::GetAlign(Allocator& alctr) {
     size_t align{ AllocatorTraits<Allocator>::GetAlign(alctr) };
 
     ZETA_Core_DebugAssert(0 < align);
@@ -43,25 +35,20 @@ size_t allocator::GetAlign(AllocatorLike&& alctr_) {
     return align;
 }
 
-template <typename AllocatorLike>
-void* allocator::Allocate(AllocatorLike&& alctr, size_t size) {
-    CallMethod(true, Allocate,
-               utils::GetInstPtr(meta::Forward<AllocatorLike>(alctr)), size);
+template <typename Allocator>
+void* allocator::Allocate(Allocator& alctr, size_t size) {
+    CallMethod(true, Allocate, alctr, size);
 }
 
-template <typename AllocatorLike>
-void allocator::Deallocate(AllocatorLike&& alctr, void* ptr) {
-    CallMethod(false, Deallocate,
-               utils::GetInstPtr(meta::Forward<AllocatorLike>(alctr)), ptr);
+template <typename Allocator>
+void allocator::Deallocate(Allocator& alctr, void* ptr) {
+    CallMethod(false, Deallocate, alctr, ptr);
 }
 
 #pragma pop_macro("CallMethod")
 
-template <typename AllocatorLike>
-void* allocator::SafeAllocate(AllocatorLike&& alctr_, size_t align,
-                              size_t size) {
-    auto* alctr{ utils::GetInstPtr(meta::Forward<AllocatorLike&&>(alctr_)) };
-
+template <typename Allocator>
+void* allocator::SafeAllocate(Allocator& alctr, size_t align, size_t size) {
     (CheckContract)(alctr);
 
     size_t self_align{ (GetAlign)(alctr) };
@@ -77,22 +64,17 @@ void* allocator::SafeAllocate(AllocatorLike&& alctr_, size_t align,
     return ptr;
 }
 
-template <typename AllocatorLike>
-void allocator::CheckContract(AllocatorLike&& alctr_) {
-    auto* alctr{ utils::GetInstPtr(meta::Forward<AllocatorLike&&>(alctr_)) };
-
+template <typename Allocator>
+void allocator::CheckContract(Allocator& alctr) {
     void* void_ptr{ nullptr };
 
     size_t size_val{ 0 };
 
 #pragma push_macro("CheckMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CheckMethod(method, ...)                            \
-    {                                                       \
-        ZETA_Core_Unused([=]() { (method)(__VA_ARGS__); }); \
-    }                                                       \
-                                                            \
-    ZETA_Core_StaticAssert(true);
+#define CheckMethod(method, ...) \
+    ZETA_Core_Unused(            \
+        (meta::Conditional<false, decltype((method)(__VA_ARGS__)), int>{}))
 
     CheckMethod(         //
         GetReferedInst,  // method
@@ -128,12 +110,12 @@ constexpr allocator::VTable allocator::BuildVTableBasic() {
     return {
         .Allocate =
             [](void* alctr, size_t size) {
-                return (Allocate)(static_cast<Allocator*>(alctr), size);
+                return (Allocate)(*static_cast<Allocator*>(alctr), size);
             },
 
         .Deallocate =
             [](void* alctr, void* ptr) {
-                (Deallocate)(static_cast<Allocator*>(alctr), ptr);
+                (Deallocate)(*static_cast<Allocator*>(alctr), ptr);
             },
     };
 }

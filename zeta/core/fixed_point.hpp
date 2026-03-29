@@ -37,12 +37,12 @@ struct FixedPoint {
     ZETA_Core_StaticAssert(meta::IsAnyOf<SignedTag, value_wrapper::FalseType,
                                          value_wrapper::TrueType>);
 
-    ZETA_Core_StaticAssert(value_wrapper::IsStaticValueWrapper<IntegralWidth>);
-    ZETA_Core_StaticAssert(meta::IsAnyOf<typename IntegralWidth::type, size_t>);
+    ZETA_Core_StaticAssert(
+        value_wrapper::IsStaticValueWrapper<IntegralWidth, size_t>);
     ZETA_Core_StaticAssert(IntegralWidth::value <= max_integral_width);
 
-    ZETA_Core_StaticAssert(value_wrapper::IsStaticValueWrapper<FractionWidth>);
-    ZETA_Core_StaticAssert(meta::IsAnyOf<typename FractionWidth::type, size_t>);
+    ZETA_Core_StaticAssert(
+        value_wrapper::IsStaticValueWrapper<FractionWidth, size_t>);
     ZETA_Core_StaticAssert(FractionWidth::value <= max_fraction_width);
 
     ZETA_Core_StaticAssert(2 <= IntegralWidth::value + FractionWidth::value);

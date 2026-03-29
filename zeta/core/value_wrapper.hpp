@@ -4,22 +4,22 @@
 
 namespace zeta::core::value_wrapper {
 
-template <typename T, T V>
+template <typename ValueType_, ValueType_ Value>
 struct StaticValueWrapper {
-    using type = T;
-    static constexpr T value{ V };
+    using ValueType = ValueType_;
+    static constexpr ValueType value{ Value };
 
-    constexpr auto operator()() const;
+    constexpr ValueType operator()() const;
 };
 
-template <typename T>
+template <typename ValueType_>
 struct DynamicValueWrapper {
-    using type = T;
+    using ValueType = ValueType_;
 
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
-    T const& value;
+    ValueType const& value;
 
-    T const& operator()() const;
+    ValueType const& operator()() const;
 };
 
 using FalseType = StaticValueWrapper<bool, false>;
@@ -27,119 +27,54 @@ using TrueType = StaticValueWrapper<bool, true>;
 
 namespace detail {
 
-template <typename T>
+template <typename T, typename TargetValueType>
 struct IsStaticValueWrapperImpl_ {
     static constexpr bool value{ false };
 };
 
-template <typename T, T V>
-struct IsStaticValueWrapperImpl_<StaticValueWrapper<T, V>> {
-    static constexpr bool value{ true };
+template <typename ValueType, ValueType Value, typename TargetValueType>
+struct IsStaticValueWrapperImpl_<StaticValueWrapper<ValueType, Value>,
+                                 TargetValueType> {
+    static constexpr bool value{ meta::IsAnyOf<ValueType, TargetValueType> };
 };
 
 }  // namespace detail
 
-template <typename T>
+template <typename T, typename TargetValueType>
 constexpr bool IsStaticValueWrapper{
-    detail::IsStaticValueWrapperImpl_<T>::value
+    detail::IsStaticValueWrapperImpl_<T, TargetValueType>::value
 };
 
 namespace detail {
 
-template <typename T>
+template <typename T, typename TargetValueType>
 struct IsDynamicValueWrapperImpl_ {
     static constexpr bool value{ false };
 };
 
-template <typename T>
-struct IsDynamicValueWrapperImpl_<DynamicValueWrapper<T>> {
-    static constexpr bool value{ true };
+template <typename ValueType, typename TargetValueType>
+struct IsDynamicValueWrapperImpl_<DynamicValueWrapper<ValueType>,
+                                  TargetValueType> {
+    static constexpr bool value{ meta::IsAnyOf<ValueType, TargetValueType> };
 };
 
 }  // namespace detail
 
-template <typename T>
+template <typename T, typename TargetValueType>
 constexpr bool IsDynamicValueWrapper{
-    detail::IsDynamicValueWrapperImpl_<T>::value
+    detail::IsDynamicValueWrapperImpl_<T, TargetValueType>::value
 };
 
-template <bool V, typename TX, typename TY>
-decltype(auto) Conditional(StaticValueWrapper<bool, V> const& cond, TX const& x,
-                           TY const& y);
+template <typename T, typename TargetValueType>
+constexpr bool IsValueWrapper{ IsStaticValueWrapper<T, TargetValueType> ||
+                               IsDynamicValueWrapper<T, TargetValueType> };
+
+template <bool Cond, typename TX, typename TY>
+constexpr decltype(auto) Conditional(StaticValueWrapper<bool, Cond> const& cond,
+                                     TX&& x, TY&& y);
 
 template <typename TX, typename TY>
-decltype(auto) Conditional(DynamicValueWrapper<bool> const& cond, TX const& x,
-                           TY const& y);
-
-template <bool V>
-decltype(auto) Any(StaticValueWrapper<bool, V> const& v);
-
-decltype(auto) Any(DynamicValueWrapper<bool> const& v);
-
-template <bool VX, bool VY>
-decltype(auto) Any(StaticValueWrapper<bool, VX> const& x,
-                   StaticValueWrapper<bool, VY> const& y);
-
-template <bool VX>
-decltype(auto) Any(StaticValueWrapper<bool, VX> const& x,
-                   DynamicValueWrapper<bool> const& y);
-
-template <bool VY>
-decltype(auto) Any(DynamicValueWrapper<bool> const& x,
-                   StaticValueWrapper<bool, VY> const& y);
-
-decltype(auto) Any(DynamicValueWrapper<bool> const& x,
-                   DynamicValueWrapper<bool> const& y);
-
-template <typename TX, typename TY, typename TZ, typename... TS>
-decltype(auto) Any(TX const& x, TY const& y, TZ const& z, TS const&... s);
-
-template <bool V>
-decltype(auto) All(StaticValueWrapper<bool, V> const& v);
-
-decltype(auto) All(DynamicValueWrapper<bool> const& v);
-
-template <bool VX, bool VY>
-decltype(auto) All(StaticValueWrapper<bool, VX> const& x,
-                   StaticValueWrapper<bool, VY> const& y);
-
-template <bool VX>
-decltype(auto) All(StaticValueWrapper<bool, VX> const& x,
-                   DynamicValueWrapper<bool> const& y);
-
-template <bool VY>
-decltype(auto) All(DynamicValueWrapper<bool> const& x,
-                   StaticValueWrapper<bool, VY> const& y);
-
-decltype(auto) All(DynamicValueWrapper<bool> const& x,
-                   DynamicValueWrapper<bool> const& y);
-
-template <typename TX, typename TY, typename TZ, typename... TS>
-decltype(auto) All(TX const& x, TY const& y, TZ const& z, TS const&... s);
-
-template <auto V>
-decltype(auto) Merge(StaticValueWrapper<bool, V> const& x);
-
-template <typename TY>
-decltype(auto) Merge(DynamicValueWrapper<TY> const& x);
-
-template <auto VX, auto VY>
-decltype(auto) Merge(StaticValueWrapper<bool, VX> const& x,
-                     StaticValueWrapper<bool, VY> const& y);
-
-template <auto VX, typename TY>
-decltype(auto) Merge(StaticValueWrapper<bool, VX> const& x,
-                     DynamicValueWrapper<TY> const& y);
-
-template <typename TX, auto VY>
-decltype(auto) Merge(DynamicValueWrapper<TX> const& x,
-                     StaticValueWrapper<bool, VY> const& y);
-
-template <typename TX, typename TY>
-decltype(auto) Merge(DynamicValueWrapper<TX> const& x,
-                     DynamicValueWrapper<TY> const& y);
-
-template <typename TX, typename TY, typename TZ, typename... TS>
-decltype(auto) Merge(TX const& x, TY const& y, TZ const& z, TS const&... s);
+constexpr decltype(auto) Conditional(DynamicValueWrapper<bool> const& cond,
+                                     TX&& x, TY&& y);
 
 }  // namespace zeta::core::value_wrapper

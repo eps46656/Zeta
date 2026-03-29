@@ -36,7 +36,7 @@ SeqCntrRef Create(size_t stride, size_t capacity) {
     ca->elem_capacity = capacity;
     ca->idx_offset = 0;
 
-    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(ca) };
+    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(*ca) };
 
     seq_cntr_utils::AddSanitizeFunc(ca, Sanitize);
 
@@ -50,7 +50,7 @@ inline void Destroy(void* ca_) {
 
     if (ca == nullptr) { return; }
 
-    CircularArrayNS::Deinit(ca);
+    CircularArrayNS::Deinit(*ca);
 
     delete ca;
 }
