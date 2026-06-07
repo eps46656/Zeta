@@ -25,12 +25,12 @@ double ToDouble(zeta::core::fixed_point::FixedPoint<SignedTag, IntegralWidth,
 }
 
 template <typename Num, typename Denom>
-zeta::core::utils::Pair<FP, double> Gen(Num num, Denom denom) {
+zeta::core::pair::Pair<FP, double> Gen(Num num, Denom denom) {
     return { FromFraction<FP::FractionWidth>(num, denom),
              static_cast<double>(num) / static_cast<double>(denom) };
 }
 
-inline zeta::core::utils::Pair<FP, double> Gen() {
+inline zeta::core::pair::Pair<FP, double> Gen() {
     using Value = FP::Value;
 
     Value value{ zeta::core_test::GetRandomInt<Value>(
@@ -98,7 +98,7 @@ inline void main1() {
         ok
         */
 
-        auto x{ zeta::core::fixed_point::ops::FromFraction<
+        auto x{ zeta::core::fixed_point::FromFraction<
             zeta::core::value_wrapper::StaticValueWrapper<size_t, 32>>(num,
                                                                        denom) };
 
@@ -134,7 +134,7 @@ inline void main2() {
         ZETA_Core_PrintVar(decltype(z_fp)::IntegralWidth::value);
         ZETA_Core_PrintVar(decltype(z_fp)::FractionWidth::value);
 
-        auto floor_x_fp{ zeta::core::fixed_point::ops::Floor(x_fp) };
+        auto floor_x_fp{ zeta::core::fixed_point::Floor(x_fp) };
 
         ZETA_Core_PrintVar(floor_x_fp);
 

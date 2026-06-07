@@ -2,6 +2,7 @@
 
 #include <zeta/core/lifecycle.hpp>
 #include <zeta/core/meta.hpp>
+#include <zeta/core/tuple.hpp>
 
 namespace zeta::core {
 

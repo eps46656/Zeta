@@ -1,5 +1,6 @@
 #pragma once
 
+#include <zeta/core/compare_utils.ipp>
 #include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
@@ -376,22 +377,34 @@ void seq_cntr::CursorAdvanceR(Cntr& cntr, void* cursor, size_t step) {
 
 template <typename Cntr>
 void seq_cntr::CheckContract(Cntr& cntr) {
-    bool bool_val{ false };
+    struct Reader {
+        void operator()(void const*, size_t, size_t) const {}
+    };
 
-    void* void_ptr{ nullptr };
-    void const* const_void_ptr{ nullptr };
+    struct Writer {
+        void operator()(void*, size_t, size_t) const {}
+    };
 
-    size_t size_val{ 0 };
-
-    auto reader{ [](void const*, size_t, size_t) {} };
-    auto writer{ [](void*, size_t, size_t) {} };
-    auto reader_writer{ [](void*, size_t, size_t) {} };
+    struct ReaderWriter {
+        void operator()(void*, size_t, size_t) const {}
+    };
 
 #pragma push_macro("CheckMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CheckMethod(method, ...) \
-    ZETA_Core_Unused(            \
-        (meta::Conditional<false, decltype((method)(__VA_ARGS__)), int>{}))
+#define CheckMethod(method, ...)                                      \
+    ZETA_Core_Unused([&](bool bool_val, void* void_ptr,               \
+                         void const* const_void_ptr, size_t size_val, \
+                         Reader reader, Writer writer,                \
+                         ReaderWriter reader_writer) {                \
+        ZETA_Core_Unused(bool_val);                                   \
+        ZETA_Core_Unused(void_ptr);                                   \
+        ZETA_Core_Unused(const_void_ptr);                             \
+        ZETA_Core_Unused(size_val);                                   \
+        ZETA_Core_Unused(reader);                                     \
+        ZETA_Core_Unused(writer);                                     \
+        ZETA_Core_Unused(reader_writer);                              \
+        (method)(__VA_ARGS__);                                        \
+    })
 
 #pragma push_macro("CheckMethodOp")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -413,13 +426,13 @@ void seq_cntr::CheckContract(Cntr& cntr) {
     CheckMethod(                       //
         GetDynamicEnabledAbilityFlag,  // method
 
-        cntr  // inst
+        cntr  //
     );
 
     CheckMethod(                        //
         GetDynamicDisabledAbilityFlag,  // method
 
-        cntr  // inst
+        cntr  //
     );
 
     constexpr AbilityFlag static_disabled_ability_flag{ (
@@ -429,28 +442,28 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         GetCursorSize,  // ability
         GetCursorSize,  // method
                         //
-        cntr            // inst
+        cntr            //
     );
 
     CheckMethodOp(   //
         GetElemCnt,  // ability
         GetElemCnt,  // method
                      //
-        cntr         // inst
+        cntr         //
     );
 
     CheckMethodOp(      //
         GetMaxElemCnt,  // ability
         GetMaxElemCnt,  // method
                         //
-        cntr            // inst
+        cntr            //
     );
 
     CheckMethodOp(    //
         GetLBCursor,  // ability
         GetLBCursor,  // method
                       //
-        cntr,         // inst
+        cntr,         //
         void_ptr      // cursor
     );
 
@@ -458,7 +471,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         GetRBCursor,  // ability
         GetRBCursor,  // method
                       //
-        cntr,         // inst
+        cntr,         //
         void_ptr      // cursor
     );
 
@@ -466,7 +479,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         PeekL,      // ability
         PeekL,      // method
                     //
-        cntr,       // inst
+        cntr,       //
         bool_val,   // lazy_copy_elem
         void_ptr,   // dst_cursor(optional)
         void_ptr    // mem(optional)
@@ -476,7 +489,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         PeekR,      // ability
         PeekR,      // method
                     //
-        cntr,       // inst
+        cntr,       //
         bool_val,   // lazy_copy_elem
         void_ptr,   // dst_cursor, optional
         void_ptr    // mem, optional
@@ -486,7 +499,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         Access,     // ability
         Access,     // method
                     //
-        cntr,       // inst
+        cntr,       //
         size_val,   // idx
         bool_val,   // lazy_copy_elem
         void_ptr,   // dst_cursor, optional
@@ -497,7 +510,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         Derefer,         // ability
         Derefer,         // method
                          //
-        cntr,            // inst
+        cntr,            //
         const_void_ptr,  // pos_cursor
         bool_val,        // lazy_copy_elem
         void_ptr         // mem, optional
@@ -507,7 +520,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         Read,            // ability
         Read,            // method
                          //
-        cntr,            // inst
+        cntr,            //
         const_void_ptr,  // pos_cursor
         size_val,        // cnt
         reader,          // reader
@@ -518,7 +531,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         Write,      // ability
         Write,      // method
                     //
-        cntr,       // inst
+        cntr,       //
         void_ptr,   // pos_cursor, point to original position
         size_val,   // cnt
         writer,     // writer
@@ -530,7 +543,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         ReadWrite,      // ability
         ReadWrite,      // method
                         //
-        cntr,           // inst
+        cntr,           //
         void_ptr,       // pos_cursor
         size_val,       // cnt
         reader_writer,  // reader_writer
@@ -541,7 +554,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         PushL,      // ability
         PushL,      // method
                     //
-        cntr,       // inst
+        cntr,       //
         size_val,   // cnt
         writer,     // writer
         void_ptr    // dst_cursor
@@ -551,7 +564,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         PushR,      // ability
         PushR,      // method
                     //
-        cntr,       // inst
+        cntr,       //
         size_val,   // cnt
         writer,     //
         void_ptr    // dst_cursor
@@ -561,7 +574,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         Insert,     // ability
         Insert,     // method
                     //
-        cntr,       // inst
+        cntr,       //
         void_ptr,   // pos_cursor
         size_val,   // cnt
         writer,     // writer
@@ -572,7 +585,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         PopL,       // ability
         PopL,       // method
                     //
-        cntr,       // inst
+        cntr,       //
         size_val    // cnt
     );
 
@@ -580,7 +593,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         PopR,       // ability
         PopR,       // method
                     //
-        cntr,       // inst
+        cntr,       //
         size_val    // cnt
     );
 
@@ -588,7 +601,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         Erase,      // ability
         Erase,      // method
                     //
-        cntr,       // inst
+        cntr,       //
         void_ptr,   // pos_cursor
         size_val    // cnt
     );
@@ -597,14 +610,14 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         EraseAll,   // ability
         EraseAll,   // method
                     //
-        cntr        // inst
+        cntr        //
     );
 
     CheckMethodOp(       //
         CopyCursor,      // ability
         CopyCursor,      // method
                          //
-        cntr,            // inst
+        cntr,            //
         const_void_ptr,  // src_cursor
         void_ptr         // dst_cursor
     );
@@ -613,7 +626,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         AreEqualCursor,  // ability
         AreEqualCursor,  // method
                          //
-        cntr,            // inst
+        cntr,            //
         const_void_ptr,  // cursor_a
         const_void_ptr   // cursor_b
     );
@@ -622,7 +635,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         CompareCursor,   // ability
         CompareCursor,   // method
                          //
-        cntr,            // inst
+        cntr,            //
         const_void_ptr,  // cursor_a
         const_void_ptr   // cursor_b
     );
@@ -631,7 +644,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         GetCursorDist,   // ability
         GetCursorDist,   // method
                          //
-        cntr,            // inst
+        cntr,            //
         const_void_ptr,  // cursor_a
         const_void_ptr   // cursor_b
     );
@@ -640,7 +653,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         GetCursorIdx,   // ability
         GetCursorIdx,   // method
                         //
-        cntr,           // inst
+        cntr,           //
         const_void_ptr  // cursor
     );
 
@@ -648,7 +661,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         CursorStepL,  // ability
         CursorStepL,  // method
                       //
-        cntr,         // inst
+        cntr,         //
         void_ptr      // cursor
     );
 
@@ -656,7 +669,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         CursorStepR,  // ability
         CursorStepR,  // method
                       //
-        cntr,         // inst
+        cntr,         //
         void_ptr      // cursor
     );
 
@@ -664,7 +677,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         CursorAdvanceL,  // ability
         CursorAdvanceL,  // method
                          //
-        cntr,            // inst
+        cntr,            //
         void_ptr,        // cursor
         size_val         // step
     );
@@ -673,7 +686,7 @@ void seq_cntr::CheckContract(Cntr& cntr) {
         CursorAdvanceR,  // ability
         CursorAdvanceR,  // method
                          //
-        cntr,            // inst
+        cntr,            //
         void_ptr,        // cursor
         size_val         // step
     );
@@ -758,12 +771,26 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
                                       cnt, reader, dst_cursor);
                     }),
 
+        .MemRead = F(Read,
+                     [](void* cntr, void const* pos_cursor, size_t cnt,
+                        MemReader& reader, void* dst_cursor) {
+                         return (Read)(*static_cast<Cntr*>(cntr), pos_cursor,
+                                       cnt, reader, dst_cursor);
+                     }),
+
         .FnWrite = F(Write,
                      [](void* cntr, void* pos_cursor, size_t cnt,
                         FnWriter writer, void* dst_cursor) {
                          return (Write)(*static_cast<Cntr*>(cntr), pos_cursor,
                                         cnt, writer, dst_cursor);
                      }),
+
+        .MemWrite = F(Write,
+                      [](void* cntr, void* pos_cursor, size_t cnt,
+                         MemWriter& writer, void* dst_cursor) {
+                          return (Write)(*static_cast<Cntr*>(cntr), pos_cursor,
+                                         cnt, writer, dst_cursor);
+                      }),
 
         .FnReadWrite = F(ReadWrite,
                          [](void* cntr, void* pos_cursor, size_t cnt,
@@ -773,23 +800,23 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
                                                 dst_cursor);
                          }),
 
-        .MemRead = F(Read,
-                     [](void* cntr, void const* pos_cursor, size_t cnt,
-                        MemReader reader, void* dst_cursor) {
-                         return (Read)(*static_cast<Cntr*>(cntr), pos_cursor,
-                                       cnt, reader, dst_cursor);
-                     }),
-
-        .MemWrite = F(Write,
-                      [](void* cntr, void* pos_cursor, size_t cnt,
-                         MemWriter writer, void* dst_cursor) {
-                          return (Write)(*static_cast<Cntr*>(cntr), pos_cursor,
-                                         cnt, writer, dst_cursor);
-                      }),
-
         .FnPushL =
             F(PushL,
               [](void* cntr, size_t cnt, FnWriter writer, void* dst_cursor) {
+                  return (PushL)(*static_cast<Cntr*>(cntr), cnt, writer,
+                                 dst_cursor);
+              }),
+
+        .MemPushL =
+            F(PushL,
+              [](void* cntr, size_t cnt, MemWriter& writer, void* dst_cursor) {
+                  return (PushL)(*static_cast<Cntr*>(cntr), cnt, writer,
+                                 dst_cursor);
+              }),
+
+        .EmptyPushL =
+            F(PushL,
+              [](void* cntr, size_t cnt, EmptyWriter writer, void* dst_cursor) {
                   return (PushL)(*static_cast<Cntr*>(cntr), cnt, writer,
                                  dst_cursor);
               }),
@@ -801,6 +828,20 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
                                  dst_cursor);
               }),
 
+        .MemPushR =
+            F(PushR,
+              [](void* cntr, size_t cnt, MemWriter& writer, void* dst_cursor) {
+                  return (PushR)(*static_cast<Cntr*>(cntr), cnt, writer,
+                                 dst_cursor);
+              }),
+
+        .EmptyPushR =
+            F(PushR,
+              [](void* cntr, size_t cnt, EmptyWriter writer, void* dst_cursor) {
+                  return (PushR)(*static_cast<Cntr*>(cntr), cnt, writer,
+                                 dst_cursor);
+              }),
+
         .FnInsert = F(Insert,
                       [](void* cntr, void* pos_cursor, size_t cnt,
                          FnWriter writer, void* dst_cursor) {
@@ -808,26 +849,20 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
                                           cnt, writer, dst_cursor);
                       }),
 
-        .MemPushL =
-            F(PushL,
-              [](void* cntr, size_t cnt, MemWriter writer, void* dst_cursor) {
-                  return (PushL)(*static_cast<Cntr*>(cntr), cnt, writer,
-                                 dst_cursor);
-              }),
-
-        .MemPushR =
-            F(PushR,
-              [](void* cntr, size_t cnt, MemWriter writer, void* dst_cursor) {
-                  return (PushR)(*static_cast<Cntr*>(cntr), cnt, writer,
-                                 dst_cursor);
-              }),
-
         .MemInsert = F(Insert,
                        [](void* cntr, void* pos_cursor, size_t cnt,
-                          MemWriter writer, void* dst_cursor) {
+                          MemWriter& writer, void* dst_cursor) {
                            return (Insert)(*static_cast<Cntr*>(cntr),
                                            pos_cursor, cnt, writer, dst_cursor);
                        }),
+
+        .EmptyInsert = F(Insert,
+                         [](void* cntr, void* pos_cursor, size_t cnt,
+                            EmptyWriter writer, void* dst_cursor) {
+                             return (Insert)(*static_cast<Cntr*>(cntr),
+                                             pos_cursor, cnt, writer,
+                                             dst_cursor);
+                         }),
 
         .PopL = F(PopL,
                   [](void* cntr, size_t cnt) {
@@ -941,21 +976,33 @@ constexpr seq_cntr::VTable const& seq_cntr::GetVTable() {
     return detail::VTableHolder_<Cntr>::vtable;
 }
 
-constexpr bool seq_cntr::IsReferable(size_t idx, size_t cnt, size_t size) {
-    return idx + 1 < size + 2 && cnt <= size - idx + 1;
+constexpr bool seq_cntr::IsReferable(size_t idx, size_t cnt, size_t elem_cnt) {
+    return idx + 1 < elem_cnt + 2 && cnt <= elem_cnt - idx + 1;
 }
 
-constexpr bool seq_cntr::IsDereferable(size_t idx, size_t cnt, size_t size) {
-    return idx <= size && cnt <= size - idx;
+constexpr bool seq_cntr::IsDereferable(size_t idx, size_t cnt,
+                                       size_t elem_cnt) {
+    return idx <= elem_cnt && cnt <= elem_cnt - idx;
 }
 
-constexpr bool seq_cntr::IsInsertable(size_t idx, size_t cnt, size_t size,
-                                      size_t capacity) {
-    return idx <= size && size <= capacity && cnt <= capacity - size;
+constexpr bool seq_cntr::IsInsertable(size_t idx, size_t cnt, size_t elem_cnt,
+                                      size_t max_elem_cnt) {
+    return idx <= elem_cnt && elem_cnt <= max_elem_cnt &&
+           cnt <= max_elem_cnt - elem_cnt;
 }
 
-constexpr bool seq_cntr::IsErasable(size_t idx, size_t cnt, size_t size) {
-    return idx <= size && cnt <= size - idx;
+constexpr bool seq_cntr::IsErasable(size_t idx, size_t cnt, size_t elem_cnt) {
+    return (IsDereferable)(idx, cnt, elem_cnt);
+}
+
+constexpr bool seq_cntr::IsAdvancableL(size_t idx, size_t step,
+                                       size_t elem_cnt) {
+    return idx + 1 < elem_cnt + 2 && step <= idx + 1;
+}
+
+constexpr bool seq_cntr::IsAdvancableR(size_t idx, size_t step,
+                                       size_t elem_cnt) {
+    return idx + 1 < elem_cnt + 2 && step <= elem_cnt - idx;
 }
 
 template <typename DstCntr, typename SrcCntr>
@@ -968,8 +1015,8 @@ void seq_cntr::RangeAssign(DstCntr& dst_cntr, SrcCntr& src_cntr, size_t dst_beg,
 
     size_t elem_size{ (GetElemSize)(dst_cntr) };
 
-    size_t buffer_capacity{ utils::Max(1ULL,
-                                       sizeof(void*) * 1024 / elem_size) };
+    size_t buffer_capacity{ compare_utils::BasicMax(
+        1ULL, sizeof(void*) * 1024 / elem_size) };
 
     size_t dst_elem_cnt{ (GetElemCnt)(dst_cntr) };
     size_t src_elem_cnt{ (GetElemCnt)(src_cntr) };
@@ -997,7 +1044,7 @@ void seq_cntr::RangeAssign(DstCntr& dst_cntr, SrcCntr& src_cntr, size_t dst_beg,
         (Access)(src_cntr, src_beg, true, src_cursor, nullptr);
 
         while (0 < cnt) {
-            size_t cur_cnt{ utils::Min(buffer_capacity, cnt) };
+            size_t cur_cnt{ compare_utils::BasicMin(buffer_capacity, cnt) };
 
             (Read)(src_cntr, src_cursor, cur_cnt,
                    MemReader{
@@ -1024,7 +1071,7 @@ void seq_cntr::RangeAssign(DstCntr& dst_cntr, SrcCntr& src_cntr, size_t dst_beg,
     (Access)(src_cntr, src_end, true, src_cursor, nullptr);
 
     while (0 < cnt) {
-        size_t cur_cnt{ utils::Min(buffer_capacity, cnt) };
+        size_t cur_cnt{ compare_utils::BasicMin(buffer_capacity, cnt) };
 
         (CursorAdvanceL)(src_cntr, src_cursor, cur_cnt);
         (CursorAdvanceL)(dst_cntr, dst_cursor, cur_cnt);

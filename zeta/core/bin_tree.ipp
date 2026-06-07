@@ -1,11 +1,11 @@
 #pragma once
 
 #include <zeta/core/bin_tree.hpp>
-#include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
+#include <zeta/core/pair.hpp>
 #include <zeta/core/utils.ipp>
 
 namespace zeta::core {
@@ -112,21 +112,21 @@ void bin_tree::CheckContract() {
 }
 
 template <typename BinTreeNode>
-utils::Pair<BinTreeNode*, size_t> bin_tree::GetMostP(BinTreeNode* n) {
+pair::Pair<BinTreeNode*, size_t> bin_tree::GetMostP(BinTreeNode* n) {
     (CheckContract<BinTreeNode>)();
 
     return utils::GetMostLink(n, [](BinTreeNode* x) { return (GetP)(x); });
 }
 
 template <typename BinTreeNode>
-utils::Pair<BinTreeNode*, size_t> bin_tree::GetMostL(BinTreeNode* n) {
+pair::Pair<BinTreeNode*, size_t> bin_tree::GetMostL(BinTreeNode* n) {
     (CheckContract<BinTreeNode>)();
 
     return utils::GetMostLink(n, [](BinTreeNode* x) { return (GetL)(x); });
 }
 
 template <typename BinTreeNode>
-utils::Pair<BinTreeNode*, size_t> bin_tree::GetMostR(BinTreeNode* n) {
+pair::Pair<BinTreeNode*, size_t> bin_tree::GetMostR(BinTreeNode* n) {
     (CheckContract<BinTreeNode>)();
 
     return utils::GetMostLink(n, [](BinTreeNode* x) { return (GetR)(x); });
@@ -445,14 +445,12 @@ void bin_tree::RotateR(BinTreeNode* n) {
     return { n, idx };
 
 template <typename BinTreeNode>
-utils::Pair<BinTreeNode*, size_t> bin_tree::AccessL(BinTreeNode* n,
-                                                    size_t idx) {
+pair::Pair<BinTreeNode*, size_t> bin_tree::AccessL(BinTreeNode* n, size_t idx) {
     Access_(L, R);
 }
 
 template <typename BinTreeNode>
-utils::Pair<BinTreeNode*, size_t> bin_tree::AccessR(BinTreeNode* n,
-                                                    size_t idx) {
+pair::Pair<BinTreeNode*, size_t> bin_tree::AccessR(BinTreeNode* n, size_t idx) {
     Access_(R, L);
 }
 
@@ -560,21 +558,21 @@ BinTreeNode* bin_tree::StepR(BinTreeNode* n) {
     return { n, step };
 
 template <typename BinTreeNode>
-utils::Pair<BinTreeNode*, size_t> bin_tree::AdvanceL(BinTreeNode* n,
-                                                     size_t step) {
+pair::Pair<BinTreeNode*, size_t> bin_tree::AdvanceL(BinTreeNode* n,
+                                                    size_t step) {
     Advance_(L, R);
 }
 
 template <typename BinTreeNode>
-utils::Pair<BinTreeNode*, size_t> bin_tree::AdvanceR(BinTreeNode* n,
-                                                     size_t step) {
+pair::Pair<BinTreeNode*, size_t> bin_tree::AdvanceR(BinTreeNode* n,
+                                                    size_t step) {
     Advance_(R, L);
 }
 
 #pragma pop_macro("Advance_")
 
 template <typename BinTreeNode>
-utils::Pair<size_t, size_t> bin_tree::GetLRAccSize(BinTreeNode* n) {
+pair::Pair<size_t, size_t> bin_tree::GetLRAccSize(BinTreeNode* n) {
     (CheckContract<BinTreeNode>)();
 
     ZETA_Core_StaticAssert((HasAccSize<BinTreeNode>)());

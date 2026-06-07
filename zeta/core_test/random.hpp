@@ -1,12 +1,13 @@
 #pragma once
 
+#include <stdint.h>
+
 #include <random>
-#include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
-#include <zeta/core/utils.hpp>
+#include <zeta/core/pair.hpp>
 
 namespace zeta::core_test {
 
@@ -36,7 +37,7 @@ RetInt GetRandomInt(LBInt lb, RBInt rb) {
     ZETA_Core_DebugAssert(ret_lb <= ret_rb);
 
     using GenInt =
-        core::meta::Conditional<core::integral::IsSigned<RetInt>,
+        core::meta::Conditional<core::integral::IsSignedIntegral<RetInt>,
                                 signed long long, unsigned long long>;
 
     std::uniform_int_distribution<GenInt> generator{
@@ -79,8 +80,8 @@ struct RandomCore<
 };
 
 template <typename First, typename Second>
-struct RandomCore<core::utils::Pair<First, Second>> {
-    core::utils::Pair<First, Second> operator()() const {
+struct RandomCore<core::pair::Pair<First, Second>> {
+    core::pair::Pair<First, Second> operator()() const {
         return { GetRandom<First>(), GetRandom<Second>() };
     }
 };

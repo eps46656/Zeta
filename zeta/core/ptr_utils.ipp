@@ -1,24 +1,41 @@
 #pragma once
 
-#include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/meta.hpp>
+#include <zeta/core/pair.hpp>
 #include <zeta/core/ptr_utils.hpp>
 
 namespace zeta::core {
 
-inline void* ptr_utils::color_ptr::GetPtr(void* const& color_ptr,
-                                          size_t align) {
-    return __builtin_align_down(color_ptr, align);
+inline void* ptr_utils::color_ptr::GetPtr(void* color_ptr, size_t align) {
+    return (GetPtrColor)(color_ptr, align).first;
 }
 
-inline unsigned ptr_utils::color_ptr::GetColor(void* const& color_ptr,
+inline void const* ptr_utils::color_ptr::GetPtr(void const* color_ptr,
+                                                size_t align) {
+    return (GetPtrColor)(color_ptr, align).first;
+}
+
+inline unsigned ptr_utils::color_ptr::GetColor(void const* color_ptr,
                                                size_t align) {
-    return static_cast<unsigned>(
-        static_cast<char*>(color_ptr) -
-        static_cast<char*>((GetPtr)(color_ptr, align)));
+    return (GetPtrColor)(color_ptr, align).second;
+}
+
+inline pair::Pair<void*, unsigned> ptr_utils::color_ptr::GetPtrColor(
+    void* color_ptr, size_t align) {
+    void* ptr{ __builtin_align_down(color_ptr, align) };
+
+    unsigned color{ static_cast<unsigned>(static_cast<char*>(color_ptr) -
+                                          static_cast<char*>(ptr)) };
+
+    return { ptr, color };
+}
+
+inline pair::Pair<void const*, unsigned> ptr_utils::color_ptr::GetPtrColor(
+    void const* color_ptr, size_t align) {
+    auto [ptr, color]{ (GetPtrColor)(const_cast<void*>(color_ptr), align) };
+    return { ptr, color };
 }
 
 inline void ptr_utils::color_ptr::SetPtr(void*& color_ptr, size_t align,
@@ -44,9 +61,8 @@ inline void ptr_utils::color_ptr::SetPtrColor(void*& color_ptr, size_t align,
 }
 
 template <typename SignedIntegral>
-void* ptr_utils::rel_ptr::GetPtr(SignedIntegral const& rel_ptr,
-                                 void const* base) {
-    ZETA_Core_StaticAssert(integral::IsSigned<SignedIntegral>);
+void* ptr_utils::rel_ptr::GetPtr(SignedIntegral rel_ptr, void const* base) {
+    ZETA_Core_StaticAssert(integral::IsSignedIntegral<SignedIntegral>);
 
     return const_cast<char*>(static_cast<char const*>(base) + rel_ptr);
 }
@@ -54,7 +70,7 @@ void* ptr_utils::rel_ptr::GetPtr(SignedIntegral const& rel_ptr,
 template <typename SignedIntegral>
 void ptr_utils::rel_ptr::SetPtr(SignedIntegral& rel_ptr, void const* base,
                                 void* ptr) {
-    ZETA_Core_StaticAssert(integral::IsSigned<SignedIntegral>);
+    ZETA_Core_StaticAssert(integral::IsSignedIntegral<SignedIntegral>);
 
     ptrdiff_t diff{ static_cast<char*>(ptr) - static_cast<char const*>(base) };
 
@@ -67,22 +83,31 @@ void ptr_utils::rel_ptr::SetPtr(SignedIntegral& rel_ptr, void const* base,
 }
 
 template <typename SignedIntegral>
-void* ptr_utils::rel_color_ptr::GetPtr(SignedIntegral const& rel_color_ptr,
+void* ptr_utils::rel_color_ptr::GetPtr(SignedIntegral rel_color_ptr,
                                        size_t align, void const* base) {
-    ZETA_Core_StaticAssert(integral::IsSigned<SignedIntegral>);
-
-    return const_cast<char*>(__builtin_align_down(
-        static_cast<char const*>(base) + rel_color_ptr, align));
+    return (GetPtrColor)(rel_color_ptr, align, base).first;
 }
 
 template <typename SignedIntegral>
-unsigned ptr_utils::rel_color_ptr::GetColor(SignedIntegral const& rel_color_ptr,
+unsigned ptr_utils::rel_color_ptr::GetColor(SignedIntegral rel_color_ptr,
                                             size_t align, void const* base) {
-    ZETA_Core_StaticAssert(integral::IsSigned<SignedIntegral>);
+    return (GetPtrColor)(rel_color_ptr, align, base).second;
+}
 
-    char const* ptr{ static_cast<char const*>(base) + rel_color_ptr };
+template <typename SignedIntegral>
+pair::Pair<void*, unsigned> ptr_utils::rel_color_ptr::GetPtrColor(
+    SignedIntegral rel_color_ptr, size_t align, void const* base) {
+    ZETA_Core_StaticAssert(integral::IsSignedIntegral<SignedIntegral>);
 
-    return static_cast<unsigned>(ptr - __builtin_align_down(ptr, align));
+    void* x{ const_cast<void*>(__builtin_align_down(
+        static_cast<char const*>(base) + rel_color_ptr, align)) };
+
+    void* ptr{ __builtin_align_down(x, align) };
+
+    unsigned color{ static_cast<unsigned>(static_cast<char const*>(x) -
+                                          static_cast<char const*>(ptr)) };
+
+    return { ptr, color };
 }
 
 template <typename SignedIntegral>
@@ -105,7 +130,7 @@ template <typename SignedIntegral>
 void ptr_utils::rel_color_ptr::SetPtrColor(SignedIntegral& rel_color_ptr,
                                            size_t align, void const* base,
                                            void* ptr, unsigned color) {
-    ZETA_Core_StaticAssert(integral::IsSigned<SignedIntegral>);
+    ZETA_Core_StaticAssert(integral::IsSignedIntegral<SignedIntegral>);
 
     ZETA_Core_DebugAssert(__builtin_is_aligned(ptr, align));
 

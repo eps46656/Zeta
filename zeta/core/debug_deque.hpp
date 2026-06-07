@@ -103,8 +103,8 @@ void CursorAdvanceR(Cntr const& cntr, Cursor* cursor, size_t step);
 namespace zeta::core {
 
 template <>
-struct seq_cntr::CntrTraits<debug_deque::Cntr const, void> {
-    static void* GetReferedInst(debug_deque::Cntr const& cntr);
+struct seq_cntr::CntrTraits<debug_deque::Cntr const> {
+    static void* GetReferedInstPtr(debug_deque::Cntr const& cntr);
 
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
 
@@ -171,8 +171,8 @@ struct seq_cntr::CntrTraits<debug_deque::Cntr const, void> {
 };
 
 template <>
-struct seq_cntr::CntrTraits<debug_deque::Cntr, void>
-    : public seq_cntr::CntrTraits<debug_deque::Cntr const, void> {
+struct seq_cntr::CntrTraits<debug_deque::Cntr>
+    : public seq_cntr::CntrTraits<debug_deque::Cntr const> {
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
 
     static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();

@@ -3,8 +3,6 @@
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/llist.hpp>
-#include <zeta/core/meta.hpp>
-#include <zeta/core/type_wrapper.hpp>
 
 namespace zeta::core {
 
@@ -44,7 +42,7 @@ void llist::CheckContract() {
 #pragma push_macro("CheckMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define CheckMethod(method, ...) \
-    ZETA_Core_Unused([=]() { method<LListNode>(__VA_ARGS__); })
+    ZETA_Core_Unused([&]() { (method<LListNode>)(__VA_ARGS__); })
 
     CheckMethod(GetL, lln);
     CheckMethod(GetR, lln);
@@ -96,7 +94,7 @@ template <typename LListNode>
 void llist::InsertR(LListNode* n, LListNode* m) {
     (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(!LListNode::IsConst());
+    ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
 
     ZETA_Core_DebugAssert(n != nullptr);
     ZETA_Core_DebugAssert(m != nullptr);
@@ -118,7 +116,7 @@ template <typename LListNode>
 void llist::Extract(LListNode* n) {
     (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(!LListNode::IsConst());
+    ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
 
     ZETA_Core_DebugAssert(n != nullptr);
 
@@ -136,7 +134,7 @@ template <typename LListNode>
 void llist::InsertSegL(LListNode* n, LListNode* m_beg, LListNode* m_end) {
     (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(!LListNode::IsConst());
+    ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
 
     ZETA_Core_DebugAssert(n != nullptr);
     ZETA_Core_DebugAssert(m_beg != nullptr);
@@ -162,7 +160,7 @@ template <typename LListNode>
 void llist::InsertSegR(LListNode* n, LListNode* m_beg, LListNode* m_end) {
     (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(!LListNode::IsConst());
+    ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
 
     ZETA_Core_DebugAssert(n != nullptr);
     ZETA_Core_DebugAssert(m_beg != nullptr);
@@ -188,7 +186,7 @@ template <typename LListNode>
 void llist::ExtractSeg(LListNode* n_beg, LListNode* n_end) {
     (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(!LListNode::IsConst());
+    ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
 
     ZETA_Core_DebugAssert(n_beg != nullptr);
     ZETA_Core_DebugAssert(n_end != nullptr);

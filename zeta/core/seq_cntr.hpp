@@ -19,22 +19,22 @@ namespace zeta::core::seq_cntr {
             __CHAR_BIT__ * alignof(max_align_t));        \
     })
 
-using FnReader = FunctionRef<void(  //
-    void const*,                    // src
-    size_t,                         // src_stride
-    size_t                          // cnt
+using FnReader = function_ref::Ref<void(  //
+    void const*,                          // src
+    size_t,                               // src_stride
+    size_t                                // cnt
     )>;
 
-using FnWriter = FunctionRef<void(  //
-    void*,                          // dst
-    size_t,                         // dst_stride
-    size_t                          // cnt
+using FnWriter = function_ref::Ref<void(  //
+    void*,                                // dst
+    size_t,                               // dst_stride
+    size_t                                // cnt
     )>;
 
-using FnReaderWriter = FunctionRef<void(void*,   // data
-                                        size_t,  // data_stride
-                                        size_t   // cnt
-                                        )>;
+using FnReaderWriter = function_ref::Ref<void(void*,   // data
+                                              size_t,  // data_stride
+                                              size_t   // cnt
+                                              )>;
 
 // clang-format off
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -245,7 +245,7 @@ struct MemWriter {
 };
 
 template <typename Cntr, typename = void>
-struct CntrTraits;
+struct CntrTraits;  // IWYU pragma: export
 
 constexpr bool CheckAbilityFlags(AbilityFlag static_enabled_ability_flag,
                                  AbilityFlag static_disabled_ability_flag);
@@ -392,33 +392,42 @@ struct VTable {
     void (*FnRead)(void* cntr, void const* pos_cursor, size_t cnt,
                    FnReader reader, void* dst_cursor);
 
+    void (*MemRead)(void* cntr, void const* pos_cursor, size_t cnt,
+                    MemReader& reader, void* dst_cursor);
+
     void (*FnWrite)(void* cntr, void* pos_cursor, size_t cnt, FnWriter writer,
                     void* dst_cursor);
+
+    void (*MemWrite)(void* cntr, void* pos_cursor, size_t cnt,
+                     MemWriter& writer, void* dst_cursor);
 
     void (*FnReadWrite)(void* cntr, void* pos_cursor, size_t cnt,
                         FnReaderWriter reader_writer, void* dst_cursor);
 
-    void (*MemRead)(void* cntr, void const* pos_cursor, size_t cnt,
-                    MemReader reader, void* dst_cursor);
-
-    void (*MemWrite)(void* cntr, void* pos_cursor, size_t cnt, MemWriter writer,
-                     void* dst_cursor);
-
     void* (*FnPushL)(void* cntr, size_t cnt, FnWriter writer, void* dst_cursor);
 
+    void* (*MemPushL)(void* cntr, size_t cnt, MemWriter& writer,
+                      void* dst_cursor);
+
+    void* (*EmptyPushL)(void* cntr, size_t cnt, EmptyWriter writer,
+                        void* dst_cursor);
+
     void* (*FnPushR)(void* cntr, size_t cnt, FnWriter writer, void* dst_cursor);
+
+    void* (*MemPushR)(void* cntr, size_t cnt, MemWriter& writer,
+                      void* dst_cursor);
+
+    void* (*EmptyPushR)(void* cntr, size_t cnt, EmptyWriter writer,
+                        void* dst_cursor);
 
     void* (*FnInsert)(void* cntr, void* pos_cursor, size_t cnt, FnWriter writer,
                       void* dst_cursor);
 
-    void* (*MemPushL)(void* cntr, size_t cnt, MemWriter writer,
-                      void* dst_cursor);
-
-    void* (*MemPushR)(void* cntr, size_t cnt, MemWriter writer,
-                      void* dst_cursor);
-
     void* (*MemInsert)(void* cntr, void* pos_cursor, size_t cnt,
-                       MemWriter writer, void* dst_cursor);
+                       MemWriter& writer, void* dst_cursor);
+
+    void* (*EmptyInsert)(void* cntr, void* pos_cursor, size_t cnt,
+                         EmptyWriter writer, void* dst_cursor);
 
     void (*PopL)(void* cntr, size_t cnt);
 
@@ -469,14 +478,18 @@ constexpr VTable BuildVTable();
 template <typename Cntr>
 constexpr VTable const& GetVTable();
 
-constexpr bool IsReferable(size_t idx, size_t cnt, size_t size);
+constexpr bool IsReferable(size_t idx, size_t cnt, size_t elem_cnt);
 
-constexpr bool IsDereferable(size_t idx, size_t cnt, size_t size);
+constexpr bool IsDereferable(size_t idx, size_t cnt, size_t elem_cnt);
 
-constexpr bool IsInsertable(size_t idx, size_t cnt, size_t size,
-                            size_t capacity);
+constexpr bool IsInsertable(size_t idx, size_t cnt, size_t elem_cnt,
+                            size_t max_elem_cnt);
 
-constexpr bool IsErasable(size_t idx, size_t cnt, size_t size);
+constexpr bool IsErasable(size_t idx, size_t cnt, size_t elem_cnt);
+
+constexpr bool IsAdvancableL(size_t idx, size_t step, size_t elem_cnt);
+
+constexpr bool IsAdvancableR(size_t idx, size_t step, size_t elem_cnt);
 
 template <typename DstSeqCntr, typename SrcSeqCntr>
 void RangeAssign(DstSeqCntr& dst_cntr, SrcSeqCntr& src_cntr, size_t dst_beg,

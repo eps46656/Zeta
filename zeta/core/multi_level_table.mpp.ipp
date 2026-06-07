@@ -1,5 +1,7 @@
-#if !defined(EnData)
-#error "EnData is not defined."
+// IWYU pragma: private
+
+#if !defined(EnDataNode)
+#error "EnDataNode is not defined."
 #endif
 
 #include <zeta/core/allocator.ipp>
@@ -12,209 +14,300 @@
 #include <zeta/core/lifecycle.ipp>
 #include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/multi_level_table.mpp.hpp>
+#include <zeta/core/ptr_utils.ipp>
 #include <zeta/core/utils.hpp>
 
-#if EnData
+#if EnDataNode
 
-#pragma push_macro("NameSpace")
-#define NameSpace multi_level_data_table
+#pragma push_macro("Namespace")
+#define Namespace multi_level_data_table
 
 #pragma push_macro("CntrTplParamList")
-#define CntrTplParamList \
-    typename NavNodeAllocatorLike, typename DataNodeAllocatorLike
+#define CntrTplParamList                               \
+    typename ActiveMap, typename NavNodeAllocatorLike, \
+        typename DataNodeAllocatorLike
 
 #pragma push_macro("CntrTplArgList")
-#define CntrTplArgList NavNodeAllocatorLike, DataNodeAllocatorLike
+#define CntrTplArgList ActiveMap, NavNodeAllocatorLike, DataNodeAllocatorLike
+
+#pragma push_macro("EnDataNodeTernary")
+#define EnDataNodeTernary(x, y) x
 
 #else
 
-#pragma push_macro("NameSpace")
-#define NameSpace multi_level_ptr_table
+#pragma push_macro("Namespace")
+#define Namespace multi_level_ptr_table
 
 #pragma push_macro("CntrTplParamList")
-#define CntrTplParamList typename NavNodeAllocatorLike
+#define CntrTplParamList typename ActiveMap, typename NavNodeAllocatorLike
 
 #pragma push_macro("CntrTplArgList")
-#define CntrTplArgList NavNodeAllocatorLike
+#define CntrTplArgList ActiveMap, NavNodeAllocatorLike
+
+#pragma push_macro("EnDataNodeTernary")
+#define EnDataNodeTernary(x, y) y
 
 #endif
 
 namespace zeta::core {
 
-namespace NameSpace::detail {
+namespace Namespace::detail {
 
 template <CntrTplParamList>
-void Check_  // NOLINT(misc-use-internal-linkage)
+void CheckCntr_  // NOLINT(misc-use-internal-linkage)
     (Cntr<CntrTplArgList>& cntr) {
     unsigned level{ cntr.level };
     ZETA_Core_DebugAssert(0 < level);
     ZETA_Core_DebugAssert(level <= max_level);
 
-    unsigned short const* branch_nums{ cntr.branch_nums };
+    BranchNum const* branch_nums{ cntr.branch_nums };
 
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
-        unsigned branch_num{ branch_nums[level_i] };
+        BranchNum branch_num{ branch_nums[level_i] };
 
         ZETA_Core_DebugAssert(min_branch_num <= branch_num);
+        ZETA_Core_DebugAssert(branch_num <= integral::WidthOf<ActiveMap>);
         ZETA_Core_DebugAssert(branch_num <= max_branch_num);
     }
 }
 
-template <CntrTplParamList>
-void CheckIdxes_  // NOLINT(misc-use-internal-linkage)
-    (Cntr<CntrTplArgList>& cntr, size_t const* idxes) {
-    (Check_)(cntr);
+template <typename T>
+struct TransferBranchIdxesCore_ {
+    static auto& Src(unsigned, T& x) { return x; }
+    static auto& Dst(unsigned, T& x) { return x; }
+};
 
-    ZETA_Core_DebugAssert(idxes != nullptr);
+template <>
+struct TransferBranchIdxesCore_<meta::NoneType> {
+    static auto Dst(unsigned, meta::NoneType&) {
+        struct {
+            void operator()(BranchNum) {}
+        } ret;
 
-    unsigned level{ cntr.level };
-    unsigned short const* branch_nums{ cntr.branch_nums };
-
-    for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
-        ZETA_Core_DebugAssert(idxes[level_i] < branch_nums[level_i]);
+        return ret;
     }
+};
+
+template <typename T>
+struct TransferBranchIdxesCore_<T*> {
+    static auto Src(unsigned level, T* x) {
+        struct {
+            T* ptr;
+
+            auto operator()() { return *(--this->ptr); }
+        } ret{ .ptr = x + level };
+
+        return ret;
+    }
+
+    static auto Dst(unsigned level, T* x) {
+        struct {
+            T* ptr;
+
+            void operator()(BranchNum branch_idx) {
+                *(--this->ptr) = static_cast<T>(branch_idx);
+            }
+        } ret{ .ptr = x + level };
+
+        return ret;
+    }
+};
+
+template <typename T>
+struct TransferBranchIdxesCore_<T* const>
+    : public TransferBranchIdxesCore_<T*> {};
+
+template <typename T, size_t N>
+struct TransferBranchIdxesCore_<T[N]> {
+    static decltype(auto) Src(unsigned level, T (&x)[N]) {
+        return TransferBranchIdxesCore_<T*>::Src(level, x);
+    }
+
+    static decltype(auto) Dst(unsigned level, T (&x)[N]) {
+        return TransferBranchIdxesCore_<T*>::Dst(level, x);
+    }
+};
+
+template <typename T>
+struct TransferBranchIdxesCore_<T[]> {
+    static decltype(auto) Src(unsigned level, T (&x)[]) {
+        return TransferBranchIdxesCore_<T*>::Src(level, x);
+    }
+
+    static decltype(auto) Dst(unsigned level, T (&x)[]) {
+        return TransferBranchIdxesCore_<T*>::Dst(level, x);
+    }
+};
+
+template <typename T>
+decltype(auto) GetSrcBranchIdxes_(unsigned level, T&& x) {
+    return TransferBranchIdxesCore_<meta::RemoveRef<T>>::Src(
+        level, meta::Forward<T>(x));
 }
 
+template <typename T>
+decltype(auto) GetDstBranchIdxes_(unsigned level, T&& x) {
+    return TransferBranchIdxesCore_<meta::RemoveRef<T>>::Dst(
+        level, meta::Forward<T>(x));
+}
+
+template <typename BranchIdx, typename BranchNum>
+void CheckBranchIdx_  // NOLINT(misc-use-internal-linkage)
+    (BranchIdx const& idx, BranchNum branch_num) {
+    ZETA_Core_StaticAssert(integral::IsIntegral<BranchIdx>);
+    ZETA_Core_DebugAssert(0 <= idx);
+    ZETA_Core_DebugAssert(integral::MathCompare(idx, branch_num) < 0);
+}
+
+template <typename SrcBranchIdxes>
+BranchNum FetchAndCheckBranchIdx_(
+    SrcBranchIdxes&&
+        src_branch_idxes,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    BranchNum branch_num) {
+    auto branch_idx{ src_branch_idxes() };
+    ZETA_Core_StaticAssert(integral::IsIntegral<decltype(branch_idx)>);
+    ZETA_Core_DebugAssert(0 <= branch_idx);
+    ZETA_Core_DebugAssert(integral::MathCompare(branch_idx, branch_num) < 0);
+
+    return static_cast<BranchNum>(branch_idx);
+}
+
+template <typename ActiveMap>
 constexpr bool TestActiveMap_  // NOLINT(misc-use-internal-linkage)
-    (unsigned long long active_map, unsigned idx) {
-    return (active_map & (1ULL << (idx))) != 0;
+    (ActiveMap active_map, BranchNum idx) {
+    return (active_map & (static_cast<ActiveMap>(1)
+                          << static_cast<unsigned long long>(idx))) != 0;
 }
 
-template <typename NavNodeAllocator>
-void* AllocateNavNode_  // NOLINT(misc-use-internal-linkage)
-    (size_t branch_num, NavNodeAllocator& nav_node_alctr) {
-    auto* nav_node{ static_cast<NavNode*>(
-        allocator::SafeAllocate(nav_node_alctr, alignof(NavNode),
-                                offsetof(NavNode, ptrs[branch_num]))) };
+template <typename ActiveMap>
+size_t GetNavNodeSize_(BranchNum branch_num) {
+    return __builtin_offsetof(ZETA_Core_Identity(NavNode<ActiveMap>),
+                              ptrs[branch_num]);
+}
+
+template <typename ActiveMap,
+          typename NavNodeAllocator>
+NavNode<ActiveMap>* AllocateNavNode_  // NOLINT(misc-use-internal-linkage)
+    (BranchNum branch_num, NavNodeAllocator& nav_node_alctr) {
+    auto* nav_node{ static_cast<NavNode<ActiveMap>*>(
+        allocator::SafeAllocate(nav_node_alctr, alignof(NavNode<ActiveMap>),
+                                (GetNavNodeSize_<ActiveMap>)(branch_num))) };
 
     nav_node->active_map = 0;
 
-    return &nav_node->active_map;
+    return nav_node;
 }
 
-template <typename NavNodeAllocator>
+template <typename ActiveMap,
+          typename NavNodeAllocator>
 void DeallocateNavNode_  // NOLINT(misc-use-internal-linkage)
-    (NavNodeAllocator& node_alctr, void* node) {
-    allocator::Deallocate(node_alctr,
-                          ZETA_Core_MemberToStruct(NavNode, active_map, node));
+    (NavNode<ActiveMap>* node, NavNodeAllocator& node_alctr) {
+    allocator::Deallocate(node_alctr, node);
 }
 
-#if EnData
+#if EnDataNode
 
-inline size_t(CalcDataNodeSize_)  // NOLINT(misc-use-internal-linkage)
-    (size_t stride, size_t branch_num) {
-    return integral_math::AlignUp(
-        stride * branch_num + sizeof(unsigned long long),
-        alignof(unsigned long long));
+template <typename ActiveMap>
+size_t GetDataNodeSize_(size_t elem_stride, BranchNum branch_num) {
+    return __builtin_offsetof(ZETA_Core_Identity(DataNode<ActiveMap>),
+                              data[elem_stride * branch_num]);
 }
 
-template <typename DataNodeAllocator>
-void* AllocateDataNode_  // NOLINT(misc-use-internal-linkage)
-    (size_t stride, size_t branch_num, DataNodeAllocator& data_node_alctr) {
-    size_t data_node_size{ (CalcDataNodeSize_)(stride, branch_num) };
+template <typename ActiveMap, typename DataNodeAllocator>
+DataNode<ActiveMap>* AllocateDataNode_  // NOLINT(misc-use-internal-linkage)
+    (size_t elem_stride, BranchNum branch_num,
+     DataNodeAllocator& data_node_alctr) {
+    auto* data_node{ static_cast<DataNode<ActiveMap>*>(allocator::SafeAllocate(
+        data_node_alctr, alignof(DataNode<ActiveMap>),
+        (GetDataNodeSize_<ActiveMap>)(elem_stride, branch_num))) };
 
-    void* data_node{ static_cast<char*>(allocator::SafeAllocate(
-                         data_node_alctr, alignof(unsigned long long),
-                         data_node_size)) +
-                     (data_node_size - sizeof(unsigned long long)) };
-
-    *static_cast<unsigned long long*>(data_node) = 0;
+    data_node->active_map = 0;
 
     return data_node;
 }
 
-template <typename DataNodeAllocator>
-void DeAllocateDataNode_  // NOLINT(misc-use-internal-linkage)
-    (size_t stride, size_t branch_num, DataNodeAllocator& data_node_alctr,
-     void* node) {
-    allocator::Deallocate(
-        data_node_alctr,
-        static_cast<char*>(node) - (CalcDataNodeSize_(stride, branch_num) -
-                                    sizeof(unsigned long long)));
+template <typename ActiveMap, typename DataNodeAllocator>
+void DeallocateDataNode_  // NOLINT(misc-use-internal-linkage)
+    (DataNode<ActiveMap>* node, DataNodeAllocator& data_node_alctr) {
+    allocator::Deallocate(data_node_alctr, node);
 }
 
 #endif
 
-}  // namespace NameSpace::detail
+}  // namespace Namespace::detail
 
 template <CntrTplParamList, typename NavNodeAllocatorInitArg
-#if EnData
+#if EnDataNode
           ,
           typename DataNodeAllocatorInitArg
 #endif
           >
-void NameSpace::Init(Cntr<CntrTplArgList>& cntr, unsigned level,
-                     unsigned short const* branch_nums
-#if EnData
-                     ,
-                     size_t stride
+void Namespace::Init(Cntr<CntrTplArgList>& cntr,
+                     NavNodeAllocatorInitArg&& nav_node_alctr_init_arg,
+#if EnDataNode
+                     DataNodeAllocatorInitArg&& data_node_alctr_init_arg,
 #endif
+                     unsigned level, BranchNum const* branch_nums
+#if EnDataNode
                      ,
-                     NavNodeAllocatorInitArg&& nav_node_alctr_init_arg
-#if EnData
-                     ,
-                     DataNodeAllocatorInitArg&& data_node_alctr_init_arg
+                     size_t elem_stride
 #endif
 ) {
-    ZETA_Core_DebugAssert(cntr != nullptr);
-
     ZETA_Core_DebugAssert(0 < level);
     ZETA_Core_DebugAssert(level <= max_level);
 
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
-        unsigned branch_num{ branch_nums[level_i] };
+        BranchNum branch_num{ branch_nums[level_i] };
 
         ZETA_Core_DebugAssert(min_branch_num <= branch_num);
+        ZETA_Core_DebugAssert(branch_num <= integral::WidthOf<ActiveMap>);
         ZETA_Core_DebugAssert(branch_num <= max_branch_num);
     }
-
-#if EnData
-    ZETA_Core_DebugAssert(0 < cntr.stride);
-#endif
-
-    cntr.level = level;
-    cntr.branch_nums = branch_nums;
-
-#if EnData
-    cntr.stride = stride;
-#endif
-
-    cntr.size = 0;
-
-    cntr.root = nullptr;
 
     lifecycle::Init(cntr.nav_node_alctr, meta::Forward<NavNodeAllocatorInitArg>(
                                              nav_node_alctr_init_arg));
     allocator::CheckContract(cntr.nav_node_alctr);
 
-#if EnData
+#if EnDataNode
     lifecycle::Init(
         cntr.data_node_alctr,
         meta::Forward<DataNodeAllocatorInitArg>(data_node_alctr_init_arg));
     allocator::CheckContract(cntr.data_node_alctr);
 #endif
+
+    cntr.level = level;
+    cntr.branch_nums = branch_nums;
+
+#if EnDataNode
+    ZETA_Core_DebugAssert(0 < elem_stride);
+    cntr.elem_stride = elem_stride;
+#endif
+
+    cntr.size = 0;
+
+    cntr.root = nullptr;
 }
 
 template <CntrTplParamList>
-void NameSpace::Deinit(Cntr<CntrTplArgList>& cntr) {
+void Namespace::Deinit(Cntr<CntrTplArgList>& cntr) {
     EraseAll(cntr);
 }
 
 template <CntrTplParamList>
-size_t NameSpace::GetSize(Cntr<CntrTplArgList>& cntr) {
-    detail::Check_(cntr);
+size_t Namespace::GetSize(Cntr<CntrTplArgList>& cntr) {
+    detail::CheckCntr_(cntr);
 
     return cntr.size;
 }
 
 template <CntrTplParamList>
-size_t NameSpace::GetCapacity(Cntr<CntrTplArgList>& cntr) {
-    detail::Check_(cntr);
+size_t Namespace::GetCapacity(Cntr<CntrTplArgList>& cntr) {
+    detail::CheckCntr_(cntr);
 
     size_t ret{ 1 };
 
     unsigned level{ cntr.level };
-    unsigned short const* branch_nums{ cntr.branch_nums };
+    BranchNum const* branch_nums{ cntr.branch_nums };
 
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
         if (__builtin_umulll_overflow(ret, branch_nums[level_i], &ret)) {
@@ -225,168 +318,177 @@ size_t NameSpace::GetCapacity(Cntr<CntrTplArgList>& cntr) {
     return ret;
 }
 
-template <CntrTplParamList>
-void* NameSpace::Access(Cntr<CntrTplArgList>& cntr, size_t* idxes) {
-    detail::CheckIdxes_(cntr, idxes);
+template <CntrTplParamList, typename BranchIdxesSource>
+void* Namespace::Access(
+    Cntr<CntrTplArgList>& cntr,
+    BranchIdxesSource&&
+        src_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward)
+) {
+    detail::CheckCntr_(cntr);
 
     unsigned level{ cntr.level };
+    BranchNum const* branch_nums{ cntr.branch_nums };
 
-#if EnData
-    unsigned short const* branch_nums{ cntr.branch_nums };
-    size_t stride{ cntr.stride };
+#if EnDataNode
+    size_t elem_stride{ cntr.elem_stride };
 #endif
+
+    decltype(auto) src_branch_idxes{ detail::GetSrcBranchIdxes_(
+        level, src_branch_idxes_) };
 
     void* node{ cntr.root };
 
     if (node == nullptr) { return nullptr; }
 
     for (unsigned level_i{ level - 1 }; 0 < level_i; --level_i) {
-        size_t cur_idx{ idxes[level_i] };
+        auto* nav_node{ static_cast<NavNode<ActiveMap>*>(node) };
 
-        if (!detail::TestActiveMap_(*static_cast<unsigned long long*>(node),
-                                    static_cast<unsigned>(cur_idx))) {
+        BranchNum cur_branch_idx{ detail::FetchAndCheckBranchIdx_(
+            src_branch_idxes, branch_nums[level_i]) };
+
+        if (!detail::TestActiveMap_(nav_node->active_map, cur_branch_idx)) {
             return nullptr;
         }
 
-        node = static_cast<NavNode*>(node)->ptrs[cur_idx];
+        node = nav_node->ptrs[cur_branch_idx];
     }
 
-    size_t last_idx{ idxes[0] };
+    BranchNum last_branch_idx{ detail::FetchAndCheckBranchIdx_(
+        src_branch_idxes, branch_nums[0]) };
 
-    if (!detail::TestActiveMap_(*static_cast<unsigned long long*>(node),
-                                static_cast<unsigned>(last_idx))) {
+    if (!detail::TestActiveMap_(
+            static_cast<EnDataNodeTernary(DataNode, NavNode) < ActiveMap>* >
+                (node)->active_map,
+            last_branch_idx)) {
         return nullptr;
     }
 
-#if EnData
-    return static_cast<char*>(node) + sizeof(unsigned long long) -
-           (CalcDataNodeSize_)(stride, branch_nums[0]) + stride * last_idx;
+#if EnDataNode
+    return static_cast<DataNode<ActiveMap>*>(node)->data +
+           elem_stride * last_branch_idx;
 #else
-    return static_cast<void*>(static_cast<NavNode*>(node)->ptrs + last_idx);
+    return static_cast<NavNode<ActiveMap>*>(node)->ptrs + last_branch_idx;
 #endif
 }
 
-template <CntrTplParamList>
-void* NameSpace::FindFirst(Cntr<CntrTplArgList>& cntr, size_t* dst_idxes) {
-    detail::Check_(cntr);
+template <CntrTplParamList, typename DstBranchIdxes>
+void* Namespace::FindFirst(
+    Cntr<CntrTplArgList>& cntr,
+    DstBranchIdxes&&
+        dst_branch_idxes  // NOLINT(cppcoreguidelines-missing-std-forward)
+) {
+    detail::CheckCntr_(cntr);
 
-    unsigned level{ cntr.level };
+    struct {
+        constexpr size_t operator()() { return 0; }
+    } src_branch_idxes;
 
-    size_t idxes[max_level];
-
-    for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
-        idxes[level_i] = 0;
-    }
-
-    void* ret{ FindNext(cntr, idxes, true) };
-
-    if (dst_idxes != nullptr) {
-        for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
-            dst_idxes[level_i] = idxes[level_i];
-        }
-    }
-
-    return ret;
+    return (FindNextIncl)(cntr, src_branch_idxes, dst_branch_idxes);
 }
 
-template <CntrTplParamList>
-void* NameSpace::FindLast(Cntr<CntrTplArgList>& cntr, size_t* dst_idxes) {
-    detail::Check_(cntr);
+template <CntrTplParamList, typename DstBranchIdxes>
+void* Namespace::FindLast(
+    Cntr<CntrTplArgList>& cntr,
+    DstBranchIdxes&&
+        dst_branch_idxes  // NOLINT(cppcoreguidelines-missing-std-forward)
+) {
+    detail::CheckCntr_(cntr);
 
-    unsigned level{ cntr.level };
-    unsigned short const* branch_nums{ cntr.branch_nums };
+    struct {
+        BranchNum const* branch_nums;
 
-    size_t idxes[max_level];
+        size_t operator()() { return *(--this->branch_nums) - 1; }
+    } src_branch_idxes{ .branch_nums = cntr.branch_nums + cntr.level };
 
-    for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
-        idxes[level_i] = branch_nums[level_i] - 1;
-    }
-
-    void* ret{ (FindPrev)(cntr, idxes, true) };
-
-    if (dst_idxes != nullptr) {
-        for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
-            dst_idxes[level_i] = idxes[level_i];
-        }
-    }
-
-    return ret;
+    return (FindPrevIncl)(cntr, src_branch_idxes, dst_branch_idxes);
 }
 
-template <CntrTplParamList>
-void* NameSpace::FindPrev(Cntr<CntrTplArgList>& cntr, size_t* idxes,
-                          bool included) {
-    detail::CheckIdxes_(cntr, idxes);
+template <CntrTplParamList, typename SrcBranchIdxes, typename DstBranchIdxes>
+void* Namespace::FindPrevIncl(
+    Cntr<CntrTplArgList>& cntr,
+    SrcBranchIdxes&&
+        src_branch_idxes_,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    DstBranchIdxes&&
+        dst_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward)
+) {
+    detail::CheckCntr_(cntr);
 
     unsigned level{ cntr.level };
-    unsigned short const* branch_nums{ cntr.branch_nums };
+    BranchNum const* branch_nums{ cntr.branch_nums };
 
-#if EnData
-    size_t stride{ cntr.stride };
-    size_t data_node_size{ (CalcDataNodeSize_)(stride, branch_nums[0]) };
+#if EnDataNode
+    size_t elem_stride{ cntr.elem_stride };
 #endif
 
-    if (!included) {
-        for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
-            if (0 < idxes[level_i]) {
-                --idxes[level_i];
-                goto L1;
-            }
+    decltype(auto) src_branch_idxes{ detail::GetSrcBranchIdxes_(
+        level, src_branch_idxes_) };
 
-            idxes[level_i] = branch_nums[level_i] - 1;
-        }
-
-        return nullptr;
-    }
-
-L1:
+    decltype(auto) dst_branch_idxes{ detail::GetDstBranchIdxes_(
+        level, dst_branch_idxes_) };
 
     void* root{ cntr.root };
 
     if (root == nullptr) {
-        for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
-            idxes[level_i] = branch_nums[level_i] - 1;
+        for (unsigned level_j{ level }; 0 < level_j;) {
+            dst_branch_idxes(branch_nums[--level_j] - 1);
         }
 
         return nullptr;
     }
 
+    BranchNum branch_idxes[max_level];
     void* nodes[max_level];
 
     unsigned level_i{ level - 1 };
     void* node{ root };
 
     for (;; --level_i) {
+        BranchNum cur_branch_idx{ detail::FetchAndCheckBranchIdx_(
+            src_branch_idxes, branch_nums[level_i]) };
+
+        branch_idxes[level_i] = cur_branch_idx;
+
         nodes[level_i] = node;
 
-        size_t cur_idx{ idxes[level_i] };
-
-        if (!detail::TestActiveMap_(*static_cast<unsigned long long*>(node),
-                                    static_cast<unsigned>(cur_idx))) {
+        if (
+#if EnDataNode
+            0 < level_i &&
+#endif
+            !detail::TestActiveMap_(
+                static_cast<NavNode<ActiveMap>*>(node)->active_map,
+                cur_branch_idx)) {
             break;
         }
 
-#if EnData
         if (level_i == 0) {
-            return static_cast<char*>(node) + sizeof(unsigned long long) -
-                   data_node_size + stride * cur_idx;
+#if EnDataNode
+            if (!detail::TestActiveMap_(
+                    static_cast<DataNode<ActiveMap>*>(node)->active_map,
+                    cur_branch_idx)) {
+                break;
+            }
+#endif
+
+            for (unsigned level_j{ level }; 0 < level_j;) {
+                dst_branch_idxes(branch_idxes[--level_j]);
+            }
+
+#if EnDataNode
+            return static_cast<DataNode<ActiveMap>*>(node)->data +
+                   elem_stride * cur_branch_idx;
+#else
+            return static_cast<NavNode<ActiveMap>*>(node)->ptrs +
+                   cur_branch_idx;
+#endif
         }
-#endif
 
-        void* addr{ static_cast<void*>(static_cast<NavNode*>(node)->ptrs +
-                                       cur_idx) };
-
-#if !EnData
-        if (level_i == 0) { return addr; }
-#endif
-
-        node = *static_cast<void**>(addr);
+        node = static_cast<NavNode<ActiveMap>*>(node)->ptrs[cur_branch_idx];
     }
 
     for (;; ++level_i) {
         if (level_i == level) {
-            for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
-                idxes[level_i] = branch_nums[level_i] - 1;
+            for (unsigned level_j{ level }; 0 < level_j;) {
+                dst_branch_idxes(branch_nums[--level_j] - 1);
             }
 
             return nullptr;
@@ -394,105 +496,185 @@ L1:
 
         node = nodes[level_i];
 
-        long long found_idx{ integral_bit::FindPrevBit(
-            *static_cast<unsigned long long*>(node),
-            static_cast<long long>(idxes[level_i]) - 1) };
+        if (branch_idxes[level_i] == 0) { continue; }
 
-        if (0 <= found_idx) {
-            idxes[level_i] = static_cast<size_t>(found_idx);
+        unsigned long long found_idx{ integral_bit::FindPrevBit(
+#if EnDataNode
+            level_i == 0 ? static_cast<DataNode<ActiveMap>*>(node)->active_map :
+#endif
+                         static_cast<NavNode<ActiveMap>*>(node)->active_map,
+            branch_idxes[level_i] - 1) };
+
+        if (found_idx != integral::RangeMaxOf<unsigned long long>) {
+            branch_idxes[level_i] = static_cast<BranchNum>(found_idx);
             break;
         }
     }
 
     while (0 < level_i) {
-        node = static_cast<NavNode*>(node)->ptrs[idxes[level_i--]];
+        BranchNum cur_branch_idx{ branch_idxes[level_i] };
+
+        node = static_cast<NavNode<ActiveMap>*>(node)->ptrs[cur_branch_idx];
+
+        --level_i;
+
         nodes[level_i] = node;
-        idxes[level_i] = static_cast<size_t>(integral_bit::FindPrevBit(
-            *static_cast<unsigned long long*>(node), branch_nums[level_i] - 1));
+
+        branch_idxes[level_i] =
+            static_cast<BranchNum>(integral_bit::FindPrevBit(
+#if EnDataNode
+                level_i == 0
+                    ? static_cast<DataNode<ActiveMap>*>(node)->active_map
+                    :
+#endif
+                    static_cast<NavNode<ActiveMap>*>(node)->active_map,
+                branch_nums[level_i] - 1));
     }
 
-#if EnData
-    return static_cast<char*>(nodes[0]) + sizeof(unsigned long long) -
-           (CalcDataNodeSize_)(stride, branch_nums[0]) + stride * idxes[0];
+    for (unsigned level_j{ level }; 0 < level_j;) {
+        dst_branch_idxes(branch_idxes[--level_j]);
+    }
+
+#if EnDataNode
+    return static_cast<DataNode<ActiveMap>*>(nodes[0])->data +
+           elem_stride * branch_idxes[0];
 #else
-    return static_cast<void*>(static_cast<NavNode*>(nodes[0])->ptrs + idxes[0]);
+    return static_cast<NavNode<ActiveMap>*>(nodes[0])->ptrs + branch_idxes[0];
 #endif
 }
 
-template <CntrTplParamList>
-void* NameSpace::FindNext(Cntr<CntrTplArgList>& cntr, size_t* idxes,
-                          bool included) {
-    detail::CheckIdxes_(cntr, idxes);
+template <CntrTplParamList, typename SrcBranchIdxes, typename DstBranchIdxes>
+void* Namespace::FindPrevExcl(
+    Cntr<CntrTplArgList>& cntr,
+    SrcBranchIdxes&&
+        src_branch_idxes_,  // NOLINT(cppcoreguidelines-missing-std-forward
+    DstBranchIdxes&&
+        dst_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward
+) {
+    detail::CheckCntr_(cntr);
 
     unsigned level{ cntr.level };
-    unsigned short const* branch_nums{ cntr.branch_nums };
+    BranchNum const* branch_nums{ cntr.branch_nums };
 
-#if EnData
-    size_t stride{ cntr.stride };
-    size_t data_node_size{ (CalcDataNodeSize_)(stride, branch_nums[0]) };
-#endif
+    decltype(auto) src_branch_idxes{ detail::GetSrcBranchIdxes_(
+        level, src_branch_idxes_) };
 
-    if (!included) {
-        for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
-            if (idxes[level_i] < branch_nums[level_i] - 1) {
-                ++idxes[level_i];
-                goto L1;
-            }
+    decltype(auto) dst_branch_idxes{ detail::GetDstBranchIdxes_(
+        level, dst_branch_idxes_) };
 
-            idxes[level_i] = 0;
-        }
+    BranchNum branch_idxes[max_level];
 
-        return nullptr;
+    for (unsigned level_i{ level }; 0 < level_i; --level_i) {
+        branch_idxes[level_i - 1] = detail::FetchAndCheckBranchIdx_(
+            src_branch_idxes, branch_nums[level_i - 1]);
     }
 
-L1:
+    for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
+        if (0 < branch_idxes[level_i]) {
+            --branch_idxes[level_i];
+            goto L1;
+        }
+
+        branch_idxes[level_i] = branch_nums[level_i] - 1;
+    }
+
+    for (unsigned level_j{ level }; 0 < level_j;) {
+        dst_branch_idxes(branch_nums[--level_j] - 1);
+    }
+
+    return nullptr;
+
+L1:;
+
+    return (FindPrevIncl)(cntr, branch_idxes, dst_branch_idxes);
+}
+
+template <CntrTplParamList, typename SrcBranchIdxes, typename DstBranchIdxes>
+void* Namespace::FindNextIncl(
+    Cntr<CntrTplArgList>& cntr,
+    SrcBranchIdxes&&
+        src_branch_idxes_,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    DstBranchIdxes&&
+        dst_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward)
+) {
+    detail::CheckCntr_(cntr);
+
+    unsigned level{ cntr.level };
+    BranchNum const* branch_nums{ cntr.branch_nums };
+
+#if EnDataNode
+    size_t elem_stride{ cntr.elem_stride };
+#endif
+
+    decltype(auto) src_branch_idxes{ detail::GetSrcBranchIdxes_(
+        level, src_branch_idxes_) };
+
+    decltype(auto) dst_branch_idxes{ detail::GetDstBranchIdxes_(
+        level, dst_branch_idxes_) };
 
     void* root{ cntr.root };
 
     if (root == nullptr) {
-        for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
-            idxes[level_i] = 0;
+        for (unsigned level_j{ level }; 0 < level_j; --level_j) {
+            dst_branch_idxes(0);
         }
 
         return nullptr;
     }
 
+    BranchNum branch_idxes[max_level];
     void* nodes[max_level];
 
     unsigned level_i{ level - 1 };
     void* node{ root };
 
     for (;; --level_i) {
+        BranchNum cur_branch_idx{ detail::FetchAndCheckBranchIdx_(
+            src_branch_idxes, branch_nums[level_i]) };
+
+        branch_idxes[level_i] = cur_branch_idx;
+
         nodes[level_i] = node;
 
-        size_t cur_idx{ idxes[level_i] };
-
-        if (!detail::TestActiveMap_(*static_cast<unsigned long long*>(node),
-                                    static_cast<unsigned>(cur_idx))) {
+        if (
+#if EnDataNode
+            0 < level_i &&
+#endif
+            !detail::TestActiveMap_(
+                static_cast<NavNode<ActiveMap>*>(node)->active_map,
+                cur_branch_idx)) {
             break;
         }
 
-#if EnData
         if (level_i == 0) {
-            return static_cast<char*>(node) + sizeof(unsigned long long) -
-                   data_node_size + stride * cur_idx;
+#if EnDataNode
+            if (!detail::TestActiveMap_(
+                    static_cast<DataNode<ActiveMap>*>(node)->active_map,
+                    cur_branch_idx)) {
+                break;
+            }
+#endif
+
+            for (unsigned level_j{ level }; 0 < level_j;) {
+                dst_branch_idxes(branch_idxes[--level_j]);
+            }
+
+#if EnDataNode
+            return static_cast<DataNode<ActiveMap>*>(node)->data +
+                   elem_stride * cur_branch_idx;
+#else
+            return static_cast<NavNode<ActiveMap>*>(node)->ptrs +
+                   cur_branch_idx;
+#endif
         }
-#endif
 
-        void* addr{ static_cast<void*>(static_cast<NavNode*>(node)->ptrs +
-                                       cur_idx) };
-
-#if !EnData
-        if (level_i == 0) { return addr; }
-#endif
-
-        node = *static_cast<void**>(addr);
+        node = static_cast<NavNode<ActiveMap>*>(node)->ptrs[cur_branch_idx];
     }
 
     for (;; ++level_i) {
         if (level_i == level) {
-            for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
-                idxes[level_i] = 0;
+            for (unsigned level_j{ level }; 0 < level_j; --level_j) {
+                dst_branch_idxes(0);
             }
 
             return nullptr;
@@ -500,147 +682,253 @@ L1:
 
         node = nodes[level_i];
 
-        long long found_idx{ integral_bit::FindNextBit(
-            *static_cast<unsigned long long*>(node),
-            static_cast<long long>(idxes[level_i]) + 1) };
+        if (branch_idxes[level_i] == branch_nums[level_i] - 1) { continue; }
 
-        if (found_idx <
-            static_cast<long long>(integral::WidthOf<unsigned long long>)) {
-            idxes[level_i] = static_cast<size_t>(found_idx);
+        unsigned long long found_idx{ integral_bit::FindNextBit(
+#if EnDataNode
+            level_i == 0 ? static_cast<DataNode<ActiveMap>*>(node)->active_map :
+#endif
+                         static_cast<NavNode<ActiveMap>*>(node)->active_map,
+            branch_idxes[level_i] + 1) };
+
+        if (found_idx != integral::RangeMaxOf<unsigned long long>) {
+            branch_idxes[level_i] = static_cast<BranchNum>(found_idx);
             break;
         }
     }
 
     while (0 < level_i) {
-        node = static_cast<NavNode*>(node)->ptrs[idxes[level_i--]];
+        BranchNum cur_branch_idx{ branch_idxes[level_i] };
+
+        node = static_cast<NavNode<ActiveMap>*>(node)->ptrs[cur_branch_idx];
+
+        --level_i;
+
         nodes[level_i] = node;
-        idxes[level_i] = static_cast<size_t>(integral_bit::FindNextBit(
-            *static_cast<unsigned long long*>(node), 0));
+
+        branch_idxes[level_i] =
+            static_cast<BranchNum>(integral_bit::FindNextBit(
+#if EnDataNode
+                level_i == 0
+                    ? static_cast<DataNode<ActiveMap>*>(node)->active_map
+                    :
+#endif
+                    static_cast<NavNode<ActiveMap>*>(node)->active_map,
+                0));
     }
 
-#if EnData
-    return static_cast<char*>(nodes[0]) + sizeof(unsigned long long) -
-           (CalcDataNodeSize_)(stride, branch_nums[0]) + stride * idxes[0];
+    for (unsigned level_j{ level }; 0 < level_j;) {
+        dst_branch_idxes(branch_idxes[--level_j]);
+    }
+
+#if EnDataNode
+    return static_cast<DataNode<ActiveMap>*>(nodes[0])->data +
+           elem_stride * branch_idxes[0];
 #else
-    return static_cast<void*>(static_cast<NavNode*>(nodes[0])->ptrs + idxes[0]);
+    return static_cast<NavNode<ActiveMap>*>(nodes[0])->ptrs + branch_idxes[0];
 #endif
 }
 
-template <CntrTplParamList>
-utils::Pair<void*, bool> NameSpace::Insert(Cntr<CntrTplArgList>& cntr,
-                                           size_t* idxes) {
-    detail::CheckIdxes_(cntr, idxes);
+template <CntrTplParamList, typename SrcBranchIdxes, typename DstBranchIdxes>
+void* Namespace::FindNextExcl(
+    Cntr<CntrTplArgList>& cntr,
+    SrcBranchIdxes&&
+        src_branch_idxes_,  // NOLINT(cppcoreguidelines-missing-std-forward
+    DstBranchIdxes&&
+        dst_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward
+) {
+    detail::CheckCntr_(cntr);
 
     unsigned level{ cntr.level };
-    unsigned short const* branch_nums{ cntr.branch_nums };
+    BranchNum const* branch_nums{ cntr.branch_nums };
 
-#if EnData
-    size_t stride{ cntr.stride };
+    decltype(auto) src_branch_idxes{ detail::GetSrcBranchIdxes_(
+        level, src_branch_idxes_) };
+
+    decltype(auto) dst_branch_idxes{ detail::GetDstBranchIdxes_(
+        level, dst_branch_idxes_) };
+
+    BranchNum branch_idxes[max_level];
+
+    for (unsigned level_i{ level }; 0 < level_i; --level_i) {
+        branch_idxes[level_i - 1] = detail::FetchAndCheckBranchIdx_(
+            src_branch_idxes, branch_nums[level_i - 1]);
+    }
+
+    for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
+        if (branch_idxes[level_i] < branch_nums[level_i] - 1) {
+            ++branch_idxes[level_i];
+            goto L1;
+        }
+
+        branch_idxes[level_i] = 0;
+    }
+
+    for (unsigned level_j{ level }; 0 < level_j; --level_j) {
+        dst_branch_idxes(0);
+    }
+
+    return nullptr;
+
+L1:;
+
+    return (FindNextIncl)(cntr, branch_idxes, dst_branch_idxes);
+}
+
+template <CntrTplParamList, typename BranchIdxesSource>
+pair::Pair<void*, bool> Namespace::Insert(
+    Cntr<CntrTplArgList>& cntr,
+    BranchIdxesSource&&
+        src_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward)
+) {
+    detail::CheckCntr_(cntr);
+
+    auto& nav_node_alctr{ meta::GetInstRef(cntr.nav_node_alctr) };
+
+#if EnDataNode
+    auto& data_node_alctr{ meta::GetInstRef(cntr.data_node_alctr) };
 #endif
 
-    auto& nav_node_alctr{ utils::GetInstRef(cntr.nav_node_alctr) };
+    unsigned level{ cntr.level };
+    BranchNum const* branch_nums{ cntr.branch_nums };
 
-#if EnData
-    auto& data_node_alctr{ utils::GetInstRef(cntr.data_node_alctr) };
+#if EnDataNode
+    size_t elem_stride{ cntr.elem_stride };
 #endif
+
+    decltype(auto) src_branch_idxes{ detail::GetSrcBranchIdxes_(
+        level, src_branch_idxes_) };
 
     if (cntr.root == nullptr) {
-#if EnData
-        if (level == 1) {
-            cntr.root = detail::AllocateDataNode_(stride, branch_nums[0],
-                                                  data_node_alctr);
-        } else
+        cntr.root =
+#if EnDataNode
+            level == 1
+                ? static_cast<void*>(detail::AllocateDataNode_<ActiveMap>(
+                      elem_stride, branch_nums[0], data_node_alctr))
+                :
 #endif
-        {
-            cntr.root = detail::AllocateNavNode_(branch_nums[level - 1],
-                                                 nav_node_alctr);
-        }
+                static_cast<void*>(detail::AllocateNavNode_<ActiveMap>(
+                    branch_nums[level - 1], nav_node_alctr));
     }
 
     unsigned level_i{ level - 1 };
     void* node{ cntr.root };
-
-    for (; 0 < level_i &&
-           detail::TestActiveMap_(*static_cast<unsigned long long*>(node),
-                                  static_cast<unsigned>(idxes[level_i]));
-         --level_i) {
-        node = static_cast<NavNode*>(node)->ptrs[idxes[level_i]];
-    }
+    bool exist_node{ true };
 
     for (; 0 < level_i; --level_i) {
-        *static_cast<unsigned long long*>(node) += 1ULL << idxes[level_i];
+        BranchNum cur_branch_idx{ detail::FetchAndCheckBranchIdx_(
+            src_branch_idxes, branch_nums[level_i]) };
 
-        node = static_cast<NavNode*>(node)->ptrs[idxes[level_i]] =
-#if EnData
-            level_i == 1 ? detail::AllocateDataNode_(stride, branch_nums[0],
-                                                     data_node_alctr)
-                         :
+        // NOLINTNEXTLINE(bugprone-assignment-in-if-condition)
+        if ((exist_node =
+                 exist_node &&
+                 detail::TestActiveMap_(
+                     static_cast<NavNode<ActiveMap>*>(node)->active_map,
+                     cur_branch_idx))) {
+            node = static_cast<NavNode<ActiveMap>*>(node)->ptrs[cur_branch_idx];
+            continue;
+        }
+
+        static_cast<NavNode<ActiveMap>*>(node)->active_map +=
+            static_cast<ActiveMap>(1) << cur_branch_idx;
+
+        void* nxt_node{
+#if EnDataNode
+            level_i == 1
+                ? static_cast<void*>(detail::AllocateDataNode_<ActiveMap>(
+                      elem_stride, branch_nums[0], data_node_alctr))
+                :
 #endif
-                         detail::AllocateNavNode_(branch_nums[level_i - 1],
-                                                  nav_node_alctr);
+                static_cast<void*>(detail::AllocateNavNode_<ActiveMap>(
+                    branch_nums[level_i - 1], nav_node_alctr))
+        };
+
+        static_cast<NavNode<ActiveMap>*>(node)->ptrs[cur_branch_idx] = nxt_node;
+
+        node = nxt_node;
     }
 
-    size_t last_idx{ idxes[0] };
+    BranchNum last_branch_idx{ detail::FetchAndCheckBranchIdx_(
+        src_branch_idxes, branch_nums[0]) };
 
-    void* addr{
-#if EnData
-        static_cast<char*>(node) + sizeof(unsigned long long) -
-        (CalcDataNodeSize_)(stride, branch_nums[0]) + stride * last_idx
+    auto addr{
+#if EnDataNode
+        static_cast<DataNode<ActiveMap>*>(node)->data +
+        elem_stride * last_branch_idx
 #else
-        static_cast<void*>(static_cast<NavNode*>(node)->ptrs + last_idx)
+        static_cast<NavNode<ActiveMap>*>(node)->ptrs + last_branch_idx
 #endif
     };
 
     bool newly_inserted{ !detail::TestActiveMap_(
-        *static_cast<unsigned long long*>(node),
-        static_cast<unsigned>(last_idx)) };
+        static_cast<EnDataNodeTernary(DataNode, NavNode) < ActiveMap>* >
+            (node)->active_map,
+        last_branch_idx) };
 
     if (newly_inserted) {
         ++cntr.size;
-        *static_cast<unsigned long long*>(node) += (1ULL << last_idx);
+
+        static_cast<EnDataNodeTernary(DataNode, NavNode) < ActiveMap>* >
+            (node)->active_map += static_cast<ActiveMap>(1) << last_branch_idx;
     }
 
     return { .first = addr, .second = newly_inserted };
 }
 
-template <CntrTplParamList>
-bool NameSpace::Erase(Cntr<CntrTplArgList>& cntr, size_t* idxes) {
-    detail::CheckIdxes_(cntr, idxes);
+template <CntrTplParamList, typename BramchIdxSource>
+bool Namespace::Erase(
+    Cntr<CntrTplArgList>& cntr,
+    BramchIdxSource&&
+        src_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward)
+) {
+    detail::CheckCntr_(cntr);
 
     unsigned level{ cntr.level };
 
-#if EnData
-    unsigned short const* branch_nums{ cntr.branch_nums };
-    size_t stride{ cntr.stride };
-#endif
+    BranchNum const* branch_nums{ cntr.branch_nums };
+
+    decltype(auto) src_branch_idxes{ detail::GetSrcBranchIdxes_(
+        level, src_branch_idxes_) };
 
     void* node{ cntr.root };
 
     if (node == nullptr) { return false; }
 
-    auto& nav_node_alctr{ utils::GetInstRef(cntr.nav_node_alctr) };
+    auto& nav_node_alctr{ meta::GetInstRef(cntr.nav_node_alctr) };
 
-#if EnData
-    auto& data_node_alctr{ utils::GetInstRef(cntr.data_node_alctr) };
+#if EnDataNode
+    auto& data_node_alctr{ meta::GetInstRef(cntr.data_node_alctr) };
 #endif
 
     void* nodes[max_level];
+    size_t branch_idxes[max_level];
 
     for (unsigned level_i{ level - 1 };; --level_i) {
         nodes[level_i] = node;
 
         if (level_i == 0) { break; }
 
-        if (!detail::TestActiveMap_(*static_cast<unsigned long long*>(node),
-                                    static_cast<unsigned>(idxes[level_i]))) {
+        BranchNum cur_branch_idx{ detail::FetchAndCheckBranchIdx_(
+            src_branch_idxes, branch_nums[level_i]) };
+        branch_idxes[level_i] = cur_branch_idx;
+
+        if (!detail::TestActiveMap_(
+                static_cast<NavNode<ActiveMap>*>(node)->active_map,
+                cur_branch_idx)) {
             return false;
         }
 
-        node = static_cast<NavNode*>(node)->ptrs[idxes[level_i]];
+        node = static_cast<NavNode<ActiveMap>*>(node)->ptrs[cur_branch_idx];
     }
 
-    if (!detail::TestActiveMap_(*static_cast<unsigned long long*>(node),
-                                static_cast<unsigned>(idxes[0]))) {
+    BranchNum last_branch_idx{ detail::FetchAndCheckBranchIdx_(
+        src_branch_idxes, branch_nums[0]) };
+    branch_idxes[0] = last_branch_idx;
+
+    if (!detail::TestActiveMap_(
+            static_cast<EnDataNodeTernary(DataNode, NavNode) < ActiveMap>* >
+                (node)->active_map,
+            last_branch_idx)) {
         return false;
     }
 
@@ -649,18 +937,27 @@ bool NameSpace::Erase(Cntr<CntrTplArgList>& cntr, size_t* idxes) {
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
         node = nodes[level_i];
 
-        *static_cast<unsigned long long*>(node) -= 1ULL << idxes[level_i];
-
-        if (*static_cast<unsigned long long*>(node) != 0) { return true; }
-
-#if EnData
+#if EnDataNode
         if (level_i == 0) {
-            detail::DeAllocateDataNode_(stride, branch_nums[0], data_node_alctr,
-                                        node);
+            auto* data_node{ static_cast<DataNode<ActiveMap>*>(node) };
+
+            data_node->active_map -= static_cast<ActiveMap>(1)
+                                     << branch_idxes[level_i];
+
+            if (data_node->active_map != 0) { return true; }
+
+            detail::DeallocateDataNode_(data_node, data_node_alctr);
         } else
 #endif
         {
-            detail::DeallocateNavNode_(nav_node_alctr, node);
+            auto* nav_node{ static_cast<NavNode<ActiveMap>*>(node) };
+
+            nav_node->active_map -= static_cast<ActiveMap>(1)
+                                    << branch_idxes[level_i];
+
+            if (nav_node->active_map != 0) { return true; }
+
+            detail::DeallocateNavNode_(nav_node, nav_node_alctr);
         }
     }
 
@@ -669,48 +966,44 @@ bool NameSpace::Erase(Cntr<CntrTplArgList>& cntr, size_t* idxes) {
     return true;
 }
 
-namespace NameSpace::detail {
+namespace Namespace::detail {
 
 template <CntrTplParamList>
 void EraseAllRecursive_  // NOLINT(misc-use-internal-linkage)
     (Cntr<CntrTplArgList>& cntr, void* node, unsigned level_i) {
-#if EnData
-    unsigned branch_num{ cntr.branch_nums[level_i] };
-    size_t stride{ cntr.stride };
-#endif
+    auto& nav_node_alctr{ meta::GetInstRef(cntr.nav_node_alctr) };
 
-    auto& nav_node_alctr{ utils::GetInstRef(cntr.nav_node_alctr) };
-
-#if EnData
-    auto& data_node_alctr{ utils::GetInstRef(cntr.data_node_alctr) };
+#if EnDataNode
+    auto& data_node_alctr{ meta::GetInstRef(cntr.data_node_alctr) };
 #endif
 
     if (level_i == 0) {
-#if EnData
-        DeAllocateDataNode_(stride, branch_num, data_node_alctr, node);
-#else
-        DeallocateNavNode_(nav_node_alctr, node);
-#endif
+        (EnDataNodeTernary(DeallocateDataNode_, DeallocateNavNode_))(
+            static_cast<EnDataNodeTernary(DataNode, NavNode) < ActiveMap>* >
+                (node),
+            EnDataNodeTernary(data_node_alctr, nav_node_alctr));
 
         return;
     }
 
-    for (long long idx{ -1 };
-         (idx = integral_bit::FindNextBit(
-              *static_cast<unsigned long long*>(node), idx + 1)) <
-         static_cast<long long>(integral::WidthOf<unsigned long long>);) {
-        (EraseAllRecursive_)(cntr, static_cast<NavNode*>(node)->ptrs[idx],
-                             level_i - 1);
+    auto* nav_node{ static_cast<NavNode<ActiveMap>*>(node) };
+
+    for (unsigned long long idx{ 0 };
+         (idx =
+              integral_bit::FindNextBit(*static_cast<ActiveMap*>(node), idx)) <
+         static_cast<long long>(integral::WidthOf<ActiveMap>);
+         ++idx) {
+        (EraseAllRecursive_)(cntr, nav_node->ptrs[idx], level_i - 1);
     }
 
-    (DeallocateNavNode_)(nav_node_alctr, node);
+    (DeallocateNavNode_)(nav_node, nav_node_alctr);
 }
 
-}  // namespace NameSpace::detail
+}  // namespace Namespace::detail
 
 template <CntrTplParamList>
-void NameSpace::EraseAll(Cntr<CntrTplArgList>& cntr) {
-    detail::Check_(cntr);
+void Namespace::EraseAll(Cntr<CntrTplArgList>& cntr) {
+    detail::CheckCntr_(cntr);
 
     unsigned level{ cntr.level };
     void* root{ cntr.root };
@@ -723,117 +1016,166 @@ void NameSpace::EraseAll(Cntr<CntrTplArgList>& cntr) {
     cntr.root = nullptr;
 }
 
-namespace NameSpace::detail {
+namespace Namespace::detail {
 
-inline size_t SanitizeRecursive_  // NOLINT(
-                                  // misc-no-recursion,
-                                  // misc-use-internal-linkage)
-    (mem_recorder::MemRecorder* dst_nav_node,
-#if EnData
-     mem_recorder::MemRecorder* dst_data_node,
+template <typename ActiveMap>
+size_t SanitizeRecursive_  // NOLINT(
+                           // misc-no-recursion,
+                           // misc-use-internal-linkage)
+    (mem_recorder::MemRecorder& dst_nav_node,
+#if EnDataNode
+     mem_recorder::MemRecorder& dst_data_node,
 #endif
-     unsigned level_i, unsigned short const* branch_nums,
-#if EnData
-     size_t stride,
+     unsigned level_i, BranchNum const* branch_nums,
+#if EnDataNode
+     size_t elem_stride,
 #endif
      void* node) {
-    ZETA_Core_DebugAssert(*static_cast<unsigned long long*>(node) != 0);
+    ZETA_Core_DebugAssert(*static_cast<ActiveMap*>(node) != 0);
 
-    size_t cur_cnt{ static_cast<size_t>(
-        __builtin_popcountll(*static_cast<unsigned long long*>(node))) };
-
-    ZETA_Core_DebugAssert(0 < cur_cnt);
-
-#if EnData
+#if EnDataNode
     if (level_i == 0) {
-        if (dst_data_node != nullptr) {
-            size_t data_node_size{ (CalcDataNodeSize_)(stride,
-                                                       branch_nums[0]) };
+        mem_recorder::Record(
+            dst_data_node, node,
+            detail::GetDataNodeSize_<ActiveMap>(elem_stride, branch_nums[0]));
 
-            mem_recorder::Record(
-                dst_data_node,
-                static_cast<char*>(node) -
-                    (data_node_size - sizeof(unsigned long long)),
-                data_node_size);
+        size_t ret{ static_cast<size_t>(integral_bit::PopCount(
+            static_cast<DataNode<ActiveMap>*>(node)->active_map)) };
+
+        ZETA_Core_DebugAssert(0 < ret);
+
+        size_t k{ 0 };
+
+        for (unsigned i{ 0 }; i < branch_nums[0]; ++i) {
+            k += detail::TestActiveMap_(
+                static_cast<DataNode<ActiveMap>*>(node)->active_map, i);
         }
 
-        return cur_cnt;
+        ZETA_Core_DebugAssert(k == ret);
+
+        return ret;
     }
 #endif
 
-    if (dst_nav_node != nullptr) {
-        mem_recorder::Record(
-            dst_nav_node, ZETA_Core_MemberToStruct(NavNode, active_map, node),
-            sizeof(NavNode));
-    }
+    mem_recorder::Record(
+        dst_nav_node, node,
+        detail::GetNavNodeSize_<ActiveMap>(branch_nums[level_i]));
 
-#if !EnData
-    if (level_i == 0) { return cur_cnt; }
+#if !EnDataNode
+    if (level_i == 0) {
+        size_t ret{ static_cast<size_t>(integral_bit::PopCount(
+            static_cast<NavNode<ActiveMap>*>(node)->active_map)) };
+
+        ZETA_Core_DebugAssert(0 < ret);
+
+        size_t k{ 0 };
+
+        for (BranchNum i{ 0 }; i < branch_nums[0]; ++i) {
+            k += detail::TestActiveMap_(
+                static_cast<NavNode<ActiveMap>*>(node)->active_map, i);
+        }
+
+        ZETA_Core_DebugAssert(k == ret);
+
+        return ret;
+    }
 #endif
+
+    auto* nav_node{ static_cast<NavNode<ActiveMap>*>(node) };
 
     size_t size{ 0 };
 
-    for (long long idx{ -1 };
-         (idx = integral_bit::FindNextBit(
-              *static_cast<unsigned long long*>(node), idx + 1)) <
-         static_cast<long long>(integral::WidthOf<unsigned long long>);) {
-        ZETA_Core_DebugAssert(
-            (TestActiveMap_)(*static_cast<unsigned long long*>(node),
-                             static_cast<unsigned>(idx)));
+    for (unsigned long long idx{ 0 };
+         (idx = integral_bit::FindNextBit(nav_node->active_map, idx)) <
+         integral::WidthOf<ActiveMap>;
+         ++idx) {
+        ZETA_Core_DebugAssert(idx < branch_nums[level_i]);
+        ZETA_Core_DebugAssert((TestActiveMap_)(nav_node->active_map,
+                                               static_cast<BranchNum>(idx)));
 
-        size += SanitizeRecursive_(dst_nav_node,
-#if EnData
-                                   dst_data_node,
+        size += SanitizeRecursive_<ActiveMap>(dst_nav_node,
+#if EnDataNode
+                                              dst_data_node,
 #endif
-                                   level_i - 1, branch_nums,
-#if EnData
-                                   stride,
+                                              level_i - 1, branch_nums,
+#if EnDataNode
+                                              elem_stride,
 #endif
-                                   static_cast<NavNode*>(node)->ptrs[idx]);
+                                              nav_node->ptrs[idx]);
     }
 
     return size;
 }
 
-}  // namespace NameSpace::detail
+}  // namespace Namespace::detail
 
 template <CntrTplParamList>
-void NameSpace::Sanitize(Cntr<CntrTplArgList>& cntr,
+void Namespace::Sanitize(Cntr<CntrTplArgList>& cntr,
                          mem_recorder::MemRecorder* dst_nav_node
-#if EnData
+#if EnDataNode
                          ,
                          mem_recorder::MemRecorder* dst_data_node
 #endif
 ) {
-
-    detail::Check_(cntr);
+#if !ZETA_Core_EnableDebug
+    ZETA_Core_Unused(cntr);
+    ZETA_Core_Unused(dst_nav_node);
+    ZETA_Core_Unused(dst_data_node);
+#else
+    detail::CheckCntr_(cntr);
 
     unsigned level{ cntr.level };
-    unsigned short const* branch_nums{ cntr.branch_nums };
+    BranchNum const* branch_nums{ cntr.branch_nums };
 
-#if EnData
-    size_t stride{ cntr.stride };
+#if EnDataNode
+    size_t elem_stride{ cntr.elem_stride };
 #endif
 
     void* root{ cntr.root };
 
-    size_t size{ root == nullptr
-                     ? 0
-                     : detail::SanitizeRecursive_(dst_nav_node,
-#if EnData
-                                                  dst_data_node,
+    mem_recorder::MemRecorder* origin_dst_nav_node{ dst_nav_node };
+
+#if EnDataNode
+    mem_recorder::MemRecorder* origin_dst_data_node{ dst_data_node };
 #endif
-                                                  level - 1, branch_nums,
-#if EnData
-                                                  stride,
+
+    if (dst_nav_node == nullptr) { dst_nav_node = mem_recorder::Create(); }
+
+#if EnDataNode
+    if (dst_data_node == nullptr) { dst_data_node = mem_recorder::Create(); }
 #endif
-                                                  root) };
+
+    size_t size{ root == nullptr ? 0
+                                 : detail::SanitizeRecursive_<ActiveMap>(
+                                       *dst_nav_node,
+#if EnDataNode
+                                       *dst_data_node,
+#endif
+                                       level - 1, branch_nums,
+#if EnDataNode
+                                       elem_stride,
+#endif
+                                       root) };
 
     ZETA_Core_DebugAssert(size == cntr.size);
+
+    if (origin_dst_nav_node != dst_nav_node) {
+        mem_recorder::Destroy(dst_nav_node);
+        dst_nav_node = origin_dst_nav_node;
+    }
+
+#if EnDataNode
+    if (origin_dst_data_node != dst_data_node) {
+        mem_recorder::Destroy(dst_data_node);
+        dst_data_node = origin_dst_data_node;
+    }
+#endif
+#endif
 }
 
 }  // namespace zeta::core
 
-#pragma pop_macro("NameSpace")
-#pragma pop_macro("CntrTplParamList")
+#pragma pop_macro("EnDataNodeTernary")
 #pragma pop_macro("CntrTplArgList")
+#pragma pop_macro("CntrTplParamList")
+#pragma pop_macro("Namespace")

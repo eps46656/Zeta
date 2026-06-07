@@ -5,7 +5,7 @@
 namespace zeta::core::llist {
 
 template <typename LListNode, typename = void>
-struct NodeTraits;
+struct NodeTraits;  // IWYU pragma: export
 
 template <typename LListNode>
 constexpr bool IsConst();

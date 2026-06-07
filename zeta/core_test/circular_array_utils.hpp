@@ -23,18 +23,18 @@ void Destroy(void* ca);
 void Sanitize(void const* ca);
 
 template <typename Elem>
-SeqCntrRef Create(size_t stride, size_t capacity) {
+SeqCntrRef Create(size_t stride, size_t slot_cnt) {
     ZETA_Core_DebugAssert(sizeof(Elem) <= stride);
     ZETA_Core_DebugAssert(stride % alignof(Elem) == 0);
 
     auto* ca{ static_cast<CircularArray*>(std::malloc(sizeof(CircularArray))) };
 
-    ca->data = std::malloc(stride * capacity);
+    ca->data = std::malloc(stride * slot_cnt);
     ca->elem_size = sizeof(Elem);
     ca->elem_stride = stride;
     ca->elem_cnt = 0;
-    ca->elem_capacity = capacity;
-    ca->idx_offset = 0;
+    ca->slot_cnt = slot_cnt;
+    ca->rot = 0;
 
     SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(*ca) };
 

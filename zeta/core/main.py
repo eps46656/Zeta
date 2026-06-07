@@ -120,21 +120,42 @@ def add_deps(builder: building_utils.Builder, config: Config):
         def build(self):
             print(f"Checking {self.file}...")
 
-    file_nodes: dict[pathlib.Path, CCPPFileNode] = dict()
+    c_cpp_file_nodes: dict[pathlib.Path, CCPPFileNode] = dict()
 
     @beartype.beartype
-    def add_c_cpp_file(file: pathlib.Path, lang: utils.Language):
-        file_node = None
+    def add_c_cpp(
+        c_cpp_file: pathlib.Path,
+        langs: utils.Language | typing.Iterable[utils.Language],
+    ):
+        cur_node = CCPPFileNode(c_cpp_file, langs)
 
-        if file in file_nodes:
-            file_node = file_nodes[file]
-        else:
-            file_node = file_nodes[file] = CCPPFileNode(file, lang)
+        if c_cpp_file in c_cpp_file_nodes:
+            assert cur_node.langs == c_cpp_file_nodes[c_cpp_file].langs
+            return
 
-        builder.add_build_node(file, file_node.get_deps, file_node.build)
+        c_cpp_file_nodes[c_cpp_file] = cur_node
+        builder.add_build_node(c_cpp_file, cur_node.get_deps, cur_node.build)
 
     @beartype.beartype
-    def add_c_cpp_module(module: str):
+    def add_c_cpp_to_bc(
+        bc_file: pathlib.Path,
+        c_cpp_file: pathlib.Path,
+        lang: utils.Language,
+    ) -> None:
+        assert lang.base != lang
+        assert lang.enmacro != lang
+
+        add_c_cpp(c_cpp_file, lang)
+
+        builder.add_build_node(
+            bc_file,
+            lambda: {FILE, c_cpp_file},
+            lambda: compiler.compile_to_bc(
+                bc_file, c_cpp_file, utils.Language.CPP_SOURCE),
+        )
+
+    @beartype.beartype
+    def add_c_cpp_module(module: str, macro: bool = False):
         h_file = DIR / f"{module}.h"
         hpp_file = DIR / f"{module}.hpp"
         ipp_file = DIR / f"{module}.ipp"
@@ -145,33 +166,45 @@ def add_deps(builder: building_utils.Builder, config: Config):
         assert not c_file.exists() or not cpp_file.exists()
 
         if h_file.exists():
-            add_c_cpp_file(h_file, utils.Language.C_HEADER)
+            add_c_cpp(
+                h_file,
+                utils.Language.MACRO_C_HEADER
+                if macro else utils.Language.C_HEADER
+            )
 
         if hpp_file.exists():
-            add_c_cpp_file(hpp_file, utils.Language.CPP_HEADER)
+            add_c_cpp(
+                hpp_file,
+                utils.Language.MACRO_CPP_HEADER
+                if macro else utils.Language.CPP_HEADER
+            )
 
         if ipp_file.exists():
-            add_c_cpp_file(ipp_file, utils.Language.CPP_HEADER)
+            add_c_cpp(
+                ipp_file,
+                utils.Language.MACRO_CPP_HEADER
+                if macro else utils.Language.CPP_HEADER
+            )
 
         if c_file.exists():
-            add_c_cpp_file(c_file, utils.Language.C_SOURCE)
-
-            builder.add_build_node(
-                bc_file,
-                lambda: {FILE, c_file},
-                lambda: compiler.compile_to_bc(
-                    bc_file, c_file, utils.Language.CPP_SOURCE),
+            add_c_cpp(
+                c_file,
+                utils.Language.MACRO_C_SOURCE
+                if macro else utils.Language.C_SOURCE
             )
+
+            if not macro:
+                add_c_cpp_to_bc(bc_file, c_file, utils.Language.C_SOURCE)
 
         if cpp_file.exists():
-            add_c_cpp_file(cpp_file, utils.Language.CPP_SOURCE)
-
-            builder.add_build_node(
-                bc_file,
-                lambda: {FILE, cpp_file},
-                lambda: compiler.compile_to_bc(
-                    bc_file, cpp_file, utils.Language.CPP_SOURCE),
+            add_c_cpp(
+                cpp_file,
+                utils.Language.MACRO_CPP_SOURCE
+                if macro else utils.Language.CPP_SOURCE
             )
+
+            if not macro:
+                add_c_cpp_to_bc(bc_file, cpp_file, utils.Language.CPP_SOURCE)
 
     # --------------------------------------------------------------------------
 
@@ -179,12 +212,15 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     add_c_cpp_module("allocator_ref")
     add_c_cpp_module("allocator")
+    add_c_cpp_module("array")
     add_c_cpp_module("assoc_cntr_ref")
     add_c_cpp_module("assoc_cntr")
     add_c_cpp_module("basic_bin_tree_node")
+    add_c_cpp_module("basic_llist_node")
     add_c_cpp_module("bin_tree")
     add_c_cpp_module("cascade_allocator")
     add_c_cpp_module("circular_array")
+    add_c_cpp_module("compare_utils")
     add_c_cpp_module("compare")
     add_c_cpp_module("datetime")
     add_c_cpp_module("debug_deque")
@@ -195,25 +231,32 @@ def add_deps(builder: building_utils.Builder, config: Config):
     add_c_cpp_module("fixed_point")
     add_c_cpp_module("function_ref")
     add_c_cpp_module("generic_hash_table")
+    add_c_cpp_module("hash_utils")
     add_c_cpp_module("hash")
-    add_c_cpp_module("integral")
     add_c_cpp_module("integral_bit")
     add_c_cpp_module("integral_math")
+    add_c_cpp_module("integral_utils")
+    add_c_cpp_module("integral")
+    add_c_cpp_module("lcg_random_engine")
+    add_c_cpp_module("lifecycle")
+    add_c_cpp_module("lin_space_mapper")
     add_c_cpp_module("llist_node_tpl")
     add_c_cpp_module("llist")
-    add_c_cpp_module("lifecycle")
     add_c_cpp_module("mem_recorder")
     add_c_cpp_module("meta")
+    add_c_cpp_module("multi_level_circular_array")
     add_c_cpp_module("multi_level_data_table")
     add_c_cpp_module("multi_level_ptr_table")
-    add_c_cpp_module("multi_level_table.mpp")
+    add_c_cpp_module("multi_level_table.mpp", macro=True)
+    add_c_cpp_module("pair")
     add_c_cpp_module("percent_prime_table")
     add_c_cpp_module("pool_allocator")
     add_c_cpp_module("ptr_utils")
     add_c_cpp_module("random")
     add_c_cpp_module("rbtree")
+    add_c_cpp_module("reduce")
     add_c_cpp_module("seg_utils")
-    add_c_cpp_module("seg_vector.mpp")
+    add_c_cpp_module("seg_vector.mpp", macro=True)
     add_c_cpp_module("seg_vector")
     add_c_cpp_module("seq_cntr_ref")
     add_c_cpp_module("seq_cntr")

@@ -4,24 +4,39 @@
 
 namespace zeta::core::hash {
 
-unsigned long long BasicMemHash(void const* data, size_t size,
-                                unsigned long long salt);
+template <typename Hasher, typename Value>
+struct HasherTraits {
+    static constexpr unsigned long long Hash(Hasher const& hasher,
+                                             Value const& value,
+                                             unsigned long long salt);
+};
 
-unsigned long long BasicElemHash(void const* data, size_t width, size_t stride,
-                                 size_t cnt, unsigned long long salt);
+template <typename Hasher, typename Value>
+constexpr unsigned long long Hash(Hasher const& hasher, Value const& value,
+                                  unsigned long long salt);
 
-template <typename T, typename _ = void>
-struct BasicHashImpl;
+template <typename Hasher, typename Value>
+void CheckContract();
 
-template <typename T>
-unsigned long long BasicHash(T const& x, unsigned long long salt);
+template <typename Value, typename = void>
+struct BasicHasher;  // IWYU pragma: export
 
-template <typename T>
-unsigned long long TypeErasedBasicHash(void const* x, unsigned long long salt);
+template <typename Value>
+unsigned long long BasicHash(Value const& value, unsigned long long salt);
 
-template <typename T>
+struct UniversalBasicHasher {
+    template <typename Value>
+    constexpr unsigned long long operator()(Value const& value,
+                                            unsigned long long salt) const;
+};
+
+template <typename Value>
+unsigned long long TypeErasedBasicHash(void const* value,
+                                       unsigned long long salt);
+
+template <typename Value>
 struct CppStdBasicHash {
-    size_t operator()(T const& x) const;
+    size_t operator()(Value const& value) const;
 };
 
 }  // namespace zeta::core::hash

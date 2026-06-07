@@ -2,7 +2,6 @@
 
 #include <zeta/core/allocator_ref.hpp>
 #include <zeta/core/debug_utils.ipp>
-#include <zeta/core/utils.ipp>
 
 namespace zeta::core {
 
@@ -61,22 +60,22 @@ allocator_ref::Ref allocator_ref::MakeRef  // NOLINT(misc-use-internal-linkage)
 }
 
 inline void*
-allocator::AllocatorTraits<allocator_ref::Ref const, void>::GetReferedInst(
+allocator::AllocatorTraits<allocator_ref::Ref const>::GetReferedInstPtr(
     allocator_ref::Ref const& ref) {
     return ref.alctr;
 }
 
-inline size_t allocator::AllocatorTraits<
-    allocator_ref::Ref const, void>::GetAlign(allocator_ref::Ref const& ref) {
+inline size_t allocator::AllocatorTraits<allocator_ref::Ref const>::GetAlign(
+    allocator_ref::Ref const& ref) {
     return allocator_ref::GetAlign(ref);
 }
 
-inline void* allocator::AllocatorTraits<allocator_ref::Ref, void>::Allocate(
+inline void* allocator::AllocatorTraits<allocator_ref::Ref>::Allocate(
     allocator_ref::Ref& ref, size_t size) {
     return allocator_ref::Allocate(ref, size);
 }
 
-inline void allocator::AllocatorTraits<allocator_ref::Ref, void>::Deallocate(
+inline void allocator::AllocatorTraits<allocator_ref::Ref>::Deallocate(
     allocator_ref::Ref& ref, void* ptr) {
     allocator_ref::Deallocate(ref, ptr);
 }

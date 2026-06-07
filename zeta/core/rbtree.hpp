@@ -1,20 +1,18 @@
 #pragma once
 
-#include <zeta/core/bin_tree.hpp>
+#include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/mem_recorder.hpp>
 
 namespace zeta::core::rbtree {
 
 template <typename RBTreeNode, typename = void>
-struct NodeTraits;
+struct NodeTraits;  // IWYU pragma: export
 
 constexpr unsigned black{ 1 };
 constexpr unsigned red{ 2 };
 
-constexpr size_t recommended_buffer_capacity{
-    static_cast<size_t>(ZETA_Core_ullong_width) * 3
-};
+constexpr size_t max_height{ integral::WidthOf<size_t> * 2 };
 
 template <typename BinTreeNode>
 unsigned GetColor(BinTreeNode* n);

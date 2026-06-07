@@ -87,7 +87,13 @@ void seq_cntr_ref::Read(
 }
 
 inline void seq_cntr_ref::Read(Ref const& ref, void const* pos_cursor,
-                               size_t cnt, seq_cntr::MemReader reader,
+                               size_t cnt, seq_cntr::MemReader& reader,
+                               void* dst_cursor) {
+    CallMethod(Read, MemRead, pos_cursor, cnt, reader, dst_cursor);
+}
+
+inline void seq_cntr_ref::Read(Ref const& ref, void const* pos_cursor,
+                               size_t cnt, seq_cntr::MemReader&& reader,
                                void* dst_cursor) {
     CallMethod(Read, MemRead, pos_cursor, cnt, reader, dst_cursor);
 }
@@ -101,7 +107,13 @@ void seq_cntr_ref::Write(
 }
 
 inline void seq_cntr_ref::Write(Ref& ref, void* pos_cursor, size_t cnt,
-                                seq_cntr::MemWriter writer, void* dst_cursor) {
+                                seq_cntr::MemWriter& writer, void* dst_cursor) {
+    CallMethod(Write, MemWrite, pos_cursor, cnt, writer, dst_cursor);
+}
+
+inline void seq_cntr_ref::Write(Ref& ref, void* pos_cursor, size_t cnt,
+                                seq_cntr::MemWriter&& writer,
+                                void* dst_cursor) {
     CallMethod(Write, MemWrite, pos_cursor, cnt, writer, dst_cursor);
 }
 
@@ -124,8 +136,23 @@ void* seq_cntr_ref::PushL(
 }
 
 inline void* seq_cntr_ref::PushL(Ref& ref, size_t cnt,
-                                 seq_cntr::MemWriter writer, void* dst_cursor) {
+                                 seq_cntr::MemWriter& writer,
+                                 void* dst_cursor) {
     CallMethod(PushL, MemPushL, cnt, writer, dst_cursor);
+}
+
+inline void* seq_cntr_ref::PushL(
+    Ref& ref, size_t cnt,
+    seq_cntr::MemWriter&&
+        writer,  // NOLINT(cppcoreguidelines-rvalue-reference-param-not-moved)
+    void* dst_cursor) {
+    CallMethod(PushL, MemPushL, cnt, writer, dst_cursor);
+}
+
+inline void* seq_cntr_ref::PushL(Ref& ref, size_t cnt,
+                                 seq_cntr::EmptyWriter writer,
+                                 void* dst_cursor) {
+    CallMethod(PushL, EmptyPushL, cnt, writer, dst_cursor);
 }
 
 template <typename Writer>
@@ -137,8 +164,23 @@ void* seq_cntr_ref::PushR(
 }
 
 inline void* seq_cntr_ref::PushR(Ref& ref, size_t cnt,
-                                 seq_cntr::MemWriter writer, void* dst_cursor) {
+                                 seq_cntr::MemWriter& writer,
+                                 void* dst_cursor) {
     CallMethod(PushR, MemPushR, cnt, writer, dst_cursor);
+}
+
+inline void* seq_cntr_ref::PushR(
+    Ref& ref, size_t cnt,
+    seq_cntr::MemWriter&&
+        writer,  // NOLINT(cppcoreguidelines-rvalue-reference-param-not-moved)
+    void* dst_cursor) {
+    CallMethod(PushR, MemPushR, cnt, writer, dst_cursor);
+}
+
+inline void* seq_cntr_ref::PushR(Ref& ref, size_t cnt,
+                                 seq_cntr::EmptyWriter writer,
+                                 void* dst_cursor) {
+    CallMethod(PushR, EmptyPushR, cnt, writer, dst_cursor);
 }
 
 template <typename Writer>
@@ -149,9 +191,23 @@ void* seq_cntr_ref::Insert(Ref& ref, void* pos_cursor, size_t cnt,
 }
 
 inline void* seq_cntr_ref::Insert(Ref& ref, void* pos_cursor, size_t cnt,
-                                  seq_cntr::MemWriter writer,
+                                  seq_cntr::MemWriter& writer,
                                   void* dst_cursor) {
     CallMethod(Insert, MemInsert, pos_cursor, cnt, writer, dst_cursor);
+}
+
+inline void* seq_cntr_ref::Insert(
+    Ref& ref, void* pos_cursor, size_t cnt,
+    seq_cntr::MemWriter&&
+        writer,  // NOLINT(cppcoreguidelines-rvalue-reference-param-not-moved)
+    void* dst_cursor) {
+    CallMethod(Insert, MemInsert, pos_cursor, cnt, writer, dst_cursor);
+}
+
+inline void* seq_cntr_ref::Insert(Ref& ref, void* pos_cursor, size_t cnt,
+                                  seq_cntr::EmptyWriter writer,
+                                  void* dst_cursor) {
+    CallMethod(Insert, EmptyInsert, pos_cursor, cnt, writer, dst_cursor);
 }
 
 inline void seq_cntr_ref::PopL(Ref& ref, size_t cnt) {
@@ -297,14 +353,13 @@ seq_cntr_ref::Ref seq_cntr_ref::MakeRef  // NOLINT(misc-use-internal-linkage)
     };
 }
 
-inline void*
-seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::GetReferedInstPtr(
+inline void* seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::GetReferedInstPtr(
     seq_cntr_ref::Ref const& ref) {
     return ref.cntr;
 }
 
 constexpr seq_cntr::AbilityFlag
-seq_cntr::CntrTraits<seq_cntr_ref::Ref, void>::GetStaticEnabledAbilityFlag() {
+seq_cntr::CntrTraits<seq_cntr_ref::Ref>::GetStaticEnabledAbilityFlag() {
     return seq_cntr::AbilityFlagBuilder{
         .GetCursorSize = true,
 
@@ -349,93 +404,91 @@ seq_cntr::CntrTraits<seq_cntr_ref::Ref, void>::GetStaticEnabledAbilityFlag() {
     }();
 }
 
-constexpr seq_cntr::AbilityFlag seq_cntr::CntrTraits<
-    seq_cntr_ref::Ref const, void>::GetStaticEnabledAbilityFlag() {
-    return seq_cntr::CntrTraits<seq_cntr_ref::Ref,
-                                void>::GetStaticEnabledAbilityFlag() &
+constexpr seq_cntr::AbilityFlag
+seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::GetStaticEnabledAbilityFlag() {
+    return seq_cntr::CntrTraits<
+               seq_cntr_ref::Ref>::GetStaticEnabledAbilityFlag() &
            seq_cntr::const_ability_flag;
 }
 
 constexpr seq_cntr::AbilityFlag
-seq_cntr::CntrTraits<seq_cntr_ref::Ref, void>::GetStaticDisabledAbilityFlag() {
+seq_cntr::CntrTraits<seq_cntr_ref::Ref>::GetStaticDisabledAbilityFlag() {
     return seq_cntr::empty_ability_flag;
 }
 
-constexpr seq_cntr::AbilityFlag seq_cntr::CntrTraits<
-    seq_cntr_ref::Ref const, void>::GetStaticDisabledAbilityFlag() {
+constexpr seq_cntr::AbilityFlag
+seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::GetStaticDisabledAbilityFlag() {
     return seq_cntr::non_const_ability_flag;
 }
 
-constexpr seq_cntr::AbilityFlag seq_cntr::CntrTraits<
-    seq_cntr_ref::Ref const,
-    void>::GetDynamicEnabledAbilityFlag(seq_cntr_ref::Ref const&) {
+constexpr seq_cntr::AbilityFlag
+seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::GetDynamicEnabledAbilityFlag(
+    seq_cntr_ref::Ref const&) {
     return seq_cntr::empty_ability_flag;
 }
 
-constexpr seq_cntr::AbilityFlag seq_cntr::CntrTraits<
-    seq_cntr_ref::Ref const,
-    void>::GetDynamicDisabledAbilityFlag(seq_cntr_ref::Ref const&) {
+constexpr seq_cntr::AbilityFlag
+seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::GetDynamicDisabledAbilityFlag(
+    seq_cntr_ref::Ref const&) {
     return seq_cntr::empty_ability_flag;
 }
 
-inline size_t
-seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::GetCursorSize(
+inline size_t seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::GetCursorSize(
     seq_cntr_ref::Ref const& ref) {
     return seq_cntr_ref::GetCursorSize(ref);
 }
 
-inline size_t seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::GetElemSize(
+inline size_t seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::GetElemSize(
     seq_cntr_ref::Ref const& ref) {
     return seq_cntr_ref::GetElemSize(ref);
 }
 
-inline size_t seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::GetElemCnt(
+inline size_t seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::GetElemCnt(
     seq_cntr_ref::Ref const& ref) {
     return seq_cntr_ref::GetElemCnt(ref);
 }
 
-inline size_t
-seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::GetMaxElemCnt(
+inline size_t seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::GetMaxElemCnt(
     seq_cntr_ref::Ref const& ref) {
     return seq_cntr_ref::GetMaxElemCnt(ref);
 }
 
-inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::GetLBCursor(
+inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::GetLBCursor(
     seq_cntr_ref::Ref const& ref, void* dst_cursor) {
     seq_cntr_ref::GetLBCursor(ref, dst_cursor);
 }
 
-inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::GetRBCursor(
+inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::GetRBCursor(
     seq_cntr_ref::Ref const& ref, void* dst_cursor) {
     seq_cntr_ref::GetRBCursor(ref, dst_cursor);
 }
 
-inline void* seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::PeekL(
+inline void* seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::PeekL(
     seq_cntr_ref::Ref const& ref, bool lazy_copy_elem, void* dst_cursor,
     void* dst_elem) {
     return seq_cntr_ref::PeekL(ref, lazy_copy_elem, dst_cursor, dst_elem);
 }
 
-inline void* seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::PeekR(
+inline void* seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::PeekR(
     seq_cntr_ref::Ref const& ref, bool lazy_copy_elem, void* dst_cursor,
     void* dst_elem) {
     return seq_cntr_ref::PeekR(ref, lazy_copy_elem, dst_cursor, dst_elem);
 }
 
-inline void* seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::Access(
+inline void* seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::Access(
     seq_cntr_ref::Ref const& ref, size_t idx, bool lazy_copy_elem,
     void* dst_cursor, void* dst_elem) {
     return seq_cntr_ref::Access(ref, idx, lazy_copy_elem, dst_cursor, dst_elem);
 }
 
-inline void* seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::Derefer(
+inline void* seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::Derefer(
     seq_cntr_ref::Ref const& ref, void const* pos_cursor, bool lazy_copy_elem,
     void* dst_elem) {
     return seq_cntr_ref::Derefer(ref, pos_cursor, lazy_copy_elem, dst_elem);
 }
 
 template <typename Reader>
-void seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::Read(
+void seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::Read(
     seq_cntr_ref::Ref const& ref, void const* pos_cursor, size_t cnt,
     Reader&& reader, void* dst_cursor) {
     seq_cntr_ref::Read(ref, pos_cursor, cnt, meta::Forward<Reader>(reader),
@@ -443,15 +496,16 @@ void seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::Read(
 }
 
 template <typename Writer>
-void seq_cntr::CntrTraits<seq_cntr_ref::Ref, void>::Write(
-    seq_cntr_ref::Ref& ref, void* pos_cursor, size_t cnt, Writer&& writer,
-    void* dst_cursor) {
+void seq_cntr::CntrTraits<seq_cntr_ref::Ref>::Write(seq_cntr_ref::Ref& ref,
+                                                    void* pos_cursor,
+                                                    size_t cnt, Writer&& writer,
+                                                    void* dst_cursor) {
     seq_cntr_ref::Write(ref, pos_cursor, cnt, meta::Forward<Writer>(writer),
                         dst_cursor);
 }
 
 template <typename ReaderWriter>
-void seq_cntr::CntrTraits<seq_cntr_ref::Ref, void>::ReadWrite(
+void seq_cntr::CntrTraits<seq_cntr_ref::Ref>::ReadWrite(
     seq_cntr_ref::Ref& ref, void* pos_cursor, size_t cnt,
     ReaderWriter&& reader_writer, void* dst_cursor) {
     seq_cntr_ref::ReadWrite(ref, pos_cursor, cnt,
@@ -460,89 +514,94 @@ void seq_cntr::CntrTraits<seq_cntr_ref::Ref, void>::ReadWrite(
 }
 
 template <typename Writer>
-void* seq_cntr::CntrTraits<seq_cntr_ref::Ref, void>::PushL(
-    seq_cntr_ref::Ref& ref, size_t cnt, Writer&& writer, void* dst_cursor) {
+void* seq_cntr::CntrTraits<seq_cntr_ref::Ref>::PushL(seq_cntr_ref::Ref& ref,
+                                                     size_t cnt,
+                                                     Writer&& writer,
+                                                     void* dst_cursor) {
     return seq_cntr_ref::PushL(ref, cnt, meta::Forward<Writer>(writer),
                                dst_cursor);
 }
 
 template <typename Writer>
-void* seq_cntr::CntrTraits<seq_cntr_ref::Ref, void>::PushR(
-    seq_cntr_ref::Ref& ref, size_t cnt, Writer&& writer, void* dst_cursor) {
+void* seq_cntr::CntrTraits<seq_cntr_ref::Ref>::PushR(seq_cntr_ref::Ref& ref,
+                                                     size_t cnt,
+                                                     Writer&& writer,
+                                                     void* dst_cursor) {
     return seq_cntr_ref::PushR(ref, cnt, meta::Forward<Writer>(writer),
                                dst_cursor);
 }
 
 template <typename Writer>
-void* seq_cntr::CntrTraits<seq_cntr_ref::Ref, void>::Insert(
-    seq_cntr_ref::Ref& ref, void* pos_cursor, size_t cnt, Writer&& writer,
-    void* dst_cursor) {
+void* seq_cntr::CntrTraits<seq_cntr_ref::Ref>::Insert(seq_cntr_ref::Ref& ref,
+                                                      void* pos_cursor,
+                                                      size_t cnt,
+                                                      Writer&& writer,
+                                                      void* dst_cursor) {
     return seq_cntr_ref::Insert(ref, pos_cursor, cnt,
                                 meta::Forward<Writer>(writer), dst_cursor);
 }
 
-inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref, void>::PopL(
+inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref>::PopL(
     seq_cntr_ref::Ref& ref, size_t cnt) {
     seq_cntr_ref::PopL(ref, cnt);
 }
 
-inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref, void>::PopR(
+inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref>::PopR(
     seq_cntr_ref::Ref& ref, size_t cnt) {
     seq_cntr_ref::PopR(ref, cnt);
 }
 
-inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref, void>::Erase(
+inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref>::Erase(
     seq_cntr_ref::Ref& ref, void* pos_cursor, size_t cnt) {
     seq_cntr_ref::Erase(ref, pos_cursor, cnt);
 }
 
-inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref, void>::EraseAll(
+inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref>::EraseAll(
     seq_cntr_ref::Ref& ref) {
     seq_cntr_ref::EraseAll(ref);
 }
 
-inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::CopyCursor(
+inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::CopyCursor(
     seq_cntr_ref::Ref const& ref, void const* src_cursor, void* dst_cursor) {
     seq_cntr_ref::CopyCursor(ref, src_cursor, dst_cursor);
 }
 
-inline bool seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::AreEqualCursor(
+inline bool seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::AreEqualCursor(
     seq_cntr_ref::Ref const& ref, void const* cursor_a, void const* cursor_b) {
     return seq_cntr_ref::AreEqualCursor(ref, cursor_a, cursor_b);
 }
 
-inline int seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::CompareCursor(
+inline int seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::CompareCursor(
     seq_cntr_ref::Ref const& ref, void const* cursor_a, void const* cursor_b) {
     return seq_cntr_ref::CompareCursor(ref, cursor_a, cursor_b);
 }
 
-inline size_t
-seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::GetCursorDist(
+inline size_t seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::GetCursorDist(
     seq_cntr_ref::Ref const& ref, void const* cursor_a, void const* cursor_b) {
     return seq_cntr_ref::GetCursorDist(ref, cursor_a, cursor_b);
 }
 
-inline size_t seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::GetCursorIdx(
+inline size_t seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::GetCursorIdx(
     seq_cntr_ref::Ref const& ref, void const* cursor) {
     return seq_cntr_ref::GetCursorIdx(ref, cursor);
 }
 
-inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::CursorStepL(
+inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::CursorStepL(
     seq_cntr_ref::Ref const& ref, void* cursor) {
     seq_cntr_ref::CursorStepL(ref, cursor);
 }
 
-inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::CursorStepR(
+inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::CursorStepR(
     seq_cntr_ref::Ref const& ref, void* cursor) {
     seq_cntr_ref::CursorStepR(ref, cursor);
 }
 
-inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::CursorAdvanceL(
+inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::CursorAdvanceL(
     seq_cntr_ref::Ref const& ref, void* cursor, size_t step) {
     seq_cntr_ref::CursorAdvanceL(ref, cursor, step);
 }
 
-inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void>::CursorAdvanceR(
+inline void seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::CursorAdvanceR(
     seq_cntr_ref::Ref const& ref, void* cursor, size_t step) {
     seq_cntr_ref::CursorAdvanceR(ref, cursor, step);
 }

@@ -3,18 +3,25 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
-#include <zeta/core/utils.hpp>
+#include <zeta/core/pair.hpp>
 #include <zeta/core/value_wrapper.hpp>
 
 namespace zeta::core::ptr_utils {
 
 namespace color_ptr {
 
-void* GetPtr(void* const& color_ptr, size_t align);
+void* GetPtr(void* color_ptr, size_t align);
+
+void const* GetPtr(void const* color_ptr, size_t align);
+
+unsigned GetColor(void const* color_ptr, size_t align);
+
+pair::Pair<void*, unsigned> GetPtrColor(void* color_ptr, size_t align);
+
+pair::Pair<void const*, unsigned> GetPtrColor(void const* color_ptr,
+                                              size_t align);
 
 void SetPtr(void*& color_ptr, size_t align, void* ptr);
-
-unsigned GetColor(void* const& color_ptr, size_t align);
 
 void SetColor(void*& color_ptr, size_t align, unsigned color);
 
@@ -25,7 +32,7 @@ void SetPtrColor(void*& color_ptr, size_t align, void* ptr, unsigned color);
 namespace rel_ptr {
 
 template <typename SignedIntegral>
-void* GetPtr(SignedIntegral const& rel_ptr, void const* base);
+void* GetPtr(SignedIntegral rel_ptr, void const* base);
 
 template <typename SignedIntegral>
 void SetPtr(SignedIntegral& rel_ptr, void const* base, void* ptr);
@@ -35,16 +42,18 @@ void SetPtr(SignedIntegral& rel_ptr, void const* base, void* ptr);
 namespace rel_color_ptr {
 
 template <typename SignedIntegral>
-void* GetPtr(SignedIntegral const& rel_color_ptr, size_t align,
-             void const* base);
+void* GetPtr(SignedIntegral rel_color_ptr, size_t align, void const* base);
+
+template <typename SignedIntegral>
+unsigned GetColor(SignedIntegral rel_color_ptr, size_t align, void const* base);
+
+template <typename SignedIntegral>
+pair::Pair<void*, unsigned> GetPtrColor(SignedIntegral rel_color_ptr,
+                                        size_t align, void const* base);
 
 template <typename SignedIntegral>
 void SetPtr(SignedIntegral& rel_color_ptr, size_t align, void const* base,
             void* ptr);
-
-template <typename SignedIntegral>
-unsigned GetColor(SignedIntegral const& rel_color_ptr, size_t align,
-                  void const* base);
 
 template <typename SignedIntegral>
 void SetColor(SignedIntegral& rel_color_ptr, size_t align, void const* base,
@@ -66,7 +75,7 @@ struct AugPtrTpl {
 
     ZETA_Core_StaticAssert(
         meta::IsAnyOf<meta::RemoveVolatile<LinkType>, void*> ||
-        integral::IsSigned<meta::RemoveVolatile<LinkType>>);
+        integral::IsSignedIntegral<meta::RemoveVolatile<LinkType>>);
 
     ZETA_Core_StaticAssert(meta::IsAnyOf<ColorTag, value_wrapper::TrueType,
                                          value_wrapper::FalseType>);

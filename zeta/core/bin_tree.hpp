@@ -1,13 +1,12 @@
 #pragma once
 
 #include <zeta/core/define.hpp>
-#include <zeta/core/meta.hpp>
-#include <zeta/core/utils.hpp>
+#include <zeta/core/pair.hpp>
 
 namespace zeta::core::bin_tree {
 
 template <typename BinTreeNode, typename = void>
-struct NodeTraits;
+struct NodeTraits;  // IWYU pragma: export
 
 template <typename BinTreeNode>
 constexpr bool IsConst();
@@ -46,13 +45,13 @@ template <typename BinTreeNode>
 void CheckContract();
 
 template <typename BinTreeNode>
-utils::Pair<BinTreeNode*, size_t> GetMostP(BinTreeNode* n);
+pair::Pair<BinTreeNode*, size_t> GetMostP(BinTreeNode* n);
 
 template <typename BinTreeNode>
-utils::Pair<BinTreeNode*, size_t> GetMostL(BinTreeNode* n);
+pair::Pair<BinTreeNode*, size_t> GetMostL(BinTreeNode* n);
 
 template <typename BinTreeNode>
-utils::Pair<BinTreeNode*, size_t> GetMostR(BinTreeNode* n);
+pair::Pair<BinTreeNode*, size_t> GetMostR(BinTreeNode* n);
 
 template <typename BinTreeNode>
 size_t Count(BinTreeNode* n);
@@ -85,10 +84,10 @@ template <typename BinTreeNode>
 void RotateR(BinTreeNode* n);
 
 template <typename BinTreeNode>
-utils::Pair<BinTreeNode*, size_t> AccessL(BinTreeNode* n, size_t idx);
+pair::Pair<BinTreeNode*, size_t> AccessL(BinTreeNode* n, size_t idx);
 
 template <typename BinTreeNode>
-utils::Pair<BinTreeNode*, size_t> AccessR(BinTreeNode* n, size_t idx);
+pair::Pair<BinTreeNode*, size_t> AccessR(BinTreeNode* n, size_t idx);
 
 template <typename BinTreeNode>
 BinTreeNode* StepPL(BinTreeNode* n);
@@ -103,13 +102,13 @@ template <typename BinTreeNode>
 BinTreeNode* StepR(BinTreeNode* n);
 
 template <typename BinTreeNode>
-utils::Pair<BinTreeNode*, size_t> AdvanceL(BinTreeNode* n, size_t step);
+pair::Pair<BinTreeNode*, size_t> AdvanceL(BinTreeNode* n, size_t step);
 
 template <typename BinTreeNode>
-utils::Pair<BinTreeNode*, size_t> AdvanceR(BinTreeNode* n, size_t step);
+pair::Pair<BinTreeNode*, size_t> AdvanceR(BinTreeNode* n, size_t step);
 
 template <typename BinTreeNode>
-utils::Pair<size_t, size_t> GetLRAccSize(BinTreeNode* n);
+pair::Pair<size_t, size_t> GetLRAccSize(BinTreeNode* n);
 
 template <typename BinTreeNode>
 void Sanitize(BinTreeNode* root);

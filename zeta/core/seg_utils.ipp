@@ -14,7 +14,7 @@ inline void seg_utils::SegShoveL(circular_array::Cntr& l_ca,
                                  circular_array::Cntr& r_ca, size_t shove_cnt) {
     ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
-    size_t l_vac{ l_ca.elem_capacity - l_ca.elem_cnt };
+    size_t l_vac{ l_ca.slot_cnt - l_ca.elem_cnt };
 
     ZETA_Core_DebugAssert(shove_cnt <= l_vac);
     ZETA_Core_DebugAssert(shove_cnt <= r_ca.elem_cnt);
@@ -35,7 +35,7 @@ inline void seg_utils::SegShoveR(circular_array::Cntr& l_ca,
                                  circular_array::Cntr& r_ca, size_t shove_cnt) {
     ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
-    size_t r_vac{ r_ca.elem_capacity - r_ca.elem_cnt };
+    size_t r_vac{ r_ca.slot_cnt - r_ca.elem_cnt };
 
     ZETA_Core_DebugAssert(shove_cnt <= r_vac);
     ZETA_Core_DebugAssert(shove_cnt <= l_ca.elem_cnt);
@@ -59,20 +59,19 @@ void seg_utils::SegInsertShoveL(circular_array::Cntr& l_ca,
                                 Writer&& writer) {
     ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
-    size_t l_vac{ l_ca.elem_capacity - l_ca.elem_cnt };
-    size_t r_vac{ r_ca.elem_capacity - r_ca.elem_cnt };
+    size_t l_vac{ l_ca.slot_cnt - l_ca.elem_cnt };
+    size_t r_vac{ r_ca.slot_cnt - r_ca.elem_cnt };
 
     ZETA_Core_DebugAssert(rl_cnt <= r_ca.elem_cnt);
     ZETA_Core_DebugAssert(ins_cnt <= l_vac + r_vac);
     ZETA_Core_DebugAssert(shove_cnt <= l_vac);
     ZETA_Core_DebugAssert(shove_cnt <= r_ca.elem_cnt + ins_cnt);
-    ZETA_Core_DebugAssert(r_ca.elem_cnt + ins_cnt - shove_cnt <=
-                          r_ca.elem_capacity);
+    ZETA_Core_DebugAssert(r_ca.elem_cnt + ins_cnt - shove_cnt <= r_ca.slot_cnt);
 
     if (ins_cnt == 0 && shove_cnt == 0) { return; }
 
-    size_t cnt_a{ utils::Min(rl_cnt, shove_cnt) };
-    size_t cnt_b{ utils::Min(ins_cnt, shove_cnt - cnt_a) };
+    size_t cnt_a{ compare_utils::BasicMin(rl_cnt, shove_cnt) };
+    size_t cnt_b{ compare_utils::BasicMin(ins_cnt, shove_cnt - cnt_a) };
     size_t cnt_c{ shove_cnt - cnt_a - cnt_b };
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
@@ -109,20 +108,19 @@ void seg_utils::SegInsertShoveR(circular_array::Cntr& l_ca,
                                 Writer&& writer) {
     ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
-    size_t l_vac{ l_ca.elem_capacity - l_ca.elem_cnt };
-    size_t r_vac{ r_ca.elem_capacity - r_ca.elem_cnt };
+    size_t l_vac{ l_ca.slot_cnt - l_ca.elem_cnt };
+    size_t r_vac{ r_ca.slot_cnt - r_ca.elem_cnt };
 
     ZETA_Core_DebugAssert(lr_cnt <= l_ca.elem_cnt);
     ZETA_Core_DebugAssert(ins_cnt <= l_vac + r_vac);
     ZETA_Core_DebugAssert(shove_cnt <= r_vac);
     ZETA_Core_DebugAssert(shove_cnt <= l_ca.elem_cnt + ins_cnt);
-    ZETA_Core_DebugAssert(l_ca.elem_cnt + ins_cnt - shove_cnt <=
-                          l_ca.elem_capacity);
+    ZETA_Core_DebugAssert(l_ca.elem_cnt + ins_cnt - shove_cnt <= l_ca.slot_cnt);
 
     if (ins_cnt == 0 && shove_cnt == 0) { return; }
 
-    size_t cnt_a{ utils::Min(lr_cnt, shove_cnt) };
-    size_t cnt_b{ utils::Min(ins_cnt, shove_cnt - cnt_a) };
+    size_t cnt_a{ compare_utils::BasicMin(lr_cnt, shove_cnt) };
+    size_t cnt_b{ compare_utils::BasicMin(ins_cnt, shove_cnt - cnt_a) };
     size_t cnt_c{ shove_cnt - cnt_a - cnt_b };
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
@@ -157,7 +155,7 @@ inline void seg_utils::SegEraseShoveL(circular_array::Cntr& l_ca,
                                       size_t ers_cnt, size_t shove_cnt) {
     ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
-    size_t l_vac{ l_ca.elem_capacity - l_ca.elem_cnt };
+    size_t l_vac{ l_ca.slot_cnt - l_ca.elem_cnt };
 
     ZETA_Core_DebugAssert(rl_cnt <= r_ca.elem_cnt);
     ZETA_Core_DebugAssert(ers_cnt <= r_ca.elem_cnt - rl_cnt);
@@ -166,7 +164,7 @@ inline void seg_utils::SegEraseShoveL(circular_array::Cntr& l_ca,
 
     if (ers_cnt == 0 && shove_cnt == 0) { return; }
 
-    size_t cnt_a{ utils::Min(rl_cnt, shove_cnt) };
+    size_t cnt_a{ compare_utils::BasicMin(rl_cnt, shove_cnt) };
     size_t cnt_b{ ers_cnt };
     size_t cnt_c{ shove_cnt - cnt_a };
 
@@ -192,7 +190,7 @@ inline void seg_utils::SegEraseShoveR(circular_array::Cntr& l_ca,
                                       size_t ers_cnt, size_t shove_cnt) {
     ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
-    size_t r_vac{ r_ca.elem_capacity - r_ca.elem_cnt };
+    size_t r_vac{ r_ca.slot_cnt - r_ca.elem_cnt };
 
     ZETA_Core_DebugAssert(lr_cnt <= l_ca.elem_cnt);
     ZETA_Core_DebugAssert(ers_cnt <= l_ca.elem_cnt - lr_cnt);
@@ -201,7 +199,7 @@ inline void seg_utils::SegEraseShoveR(circular_array::Cntr& l_ca,
 
     if (ers_cnt == 0 && shove_cnt == 0) { return; }
 
-    size_t cnt_a{ utils::Min(lr_cnt, shove_cnt) };
+    size_t cnt_a{ compare_utils::BasicMin(lr_cnt, shove_cnt) };
     size_t cnt_b{ ers_cnt };
     size_t cnt_c{ shove_cnt - cnt_a };
 

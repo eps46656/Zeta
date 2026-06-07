@@ -1,42 +1,49 @@
 #pragma once
 
-#include <zeta/core/allocator.hpp>
+#include <zeta/core/array.hpp>
+#include <zeta/core/array.ipp>
 #include <zeta/core/basic_bin_tree_node.hpp>
-#include <zeta/core/bin_tree.hpp>
+#include <zeta/core/compare_utils.ipp>
 #include <zeta/core/debug_utils.hpp>
 #include <zeta/core/define.hpp>
+#include <zeta/core/fixed_point.hpp>
 #include <zeta/core/fixed_point.ipp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/multi_level_ptr_table.hpp>
-#include <zeta/core/rbtree.hpp>
-#include <zeta/core/utils.hpp>
 #include <zeta/core/value_wrapper.hpp>
 
 #pragma push_macro("CntrTplDeclParamList")
-#define CntrTplDeclParamList                           \
-    typename NodeHashLike_, typename NodeCompareLike_, \
-        typename TableNodeAllocatorLike_, typename SaltRandomEngineLike_
+#define CntrTplDeclParamList                                \
+    typename NodeHasherLike_, typename NodeComparatorLike_, \
+        typename SaltRandomEngineLike_, typename TableNodeAllocatorLike_
 
 #pragma push_macro("CntrTplParamList")
-#define CntrTplParamList                             \
-    typename NodeHashLike, typename NodeCompareLike, \
-        typename TableNodeAllocatorLike, typename SaltRandomEngineLike
+#define CntrTplParamList                                  \
+    typename NodeHasherLike, typename NodeComparatorLike, \
+        typename SaltRandomEngineLike, typename TableNodeAllocatorLike
 
 #pragma push_macro("CntrTplArgList")
-#define CntrTplArgList \
-    NodeHashLike, NodeCompareLike, TableNodeAllocatorLike, SaltRandomEngineLike
+#define CntrTplArgList                                        \
+    NodeHasherLike, NodeComparatorLike, SaltRandomEngineLike, \
+        TableNodeAllocatorLike
 
 namespace zeta::core::generic_hash_table {
 
-constexpr auto max_level{ multi_level_ptr_table::max_level };
-constexpr auto branch_num{ multi_level_ptr_table::max_branch_num };
+using ActiveMap = unsigned long long;
 
-constexpr utils::Array<unsigned short, max_level> branch_nums{ [] {
-    utils::Array<unsigned short, max_level> arr;
-    for (size_t i{ 0 }; i < max_level; ++i) { arr.elems[i] = branch_num; }
-    return arr;
-}() };
+constexpr auto max_level{ multi_level_ptr_table::max_level };
+
+constexpr multi_level_ptr_table::BranchNum branch_num{ compare_utils::BasicMin(
+    integral::WidthOf<ActiveMap>, multi_level_ptr_table::max_branch_num) };
+
+constexpr array::Array<multi_level_ptr_table::BranchNum, max_level> branch_nums{
+    [] {
+        array::Array<multi_level_ptr_table::BranchNum, max_level> arr;
+        for (unsigned i{ 0 }; i < max_level; ++i) { arr[i] = branch_num; }
+        return arr;
+    }()
+};
 
 using UFP =
     fixed_point::FixedPoint<value_wrapper::FalseType,
@@ -60,57 +67,15 @@ constexpr UFP max_center_load_ratio{ UFP::FromIntegral(32U) };
 constexpr UFP min_drift_ratio{ UFP::FromFraction(150U, 100U) };  // 1.5
 constexpr UFP max_drift_ratio{ UFP::FromIntegral(16U) };         // 16
 
-struct TreeNode : public basic_bin_tree_node::Node<
-                      void*, value_wrapper::TrueType, value_wrapper::FalseType,
-                      value_wrapper::FalseType, value_wrapper::FalseType> {};
+using TreeNode =
+    basic_bin_tree_node::Node<void*,                     // LinkType
+                              value_wrapper::TrueType,   // PColorTag
+                              value_wrapper::FalseType,  // LColorTag
+                              value_wrapper::FalseType,  // RColorTag
+                              value_wrapper::FalseType,  // AccSizeTag
+                              basic_bin_tree_node::PrimaryColorTagEnum::P>;
 
 }  // namespace zeta::core::generic_hash_table
-
-namespace zeta::core {
-
-template <>
-struct bin_tree::NodeTraits<generic_hash_table::TreeNode const> {
-    static constexpr bool IsConst();
-
-    static constexpr bool HasAccSize();
-
-    static generic_hash_table::TreeNode const* GetP(
-        generic_hash_table::TreeNode const* n);
-    static generic_hash_table::TreeNode const* GetL(
-        generic_hash_table::TreeNode const* n);
-    static generic_hash_table::TreeNode const* GetR(
-        generic_hash_table::TreeNode const* n);
-};
-
-template <>
-struct bin_tree::NodeTraits<generic_hash_table::TreeNode>
-    : public bin_tree::NodeTraits<generic_hash_table::TreeNode const> {
-    static constexpr bool IsConst();
-
-    static generic_hash_table::TreeNode* GetP(generic_hash_table::TreeNode* n);
-    static generic_hash_table::TreeNode* GetL(generic_hash_table::TreeNode* n);
-    static generic_hash_table::TreeNode* GetR(generic_hash_table::TreeNode* n);
-
-    static void SetP(generic_hash_table::TreeNode* n,
-                     generic_hash_table::TreeNode* m);
-    static void SetL(generic_hash_table::TreeNode* n,
-                     generic_hash_table::TreeNode* m);
-    static void SetR(generic_hash_table::TreeNode* n,
-                     generic_hash_table::TreeNode* m);
-};
-
-template <>
-struct rbtree::NodeTraits<generic_hash_table::TreeNode const> {
-    static unsigned GetColor(generic_hash_table::TreeNode const* n);
-};
-
-template <>
-struct rbtree::NodeTraits<generic_hash_table::TreeNode>
-    : public rbtree::NodeTraits<generic_hash_table::TreeNode const> {
-    static void SetColor(generic_hash_table::TreeNode* n, unsigned color);
-};
-
-}  // namespace zeta::core
 
 namespace zeta::core::generic_hash_table {
 
@@ -120,10 +85,34 @@ struct RehashingConfig {
     UFP drift_ratio;
 };
 
+/*
+
+1 < move quata per op
+1 < drift ratio
+
+cur good elem cnt = [
+    cur bucket size * center load ratio / drift ratio,
+    cur bucket size * center load ratio * drift ratio,
+]
+
+move quata per op / (move quata per op - 1) < drift ratio
+    => move quata per op / (move quata per op - 1) < drift ratio
+    => 1 + 1 / (move quata per op - 1) < drift ratio
+    => 1 / (move quata per op - 1) < drift ratio - 1
+    => 1 / (drift ratio - 1) < move quata per op - 1
+
+*/
+
+inline RehashingConfig constexpr default_rehashing_config{
+    .move_quata_per_op = 4,
+    .center_load_ratio = UFP::FromIntegral(8U),
+    .drift_ratio = UFP::FromIntegral(4U),
+};
+
 struct Node {
     ZETA_Core_DebugStructPadding;
 
-    TreeNode n;
+    TreeNode tn;
 
     ZETA_Core_DebugStructPadding;
 
@@ -132,10 +121,10 @@ struct Node {
 
 template <CntrTplDeclParamList>
 struct Cntr {
-    using NodeHashLike = NodeHashLike_;
-    using NodeCompareLike = NodeCompareLike_;
-    using TableNodeAllocatorLike = TableNodeAllocatorLike_;
+    using NodeHasherLike = NodeHasherLike_;
+    using NodeComparatorLike = NodeComparatorLike_;
     using SaltRandomEngineLike = SaltRandomEngineLike_;
+    using TableNodeAllocatorLike = TableNodeAllocatorLike_;
 
     unsigned long long cur_salt;
     unsigned long long nxt_salt;
@@ -153,23 +142,23 @@ struct Cntr {
 
     RehashingConfig rehashing_config;
 
-    NodeHashLike node_hash;
+    NodeHasherLike node_hasher;
 
-    NodeCompareLike node_compare;
-
-    TableNodeAllocatorLike table_node_alctr;
+    NodeComparatorLike node_cmptr;
 
     SaltRandomEngineLike salt_random_engine;
+
+    TableNodeAllocatorLike table_node_alctr;
 };
 
 template <CntrTplParamList, typename NodeHashLikeInitArg,
-          typename NodeCompareInitArg, typename TableNodeAllocatorInitArg,
+          typename NodeComparatorInitArg, typename TableNodeAllocatorInitArg,
           typename SaltRandomEngineInitArg>
 void Init(Cntr<CntrTplArgList>& ght, RehashingConfig const& rehashing_config,
           NodeHashLikeInitArg&& node_hash_init_arg,
-          NodeCompareInitArg&& node_compare_init_arg,
-          TableNodeAllocatorInitArg&& table_node_alctr_init_arg,
-          SaltRandomEngineInitArg&& salt_random_engine_init_arg);
+          NodeComparatorInitArg&& node_compare_init_arg,
+          SaltRandomEngineInitArg&& salt_random_engine_init_arg,
+          TableNodeAllocatorInitArg&& table_node_alctr_init_arg);
 
 template <CntrTplParamList>
 void Deinit(Cntr<CntrTplArgList>& ght);
@@ -200,7 +189,7 @@ template <CntrTplParamList>
 bool RunPending(Cntr<CntrTplArgList>& ght, size_t quata);
 
 template <CntrTplParamList>
-unsigned long long GetEffFactor(Cntr<CntrTplArgList> const& ght);
+auto GetEffFactor(Cntr<CntrTplArgList> const& ght);
 
 template <CntrTplParamList>
 void Sanitize(Cntr<CntrTplArgList> const& ght,

@@ -17,7 +17,8 @@
 
 #define ZETA_Core_size_width (__SIZE_WIDTH__)
 
-#define ZETA_Core_bitint_max_width static_cast<size_t>(__BITINT_MAXWIDTH__)
+#define ZETA_Core_bitint_max_width \
+    static_cast<unsigned long long>(__BITINT_MAXWIDTH__)
 
 #define ZETA_Core_max_capacity (::zeta::core::integral::RangeMaxOf<size_t> / 4)
 
@@ -43,297 +44,210 @@ using sbit128_t = signed _BitInt(128);
 using sdllong_t = signed _BitInt(ZETA_Core_ullong_width * 2);
 using udllong_t = unsigned _BitInt(ZETA_Core_ullong_width * 2);
 
+namespace detail {
+
+struct IncompleteTraitsBase_ {};
+
+}  // namespace detail
+
+template <typename Integral, typename = void>
+struct IntegralTraits : public detail::IncompleteTraitsBase_ {};
+
 template <typename Integral>
-struct IsUnsignedCore {
-    static constexpr bool value{ false };
+constexpr bool IsIntegral{
+    !meta::IsBaseOf<detail::IncompleteTraitsBase_, IntegralTraits<Integral>>
 };
 
 template <typename Integral>
-struct IsSignedCore {
-    static constexpr bool value{ false };
-};
-
-template <typename Integral>
-constexpr bool IsUnsigned{ []() {
-    constexpr bool is_unsigned{ IsUnsignedCore<Integral>::value };
-    constexpr bool is_signed{ IsSignedCore<Integral>::value };
-
-    ZETA_Core_StaticAssert(!is_unsigned || !is_signed);
-
-    return is_unsigned;
+constexpr bool IsSignedIntegral{ []() {
+    if constexpr (integral::IsIntegral<Integral>) {
+        constexpr bool is_signed{ IntegralTraits<Integral>::is_signed };
+        return is_signed;
+    } else {
+        return false;
+    }
 }() };
 
 template <typename Integral>
-constexpr bool IsSigned{ []() {
-    constexpr bool is_unsigned{ IsUnsignedCore<Integral>::value };
-    constexpr bool is_signed{ IsSignedCore<Integral>::value };
-
-    ZETA_Core_StaticAssert(!is_unsigned || !is_signed);
-
-    return is_signed;
+constexpr bool IsUnsignedIntegral{ []() {
+    if constexpr (integral::IsIntegral<Integral>) {
+        constexpr bool is_signed{ IntegralTraits<Integral>::is_signed };
+        return !is_signed;
+    } else {
+        return false;
+    }
 }() };
 
-template <>
-struct IsUnsignedCore<char> {
-    static constexpr bool value{ 0 <= static_cast<char>(-1) };
-};
+template <typename Integral>
+constexpr unsigned long long WidthOf{ []() {
+    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
+
+    constexpr unsigned long long width{ IntegralTraits<Integral>::width };
+
+    return width;
+}() };
+
+template <typename Integral>
+using TryMakeUnsignedOf = decltype([]() {
+    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
+
+    using UnsignedIntegral = IntegralTraits<Integral>::UnsignedType;
+
+    ZETA_Core_StaticAssert(
+        meta::IsAnyOf<UnsignedIntegral, meta::NeverMatchTag> ||
+        integral::IsIntegral<UnsignedIntegral>);
+
+    return meta::TypeWrapper<UnsignedIntegral>{};
+}())::Type;
+
+template <typename Integral>
+using TryMakeSignedOf = decltype([]() {
+    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
+
+    using SignedIntegral = IntegralTraits<Integral>::SignedType;
+
+    ZETA_Core_StaticAssert(meta::IsAnyOf<SignedIntegral, meta::NeverMatchTag> ||
+                           integral::IsIntegral<SignedIntegral>);
+
+    return meta::TypeWrapper<SignedIntegral>{};
+}())::Type;
+
+template <typename Integral>
+using MakeUnsignedOf = decltype([]() {
+    using UnsignedIntegral = TryMakeUnsignedOf<Integral>;
+
+    ZETA_Core_StaticAssert(integral::IsIntegral<UnsignedIntegral>);
+
+    return meta::TypeWrapper<UnsignedIntegral>{};
+}())::Type;
+
+template <typename Integral>
+using MakeSignedOf = decltype([]() {
+    using SignedIntegral = TryMakeSignedOf<Integral>;
+
+    ZETA_Core_StaticAssert(integral::IsIntegral<SignedIntegral>);
+
+    return meta::TypeWrapper<SignedIntegral>{};
+}())::Type;
 
 template <>
-struct IsSignedCore<char> {
-    static constexpr bool value{ static_cast<char>(-1) < 0 };
+struct IntegralTraits<char> {
+    static constexpr bool is_signed{ static_cast<char>(-1) <
+                                     static_cast<char>(0) };
+
+    static constexpr unsigned long long width{ is_signed
+                                                   ? ZETA_Core_schar_width
+                                                   : ZETA_Core_uchar_width };
+
+    using UnsignedType = meta::Conditional<is_signed, unsigned char, char>;
+
+    using SignedType = meta::Conditional<is_signed, char, signed char>;
 };
 
 #pragma push_macro("F")
-
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define F(utype, stype)                      \
-    template <>                              \
-    struct IsUnsignedCore<utype> {           \
-        static constexpr bool value{ true }; \
-    };                                       \
-                                             \
-    template <>                              \
-    struct IsSignedCore<stype> {             \
-        static constexpr bool value{ true }; \
-    };                                       \
-                                             \
+#define F(utype, stype, width_)                              \
+    template <>                                              \
+    struct IntegralTraits<utype> {                           \
+        static constexpr bool is_signed{ false };            \
+        static constexpr unsigned long long width{ width_ }; \
+                                                             \
+        using UnsignedType = utype;                          \
+        using SignedType = stype;                            \
+    };                                                       \
+                                                             \
+    template <>                                              \
+    struct IntegralTraits<stype> {                           \
+        static constexpr bool is_signed{ true };             \
+        static constexpr unsigned long long width{ width_ }; \
+                                                             \
+        using UnsignedType = utype;                          \
+        using SignedType = stype;                            \
+    };                                                       \
+                                                             \
     ZETA_Core_StaticAssert(true)
 
-F(unsigned char, signed char);
-F(unsigned short, signed short);
-F(unsigned int, signed int);
-F(unsigned long, signed long);
-F(unsigned long long, signed long long);
+F(unsigned char, signed char, ZETA_Core_uchar_width);
+F(unsigned short, signed short, ZETA_Core_ushrt_width);
+F(unsigned int, signed int, ZETA_Core_uint_width);
+F(unsigned long, signed long, ZETA_Core_ulong_width);
+F(unsigned long long, signed long long, ZETA_Core_ullong_width);
 
 #pragma pop_macro("F")
 
-template <size_t N>
-struct IsUnsignedCore<unsigned _BitInt(N)> {
-    static constexpr bool value{ true };
+template <unsigned long long N>
+struct IntegralTraits<unsigned _BitInt(N)> {
+    static constexpr bool is_signed{ false };
+    static constexpr unsigned long long width{ N };
+
+    using UnsignedType = unsigned _BitInt(N);
+    using SignedType = signed _BitInt(N);
 };
 
-template <size_t N>
-struct IsSignedCore<signed _BitInt(N)> {
-    static constexpr bool value{ true };
-};
+template <unsigned long long N>
+struct IntegralTraits<signed _BitInt(N)> {
+    static constexpr bool is_signed{ true };
+    static constexpr unsigned long long width{ N };
 
-template <typename Integral>
-constexpr bool IsIntegral{ []() {
-    constexpr bool is_unsigned{ IsUnsignedCore<Integral>::value };
-    constexpr bool is_signed{ IsSignedCore<Integral>::value };
-
-    ZETA_Core_StaticAssert(!is_unsigned || !is_signed);
-
-    return is_unsigned || is_signed;
-}() };
-
-template <typename Integral>
-struct WidthOfImpl;
-
-template <typename Integral>
-constexpr size_t WidthOf{ WidthOfImpl<Integral>::value };
-
-#pragma push_macro("F")
-
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define F(type, val)                          \
-    template <>                               \
-    struct WidthOfImpl<type> {                \
-        static constexpr size_t value{ val }; \
-    };                                        \
-                                              \
-    ZETA_Core_StaticAssert(true)
-
-F(char, IsSigned<char> ? ZETA_Core_schar_width : ZETA_Core_uchar_width);
-F(unsigned char, ZETA_Core_uchar_width);
-F(signed char, ZETA_Core_schar_width);
-
-F(unsigned short, ZETA_Core_ushrt_width);
-F(signed short, ZETA_Core_sshrt_width);
-
-F(unsigned int, ZETA_Core_uint_width);
-F(signed int, ZETA_Core_sint_width);
-
-F(unsigned long, ZETA_Core_ulong_width);
-F(signed long, ZETA_Core_slong_width);
-
-F(unsigned long long, ZETA_Core_ullong_width);
-F(signed long long, ZETA_Core_sllong_width);
-
-#pragma pop_macro("F")
-
-template <size_t N>
-struct WidthOfImpl<unsigned _BitInt(N)> {
-    static constexpr size_t value{ static_cast<int>(N) };
-};
-
-template <size_t N>
-struct WidthOfImpl<signed _BitInt(N)> {
-    static constexpr size_t value{ static_cast<int>(N) };
+    using UnsignedType = unsigned _BitInt(N);
+    using SignedType = signed _BitInt(N);
 };
 
 namespace detail {
 
 template <typename Integral>
-constexpr Integral Pow2Minus1(size_t exp) {  // Returns 2^exp - 1.
+constexpr Integral Pow2Minus1_(unsigned long long exp) {  // Returns 2^exp - 1.
     if (exp == 0) { return 0; }
 
-    Integral ret{ 1 };
-    Integral base{ 2 };
+    Integral x{ 1 };
 
-    for (--exp;;) {
-        if (exp % 2 != 0) { ret *= base; }
-        exp /= 2;
-        if (exp == 0) { break; }
-        base *= base;
-    }
+    x <<= exp - 1;  // x = 2^(exp - 1)
+    --x;            // x = 2^(exp - 1) - 1
+    x <<= 1;        // x = 2^exp - 2
+    ++x;            // x = 2^exp - 1
 
-    Integral one{ 1 };
-    Integral two{ 2 };
-
-    return (ret - one) * two + one;
+    return x;
 }
 
 }  // namespace detail
 
 template <typename Integral>
-constexpr Integral BasicRangeMinOf{ []() {
-    if constexpr (IsUnsigned<Integral>) { return static_cast<Integral>(0); }
+constexpr Integral RangeMinOf{ []() {
+    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
 
-    if constexpr (IsSigned<Integral>) {
-        return -detail::Pow2Minus1<Integral>(WidthOf<Integral> - 1);
-    }
+    return IsSignedIntegral<Integral>
+               ? -detail::Pow2Minus1_<Integral>(WidthOf<Integral> - 1)
+               : static_cast<Integral>(0);
 }() };
 
 template <typename Integral>
-constexpr Integral BasicRangeMaxOf{ []() {
-    if constexpr (IsUnsigned<Integral>) {
-        return detail::Pow2Minus1<Integral>(WidthOf<Integral>);
-    }
+constexpr Integral RangeMaxOf{ []() {
+    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
 
-    if constexpr (IsSigned<Integral>) {
-        return detail::Pow2Minus1<Integral>(WidthOf<Integral> - 1);
-    }
+    return IsSignedIntegral<Integral>
+               ? detail::Pow2Minus1_<Integral>(WidthOf<Integral> - 1)
+               : detail::Pow2Minus1_<Integral>(WidthOf<Integral>);
 }() };
-
-template <typename Integral>
-struct RangeMinOfImpl {
-    static constexpr Integral value{ BasicRangeMinOf<Integral> };
-};
-
-template <typename Integral>
-struct RangeMaxOfImpl {
-    static constexpr Integral value{ BasicRangeMaxOf<Integral> };
-};
-
-template <typename Integral>
-constexpr Integral RangeMinOf{ RangeMinOfImpl<Integral>::value };
-
-template <typename Integral>
-constexpr Integral RangeMaxOf{ RangeMaxOfImpl<Integral>::value };
-
-#pragma push_macro("F")
-
-template <>
-struct RangeMinOfImpl<char> {
-    static constexpr char value{
-        IsSigned<char> ? static_cast<char>(RangeMinOfImpl<signed char>::value)
-                       : static_cast<char>(RangeMinOfImpl<unsigned char>::value)
-    };
-};
-
-template <typename Integral>
-struct UnsignedOfImpl;
-
-template <typename Integral>
-struct SignedOfImpl;
-
-template <typename Integral>
-using UnsignedOf = typename UnsignedOfImpl<Integral>::type;
-
-template <typename Integral>
-using SignedOf = typename SignedOfImpl<Integral>::type;
-
-template <>
-struct UnsignedOfImpl<char> {
-    using type = meta::Conditional<IsSigned<char>, unsigned char, char>;
-};
-
-template <>
-struct SignedOfImpl<char> {
-    using type = meta::Conditional<IsSigned<char>, char, signed char>;
-};
-
-#pragma push_macro("F")
-
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define F(unsigned_integral, signed_integral)  \
-    template <>                                \
-    struct UnsignedOfImpl<unsigned_integral> { \
-        using type = unsigned_integral;        \
-    };                                         \
-                                               \
-    template <>                                \
-    struct UnsignedOfImpl<signed_integral> {   \
-        using type = unsigned_integral;        \
-    };                                         \
-                                               \
-    template <>                                \
-    struct SignedOfImpl<unsigned_integral> {   \
-        using type = signed_integral;          \
-    };                                         \
-                                               \
-    template <>                                \
-    struct SignedOfImpl<signed_integral> {     \
-        using type = signed_integral;          \
-    };                                         \
-                                               \
-    ZETA_Core_StaticAssert(true)
-
-F(unsigned char, signed char);
-F(unsigned short, signed short);
-F(unsigned int, signed int);
-F(unsigned long, signed long);
-F(unsigned long long, signed long long);
-
-#pragma pop_macro("F")
-
-template <size_t N>
-struct UnsignedOfImpl<unsigned _BitInt(N)> {
-    using type = unsigned _BitInt(N);
-};
-
-template <size_t N>
-struct UnsignedOfImpl<signed _BitInt(N)> {
-    using type = unsigned _BitInt(N);
-};
-
-template <size_t N>
-struct SignedOfImpl<unsigned _BitInt(N)> {
-    using type = signed _BitInt(N);
-};
-
-template <size_t N>
-struct SignedOfImpl<signed _BitInt(N)> {
-    using type = signed _BitInt(N);
-};
 
 template <typename IntegralX, typename IntegralY>
 int MathCompare(IntegralX x, IntegralY y) {
-    constexpr bool x_is_signed{ IsSigned<IntegralX> };
-    constexpr bool y_is_signed{ IsSigned<IntegralY> };
+    ZETA_Core_StaticAssert(integral::IsIntegral<IntegralX>);
+    ZETA_Core_StaticAssert(integral::IsIntegral<IntegralY>);
+
+    constexpr bool x_is_signed{ IsSignedIntegral<IntegralX> };
+    constexpr bool y_is_signed{ IsSignedIntegral<IntegralY> };
 
     if constexpr (x_is_signed == y_is_signed) { return (y < x) - (x < y); }
 
     if constexpr (x_is_signed && !y_is_signed) {
         if (x < 0) { return -1; }
-        auto unsigned_x{ static_cast<UnsignedOf<IntegralX>>(x) };
+        auto unsigned_x{ static_cast<MakeUnsignedOf<IntegralX>>(x) };
         return (y < unsigned_x) - (unsigned_x < y);
     }
 
     if constexpr (!x_is_signed && y_is_signed) {
         if (y < 0) { return 1; }
-        auto unsigned_y{ static_cast<UnsignedOf<IntegralY>>(y) };
+        auto unsigned_y{ static_cast<MakeUnsignedOf<IntegralY>>(y) };
         return (unsigned_y < x) - (x < unsigned_y);
     }
 }

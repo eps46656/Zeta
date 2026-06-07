@@ -1,7 +1,10 @@
 #include <vector>
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/debug_utils.hpp>
+#include <zeta/core/debug_utils.ipp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/integral_utils.hpp>
+#include <zeta/core/lifecycle.hpp>
 #include <zeta/core/multi_level_data_table.ipp>
 #include <zeta/core/multi_level_ptr_table.ipp>
 #include <zeta/core_test/pod_value.hpp>
@@ -13,11 +16,9 @@ namespace MLPT = zeta::core::multi_level_ptr_table;
 namespace MLDT = zeta::core::multi_level_data_table;
 
 struct MultiLevelPtrTableMap {
-    unsigned short branch_nums[MLPT::max_level];
+    MLDT::BranchNum branch_nums[MLPT::max_level];
 
-    zeta::core_test::std_allocator::Allocator nav_node_alctr;
-
-    MLPT::Cntr<zeta::core_test::std_allocator::Allocator> mlpt;
+    MLPT::Cntr<unsigned short, zeta::core_test::std_allocator::Allocator> mlpt;
 
     MultiLevelPtrTableMap() {
         ZETA_Core_PrintCurPos;
@@ -33,36 +34,38 @@ struct MultiLevelPtrTableMap {
         this->branch_nums[6] = 11;
         this->branch_nums[7] = 12;
 
-        this->mlpt.level = level;
-
-        this->mlpt.branch_nums = this->branch_nums;
-
-        new (&this->nav_node_alctr) decltype(this->nav_node_alctr);
-
-        MLPT::Init(&this->mlpt);
+        MLPT::Init(this->mlpt, zeta::core::lifecycle::SkipInitTag{}, level,
+                   this->branch_nums);
 
         ZETA_Core_PrintCurPos;
 
         this->Sanitize();
     }
 
-    size_t GetIdx_(size_t* idxes) {
+    template <typename Idx>
+    size_t GetIdx_(Idx* idxes) {
+        using UnsignedIdx = zeta::core::integral::MakeUnsignedOf<Idx>;
+
         int level{ static_cast<int>(this->mlpt.level) };
 
         size_t idx{ 0 };
 
         for (int level_i{ level - 1 }; 0 <= level_i; --level_i) {
-            idx = idx * this->mlpt.branch_nums[level_i] + idxes[level_i];
+            idx = idx * this->mlpt.branch_nums[level_i] +
+                  static_cast<UnsignedIdx>(idxes[level_i]);
         }
 
         return idx;
     }
 
-    void SetIdxes_(size_t idx, size_t* dst_idxes) const {
+    template <typename Idx>
+    void SetIdxes_(size_t idx, Idx* dst_idxes) const {
         int level{ static_cast<int>(this->mlpt.level) };
 
         for (int level_i{ 0 }; level_i < level; ++level_i) {
-            dst_idxes[level_i] = idx % this->mlpt.branch_nums[level_i];
+            dst_idxes[level_i] =
+                static_cast<Idx>(idx % this->mlpt.branch_nums[level_i]);
+
             idx /= this->mlpt.branch_nums[level_i];
         }
     }
@@ -70,20 +73,20 @@ struct MultiLevelPtrTableMap {
     void Sanitize() {
         zeta::core::mem_recorder::MemRecorder nav_node_mem_recorder;
 
-        MLPT::Sanitize(&this->mlpt, &nav_node_mem_recorder);
+        MLPT::Sanitize(this->mlpt, &nav_node_mem_recorder);
 
         zeta::core::mem_recorder::MatchRecords(
-            &this->mlpt.nav_node_alctr.mem_recorder, &nav_node_mem_recorder);
+            this->mlpt.nav_node_alctr.mem_recorder, nav_node_mem_recorder);
     }
 
-    size_t GetCapacity() { return MLPT::GetCapacity(&this->mlpt); }
+    size_t GetCapacity() { return MLPT::GetCapacity(this->mlpt); }
 
     void** Access(size_t idx) {
-        size_t idxes[MLPT::max_level];
+        long long idxes[MLPT::max_level];
 
         this->SetIdxes_(idx, idxes);
 
-        void* n{ MLPT::Access(&this->mlpt, idxes) };
+        void* n{ MLPT::Access(this->mlpt, idxes) };
 
         this->Sanitize();
 
@@ -91,11 +94,11 @@ struct MultiLevelPtrTableMap {
     }
 
     void Insert(size_t idx, void* val) {
-        size_t idxes[MLPT::max_level];
+        int idxes[MLPT::max_level];
 
         this->SetIdxes_(idx, idxes);
 
-        void* n{ MLPT::Insert(&this->mlpt, idxes).first };
+        void* n{ MLPT::Insert(this->mlpt, idxes).first };
 
         ZETA_Core_DebugAssert(n != nullptr);
 
@@ -105,18 +108,20 @@ struct MultiLevelPtrTableMap {
     }
 
     void Erase(size_t idx) {
-        size_t idxes[MLPT::max_level];
+        unsigned idxes[MLPT::max_level];
 
         this->SetIdxes_(idx, idxes);
 
-        MLPT::Erase(&this->mlpt, idxes);
+        MLPT::Erase(this->mlpt, idxes);
+
+        this->Sanitize();
     }
 
     size_t FindPrev(size_t idx) {
-        size_t idxes[MLPT::max_level];
+        _BitInt(8) idxes[MLPT::max_level];
         SetIdxes_(idx, idxes);
 
-        void* n = MLPT::FindPrev(&this->mlpt, idxes, true);
+        void* n{ MLPT::FindPrevIncl(this->mlpt, idxes, idxes) };
 
         this->Sanitize();
 
@@ -124,10 +129,10 @@ struct MultiLevelPtrTableMap {
     }
 
     size_t FindNext(size_t idx) {
-        size_t idxes[MLPT::max_level];
+        unsigned _BitInt(15) idxes[MLPT::max_level];
         SetIdxes_(idx, idxes);
 
-        void* n = MLPT::FindNext(&this->mlpt, idxes, true);
+        void* n{ MLPT::FindNextIncl(this->mlpt, idxes, idxes) };
 
         this->Sanitize();
 
@@ -140,12 +145,12 @@ struct MultiLevelPtrTableMap {
 
         std::vector<std::pair<size_t, void*>> ret;
 
-        void* n{ MLPT::FindNext(&this->mlpt, idxes, true) };
+        void* n{ MLPT::FindNextIncl(this->mlpt, idxes, idxes) };
 
         while (n != nullptr) {
             ret.emplace_back(GetIdx_(idxes), *static_cast<void**>(n));
 
-            n = MLPT::FindNext(&this->mlpt, idxes, false);
+            n = MLPT::FindNextExcl(this->mlpt, idxes, idxes);
         }
 
         return ret;
@@ -154,12 +159,9 @@ struct MultiLevelPtrTableMap {
 
 template <typename T>
 struct MultiLevelDataTableMap {
-    zeta::core_test::std_allocator::Allocator nav_node_alctr;
-    zeta::core_test::std_allocator::Allocator dat_node_alctr;
+    MLDT::BranchNum branch_nums[MLDT::max_level];
 
-    unsigned short branch_nums[MLDT::max_level];
-
-    MLDT::Cntr<zeta::core_test::std_allocator::Allocator,
+    MLDT::Cntr<unsigned _BitInt(128), zeta::core_test::std_allocator::Allocator,
                zeta::core_test::std_allocator::Allocator>
         mldt;
 
@@ -175,37 +177,37 @@ struct MultiLevelDataTableMap {
         this->branch_nums[6] = 11;
         this->branch_nums[7] = 12;
 
-        this->mldt.level = level;
-
-        this->mldt.branch_nums = this->branch_nums;
-
-        this->mldt.stride = sizeof(T);
-
-        new (&this->mldt.nav_node_alctr) decltype(this->mldt.nav_node_alctr);
-        new (&this->mldt.data_node_alctr) decltype(this->mldt.data_node_alctr);
-
-        MLDT::Init(&this->mldt);
+        MLDT::Init(this->mldt, zeta::core::lifecycle::SkipInitTag{},
+                   zeta::core::lifecycle::SkipInitTag{}, level,
+                   this->branch_nums, sizeof(T));
 
         this->Sanitize();
     }
 
-    size_t GetIdx_(size_t const* idxes) const {
+    template <typename Idx>
+    size_t GetIdx_(Idx* idxes) {
+        using UnsignedIdx = zeta::core::integral::MakeUnsignedOf<Idx>;
+
         int level{ static_cast<int>(this->mldt.level) };
 
-        size_t idx = 0;
+        size_t idx{ 0 };
 
         for (int level_i{ level - 1 }; 0 <= level_i; --level_i) {
-            idx = idx * this->mldt.branch_nums[level_i] + idxes[level_i];
+            idx = idx * this->mldt.branch_nums[level_i] +
+                  static_cast<UnsignedIdx>(idxes[level_i]);
         }
 
         return idx;
     }
 
-    void SetIdxes_(size_t idx, size_t* dst_idxes) {
+    template <typename Idx>
+    void SetIdxes_(size_t idx, Idx* dst_idxes) const {
         int level{ static_cast<int>(this->mldt.level) };
 
         for (int level_i{ 0 }; level_i < level; ++level_i) {
-            dst_idxes[level_i] = idx % this->mldt.branch_nums[level_i];
+            dst_idxes[level_i] =
+                static_cast<Idx>(idx % this->mldt.branch_nums[level_i]);
+
             idx /= this->mldt.branch_nums[level_i];
         }
     }
@@ -213,26 +215,26 @@ struct MultiLevelDataTableMap {
     void Sanitize() {
         zeta::core::mem_recorder::MemRecorder nav_node_mem_recorder;
 
-        zeta::core::mem_recorder::MemRecorder dat_node_mem_recorder;
+        zeta::core::mem_recorder::MemRecorder data_node_mem_recorder;
 
-        MLDT::Sanitize(&this->mldt, nav_node_mem_recorder,
-                       &dat_node_mem_recorder);
-
-        zeta::core::mem_recorder::MatchRecords(
-            &this->nav_node_alctr.mem_recorder, &nav_node_mem_recorder);
+        MLDT::Sanitize(this->mldt, &nav_node_mem_recorder,
+                       &data_node_mem_recorder);
 
         zeta::core::mem_recorder::MatchRecords(
-            &this->dat_node_alctr.mem_recorder, &dat_node_mem_recorder);
+            this->mldt.nav_node_alctr.mem_recorder, nav_node_mem_recorder);
+
+        zeta::core::mem_recorder::MatchRecords(
+            this->mldt.data_node_alctr.mem_recorder, data_node_mem_recorder);
     }
 
-    size_t GetCapacity() { return MLDT::GetCapacity(&this->mldt); }
+    size_t GetCapacity() { return MLDT::GetCapacity(this->mldt); }
 
     T* Access(size_t idx) {
         size_t idxes[MLDT::max_level];
 
         this->SetIdxes_(idx, idxes);
 
-        void* n = MLDT::Access(&this->mldt, idxes);
+        void* n = MLDT::Access(this->mldt, idxes);
 
         this->Sanitize();
 
@@ -244,7 +246,7 @@ struct MultiLevelDataTableMap {
 
         this->SetIdxes_(idx, idxes);
 
-        void* n = MLDT::Insert(&this->mldt, idxes).first;
+        void* n{ MLDT::Insert(this->mldt, idxes).first };
 
         ZETA_Core_DebugAssert(n != nullptr);
 
@@ -258,7 +260,7 @@ struct MultiLevelDataTableMap {
 
         this->SetIdxes_(idx, idxes);
 
-        MLDT::Erase(&this->mldt, idxes);
+        MLDT::Erase(this->mldt, idxes);
 
         this->Sanitize();
     }
@@ -267,7 +269,7 @@ struct MultiLevelDataTableMap {
         size_t idxes[MLDT::max_level];
         SetIdxes_(idx, idxes);
 
-        void* n = MLDT::FindPrev(&this->mldt, idxes, true);
+        void* n{ MLDT::FindPrevIncl(this->mldt, idxes, idxes) };
 
         this->Sanitize();
 
@@ -278,7 +280,7 @@ struct MultiLevelDataTableMap {
         size_t idxes[MLDT::max_level];
         SetIdxes_(idx, idxes);
 
-        void* n = MLDT::FindNext(&this->mldt, idxes, true);
+        void* n{ MLDT::FindNextIncl(this->mldt, idxes, idxes) };
 
         this->Sanitize();
 
@@ -291,12 +293,12 @@ struct MultiLevelDataTableMap {
 
         std::vector<std::pair<size_t, T>> ret;
 
-        void* n = MLDT::FindNext(&this->mldt, idxes, true);
+        void* n{ MLDT::FindNextIncl(this->mldt, idxes, idxes) };
 
         while (n != nullptr) {
             ret.push_back({ GetIdx_(idxes), *static_cast<T*>(n) });
 
-            n = MLDT::FindNext(&this->mldt, idxes, false);
+            n = MLDT::FindNextExcl(this->mldt, idxes, idxes);
         }
 
         return ret;
@@ -479,16 +481,19 @@ inline void main1() {
 
     zeta::core_test::SetRandomSeed(seed);
 
-    using T = void*;
-    // using T = zeta::core_test::PODValue;
+    // using T = void*;
+    using T = zeta::core_test::PODValue;
 
-    MultiLevelPtrTableMap zeta_map;
-    // MultiLevelDataTableMap<T> zeta_map;
+    // MultiLevelPtrTableMap zeta_map;
+    MultiLevelDataTableMap<T> zeta_map;
     StdMap<T> std_map;
 
     ZETA_Core_PrintCurPos;
 
-    FOR_LOOP(insert_i, 0, 1024) { SyncInsert<T>(zeta_map, std_map); }
+    FOR_LOOP(insert_i, 0, 128) {
+        ZETA_Core_PrintVar(insert_i);
+        SyncInsert<T>(zeta_map, std_map);
+    }
 
     ZETA_Core_PrintCurPos;
 
@@ -497,19 +502,19 @@ inline void main1() {
 
         ZETA_Core_PrintCurPos;
 
-        FOR_LOOP(test_j, 0, 1024) { SyncInsert<T>(zeta_map, std_map); }
+        FOR_LOOP(test_j, 0, 128) { SyncInsert<T>(zeta_map, std_map); }
 
         ZETA_Core_PrintCurPos;
 
-        FOR_LOOP(test_j, 0, 1024) { SyncErase(zeta_map, std_map); }
+        FOR_LOOP(test_j, 0, 128) { SyncErase(zeta_map, std_map); }
 
         ZETA_Core_PrintCurPos;
 
-        FOR_LOOP(test_j, 0, 1024) { SyncFindPrevThenErase(zeta_map, std_map); }
+        FOR_LOOP(test_j, 0, 128) { SyncFindPrevThenErase(zeta_map, std_map); }
 
         ZETA_Core_PrintCurPos;
 
-        FOR_LOOP(test_j, 0, 1024) { SyncFindNextThenErase(zeta_map, std_map); }
+        FOR_LOOP(test_j, 0, 128) { SyncFindNextThenErase(zeta_map, std_map); }
 
         ZETA_Core_PrintCurPos;
 
@@ -519,11 +524,83 @@ inline void main1() {
     }
 }
 
+template <typename Integral>
+constexpr unsigned long long FindPrevBit_Base(Integral num,
+                                              unsigned long long pos) {
+    for (;; --pos) {
+        if (num & (static_cast<Integral>(1)
+                   << static_cast<unsigned long long>(pos))) {
+            return pos;
+        }
+
+        if (pos == 0) {
+            return zeta::core::integral::RangeMaxOf<unsigned long long>;
+        }
+    }
+}
+
+inline void main2() {
+    for (int _{ 0 }; _ < 1'000'000; ++_) {
+        unsigned long long x{ zeta::core_test::GetRandomInt<unsigned long long>(
+            0, zeta::core::integral::RangeMaxOf<unsigned long long>) };
+
+        unsigned long long pos{
+            zeta::core_test::GetRandomInt<unsigned long long>(
+                0, zeta::core::integral::WidthOf<unsigned long long> - 1)
+        };
+
+        unsigned long long a{ FindPrevBit_Base(x, pos) };
+        unsigned long long b{ zeta::core::integral_bit::FindPrevBit(x, pos) };
+
+        if (a != b) {
+            ZETA_Core_PrintVar(x);
+            ZETA_Core_PrintVar(pos);
+            ZETA_Core_PrintVar(a);
+            ZETA_Core_PrintVar(b);
+
+            ZETA_Core_DebugAssert(a == b);
+        }
+    }
+}
+
+inline void main3() {
+    ZETA_Core_PrintVar(zeta::core::debug_utils::GetTypeStr<
+                       zeta::core::integral_utils::UnsignedFastIntegral<1>>());
+
+    ZETA_Core_PrintVar(zeta::core::debug_utils::GetTypeStr<
+                       zeta::core::integral_utils::UnsignedFastIntegral<7>>());
+
+    ZETA_Core_PrintVar(zeta::core::debug_utils::GetTypeStr<
+                       zeta::core::integral_utils::UnsignedFastIntegral<8>>());
+
+    ZETA_Core_PrintVar(zeta::core::debug_utils::GetTypeStr<
+                       zeta::core::integral_utils::UnsignedFastIntegral<31>>());
+
+    ZETA_Core_PrintVar(zeta::core::debug_utils::GetTypeStr<
+                       zeta::core::integral_utils::UnsignedFastIntegral<32>>());
+
+    ZETA_Core_PrintVar(zeta::core::debug_utils::GetTypeStr<
+                       zeta::core::integral_utils::UnsignedFastIntegral<63>>());
+
+    ZETA_Core_PrintVar(zeta::core::debug_utils::GetTypeStr<
+                       zeta::core::integral_utils::UnsignedFastIntegral<64>>());
+
+    ZETA_Core_PrintVar(
+        zeta::core::debug_utils::GetTypeStr<
+            zeta::core::integral_utils::UnsignedFastIntegral<127>>());
+
+    ZETA_Core_PrintVar(
+        zeta::core::debug_utils::GetTypeStr<
+            zeta::core::integral_utils::UnsignedFastIntegral<128>>());
+}
+
 int main() {
     unsigned long long beg_time{ zeta::core_test::GetTime() };
     ZETA_Core_PrintVar(beg_time);
 
     main1();
+    // main2();
+    // main3();
 
     ZETA_Core_PrintVar(beg_time);
 

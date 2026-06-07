@@ -3,12 +3,8 @@
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/lifecycle.hpp>
 #include <zeta/core/mem_recorder.hpp>
-
-#pragma push_macro("AllocatorTplDeclParamList")
-#define AllocatorTplDeclParamList                           \
-    typename ReuseStrategyTag, typename ReleaseStrategyTag, \
-        typename SrcAllocatorLike
 
 #pragma push_macro("AllocatorTplParamList")
 #define AllocatorTplParamList                               \
@@ -32,8 +28,13 @@ struct ReleaseStrategy {
     struct Latest {};
 };
 
-template <AllocatorTplDeclParamList>
+template <typename ReuseStrategyTag_, typename ReleaseStrategyTag_,
+          typename SrcAllocatorLike_>
 struct Allocator {
+    using ReuseStrategyTag = ReuseStrategyTag_;
+    using ReleaseStrategyTag = ReleaseStrategyTag_;
+    using SrcAllocatorLike = SrcAllocatorLike_;
+
     ZETA_Core_StaticAssert(
         meta::IsAnyOf<ReuseStrategyTag, ReuseStrategy::Oldest,
                       ReuseStrategy::Latest>);
@@ -42,15 +43,19 @@ struct Allocator {
         meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Oldest,
                       ReleaseStrategy::Latest>);
 
-    SrcAllocatorLike src_alctr;
     size_t cnt;
     size_t capacity;
     void* head;
     void* tail;
+    SrcAllocatorLike src_alctr;
 };
 
-template <typename ReuseStrategyTag, typename SrcAllocatorLike>
-struct Allocator<ReuseStrategyTag, ReleaseStrategy::Never, SrcAllocatorLike> {
+template <typename ReuseStrategyTag_, typename SrcAllocatorLike_>
+struct Allocator<ReuseStrategyTag_, ReleaseStrategy::Never, SrcAllocatorLike_> {
+    using ReuseStrategyTag = ReuseStrategyTag_;
+    using ReleaseStrategyTag = ReleaseStrategy::Never;
+    using SrcAllocatorLike = SrcAllocatorLike_;
+
     ZETA_Core_StaticAssert(
         meta::IsAnyOf<ReuseStrategyTag, ReuseStrategy::Oldest,
                       ReuseStrategy::Latest>);
@@ -60,8 +65,12 @@ struct Allocator<ReuseStrategyTag, ReleaseStrategy::Never, SrcAllocatorLike> {
     void* tail;
 };
 
-template <typename ReuseStrategyTag>
-struct Allocator<ReuseStrategyTag, ReleaseStrategy::Never, void> {
+template <typename ReuseStrategyTag_>
+struct Allocator<ReuseStrategyTag_, ReleaseStrategy::Never, void> {
+    using ReuseStrategyTag = ReuseStrategyTag_;
+    using ReleaseStrategyTag = ReleaseStrategy::Never;
+    using SrcAllocatorLike = void;
+
     ZETA_Core_StaticAssert(
         meta::IsAnyOf<ReuseStrategyTag, ReuseStrategy::Oldest,
                       ReuseStrategy::Latest>);
@@ -70,37 +79,51 @@ struct Allocator<ReuseStrategyTag, ReleaseStrategy::Never, void> {
     void* tail;
 };
 
-namespace ops {
+template <typename ReuseStrategyTag, typename ReleaseStrategyTag,
+          typename SrcAllocatorLike, typename SrcAllocatorLikeInitArg,
+          typename = meta::EnableIf<!meta::IsAnyOf<SrcAllocatorLike, void>>>
+void Init(Allocator<ReuseStrategyTag, ReleaseStrategyTag, SrcAllocatorLike>& pa,
+          SrcAllocatorLikeInitArg&& src_allocator_like_init_arg);
+
+template <typename ReuseStrategyTag, typename ReleaseStrategyTag>
+void Init(Allocator<ReuseStrategyTag, ReleaseStrategyTag, void>& pa);
 
 template <AllocatorTplParamList>
-void Init(Allocator<AllocatorTplArgList>* pa);
+void Deinit(Allocator<AllocatorTplArgList>& pa);
 
 template <AllocatorTplParamList>
-void Deinit(Allocator<AllocatorTplArgList>* pa);
+size_t GetAlign(Allocator<AllocatorTplArgList> const& pa);
 
 template <AllocatorTplParamList>
-size_t GetAlign(Allocator<AllocatorTplArgList> const* pa);
+void* Allocate(Allocator<AllocatorTplArgList>& pa, size_t size);
 
 template <AllocatorTplParamList>
-void* Allocate(Allocator<AllocatorTplArgList>* pa, size_t size);
-
-template <AllocatorTplParamList>
-void Deallocate(Allocator<AllocatorTplArgList>* pa, void* ptr);
+void Deallocate(Allocator<AllocatorTplArgList>& pa, void* ptr);
 
 template <AllocatorTplParamList,
           typename = meta::EnableIf<
               !meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Never>>>
-void Release(Allocator<AllocatorTplArgList>* pa, size_t cnt);
+void Release(Allocator<AllocatorTplArgList>& pa, size_t cnt);
 
 template <AllocatorTplParamList>
-void Sanitize(Allocator<AllocatorTplArgList>* pa,
+void Sanitize(Allocator<AllocatorTplArgList>& pa,
               mem_recorder::MemRecorder* mr);
-
-}  // namespace ops
 
 }  // namespace zeta::core::pool_allocator
 
-#pragma pop_macro("AllocatorTplDeclParamList")
+namespace zeta::core {
+
+template <AllocatorTplParamList>
+struct lifecycle::Traits<pool_allocator::Allocator<AllocatorTplArgList>> {
+    template <typename... Args>
+    static void Init(pool_allocator::Allocator<AllocatorTplArgList>& pa,
+                     Args&&... args);
+
+    static void Deinit(pool_allocator::Allocator<AllocatorTplArgList>& pa);
+};
+
+}  // namespace zeta::core
+
 #pragma pop_macro("AllocatorTplParamList")
 #pragma pop_macro("AllocatorTplArgList")
 

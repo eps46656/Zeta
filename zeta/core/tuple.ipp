@@ -16,63 +16,64 @@ constexpr tuple::detail::Leaf_<Elem, 0>::Leaf_(Arg&& arg)
 
 template <size_t N, typename... Elems>
 template <typename... Args>
-constexpr tuple::detail::Node_<N, Elems...>::Node_(tag_::ValueList_Insuff,
+constexpr tuple::detail::Node_<N, Elems...>::Node_(tag_::value_list::Insuff,
                                                    Args&&... args)
-    : node{ meta::Conditional<N - 1 == sizeof...(Args), tag_::ValueList_Exact,
-                              tag_::ValueList_Insuff>{},
+    : node{ meta::Conditional<N - 1 == sizeof...(Args), tag_::value_list::Exact,
+                              tag_::value_list::Insuff>{},
             meta::Forward<Args>(args)... } {}
 
 template <size_t N, typename... Elems>
 template <typename... Args>
-constexpr tuple::detail::Node_<N, Elems...>::Node_(tag_::ValueList_Exact,
+constexpr tuple::detail::Node_<N, Elems...>::Node_(tag_::value_list::Exact,
                                                    Args&&... args)
-    : node{ tag_::ValueList_Exact{}, meta::Forward<Args>(args)... },
+    : node{ tag_::value_list::Exact{}, meta::Forward<Args>(args)... },
       leaf{ meta::Forward<meta::GetNthType<N - 1, Args&&...>>(
           meta::GetNthArg<N - 1>(args...)) } {}
 
 template <size_t N, typename... Elems>
 template <size_t SrcN, typename... SrcElems>
 constexpr tuple::detail::Node_<N, Elems...>::Node_(
-    tag_::LSrcTuple_Excess, Node_<SrcN, SrcElems...> const& src_node)
-    : Node_(meta::Conditional<SrcN - 1 == N, tag_::LSrcTuple_Exact,
-                              tag_::LSrcTuple_Excess>{},
+    tag_::l_src_tuple::Excess, Node_<SrcN, SrcElems...> const& src_node)
+    : Node_(meta::Conditional<SrcN - 1 == N, tag_::l_src_tuple::Exact,
+                              tag_::l_src_tuple::Excess>{},
             src_node.node) {}
 
 template <size_t N, typename... Elems>
 template <size_t SrcN, typename... SrcElems>
 constexpr tuple::detail::Node_<N, Elems...>::Node_(
-    tag_::LSrcTuple_Exact, Node_<SrcN, SrcElems...> const& src_node)
-    : node{ tag_::LSrcTuple_Exact{}, src_node.node }, leaf{ src_node.leaf } {}
+    tag_::l_src_tuple::Exact, Node_<SrcN, SrcElems...> const& src_node)
+    : node{ tag_::l_src_tuple::Exact{}, src_node.node },
+      leaf{ src_node.leaf } {}
 
 template <size_t N, typename... Elems>
 template <size_t SrcN, typename... SrcElems>
 constexpr tuple::detail::Node_<N, Elems...>::Node_(
-    tag_::LSrcTuple_Insuff, Node_<SrcN, SrcElems...> const& src_node)
-    : node{ meta::Conditional<N - 1 == SrcN, tag_::LSrcTuple_Exact,
-                              tag_::LSrcTuple_Insuff>{},
+    tag_::l_src_tuple::Insuff, Node_<SrcN, SrcElems...> const& src_node)
+    : node{ meta::Conditional<N - 1 == SrcN, tag_::l_src_tuple::Exact,
+                              tag_::l_src_tuple::Insuff>{},
             src_node } {}
 
 template <size_t N, typename... Elems>
 template <size_t SrcN, typename... SrcElems>
 constexpr tuple::detail::Node_<N, Elems...>::Node_(
-    tag_::RSrcTuple_Excess, Node_<SrcN, SrcElems...>&& src_node)
-    : Node_(meta::Conditional<SrcN - 1 == N, tag_::RSrcTuple_Exact,
-                              tag_::RSrcTuple_Excess>{},
+    tag_::r_src_tuple::Excess, Node_<SrcN, SrcElems...>&& src_node)
+    : Node_(meta::Conditional<SrcN - 1 == N, tag_::r_src_tuple::Exact,
+                              tag_::r_src_tuple::Excess>{},
             meta::Move(src_node.node)) {}
 
 template <size_t N, typename... Elems>
 template <size_t SrcN, typename... SrcElems>
 constexpr tuple::detail::Node_<N, Elems...>::Node_(
-    tag_::RSrcTuple_Exact, Node_<SrcN, SrcElems...>&& src_node)
-    : node{ tag_::RSrcTuple_Exact{}, meta::Move(src_node.node) },
+    tag_::r_src_tuple::Exact, Node_<SrcN, SrcElems...>&& src_node)
+    : node{ tag_::r_src_tuple::Exact{}, meta::Move(src_node.node) },
       leaf{ meta::Move(src_node.leaf) } {}
 
 template <size_t N, typename... Elems>
 template <size_t SrcN, typename... SrcElems>
 constexpr tuple::detail::Node_<N, Elems...>::Node_(
-    tag_::RSrcTuple_Insuff, Node_<SrcN, SrcElems...>&& src_node)
-    : node{ meta::Conditional<N - 1 == SrcN, tag_::RSrcTuple_Exact,
-                              tag_::RSrcTuple_Insuff>{},
+    tag_::r_src_tuple::Insuff, Node_<SrcN, SrcElems...>&& src_node)
+    : node{ meta::Conditional<N - 1 == SrcN, tag_::r_src_tuple::Exact,
+                              tag_::r_src_tuple::Insuff>{},
             meta::Move(src_node) } {}
 
 template <size_t N, typename... Elems>
@@ -147,12 +148,12 @@ constexpr decltype(auto) tuple::detail::Node_<N, Elems...>::Get() && {
 
 template <typename... Elems>
 template <typename... Args>
-constexpr tuple::detail::Node_<1, Elems...>::Node_(tag_::ValueList_Insuff,
+constexpr tuple::detail::Node_<1, Elems...>::Node_(tag_::value_list::Insuff,
                                                    Args&&...) {}
 
 template <typename... Elems>
 template <typename... Args>
-constexpr tuple::detail::Node_<1, Elems...>::Node_(tag_::ValueList_Exact,
+constexpr tuple::detail::Node_<1, Elems...>::Node_(tag_::value_list::Exact,
                                                    Args&&... args)
     : leaf{ meta::Forward<meta::GetNthType<N - 1, Args&&...>>(
           meta::GetNthArg<N - 1>(args...)) } {}
@@ -160,39 +161,39 @@ constexpr tuple::detail::Node_<1, Elems...>::Node_(tag_::ValueList_Exact,
 template <typename... Elems>
 template <size_t SrcN, typename... SrcElems>
 constexpr tuple::detail::Node_<1, Elems...>::Node_(
-    tag_::LSrcTuple_Excess, Node_<SrcN, SrcElems...> const& src_node)
-    : Node_(meta::Conditional<SrcN - 1 == N, tag_::LSrcTuple_Exact,
-                              tag_::LSrcTuple_Excess>{},
+    tag_::l_src_tuple::Excess, Node_<SrcN, SrcElems...> const& src_node)
+    : Node_(meta::Conditional<SrcN - 1 == N, tag_::l_src_tuple::Exact,
+                              tag_::l_src_tuple::Excess>{},
             src_node.node) {}
 
 template <typename... Elems>
 template <size_t SrcN, typename... SrcElems>
 constexpr tuple::detail::Node_<1, Elems...>::Node_(
-    tag_::LSrcTuple_Exact, Node_<SrcN, SrcElems...> const& src_node)
+    tag_::l_src_tuple::Exact, Node_<SrcN, SrcElems...> const& src_node)
     : leaf{ src_node.leaf } {}
 
 template <typename... Elems>
 template <size_t SrcN, typename... SrcElems>
 constexpr tuple::detail::Node_<1, Elems...>::Node_(
-    tag_::LSrcTuple_Insuff, Node_<SrcN, SrcElems...> const&) {}
+    tag_::l_src_tuple::Insuff, Node_<SrcN, SrcElems...> const&) {}
 
 template <typename... Elems>
 template <size_t SrcN, typename... SrcElems>
 constexpr tuple::detail::Node_<1, Elems...>::Node_(
-    tag_::RSrcTuple_Excess, Node_<SrcN, SrcElems...>&& src_node)
-    : Node_(meta::Conditional<SrcN - 1 == N, tag_::RSrcTuple_Exact,
-                              tag_::RSrcTuple_Excess>{},
+    tag_::r_src_tuple::Excess, Node_<SrcN, SrcElems...>&& src_node)
+    : Node_(meta::Conditional<SrcN - 1 == N, tag_::r_src_tuple::Exact,
+                              tag_::r_src_tuple::Excess>{},
             meta::Move(src_node.node)) {}
 
 template <typename... Elems>
 template <size_t SrcN, typename... SrcElems>
 constexpr tuple::detail::Node_<1, Elems...>::Node_(
-    tag_::RSrcTuple_Exact, Node_<SrcN, SrcElems...>&& src_node)
+    tag_::r_src_tuple::Exact, Node_<SrcN, SrcElems...>&& src_node)
     : leaf{ meta::Move(src_node.leaf) } {}
 
 template <typename... Elems>
 template <size_t SrcN, typename... SrcElems>
-constexpr tuple::detail::Node_<1, Elems...>::Node_(tag_::RSrcTuple_Insuff,
+constexpr tuple::detail::Node_<1, Elems...>::Node_(tag_::r_src_tuple::Insuff,
                                                    Node_<SrcN, SrcElems...>&&) {
 }
 
@@ -251,8 +252,8 @@ template <typename... Elems>
 template <typename... Args>
 constexpr tuple::Tuple<Elems...>::Tuple(Args&&... args)
     : node_{ meta::Conditional<sizeof...(Args) == sizeof...(Elems),
-                               detail::tag_::ValueList_Exact,
-                               detail::tag_::ValueList_Insuff>{},
+                               detail::tag_::value_list::Exact,
+                               detail::tag_::value_list::Insuff>{},
              meta::Forward<Args>(args)... } {
     ZETA_Core_StaticAssert(sizeof...(Args) <= sizeof...(Elems));
 }
@@ -262,10 +263,10 @@ template <typename... SrcElems>
 constexpr tuple::Tuple<Elems...>::Tuple(Tuple<SrcElems...> const& t)
     : node_{ meta::Conditional<
                  sizeof...(SrcElems) < sizeof...(Elems),
-                 detail::tag_::LSrcTuple_Insuff,
+                 detail::tag_::l_src_tuple::Insuff,
                  meta::Conditional<sizeof...(Elems) < sizeof...(SrcElems),
-                                   detail::tag_::LSrcTuple_Excess,
-                                   detail::tag_::LSrcTuple_Exact>>{},
+                                   detail::tag_::l_src_tuple::Excess,
+                                   detail::tag_::l_src_tuple::Exact>>{},
              t.node_ } {}
 
 template <typename... Elems>
@@ -273,10 +274,10 @@ template <typename... SrcElems>
 constexpr tuple::Tuple<Elems...>::Tuple(Tuple<SrcElems...>&& t)
     : node_{ meta::Conditional<
                  sizeof...(SrcElems) < sizeof...(Elems),
-                 detail::tag_::LSrcTuple_Insuff,
+                 detail::tag_::l_src_tuple::Insuff,
                  meta::Conditional<sizeof...(Elems) < sizeof...(SrcElems),
-                                   detail::tag_::LSrcTuple_Excess,
-                                   detail::tag_::LSrcTuple_Exact>>{},
+                                   detail::tag_::l_src_tuple::Excess,
+                                   detail::tag_::l_src_tuple::Exact>>{},
              meta::Move(t.node_) } {}
 
 template <typename... Elems>

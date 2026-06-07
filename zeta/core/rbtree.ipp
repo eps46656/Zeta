@@ -3,11 +3,9 @@
 #include <zeta/core/bin_tree.ipp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
-#include <zeta/core/integral.hpp>
 #include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/rbtree.hpp>
-#include <zeta/core/utils.hpp>
 #include <zeta/core/utils.ipp>
 
 namespace zeta::core {
@@ -290,10 +288,23 @@ RBTreeNode* rbtree::Extract(RBTreeNode* pos) {
 
     if (nl == nullptr || nr == nullptr) {
         root = bin_tree::GetMostP(n).first;
+
+        if ((GetColor)(n) == black) {
+            if (nl != nullptr) {
+                bin_tree::RotateR(n);
+                (SetColor)(nl, black);
+            } else if (nr != nullptr) {
+                bin_tree::RotateL(n);
+                (SetColor)(nr, black);
+            } else {
+                detail::ExtractBalance_(n);
+            }
+        }
     } else {
-        RBTreeNode* m{ utils::GetRandom() % 2 == 0
-                           ? bin_tree::GetMostL(nr).first
-                           : bin_tree::GetMostR(nl).first };
+        unsigned side{ static_cast<unsigned>(utils::GetRandom() % 2U) };
+
+        RBTreeNode* m{ side == 0 ? bin_tree::GetMostL(nr).first
+                                 : bin_tree::GetMostR(nl).first };
 
         bin_tree::Swap(n, m);
 
@@ -306,20 +317,33 @@ RBTreeNode* rbtree::Extract(RBTreeNode* pos) {
         }
 
         root = bin_tree::GetMostP(m).first;
-    }
 
-    if ((GetColor)(n) == black) {
-        nl = bin_tree::GetL(n);
-        nr = bin_tree::GetR(n);
+        if (mc == black) {
+            switch (side) {
+            case 0:
+                // NOLINTNEXTLINE(bugprone-assignment-in-if-condition)
+                if ((nr = bin_tree::GetR(n)) == nullptr) {
+                    detail::ExtractBalance_(n);
+                } else {
+                    bin_tree::RotateL(n);
+                    (SetColor)(nr, black);
+                }
 
-        if (nl != nullptr) {
-            bin_tree::RotateR(n);
-            (SetColor)(nl, black);
-        } else if (nr != nullptr) {
-            bin_tree::RotateL(n);
-            (SetColor)(nr, black);
-        } else {
-            detail::ExtractBalance_(n);
+                break;
+
+            case 1:
+                // NOLINTNEXTLINE(bugprone-assignment-in-if-condition)
+                if ((nl = bin_tree::GetL(n)) == nullptr) {
+                    detail::ExtractBalance_(n);
+                } else {
+                    bin_tree::RotateR(n);
+                    (SetColor)(nl, black);
+                }
+
+                break;
+
+            default: __builtin_unreachable();
+            }
         }
     }
 
@@ -348,7 +372,7 @@ size_t SanitizeRecursive_(mem_recorder::MemRecorder* dst_mr, RBTreeNode* n) {
 
     size_t lbh{ SanitizeRecursive_(dst_mr, nl) };
 
-    if (dst_mr != nullptr) { mem_recorder::Record(dst_mr, n, sizeof(void*)); }
+    if (dst_mr != nullptr) { mem_recorder::Record(*dst_mr, n, sizeof(void*)); }
 
     size_t rbh{ SanitizeRecursive_(dst_mr, nr) };
 
@@ -377,7 +401,16 @@ void rbtree::Sanitize(mem_recorder::MemRecorder* dst_mr, RBTreeNode* root) {
     ZETA_Core_DebugAssert(bin_tree::GetP(root) == nullptr);
     ZETA_Core_DebugAssert((GetColor)(root) == black);
 
+    mem_recorder::MemRecorder* origin_dst_mr{ dst_mr };
+
+    if (dst_mr == nullptr) { dst_mr = mem_recorder::Create(); }
+
     detail::SanitizeRecursive_(dst_mr, root);
+
+    if (origin_dst_mr != dst_mr) {
+        mem_recorder::Destroy(dst_mr);
+        dst_mr = origin_dst_mr;
+    }
 }
 
 }  // namespace zeta::core

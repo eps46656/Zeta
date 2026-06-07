@@ -7,18 +7,20 @@ T Declval() {};
 
 struct Monostate {};
 
-struct TypeNone {};
+struct NoneType {};
 
-struct TypeAny {};
+struct NeverMatchTag {};
+
+struct AlwaysMatchTag {};
 
 namespace detail {
 
 /*
 
-            TypeNone    TypeAny     T
-TypeNone    false       false       false
-TypeAny     true        true        true
-T           false       true        false/true
+                    NeverMatchTag       AlwaysMatchTag      T
+NeverMatchTag       false               false               false
+AlwaysMatchTag      true                true                true
+T                   false               true                false/true
 
 */
 
@@ -31,42 +33,42 @@ struct IsAnyOf_<X> {
 };
 
 template <typename... Ts>
-struct IsAnyOf_<TypeNone, TypeNone, Ts...> {
+struct IsAnyOf_<NeverMatchTag, NeverMatchTag, Ts...> {
     static constexpr bool value{ false };
 };
 
 template <typename... Ts>
-struct IsAnyOf_<TypeNone, TypeAny, Ts...> {
+struct IsAnyOf_<NeverMatchTag, AlwaysMatchTag, Ts...> {
     static constexpr bool value{ false };
 };
 
 template <typename T0, typename... Ts>
-struct IsAnyOf_<TypeNone, T0, Ts...> {
+struct IsAnyOf_<NeverMatchTag, T0, Ts...> {
     static constexpr bool value{ false };
 };
 
 template <typename... Ts>
-struct IsAnyOf_<TypeAny, TypeNone, Ts...> {
+struct IsAnyOf_<AlwaysMatchTag, NeverMatchTag, Ts...> {
     static constexpr bool value{ true };
 };
 
 template <typename... Ts>
-struct IsAnyOf_<TypeAny, TypeAny, Ts...> {
+struct IsAnyOf_<AlwaysMatchTag, AlwaysMatchTag, Ts...> {
     static constexpr bool value{ true };
 };
 
 template <typename T0, typename... Ts>
-struct IsAnyOf_<TypeAny, T0, Ts...> {
+struct IsAnyOf_<AlwaysMatchTag, T0, Ts...> {
     static constexpr bool value{ true };
 };
 
 template <typename X, typename... Ts>
-struct IsAnyOf_<X, TypeNone, Ts...> {
+struct IsAnyOf_<X, NeverMatchTag, Ts...> {
     static constexpr bool value{ IsAnyOf_<X, Ts...>::value };
 };
 
 template <typename X, typename... Ts>
-struct IsAnyOf_<X, TypeAny, Ts...> {
+struct IsAnyOf_<X, AlwaysMatchTag, Ts...> {
     static constexpr bool value{ true };
 };
 
@@ -310,6 +312,9 @@ template <typename T>
 constexpr bool IsTriviallyDestructible{ __is_trivially_destructible(T) };
 
 template <typename T>
+constexpr bool IsComplete{ __is_complete_type(T) };
+
+template <typename... T>
 using VoidT = void;
 
 namespace detail {
@@ -475,5 +480,28 @@ constexpr decltype(auto) GetNthArg(Args&&... args) {
 template <size_t N, typename... Ts>
 using GetNthType =
     RemoveCVRef<decltype(GetNthArg<N>(TypeWrapper<Ts>{}...))>::Type;
+
+template <typename T>
+T& GetInstRef(T* inst) {
+    return *inst;
+}
+
+template <typename T>
+T& GetInstRef(T& inst) {
+    return inst;
+}
+
+template <typename T>
+T* GetInstPtr(T* inst) {
+    return inst;
+}
+
+template <typename T>
+T* GetInstPtr(T& inst) {
+    return &inst;
+}
+
+template <typename T>
+T* GetInstPtr(T&& inst) = delete;
 
 }  // namespace zeta::core::meta

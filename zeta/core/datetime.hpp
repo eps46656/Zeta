@@ -26,8 +26,6 @@ namespace zeta::core::datetime {
 struct Date;
 struct DateTime;
 
-// -----------------------------------------------------------------------------
-
 struct Date {
     int year;  // ZETA_Core_DateTime_min_year ~ ZETA_Core_DateTime_max_year
     unsigned char month;  // 1 ~ 12

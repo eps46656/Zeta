@@ -18,6 +18,14 @@ MiBYTE = 1024 * KiBYTE
 GiBYTE = 1024 * MiBYTE
 
 
+class EmptyClass:
+    def __eq__(self, other: object) -> bool:
+        return id(self) == id(other)
+
+    def __hash__(self) -> int:
+        return id(self)
+
+
 class ArchEnum(enum.Enum):
     INTEL64 = enum.auto(),
     AMD64 = enum.auto(),
@@ -56,18 +64,26 @@ class Language(enum.IntEnum):
     C_HEADER = enum.auto()
     C_SOURCE = enum.auto()
 
+    MACRO_C_HEADER = enum.auto()
+    MACRO_C_SOURCE = enum.auto()
+
     CPP = enum.auto()
     CPP_HEADER = enum.auto()
     CPP_SOURCE = enum.auto()
 
+    MACRO_CPP_HEADER = enum.auto()
+    MACRO_CPP_SOURCE = enum.auto()
+
     C_CPP_HEADER = enum.auto()
+
+    MACRO_C_CPP_HEADER = enum.auto()
 
     @functools.cached_property
     def base(self) -> Language:
         match self:
-            case Language.C | Language.C_HEADER | Language.C_SOURCE:
+            case Language.C | Language.C_HEADER | Language.C_SOURCE | Language.MACRO_C_HEADER | Language.MACRO_C_SOURCE:
                 return Language.C
-            case Language.CPP | Language.CPP_HEADER | Language.CPP_SOURCE:
+            case Language.CPP | Language.CPP_HEADER | Language.CPP_SOURCE | Language.MACRO_CPP_HEADER | Language.MACRO_CPP_SOURCE:
                 return Language.CPP
             case _:
                 raise NotImplementedError()
@@ -75,9 +91,9 @@ class Language(enum.IntEnum):
     @functools.cached_property
     def header(self) -> Language:
         match self:
-            case Language.C | Language.C_HEADER | Language.C_SOURCE:
+            case Language.C:
                 return Language.C_HEADER
-            case Language.CPP | Language.CPP_HEADER | Language.CPP_SOURCE:
+            case Language.CPP:
                 return Language.CPP_HEADER
             case _:
                 raise NotImplementedError()
@@ -85,10 +101,24 @@ class Language(enum.IntEnum):
     @functools.cached_property
     def source(self) -> Language:
         match self:
-            case Language.C | Language.C_HEADER | Language.C_SOURCE:
+            case Language.C:
                 return Language.C_SOURCE
-            case Language.CPP | Language.CPP_HEADER | Language.CPP_SOURCE:
+            case Language.CPP:
                 return Language.CPP_SOURCE
+            case _:
+                raise NotImplementedError()
+
+    @functools.cached_property
+    def enmacro(self) -> Language:
+        match self:
+            case Language.C_HEADER | Language.MACRO_C_HEADER:
+                return Language.MACRO_C_HEADER
+            case Language.C_SOURCE | Language.MACRO_C_SOURCE:
+                return Language.MACRO_C_SOURCE
+            case Language.CPP_HEADER | Language.MACRO_CPP_HEADER:
+                return Language.MACRO_CPP_HEADER
+            case Language.CPP_SOURCE | Language.MACRO_CPP_SOURCE:
+                return Language.MACRO_CPP_SOURCE
             case _:
                 raise NotImplementedError()
 

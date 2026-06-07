@@ -1,16 +1,14 @@
 #pragma once
 
 #include <zeta/core/define.hpp>
-#include <zeta/core/meta.hpp>
-#include <zeta/core/value_wrapper.hpp>
 
 namespace zeta::core::allocator {
 
 template <typename Allocator, typename = void>
-struct AllocatorTraits;
+struct AllocatorTraits;  // IWYU pragma: export
 
 template <typename Allocator>
-void* GetReferedInst(Allocator& alctr);
+void* GetReferedInstPtr(Allocator& alctr);
 
 template <typename Allocator>
 size_t GetAlign(Allocator& alctr);

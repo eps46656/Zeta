@@ -50,9 +50,35 @@ SeqCntrRef Create(SeqCntrRef origin_seq_cntr_ref, size_t stride,
 
     sv->data_alctr = zeta::core::allocator_ref::MakeRef(pack->data_alctr);
 
-    StagingSegVectorNS::Init(*sv, origin_seq_cntr_ref, stride, seg_capacity,
+    StagingSegVectorNS::Init(*sv, stride, seg_capacity, origin_seq_cntr_ref,
                              zeta::core::lifecycle::SkipInitTag{},
                              zeta::core::lifecycle::SkipInitTag{});
+
+    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(*sv) };
+
+    seq_cntr_utils::AddSanitizeFunc(sv, Sanitize);
+
+    seq_cntr_utils::AddDestroyFunc(sv, Destroy);
+
+    return seq_cntr_ref;
+}
+
+template <typename Elem>
+SeqCntrRef Create(SeqCntrRef origin_seq_cntr_ref, size_t stride,
+                  size_t seg_capacity, StagingSegVector& src_sv) {
+    ZETA_Core_DebugAssert(sizeof(Elem) <= origin_seq_cntr_ref.width);
+
+    Pack* pack{ new Pack{} };
+
+    auto* sv{ &pack->sv };
+
+    sv->seg_alctr = zeta::core::allocator_ref::MakeRef(pack->seg_alctr);
+
+    sv->data_alctr = zeta::core::allocator_ref::MakeRef(pack->data_alctr);
+
+    StagingSegVectorNS::Init(*sv, stride, seg_capacity, origin_seq_cntr_ref,
+                             zeta::core::lifecycle::SkipInitTag{},
+                             zeta::core::lifecycle::SkipInitTag{}, src_sv);
 
     SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(*sv) };
 
@@ -79,8 +105,8 @@ inline void Sanitize(void const* sv) {
 
     StagingSegVectorNS::Sanitize(pack->sv, &seg, &data);
 
-    core::mem_recorder::MatchRecords(&pack->seg_alctr.mem_recorder, &seg);
-    core::mem_recorder::MatchRecords(&pack->data_alctr.mem_recorder, &data);
+    core::mem_recorder::MatchRecords(pack->seg_alctr.mem_recorder, seg);
+    core::mem_recorder::MatchRecords(pack->data_alctr.mem_recorder, data);
 }
 
 }  // namespace zeta::core_test::staging_seg_vector_utils

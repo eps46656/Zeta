@@ -1,18 +1,18 @@
 #pragma once
 
-namespace zeta::core {
+namespace zeta::core::function_ref {
 
-struct FunctionRefKind {
+struct Kind {
     static constexpr char Func{ 1 };
     static constexpr char ContextualFunc{ 2 };
     static constexpr char ConstContextualFunc{ 3 };
 };
 
 template <typename Sig>
-struct FunctionRef;
+struct Ref;
 
 template <typename Ret, typename... Args>
-struct FunctionRef<Ret(Args...)> {
+struct Ref<Ret(Args...)> {
     union {
         struct {
             Ret (*ptr)(Args... args);
@@ -31,45 +31,44 @@ struct FunctionRef<Ret(Args...)> {
 
     char kind;
 
-    FunctionRef() = default;
+    Ref() = default;
 
-    FunctionRef(FunctionRef const&) = default;
+    Ref(Ref const&) = default;
 
-    FunctionRef(FunctionRef&&) = default;
+    Ref(Ref&&) = default;
 
-    FunctionRef  // NOLINT(
-                 // google-explicit-constructor,
-                 // hicpp-explicit-conversions)
+    Ref  // NOLINT(
+         // google-explicit-constructor,
+         // hicpp-explicit-conversions)
         (Ret (*func)(Args... args));
 
-    FunctionRef(void* context,
-                Ret (*contextual_func)(void* context, Args... args));
+    Ref(void* context, Ret (*contextual_func)(void* context, Args... args));
 
-    FunctionRef(void const* context,
-                Ret (*contextual_func)(void const* context, Args... args));
+    Ref(void const* context,
+        Ret (*contextual_func)(void const* context, Args... args));
 
     template <typename Callable>
-    FunctionRef  // NOLINT(
-                 // google-explicit-constructor,
-                 // hicpp-explicit-conversions)
+    Ref  // NOLINT(
+         // google-explicit-constructor,
+         // hicpp-explicit-conversions)
         (Callable& callable);
 
     template <typename Callable>
-    FunctionRef  // NOLINT(
-                 // google-explicit-constructor,
-                 // hicpp-explicit-conversions)
+    Ref  // NOLINT(
+         // google-explicit-constructor,
+         // hicpp-explicit-conversions)
         (Callable const& callable);
 
     template <typename Callable>
-    FunctionRef(Callable&& callable) = delete;
+    Ref(Callable&& callable) = delete;
 
-    ~FunctionRef() = default;
+    ~Ref() = default;
 
-    FunctionRef& operator=(FunctionRef const&) = default;
+    Ref& operator=(Ref const&) = default;
 
-    FunctionRef& operator=(FunctionRef&&) = default;
+    Ref& operator=(Ref&&) = default;
 
     Ret operator()(Args... args) const;
 };
 
-}  // namespace zeta::core
+}  // namespace zeta::core::function_ref

@@ -21,16 +21,16 @@ template <typename Base, typename Exp>
 constexpr Base Power(Base base, Exp exp);
 
 template <typename Num>
-constexpr long long FloorLog2(Num num);
+constexpr unsigned long long FloorLog2(Num num);
 
 template <typename Num>
-constexpr long long CeilLog2(Num num);
+constexpr unsigned long long CeilLog2(Num num);
 
 template <typename Num, typename Base>
-constexpr long long FloorLog(Num num, Base base);
+constexpr unsigned long long FloorLog(Num num, Base base);
 
 template <typename Num, typename Base>
-constexpr long long CeilLog(Num num, Base base);
+constexpr unsigned long long CeilLog(Num num, Base base);
 
 template <typename Num>
 constexpr Num FloorSqrt(Num num);

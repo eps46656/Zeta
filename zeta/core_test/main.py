@@ -131,72 +131,38 @@ def add_deps(builder: building_utils.Builder, config: Config):
         def build(self):
             print(f"Checking {self.file}...")
 
-    file_nodes: dict[pathlib.Path, CCPPFileNode] = dict()
+    c_cpp_file_nodes: dict[pathlib.Path, CCPPFileNode] = dict()
 
     @beartype.beartype
-    def add_c_cpp_file(
-        file: pathlib.Path,
+    def add_c_cpp(
+        c_cpp_file: pathlib.Path,
         langs: utils.Language | typing.Iterable[utils.Language],
     ):
-        file_node = None
+        cur_node = CCPPFileNode(c_cpp_file, langs)
 
-        if file in file_nodes:
-            file_node = file_nodes[file]
-        else:
-            file_node = file_nodes[file] = CCPPFileNode(file, langs)
+        if c_cpp_file in c_cpp_file_nodes:
+            assert cur_node.langs == c_cpp_file_nodes[c_cpp_file].langs
+            return
 
-        builder.add_build_node(file, file_node.get_deps, file_node.build)
-
-    @beartype.beartype
-    def add_c_cpp_module(module: str):
-        h_file = DIR / f"{module}.h"
-        hpp_file = DIR / f"{module}.hpp"
-        ipp_file = DIR / f"{module}.ipp"
-        c_file = DIR / f"{module}.c"
-        cpp_file = DIR / f"{module}.cpp"
-        bc_file = out_dir / f"{module}.bc"
-
-        assert not c_file.exists() or not cpp_file.exists()
-
-        if h_file.exists():
-            add_c_cpp_file(h_file, utils.Language.C_HEADER)
-
-        if hpp_file.exists():
-            add_c_cpp_file(hpp_file, utils.Language.CPP_HEADER)
-
-        if ipp_file.exists():
-            add_c_cpp_file(ipp_file, utils.Language.CPP_HEADER)
-
-        if c_file.exists():
-            add_c_cpp_file(c_file, utils.Language.C_SOURCE)
-
-            builder.add_build_node(
-                bc_file,
-                lambda: {FILE, c_file},
-                lambda: compiler.compile_to_bc(
-                    bc_file, c_file, utils.Language.CPP_SOURCE),
-            )
-
-        if cpp_file.exists():
-            add_c_cpp_file(cpp_file, utils.Language.CPP_SOURCE)
-
-            builder.add_build_node(
-                bc_file,
-                lambda: {FILE, cpp_file},
-                lambda: compiler.compile_to_bc(
-                    bc_file, cpp_file, utils.Language.CPP_SOURCE),
-            )
+        c_cpp_file_nodes[c_cpp_file] = cur_node
+        builder.add_build_node(c_cpp_file, cur_node.get_deps, cur_node.build)
 
     @beartype.beartype
-    def add_src_to_bc(
+    def add_c_cpp_to_bc(
         bc_file: pathlib.Path,
-        src_file: pathlib.Path,
+        c_cpp_file: pathlib.Path,
         lang: utils.Language,
     ) -> None:
+        assert lang.base != lang
+        assert lang.enmacro != lang
+
+        add_c_cpp(c_cpp_file, lang)
+
         builder.add_build_node(
             bc_file,
-            lambda: {FILE, src_file},
-            lambda: compiler.compile_to_bc(bc_file, src_file, lang),
+            lambda: {FILE, c_cpp_file},
+            lambda: compiler.compile_to_bc(
+                bc_file, c_cpp_file, utils.Language.CPP_SOURCE),
         )
 
     @beartype.beartype
@@ -207,43 +173,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
             lambda: compiler.compile_to_exe(exe_file, files),
         )
 
-    @beartype.beartype
-    def add_h_src_bc(name: str, lang: utils.Language):
-        h_file = DIR / f"{name}.h"
-
-        match lang:
-            case utils.Language.C:
-                src_file = DIR / f"{name}.c"
-            case utils.Language.CPP:
-                src_file = DIR / f"{name}.cpp"
-            case _:
-                raise NotImplementedError()
-
-        bc_file = out_dir / f"{name}.bc"
-
-        add_c_cpp_file(h_file, (C_HEADER, CPP_HEADER))
-        add_c_cpp_file(src_file, lang.source)
-
-        builder.add_build_node(
-            bc_file,
-            lambda: {FILE, src_file},
-            lambda: compiler.compile_to_bc(bc_file, src_file, lang.source),
-        )
-
-    @beartype.beartype
-    def add_cpp_bc(name: str):
-        cpp_file = DIR / f"{name}.cpp"
-        bc_file = out_dir / f"{name}.bc"
-
-        add_c_cpp_file(cpp_file, CPP_SOURCE)
-
-        builder.add_build_node(
-            bc_file,
-            lambda: {FILE, cpp_file},
-            lambda: compiler.compile_to_bc(bc_file, cpp_file, CPP_SOURCE),
-        )
-
-    def add_src_files_exe(
+    def add_c_cpp_bc_exe(
         name: str,
         lang: utils.Language,
         files: set[pathlib.Path],
@@ -251,19 +181,71 @@ def add_deps(builder: building_utils.Builder, config: Config):
         match lang:
             case utils.Language.C:
                 src_file = DIR / f"{name}.c"
+                src_lang = utils.Language.C_SOURCE
             case utils.Language.CPP:
                 src_file = DIR / f"{name}.cpp"
+                src_lang = utils.Language.CPP_SOURCE
             case _:
                 raise NotImplementedError()
 
         src_bc_file = out_dir / f"{name}.bc"
         exe_file = out_dir / f"{name}.exe"
 
-        add_c_cpp_file(src_file, lang.source)
-
-        add_src_to_bc(src_bc_file, src_file, lang.source)
+        add_c_cpp_to_bc(src_bc_file, src_file, src_lang)
 
         add_files_to_exe(exe_file, {src_bc_file, *files})
+
+    @beartype.beartype
+    def add_c_cpp_module(module: str, macro: bool = False):
+        h_file = DIR / f"{module}.h"
+        hpp_file = DIR / f"{module}.hpp"
+        ipp_file = DIR / f"{module}.ipp"
+        c_file = DIR / f"{module}.c"
+        cpp_file = DIR / f"{module}.cpp"
+        bc_file = out_dir / f"{module}.bc"
+
+        assert not c_file.exists() or not cpp_file.exists()
+
+        if h_file.exists():
+            add_c_cpp(
+                h_file,
+                utils.Language.MACRO_C_HEADER
+                if macro else utils.Language.C_HEADER
+            )
+
+        if hpp_file.exists():
+            add_c_cpp(
+                hpp_file,
+                utils.Language.MACRO_CPP_HEADER
+                if macro else utils.Language.CPP_HEADER
+            )
+
+        if ipp_file.exists():
+            add_c_cpp(
+                ipp_file,
+                utils.Language.MACRO_CPP_HEADER
+                if macro else utils.Language.CPP_HEADER
+            )
+
+        if c_file.exists():
+            add_c_cpp(
+                c_file,
+                utils.Language.MACRO_C_SOURCE
+                if macro else utils.Language.C_SOURCE
+            )
+
+            if not macro:
+                add_c_cpp_to_bc(bc_file, c_file, utils.Language.C_SOURCE)
+
+        if cpp_file.exists():
+            add_c_cpp(
+                cpp_file,
+                utils.Language.MACRO_CPP_SOURCE
+                if macro else utils.Language.CPP_SOURCE
+            )
+
+            if not macro:
+                add_c_cpp_to_bc(bc_file, cpp_file, utils.Language.CPP_SOURCE)
 
     # --------------------------------------------------------------------------
 
@@ -286,40 +268,40 @@ def add_deps(builder: building_utils.Builder, config: Config):
     add_c_cpp_module("dynamic_hash_table_utils")
     add_c_cpp_module("dynamic_search_table")
     add_c_cpp_module("dynamic_vector_utils")
+    add_c_cpp_module("multi_level_circular_array_utils")
 
     add_c_cpp_module("hash_utils")
 
-    add_c_cpp_file(DIR / "key_value_pair.h", (C_HEADER, CPP_HEADER))
-    add_c_cpp_file(DIR / "lru_cache_manager_utils.h", (C_HEADER, CPP_HEADER))
-    add_c_cpp_file(DIR / "hash.h", (C_HEADER, CPP_HEADER))
+    add_c_cpp(DIR / "key_value_pair.h", (C_HEADER, CPP_HEADER))
+    add_c_cpp(DIR / "lru_cache_manager_utils.h", (C_HEADER, CPP_HEADER))
+    add_c_cpp(DIR / "hash.h", (C_HEADER, CPP_HEADER))
 
-    add_h_src_bc("multi_level_circular_array_utils", CPP)
+    add_c_cpp_module("multi_level_circular_array_utils")
 
-    add_c_cpp_file(DIR / "naive_search_table.h", (C_HEADER, CPP_HEADER))
+    add_c_cpp(DIR / "naive_search_table.h", (C_HEADER, CPP_HEADER))
 
-    add_c_cpp_file(DIR / "pod_value.hpp", (C_HEADER, CPP_HEADER))
+    add_c_cpp(DIR / "pod_value.hpp", CPP_HEADER)
 
-    add_c_cpp_file(DIR / "random.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "random.hpp", CPP_HEADER)
 
-    add_c_cpp_file(DIR / "ptr_iter.hpp", (C_HEADER, CPP_HEADER))
-    add_c_cpp_file(DIR / "ptr_iter.ipp", (C_HEADER, CPP_HEADER))
+    add_c_cpp(DIR / "ptr_iter.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "ptr_iter.ipp", CPP_HEADER)
 
-    add_c_cpp_file(DIR / "staging_seg_vector_utils.hpp",
-                   (C_HEADER, CPP_HEADER))
-    add_c_cpp_file(DIR / "static_search_table.h", (C_HEADER, CPP_HEADER))
-    add_c_cpp_file(DIR / "std_allocator.hpp", (C_HEADER, CPP_HEADER))
-    add_c_cpp_file(DIR / "test_head.h", (C_HEADER, CPP_HEADER))
+    add_c_cpp(DIR / "staging_seg_vector_utils.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "static_search_table.h", (C_HEADER, CPP_HEADER))
+    add_c_cpp(DIR / "std_allocator.hpp", CPP_HEADER)
+    add_c_cpp(DIR / "test_head.h", (C_HEADER, CPP_HEADER))
 
-    add_h_src_bc("test_1", C)
-    add_h_src_bc("test_binheap", CPP)
+    add_c_cpp_module("test_1")
+    add_c_cpp_module("test_binheap")
 
-    add_c_cpp_file(DIR / "seg_vector_utils.hpp", (C_HEADER, CPP_HEADER))
+    add_c_cpp(DIR / "seg_vector_utils.hpp", CPP_HEADER)
 
-    add_c_cpp_file(DIR / "seq_cntr_utils.hpp", (C_HEADER, CPP_HEADER))
+    add_c_cpp(DIR / "seq_cntr_utils.hpp", CPP_HEADER)
 
     # --------------------------------------------------------------------------
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_2",
         C,
         {
@@ -331,19 +313,19 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_3",
         C,
         set(),
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_4",
         C,
         set(),
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_datetime",
         CPP,
         {
@@ -351,7 +333,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_dht",
         CPP,
         {
@@ -375,7 +357,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_fixed_point",
         CPP,
         {
@@ -398,7 +380,17 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
+        "test_lin_space_mapper",
+        CPP,
+        {
+            zeta_core_out_dir / "mem_recorder.bc",
+            zeta_core_out_dir / "utils.bc",
+            out_dir / "timer.bc",
+        },
+    )
+
+    add_c_cpp_bc_exe(
         "test_random",
         CPP,
         {
@@ -420,7 +412,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_utf8",
         C,
         {
@@ -433,7 +425,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         }
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_utf16",
         C,
         {
@@ -446,7 +438,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         }
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_search_table",
         CPP,
         {
@@ -456,7 +448,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         }
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_segvec",
         CPP,
         {
@@ -468,7 +460,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_segvec2",
         CPP,
         {
@@ -480,7 +472,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_segvec_speed",
         CPP,
         {
@@ -492,7 +484,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_segvec_speed2",
         CPP,
         {
@@ -503,7 +495,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_seqcntr",
         CPP,
         {
@@ -515,7 +507,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_pool_alctr",
         CPP,
         {
@@ -524,7 +516,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         }
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_stagevec",
         CPP,
         {
@@ -547,7 +539,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_stagevec_speed",
         CPP,
         {
@@ -581,7 +573,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_kmp",
         CPP,
         {
@@ -590,7 +582,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_lrucm",
         CPP,
         {
@@ -616,7 +608,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_seg_tree",
         CPP,
         {
@@ -628,7 +620,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_sort",
         CPP,
         {
@@ -646,7 +638,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_slaballoc",
         CPP,
         {
@@ -658,7 +650,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_lin_space_allocator",
         CPP,
         {
@@ -674,7 +666,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_mlv",
         CPP,
         {
@@ -685,7 +677,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_mlt",
         CPP,
         {
@@ -695,7 +687,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_pipe",
         C,
         {
@@ -707,7 +699,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_qsort",
         CPP,
         {
@@ -719,7 +711,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_scheduler",
         CPP,
         {
@@ -737,7 +729,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         None
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_cascade_alloc",
         CPP,
         {
@@ -761,7 +753,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_cntrbt",
         CPP,
         {
@@ -774,7 +766,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         utils.ArchEnum.INTEL64: zeta_core_dir / "flow_intel64.s",
     }[config.target.arch]
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_exception",
         CPP,
         {
@@ -792,7 +784,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         },
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_flow",
         CPP,
         {
@@ -804,7 +796,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         }
     )
 
-    add_src_files_exe(
+    add_c_cpp_bc_exe(
         "test_tuple",
         CPP,
         {
@@ -815,8 +807,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     builder.add_build_node(DIR / "cpuid.s", lambda: {FILE}, None)
 
-    builder.add_build_node(DIR / "timer.hpp", lambda: {FILE}, None)
-    add_cpp_bc("timer")
+    add_c_cpp_module("timer")
 
     builder.add_build_node(
         DIR / "buffered_allocator.h",

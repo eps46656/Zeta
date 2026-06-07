@@ -1,10 +1,13 @@
-#if !defined(EnData)
-#error "EnData is not defined."
+// IWYU pragma: private
+// IWYU pragma: friend "zeta/core/multi_level_table.hpp"
+
+#if !defined(EnDataNode)
+#error "EnDataNode is not defined."
 #endif
 
 #pragma push_macro("Skip")
 
-#if EnData
+#if EnDataNode
 
 #if defined(ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_data_table)
 #define Skip 1
@@ -29,74 +32,101 @@
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/integral_utils.hpp>
 #include <zeta/core/mem_recorder.hpp>
+#include <zeta/core/ptr_utils.hpp>
 #include <zeta/core/utils.hpp>
+#include <zeta/core/value_wrapper.hpp>
 
-#if EnData
+#if EnDataNode
 
-#pragma push_macro("NameSpace")
-#define NameSpace multi_level_data_table
+#pragma push_macro("Namespace")
+#define Namespace multi_level_data_table
 
 #pragma push_macro("CntrTplDeclParamList")
-#define CntrTplDeclParamList \
-    typename TplNavNodeAllocatorLike, typename TplDataNodeAllocatorLike
+#define CntrTplDeclParamList                             \
+    typename ActiveMap_, typename NavNodeAllocatorLike_, \
+        typename DataNodeAllocatorLike_
 
 #pragma push_macro("CntrTplParamList")
-#define CntrTplParamList \
-    typename NavNodeAllocatorLike, typename DataNodeAllocatorLike
+#define CntrTplParamList                               \
+    typename ActiveMap, typename NavNodeAllocatorLike, \
+        typename DataNodeAllocatorLike
 
 #pragma push_macro("CntrTplArgList")
-#define CntrTplArgList NavNodeAllocatorLike, DataNodeAllocatorLike
+#define CntrTplArgList ActiveMap, NavNodeAllocatorLike, DataNodeAllocatorLike
 
 #else
 
-#pragma push_macro("NameSpace")
-#define NameSpace multi_level_ptr_table
+#pragma push_macro("Namespace")
+#define Namespace multi_level_ptr_table
 
 #pragma push_macro("CntrTplDeclParamList")
-#define CntrTplDeclParamList typename TplNavNodeAllocatorLike
+#define CntrTplDeclParamList typename ActiveMap_, typename NavNodeAllocatorLike_
 
 #pragma push_macro("CntrTplParamList")
-#define CntrTplParamList typename NavNodeAllocatorLike
+#define CntrTplParamList typename ActiveMap, typename NavNodeAllocatorLike
 
 #pragma push_macro("CntrTplArgList")
-#define CntrTplArgList NavNodeAllocatorLike
+#define CntrTplArgList ActiveMap, NavNodeAllocatorLike
 
 #endif
 
-namespace zeta::core::NameSpace {
+namespace zeta::core::Namespace {
 
 constexpr unsigned max_level{ 12 };
 
-constexpr unsigned min_branch_num{ 2 };
-constexpr unsigned max_branch_num{ ZETA_Core_ullong_width };
+using BranchNum = unsigned short;
 
-struct NavNode;
+constexpr BranchNum min_branch_num{ 2 };
+constexpr BranchNum max_branch_num{ integral::RangeMaxOf<BranchNum> / 2 };
 
-template <CntrTplDeclParamList>
-struct Cntr;
-
+template <typename ActiveMap_>
 struct NavNode {
-    unsigned long long active_map;
+    using ActiveMap = ActiveMap_;
+
+    ZETA_Core_StaticAssert(integral::IsUnsignedIntegral<ActiveMap>);
+
+    ZETA_Core_DebugStructPadding;
+
+    ActiveMap active_map;
     void* ptrs[];
 };
 
-ZETA_Core_StaticAssert(offsetof(NavNode, active_map) == 0);
+#if EnDataNode
+
+template <typename ActiveMap_>
+struct DataNode {
+    using ActiveMap = ActiveMap_;
+
+    ZETA_Core_StaticAssert(integral::IsUnsignedIntegral<ActiveMap>);
+
+    ZETA_Core_DebugStructPadding;
+
+    ActiveMap active_map;
+    unsigned char data[] __attribute__((aligned(max_align)));
+};
+
+#endif
 
 template <CntrTplDeclParamList>
 struct Cntr {
-    using NavNodeAllocatorLike = TplNavNodeAllocatorLike;
+    using ActiveMap = ActiveMap_;
 
-#if EnData
-    using DataNodeAllocatorLike = TplDataNodeAllocatorLike;
+    using NavNodeAllocatorLike = NavNodeAllocatorLike_;
+
+#if EnDataNode
+    using DataNodeAllocatorLike = DataNodeAllocatorLike_;
 #endif
+
+    ZETA_Core_StaticAssert(integral::IsUnsignedIntegral<ActiveMap>);
 
     unsigned level;
 
-    unsigned short const* branch_nums;
+    BranchNum const* branch_nums;
 
-#if EnData
-    size_t stride;
+#if EnDataNode
+    size_t elem_stride;
 #endif
 
     size_t size;
@@ -105,7 +135,7 @@ struct Cntr {
 
     NavNodeAllocatorLike nav_node_alctr;
 
-#if EnData
+#if EnDataNode
     DataNodeAllocatorLike data_node_alctr;
 #endif
 };
@@ -116,22 +146,20 @@ struct Cntr {
  * @param cntr The target cntr.
  */
 template <CntrTplParamList, typename NavNodeAllocatorInitArg
-#if EnData
+#if EnDataNode
           ,
           typename DataNodeAllocatorInitArg
 #endif
           >
-void Init(Cntr<CntrTplArgList>& cntr, unsigned level,
-          unsigned short const* branch_nums
-#if EnData
+void Init(Cntr<CntrTplArgList>& cntr,
+          NavNodeAllocatorInitArg&& nav_node_alctr_init_arg,
+#if EnDataNode
+          DataNodeAllocatorInitArg&& data_node_alctr_init_arg,
+#endif
+          unsigned level, BranchNum const* branch_nums
+#if EnDataNode
           ,
           size_t stride
-#endif
-          ,
-          NavNodeAllocatorInitArg&& nav_node_alctr_init_arg
-#if EnData
-          ,
-          DataNodeAllocatorInitArg&& data_node_alctr_init_arg
 #endif
 );
 
@@ -165,19 +193,19 @@ size_t GetCapacity(Cntr<CntrTplArgList>& cntr);
  * @brief Get the reference of target entry by indexes.
  *
  * @param cntr The target cntr.
- * @param idx The index of target entry in each level.
+ * @param branch_idx The branch index of target entry in each level.
  *
  * @return The reference of target entry. If the it is not inserted, return
  * nullptr.
  */
-template <CntrTplParamList>
-void* Access(Cntr<CntrTplArgList>& cntr, size_t* idxes);
+template <CntrTplParamList, typename BranchIdxesSource>
+void* Access(Cntr<CntrTplArgList>& cntr, BranchIdxesSource&& src_branch_idxes);
 
-template <CntrTplParamList>
-void* FindFirst(Cntr<CntrTplArgList>& cntr, size_t* dst_idxes);
+template <CntrTplParamList, typename DstBranchIdxes>
+void* FindFirst(Cntr<CntrTplArgList>& cntr, DstBranchIdxes&& dst_branch_idxes);
 
-template <CntrTplParamList>
-void* FindLast(Cntr<CntrTplArgList>& cntr, size_t* dst_idxes);
+template <CntrTplParamList, typename DstBranchIdxes>
+void* FindLast(Cntr<CntrTplArgList>& cntr, DstBranchIdxes&& dst_branch_idxes);
 
 /**
  * @brief Find the first entry before idx.
@@ -187,8 +215,15 @@ void* FindLast(Cntr<CntrTplArgList>& cntr, size_t* dst_idxes);
  *
  * @return The reference of target entry.
  */
-template <CntrTplParamList>
-void* FindPrev(Cntr<CntrTplArgList>& cntr, size_t* idxes, bool included);
+template <CntrTplParamList, typename SrcBranchIdxes, typename DstBranchIdxes>
+void* FindPrevIncl(Cntr<CntrTplArgList>& cntr,
+                   SrcBranchIdxes&& src_branch_idxes,
+                   DstBranchIdxes&& dst_branch_idxes);
+
+template <CntrTplParamList, typename SrcBranchIdxes, typename DstBranchIdxes>
+void* FindPrevExcl(Cntr<CntrTplArgList>& cntr,
+                   SrcBranchIdxes&& src_branch_idxes,
+                   DstBranchIdxes&& dst_branch_idxes);
 
 /**
  * @brief Find the first entry after idx.
@@ -198,31 +233,30 @@ void* FindPrev(Cntr<CntrTplArgList>& cntr, size_t* idxes, bool included);
  *
  * @return The reference of target entry.
  */
-template <CntrTplParamList>
-void* FindNext(Cntr<CntrTplArgList>& cntr, size_t* idxes, bool included);
+template <CntrTplParamList, typename SrcBranchIdxes, typename DstBranchIdxes>
+void* FindNextIncl(Cntr<CntrTplArgList>& cntr,
+                   SrcBranchIdxes&& src_branch_idxes,
+                   DstBranchIdxes&& dst_branch_idxes);
 
-/**
- * @brief Insert a new entry at idxes then return its reference. If
- * it has already existed, remaining its origin value.
- *
- * @param cntr The target cntr.
- * @param idxes The indexes of target entry in each level.
- *
- * @return The reference of target entry.
- */
-template <CntrTplParamList>
-utils::Pair<void*, bool> Insert(Cntr<CntrTplArgList>& cntr, size_t* idxes);
+template <CntrTplParamList, typename SrcBranchIdxes, typename DstBranchIdxes>
+void* FindNextExcl(Cntr<CntrTplArgList>& cntr,
+                   SrcBranchIdxes&& src_branch_idxes,
+                   DstBranchIdxes&& dst_branch_idxes);
+
+template <CntrTplParamList, typename BranchIdxesSource>
+pair::Pair<void*, bool> Insert(Cntr<CntrTplArgList>& cntr,
+                               BranchIdxesSource&& src_branch_idxes);
 
 /**
  * @brief Erase the target entry by indexes. If it has not existen.
  *
  * @param cntr The target cntr.
- * @param idx The indexes of target entry in each level.
+ * @param src_branch_idxes The branch indexes of target entry in each level.
  *
  * @return The reference of target entry.
  */
-template <CntrTplParamList>
-bool Erase(Cntr<CntrTplArgList>& cntr, size_t* idxes);
+template <CntrTplParamList, typename BramchIdxSource>
+bool Erase(Cntr<CntrTplArgList>& cntr, BramchIdxSource&& src_branch_idxes);
 
 /**
  * @brief Erase all existed entries.
@@ -235,17 +269,18 @@ void EraseAll(Cntr<CntrTplArgList>& cntr);
 template <CntrTplParamList>
 void Sanitize(Cntr<CntrTplArgList>& cntr,
               mem_recorder::MemRecorder* dst_nav_node
-#if EnData
+#if EnDataNode
               ,
               mem_recorder::MemRecorder* dst_data_node
 #endif
 );
 
-}  // namespace zeta::core::NameSpace
+}  // namespace zeta::core::Namespace
 
-#pragma pop_macro("NameSpace")
 #pragma pop_macro("CntrTplArgList")
 #pragma pop_macro("CntrTplParamList")
+#pragma pop_macro("CntrTplDeclParamList")
+#pragma pop_macro("Namespace")
 
 #endif
 

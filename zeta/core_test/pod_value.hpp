@@ -2,7 +2,9 @@
 
 #include <iostream>
 #include <zeta/core/compare.ipp>
+#include <zeta/core/compare_utils.ipp>
 #include <zeta/core/hash.hpp>
+#include <zeta/core/hash_utils.ipp>
 #include <zeta/core/utils.ipp>
 #include <zeta/core_test/random.hpp>
 
@@ -30,10 +32,11 @@ inline std::ostream& operator<<(std::ostream& os, PODValue const& val) {
 namespace zeta::core {
 
 template <>
-struct hash::BasicHashImpl<core_test::PODValue> {
+struct hash::BasicHasher<core_test::PODValue> {
     unsigned long long operator()(core_test::PODValue const& x,
                                   unsigned long long salt) const {
-        return BasicMemHash(x.data, core_test::PODValue::width, salt);
+        return hash_utils::BasicMemHash(x.data, core_test::PODValue::width,
+                                        salt);
     }
 };
 
@@ -59,12 +62,16 @@ struct RandomCore<PODValue> {
 namespace zeta::core {
 
 template <>
-struct compare::BasicCompareImpl<core_test::PODValue, core_test::PODValue> {
-    int operator()(core_test::PODValue const& x,
-                   core_test::PODValue const& y) const {
-        return compare::LexMemCompare(x.data, y.data,
-                                      core_test::PODValue::width,
-                                      core_test::PODValue::width);
+struct compare::BasicComparator<core_test::PODValue, core_test::PODValue> {
+    template <typename CompareTypeTag>
+    auto Compare(CompareTypeTag, core_test::PODValue const& x,
+                 core_test::PODValue const& y) const {
+        return compare::BasicCompare(
+            CompareTypeTag{},
+            compare_utils::MemLexCompare(x.data, y.data,
+                                         core_test::PODValue::width,
+                                         core_test::PODValue::width),
+            0);
     }
 };
 
@@ -73,27 +80,33 @@ struct compare::BasicCompareImpl<core_test::PODValue, core_test::PODValue> {
 namespace zeta::core_test {
 
 inline bool operator==(PODValue const& x, PODValue const& y) {
-    return core::compare::BasicCompare(x, y) == 0;
+    return core::compare::BasicCompare(core::compare::compare_type::EqualTo{},
+                                       x, y);
 }
 
 inline bool operator!=(PODValue const& x, PODValue const& y) {
-    return core::compare::BasicCompare(x, y) != 0;
+    return core::compare::BasicCompare(
+        core::compare::compare_type::NotEqualTo{}, x, y);
 }
 
 inline bool operator<(PODValue const& x, PODValue const& y) {
-    return core::compare::BasicCompare(x, y) < 0;
+    return core::compare::BasicCompare(core::compare::compare_type::Less{}, x,
+                                       y);
 }
 
 inline bool operator<=(PODValue const& x, PODValue const& y) {
-    return core::compare::BasicCompare(x, y) <= 0;
+    return core::compare::BasicCompare(core::compare::compare_type::LessEqual{},
+                                       x, y);
 }
 
 inline bool operator>(PODValue const& x, PODValue const& y) {
-    return core::compare::BasicCompare(x, y) > 0;
+    return core::compare::BasicCompare(core::compare::compare_type::Greater{},
+                                       x, y);
 }
 
 inline bool operator>=(PODValue const& x, PODValue const& y) {
-    return core::compare::BasicCompare(x, y) >= 0;
+    return core::compare::BasicCompare(
+        core::compare::compare_type::GreaterEqual{}, x, y);
 }
 
 }  // namespace zeta::core_test

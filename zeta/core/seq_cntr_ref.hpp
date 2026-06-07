@@ -65,13 +65,19 @@ void Read(Ref const& ref, void const* pos_cursor, size_t cnt, Reader&& reader,
           void* dst_cursor);
 
 void Read(Ref const& ref, void const* pos_cursor, size_t cnt,
-          seq_cntr::MemReader reader, void* dst_cursor);
+          seq_cntr::MemReader& reader, void* dst_cursor);
+
+void Read(Ref const& ref, void const* pos_cursor, size_t cnt,
+          seq_cntr::MemReader&& reader, void* dst_cursor);
 
 template <typename Writer>
 void Write(Ref& ref, void* pos_cursor, size_t cnt, Writer&& writer,
            void* dst_cursor);
 
-void Write(Ref& ref, void* pos_cursor, size_t cnt, seq_cntr::MemWriter writer,
+void Write(Ref& ref, void* pos_cursor, size_t cnt, seq_cntr::MemWriter& writer,
+           void* dst_cursor);
+
+void Write(Ref& ref, void* pos_cursor, size_t cnt, seq_cntr::MemWriter&& writer,
            void* dst_cursor);
 
 template <typename ReaderWriter>
@@ -81,19 +87,39 @@ void ReadWrite(Ref& ref, void* pos_cursor, size_t cnt,
 template <typename Writer>
 void* PushL(Ref& ref, size_t cnt, Writer&& writer, void* dst_cursor);
 
-void* PushL(Ref& ref, size_t cnt, seq_cntr::MemWriter writer, void* dst_cursor);
+void* PushL(Ref& ref, size_t cnt, seq_cntr::MemWriter& writer,
+            void* dst_cursor);
+
+void* PushL(Ref& ref, size_t cnt, seq_cntr::MemWriter&& writer,
+            void* dst_cursor);
+
+void* PushL(Ref& ref, size_t cnt, seq_cntr::EmptyWriter writer,
+            void* dst_cursor);
 
 template <typename Writer>
 void* PushR(Ref& ref, size_t cnt, Writer&& writer, void* dst_cursor);
 
-void* PushR(Ref& ref, size_t cnt, seq_cntr::MemWriter writer, void* dst_cursor);
+void* PushR(Ref& ref, size_t cnt, seq_cntr::MemWriter& writer,
+            void* dst_cursor);
+
+void* PushR(Ref& ref, size_t cnt, seq_cntr::MemWriter&& writer,
+            void* dst_cursor);
+
+void* PushR(Ref& ref, size_t cnt, seq_cntr::EmptyWriter writer,
+            void* dst_cursor);
 
 template <typename Writer>
 void* Insert(Ref& ref, void* pos_cursor, size_t cnt, Writer&& writer,
              void* dst_cursor);
 
-void* Insert(Ref& ref, void* pos_cursor, size_t cnt, seq_cntr::MemWriter writer,
-             void* dst_cursor);
+void* Insert(Ref& ref, void* pos_cursor, size_t cnt,
+             seq_cntr::MemWriter& writer, void* dst_cursor);
+
+void* Insert(Ref& ref, void* pos_cursor, size_t cnt,
+             seq_cntr::MemWriter&& writer, void* dst_cursor);
+
+void* Insert(Ref& ref, void* pos_cursor, size_t cnt,
+             seq_cntr::EmptyWriter writer, void* dst_cursor);
 
 void PopL(Ref& ref, size_t cnt);
 
@@ -132,7 +158,7 @@ Ref MakeRef(Cntr& cntr);
 namespace zeta::core {
 
 template <>
-struct seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void> {
+struct seq_cntr::CntrTraits<seq_cntr_ref::Ref const> {
     static void* GetReferedInstPtr(seq_cntr_ref::Ref const& ref);
 
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
@@ -200,8 +226,8 @@ struct seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void> {
 };
 
 template <>
-struct seq_cntr::CntrTraits<seq_cntr_ref::Ref, void>
-    : public seq_cntr::CntrTraits<seq_cntr_ref::Ref const, void> {
+struct seq_cntr::CntrTraits<seq_cntr_ref::Ref>
+    : public seq_cntr::CntrTraits<seq_cntr_ref::Ref const> {
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
 
     static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();

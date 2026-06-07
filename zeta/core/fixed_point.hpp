@@ -1,8 +1,9 @@
 #pragma once
 
+#include <zeta/core/compare_utils.ipp>
+#include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
-#include <zeta/core/utils.ipp>
 #include <zeta/core/value_wrapper.hpp>
 
 #pragma push_macro("FixedPointTplDeclParamList")
@@ -20,7 +21,7 @@
 
 namespace zeta::core::fixed_point {
 
-constexpr size_t max_total_width{ utils::Min(
+constexpr size_t max_total_width{ compare_utils::BasicMin(
     ZETA_Core_bitint_max_width,
     static_cast<size_t>(integral::RangeMaxOf<long long> / 256)) };
 

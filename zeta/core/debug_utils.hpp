@@ -1,9 +1,11 @@
 #pragma once
 
-#include <sanitizer/common_interface_defs.h>
+#if __has_feature(address_sanitizer)
+#include <sanitizer/common_interface_defs.h>  // IWYU pragma: keep
+#endif
 
-#include <iostream>
 #include <sstream>
+#include <string>
 #include <zeta/core/define.hpp>
 
 #define ZETA_Core_DebugStructPadding char ZETA_Core_TmpName[sizeof(void*)]
@@ -29,17 +31,30 @@
 #define ZETA_Core_PrintCurPos                                        \
     zeta::core::debug_utils::PrintPos(std::cout, __FILE__, __LINE__, \
                                       __PRETTY_FUNCTION__)           \
-        << '\n';                                                     \
+        << "\n\n";                                                   \
     ZETA_Core_StaticAssert(true)
 
 #define ZETA_Core_Debug_PrintCurPos                                    \
     zeta::core::debug_utils::PrintPos(                                 \
         zeta::core::debug_utils::debug_str_stream, __FILE__, __LINE__, \
         __PRETTY_FUNCTION__)                                           \
-        << '\n';                                                       \
+        << "\n\n";                                                     \
     ZETA_Core_StaticAssert(true)
 
-// -----------------------------------------------------------------------------
+#define ZETA_Core_Pause    \
+    ZETA_Core_PrintCurPos; \
+    std::cin.get();        \
+    ZETA_Core_StaticAssert(true)
+
+#if ZETA_Core_EnableDebug
+
+#define ZETA_Core_DebugPause ZETA_Core_Pause
+
+#else
+
+#define ZETA_Core_DebugPause
+
+#endif
 
 namespace zeta::core::debug_utils {
 
@@ -60,10 +75,10 @@ inline auto space_str{ std::string(space_width, ' ') };
 inline std::ostringstream debug_str_stream;
 
 template <typename T>
-std::string GetTypeStr();
+constexpr std::string GetTypeStr();
 
 template <typename T, typename = void>
-struct VarPrinter;
+struct VarPrinter;  // IWYU pragma: export
 
 std::ostream& PrintPos(std::ostream& os, char const* file, int line,
                        char const* func);

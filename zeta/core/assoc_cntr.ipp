@@ -3,9 +3,7 @@
 #include <zeta/core/assoc_cntr.hpp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
-#include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
-#include <zeta/core/value_wrapper.hpp>
 
 namespace zeta::core {
 
@@ -187,18 +185,18 @@ size_t assoc_cntr::GetCursorSize(Cntr& cntr) {
 }
 
 template <typename Cntr>
-size_t assoc_cntr::GetWidth(Cntr& cntr) {
-    CallMethod(true, GetWidth, GetWidth, cntr);
+size_t assoc_cntr::GetElemSize(Cntr& cntr) {
+    CallMethod(true, GetElemSize, GetElemSize, cntr);
 }
 
 template <typename Cntr>
-size_t assoc_cntr::GetSize(Cntr& cntr) {
-    CallMethod(true, GetSize, GetSize, cntr);
+size_t assoc_cntr::GetElemCnt(Cntr& cntr) {
+    CallMethod(true, GetElemCnt, GetElemCnt, cntr);
 }
 
 template <typename Cntr>
-size_t assoc_cntr::GetCapacity(Cntr& cntr) {
-    CallMethod(true, GetCapacity, GetCapacity, cntr);
+size_t assoc_cntr::GetMaxElemCnt(Cntr& cntr) {
+    CallMethod(true, GetMaxElemCnt, GetMaxElemCnt, cntr);
 }
 
 template <typename Cntr>
@@ -317,24 +315,30 @@ void assoc_cntr::CursorAdvanceR(Cntr& cntr, void* cursor, size_t step) {
 
 template <typename Cntr>
 void assoc_cntr::CheckContract(Cntr& cntr) {
-    bool bool_val{ false };
+    struct KeyHash {
+        unsigned long long operator()(void const*, unsigned long long) const {
+            return 0;
+        }
+    };
 
-    void* void_ptr{ nullptr };
-    void const* const_void_ptr{ nullptr };
-
-    size_t size_val{ 0 };
-
-    auto key_hash{ [](void const*, unsigned long long) -> unsigned long long {
-        return 0;
-    } };
-
-    auto key_elem_compare{ [](void const*, void const*) -> int { return 0; } };
+    struct KeyElemCompare {
+        int operator()(void const*, void const*) const { return 0; }
+    };
 
 #pragma push_macro("CheckMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CheckMethod(method, ...) \
-    ZETA_Core_Unused(            \
-        (meta::Conditional<false, decltype((method)(__VA_ARGS__)), int>{}))
+#define CheckMethod(method, ...)                                              \
+    ZETA_Core_Unused([&](bool bool_val, void* void_ptr,                       \
+                         void const* const_void_ptr, size_t size_val,         \
+                         KeyHash key_hash, KeyElemCompare key_elem_compare) { \
+        ZETA_Core_Unused(bool_val);                                           \
+        ZETA_Core_Unused(void_ptr);                                           \
+        ZETA_Core_Unused(const_void_ptr);                                     \
+        ZETA_Core_Unused(size_val);                                           \
+        ZETA_Core_Unused(key_hash);                                           \
+        ZETA_Core_Unused(key_elem_compare);                                   \
+        (method)(__VA_ARGS__);                                                \
+    })
 
 #pragma push_macro("CheckMethodOp")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -376,25 +380,25 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
         cntr            // inst
     );
 
-    CheckMethodOp(  //
-        GetWidth,   // ability
-        GetWidth,   // method
-                    //
-        cntr        // inst
-    );
-
-    CheckMethodOp(  //
-        GetSize,    // ability
-        GetSize,    // method
-                    //
-        cntr        // inst
-    );
-
     CheckMethodOp(    //
-        GetCapacity,  // ability
-        GetCapacity,  // method
+        GetElemSize,  // ability
+        GetElemSize,  // method
                       //
         cntr          // inst
+    );
+
+    CheckMethodOp(   //
+        GetElemCnt,  // ability
+        GetElemCnt,  // method
+                     //
+        cntr         // inst
+    );
+
+    CheckMethodOp(      //
+        GetMaxElemCnt,  // ability
+        GetMaxElemCnt,  // method
+                        //
+        cntr            // inst
     );
 
     CheckMethodOp(    //
@@ -596,13 +600,14 @@ constexpr assoc_cntr::VTable assoc_cntr::BuildVTableBasic() {
     }()
 
     constexpr VTable table{
-        .GetSize =
-            F(GetSize,
-              [](void* cntr) { return GetSize(*static_cast<Cntr*>(cntr)); }),
+        .GetElemCnt =
+            F(GetElemCnt,
+              [](void* cntr) { return GetElemCnt(*static_cast<Cntr*>(cntr)); }),
 
-        .GetCapacity = F(
-            GetCapacity,
-            [](void* cntr) { return GetCapacity(*static_cast<Cntr*>(cntr)); }),
+        .GetMaxElemCnt = F(GetMaxElemCnt,
+                           [](void* cntr) {
+                               return GetMaxElemCnt(*static_cast<Cntr*>(cntr));
+                           }),
 
         .GetLBCursor = F(GetLBCursor,
                          [](void* cntr, void* dst_cursor) {

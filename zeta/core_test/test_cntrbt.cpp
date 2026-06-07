@@ -13,13 +13,13 @@
 #include <zeta/core/value_wrapper.ipp>
 #include <zeta/core_test/random.hpp>
 
-// -----------------------------------------------------------------------------
-
-struct BinTreeNode : public zeta::core::basic_bin_tree_node::Node<
-                         void*, zeta::core::value_wrapper::TrueType,
-                         zeta::core::value_wrapper::TrueType,
-                         zeta::core::value_wrapper::TrueType,
-                         zeta::core::value_wrapper::TrueType> {};
+struct BinTreeNode
+    : public zeta::core::basic_bin_tree_node::Node<
+          void*, zeta::core::value_wrapper::TrueType,
+          zeta::core::value_wrapper::TrueType,
+          zeta::core::value_wrapper::FalseType,
+          zeta::core::value_wrapper::TrueType,
+          zeta::core::basic_bin_tree_node::PrimaryColorTagEnum::Null> {};
 
 struct Node {
     BinTreeNode n;
@@ -30,8 +30,6 @@ struct NodeCup {
     size_t size;
 };
 
-// -----------------------------------------------------------------------------
-
 std::vector<NodeCup> vec;
 
 size_t size_sum;
@@ -39,10 +37,8 @@ size_t size_sum;
 BinTreeNode* root;
 BinTreeNode* rb;
 
-// -----------------------------------------------------------------------------
-
 template <>
-struct zeta::core::bin_tree::Traits<BinTreeNode const> {
+struct zeta::core::bin_tree::NodeTraits<BinTreeNode const> {
     static constexpr bool IsConst() { return true; }
 
     static constexpr bool HasAccSize() { return true; }
@@ -65,8 +61,8 @@ struct zeta::core::bin_tree::Traits<BinTreeNode const> {
 };
 
 template <>
-struct zeta::core::bin_tree::Traits<BinTreeNode>
-    : public zeta::core::bin_tree::Traits<BinTreeNode const> {
+struct zeta::core::bin_tree::NodeTraits<BinTreeNode>
+    : public zeta::core::bin_tree::NodeTraits<BinTreeNode const> {
     static constexpr bool IsConst() { return false; }
 
     static BinTreeNode* GetP(BinTreeNode* n) {
@@ -93,22 +89,20 @@ struct zeta::core::bin_tree::Traits<BinTreeNode>
 };
 
 template <>
-struct zeta::core::rbtree::Traits<BinTreeNode const, void> {
+struct zeta::core::rbtree::NodeTraits<BinTreeNode const, void> {
     static unsigned GetColor(BinTreeNode const* n) { return n->GetPColor(); }
 };
 
 template <>
-struct zeta::core::rbtree::Traits<BinTreeNode, void>
-    : public zeta::core::rbtree::Traits<BinTreeNode const, void> {
+struct zeta::core::rbtree::NodeTraits<BinTreeNode, void>
+    : public zeta::core::rbtree::NodeTraits<BinTreeNode const, void> {
     static void SetColor(BinTreeNode* n, unsigned color) {
         n->SetPColor(color);
     }
 };
 
-// -----------------------------------------------------------------------------
-
 inline void CompareLR() {
-    BinTreeNode* n{ zeta::core::bin_tree::ops::GetMostL(root).first };
+    BinTreeNode* n{ zeta::core::bin_tree::GetMostL(root).first };
 
     auto iter{ vec.begin() };
     auto end{ vec.end() };
@@ -124,16 +118,15 @@ inline void CompareLR() {
         Node* node{ ZETA_Core_MemberToStruct(Node, n, n) };
 
         ZETA_Core_DebugAssert(iter->linked_node == node);
-        ZETA_Core_DebugAssert(iter->size ==
-                              zeta::core::bin_tree::ops::GetSize(n));
+        ZETA_Core_DebugAssert(iter->size == zeta::core::bin_tree::GetSize(n));
 
         ++iter;
-        n = zeta::core::bin_tree::ops::StepR(n);
+        n = zeta::core::bin_tree::StepR(n);
     }
 }
 
 inline void CompareRL() {
-    BinTreeNode* n{ zeta::core::bin_tree::ops::GetMostR(root).first };
+    BinTreeNode* n{ zeta::core::bin_tree::GetMostR(root).first };
     auto iter{ vec.rbegin() };
     auto end{ vec.rend() };
 
@@ -148,30 +141,26 @@ inline void CompareRL() {
         Node* node{ ZETA_Core_MemberToStruct(Node, n, n) };
 
         ZETA_Core_DebugAssert(iter->linked_node == node);
-        ZETA_Core_DebugAssert(iter->size ==
-                              zeta::core::bin_tree::ops::GetSize(n));
+        ZETA_Core_DebugAssert(iter->size == zeta::core::bin_tree::GetSize(n));
 
         ++iter;
-        n = zeta::core::bin_tree::ops::StepL(n);
+        n = zeta::core::bin_tree::StepL(n);
     }
 }
 
 inline void Sanitize() {
-    zeta::core::rbtree::ops::Sanitize(nullptr, root);
+    zeta::core::rbtree::Sanitize(nullptr, root);
     CompareLR();
     CompareRL();
 }
-
-// -----------------------------------------------------------------------------
 
 size_t fallback_sign{ 0x479237197577 };
 
 inline void AccessL(size_t idx) {
     auto [target_n_l,
-          target_tail_idx_l]{ zeta::core::bin_tree::ops::AccessL(root, idx) };
+          target_tail_idx_l]{ zeta::core::bin_tree::AccessL(root, idx) };
 
-    ZETA_Core_DebugAssert(zeta::core::bin_tree::ops::GetAccSize(root) ==
-                          size_sum);
+    ZETA_Core_DebugAssert(zeta::core::bin_tree::GetAccSize(root) == size_sum);
 
     auto target_iter{ vec.end() };
 
@@ -195,10 +184,9 @@ inline void AccessL(size_t idx) {
 
 inline void AccessR(size_t idx) {
     auto [target_n_r,
-          target_tail_idx_r]{ zeta::core::bin_tree::ops::AccessR(root, idx) };
+          target_tail_idx_r]{ zeta::core::bin_tree::AccessR(root, idx) };
 
-    ZETA_Core_DebugAssert(zeta::core::bin_tree::ops::GetAccSize(root) ==
-                          size_sum);
+    ZETA_Core_DebugAssert(zeta::core::bin_tree::GetAccSize(root) == size_sum);
 
     auto target_iter{ vec.rend() };
 
@@ -222,13 +210,12 @@ inline void AccessR(size_t idx) {
 
 inline void AccessLR(size_t idx) {
     auto [target_n_l,
-          target_tail_idx_l]{ zeta::core::bin_tree::ops::AccessL(root, idx) };
+          target_tail_idx_l]{ zeta::core::bin_tree::AccessL(root, idx) };
 
-    auto [target_n_r, target_tail_idx_r]{ zeta::core::bin_tree::ops::AccessR(
+    auto [target_n_r, target_tail_idx_r]{ zeta::core::bin_tree::AccessR(
         root, size_sum - 1 - idx) };
 
-    ZETA_Core_DebugAssert(zeta::core::bin_tree::ops::GetAccSize(root) ==
-                          size_sum);
+    ZETA_Core_DebugAssert(zeta::core::bin_tree::GetAccSize(root) == size_sum);
 
     size_t last_size;
 
@@ -266,25 +253,23 @@ inline void Insert(size_t idx, size_t size) {
 
     Node* new_node{ new Node };
 
-    new_node->n.Init();
+    new_node->n.Init(0);
 
-    zeta::core::bin_tree::ops::SetSize(&new_node->n, size);
+    zeta::core::bin_tree::SetSize(&new_node->n, size);
 
-    ZETA_Core_DebugAssert(zeta::core::bin_tree::ops::GetSize(&new_node->n) ==
-                          size);
+    ZETA_Core_DebugAssert(zeta::core::bin_tree::GetSize(&new_node->n) == size);
 
     size_sum += size;
 
     if (idx < vec.size()) {
         Node* ins_node{ vec[idx].linked_node };
-        root = zeta::core::rbtree::ops::InsertL(&ins_node->n, &new_node->n);
+        root = zeta::core::rbtree::InsertL(&ins_node->n, &new_node->n);
     } else if (vec.size() == 0) {
         root = &new_node->n;
-        zeta::core::rbtree::ops::SetColor(&new_node->n,
-                                          zeta::core::rbtree::black);
+        zeta::core::rbtree::SetColor(&new_node->n, zeta::core::rbtree::black);
     } else {
         Node* ins_node{ vec.back().linked_node };
-        root = zeta::core::rbtree::ops::InsertR(&ins_node->n, &new_node->n);
+        root = zeta::core::rbtree::InsertR(&ins_node->n, &new_node->n);
     }
 
     vec.insert(vec.begin() + static_cast<long long>(idx),
@@ -294,8 +279,6 @@ inline void Insert(size_t idx, size_t size) {
                });
 }
 
-// -----------------------------------------------------------------------------
-
 inline void Erase(size_t idx) {
     ZETA_Core_DebugAssert(0 <= idx);
     ZETA_Core_DebugAssert(idx < vec.size());
@@ -303,13 +286,11 @@ inline void Erase(size_t idx) {
     size_sum -= vec[idx].size;
 
     Node* target_node{ vec[idx].linked_node };
-    root = zeta::core::rbtree::ops::Extract(&target_node->n);
+    root = zeta::core::rbtree::Extract(&target_node->n);
     delete target_node;
 
     vec.erase(vec.begin() + static_cast<long long>(idx));
 }
-
-// -----------------------------------------------------------------------------
 
 inline void main1() {
     unsigned seed{ static_cast<unsigned>(time(nullptr)) };
@@ -355,8 +336,6 @@ inline void main1() {
         }
     }
 }
-
-// -----------------------------------------------------------------------------
 
 int main() {
     main1();

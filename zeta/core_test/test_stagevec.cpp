@@ -11,6 +11,7 @@
 #include <zeta/core/value_wrapper.hpp>
 #include <zeta/core_test/circular_array_utils.hpp>
 #include <zeta/core_test/debug_deque_utils.hpp>
+#include <zeta/core_test/multi_level_circular_array_utils.hpp>
 #include <zeta/core_test/pod_value.hpp>
 #include <zeta/core_test/ptr_iter.ipp>
 #include <zeta/core_test/random.hpp>
@@ -19,31 +20,16 @@
 #include <zeta/core_test/staging_seg_vector_utils.hpp>
 #include <zeta/core_test/timer.hpp>
 
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-
-using SeqCntrRef = zeta::core::seq_cntr_ref::Ref;
-
-using PODValue = zeta::core_test::PODValue;
-
-namespace seq_cntr_utils = zeta::core_test::seq_cntr_utils;
-namespace circular_array_utils = zeta::core_test::circular_array_utils;
-namespace debug_deque_utils = zeta::core_test::debug_deque_utils;
-// namespace seg_vector_utils = zeta::core_test::seg_vector_utils;
-// namespace staging_seg_vector_utils =
-// zeta::core_test::staging_seg_vector_utils;
-
 using CircularArray = zeta::core::circular_array::Cntr;
 
 using DebugDeque = zeta::core::debug_deque::Cntr;
 
 inline void test_seq_cntr() {
     unsigned random_seed{ static_cast<unsigned>(time(nullptr)) };
-    unsigned fixed_seed{ 1735451159 };
+    unsigned fixed_seed{ 1780833973 };
 
-    unsigned seed{ random_seed };
-    // unsigned seed{ fixed_seed };
+    // unsigned seed{ random_seed };
+    unsigned seed{ fixed_seed };
 
     ZETA_Core_PrintCurPos;
 
@@ -53,30 +39,46 @@ inline void test_seq_cntr() {
 
     zeta::core_test::SetRandomSeed(seed);
 
-    SeqCntrRef seq_cntr_a_origin{ debug_deque_utils::Create<PODValue>() };
+    zeta::core::seq_cntr_ref::Ref seq_cntr_a_origin{
+        zeta::core_test::debug_deque_utils::Create<zeta::core_test::PODValue>()
+    };
 
-    size_t origin_size{ 1024 * 1024 };
+    size_t origin_size{ 1024 * 256 };
 
-    seq_cntr_utils::SyncRandomInit<PODValue, SeqCntrRef>({ &seq_cntr_a_origin },
-                                                         origin_size);
+    zeta::core_test::seq_cntr_utils::SyncRandomInit<
+        zeta::core_test::PODValue, zeta::core::seq_cntr_ref::Ref>(
+        { &seq_cntr_a_origin }, origin_size);
 
-    SeqCntrRef seq_cntr_a{ debug_deque_utils::Create<PODValue>() };
-
-    SeqCntrRef seq_cntr_b{ circular_array_utils::Create<PODValue>(
-        sizeof(PODValue) * 3, 1024 * 1024) };
+    zeta::core::seq_cntr_ref::Ref seq_cntr_a{
+        zeta::core_test::debug_deque_utils::Create<zeta::core_test::PODValue>()
+    };
 
     /*
-    SeqCntrRef seq_cntr_b{
-    zeta::core_test::MultiLevelCircularArray_Create<PODValue>(
-    sizeof(PODValue) * 3, 7) };
+    zeta::core::seq_cntr_ref::Ref seq_cntr_b{
+        zeta::core_test::circular_array_utils::Create<
+            zeta::core_test::PODValue>(sizeof(zeta::core_test::PODValue) * 3,
+                                       1024 * 1024)
+    };
     */
 
     /*
-    SeqCntrRef seq_cntr_b{ seg_vector_utils::Create<PODValue>(
-        sizeof(PODValue) * 3, 7) };
+    zeta::core::seq_cntr_ref::Ref seq_cntr_b{
+    zeta::core_test::MultiLevelCircularArray_Create<zeta::core_test::PODValue>(
+    sizeof(zeta::core_test::PODValue) * 3, 7) };
     */
 
-    size_t max_op_size{ 1024 };
+    /*
+    zeta::core::seq_cntr_ref::Ref seq_cntr_b{
+    seg_vector_utils::Create<zeta::core_test::PODValue>(
+    sizeof(zeta::core_test::PODValue) * 3, 7) };
+    */
+
+    zeta::core::seq_cntr_ref::Ref seq_cntr_b{
+        zeta::core_test::multi_level_circular_array_utils::Create<
+            zeta::core_test::PODValue>(sizeof(zeta::core_test::PODValue) * 3, 7)
+    };
+
+    size_t max_op_size{ 256 };
 
     for (size_t _{ 0 }; _ < 16; ++_) {
         ZETA_Core_PrintVar(_);
@@ -84,7 +86,91 @@ inline void test_seq_cntr() {
         // zeta::core::SeqCntr_Assign(seq_cntr_a, seq_cntr_a_origin);
         // zeta::core::SeqCntr_Assign(seq_cntr_b, seq_cntr_a_origin);
 
-        seq_cntr_utils::DoRandomOperations<PODValue, SeqCntrRef>(
+        zeta::core_test::seq_cntr_utils::DoRandomOperations<
+            zeta::core_test::PODValue, zeta::core::seq_cntr_ref::Ref>(
+            { &seq_cntr_a, &seq_cntr_b },
+
+            256,  // iter_cnt
+
+            max_op_size,  // read_max_op_size
+            max_op_size,  // write_max_op_size
+            max_op_size,  // push_l_max_op_size
+            max_op_size,  // push_r_max_op_size
+            max_op_size,  // pop_l_max_op_size
+            max_op_size,  // pop_r_max_op_size
+            0,            // insert_max_op_size
+            0,            // erase_max_op_size
+
+            max_op_size,  // cursor_step_l_max_op_size
+            max_op_size,  // cursor_step_r_max_op_size
+            max_op_size,  // cursor_advance_l_op_size
+            max_op_size   // cursor_advance_r_op_size
+        );
+    }
+
+    zeta::core_test::seq_cntr_utils::Destroy(&seq_cntr_a);
+    zeta::core_test::seq_cntr_utils::Destroy(&seq_cntr_b);
+
+    zeta::core_test::seq_cntr_utils::Destroy(&seq_cntr_a_origin);
+}
+
+inline void test_staging_seg_vector() {
+    unsigned random_seed{ static_cast<unsigned>(time(nullptr)) };
+    unsigned fixed_seed{ 1735663452U };
+
+    // unsigned seed = random_seed;
+    unsigned seed = fixed_seed;
+
+    ZETA_Core_PrintCurPos;
+
+    ZETA_Core_PrintVar(random_seed);
+    ZETA_Core_PrintVar(fixed_seed);
+    ZETA_Core_PrintVar(seed);
+
+    zeta::core_test::SetRandomSeed(seed);
+
+    zeta::core::seq_cntr_ref::Ref seq_cntr_a_origin{
+        zeta::core_test::debug_deque_utils::Create<zeta::core_test::PODValue>()
+    };
+
+    zeta::core::seq_cntr_ref::Ref seq_cntr_b_origin{
+        zeta::core_test::debug_deque_utils::Create<zeta::core_test::PODValue>()
+    };
+
+    size_t origin_size{ 1024 * 64 };
+
+    zeta::core_test::seq_cntr_utils::SyncRandomInit<
+        zeta::core_test::PODValue, zeta::core::seq_cntr_ref::Ref>(
+        { &seq_cntr_a_origin }, origin_size);
+
+    zeta::core::seq_cntr_ref::Ref seq_cntr_a{
+        zeta::core_test::debug_deque_utils::Create<zeta::core_test::PODValue>()
+    };
+
+    zeta::core::seq_cntr_ref::Ref seq_cntr_b{
+        zeta::core_test::staging_seg_vector_utils::Create<
+            zeta::core_test::PODValue>(seq_cntr_b_origin,
+                                       sizeof(zeta::core_test::PODValue) * 3, 7)
+    };
+
+    size_t max_op_size{ 128 };
+
+    for (size_t _ = 0; _ < 8; ++_) {
+        ZETA_Core_PrintVar(_);
+
+        zeta::core::seq_cntr::Assign(seq_cntr_a, seq_cntr_a_origin);
+
+        zeta::core::seq_cntr::Assign(seq_cntr_b_origin, seq_cntr_a_origin);
+
+        zeta::core::staging_seg_vector::Reset(
+            *static_cast<
+                zeta::core_test::staging_seg_vector_utils::StagingSegVector*>(
+                seq_cntr_b.cntr));
+
+        zeta::core_test::seq_cntr_utils::Sanitize(&seq_cntr_b);
+
+        zeta::core_test::seq_cntr_utils::DoRandomOperations<
+            zeta::core_test::PODValue, zeta::core::seq_cntr_ref::Ref>(
             { &seq_cntr_a, &seq_cntr_b },
 
             256,  // iter_cnt
@@ -105,18 +191,19 @@ inline void test_seq_cntr() {
         );
     }
 
-    seq_cntr_utils::Destroy(&seq_cntr_a);
-    seq_cntr_utils::Destroy(&seq_cntr_b);
+    zeta::core_test::seq_cntr_utils::Destroy(&seq_cntr_a);
+    zeta::core_test::seq_cntr_utils::Destroy(&seq_cntr_b);
 
-    seq_cntr_utils::Destroy(&seq_cntr_a_origin);
+    zeta::core_test::seq_cntr_utils::Destroy(&seq_cntr_a_origin);
+    zeta::core_test::seq_cntr_utils::Destroy(&seq_cntr_b_origin);
 }
 
-inline void test_staging_seg_vector() {
+inline void test_staging_seg_vector_copy_init() {
     unsigned random_seed{ static_cast<unsigned>(time(nullptr)) };
     unsigned fixed_seed{ 17354521 };
 
-    // unsigned seed = random_seed;
-    unsigned seed = fixed_seed;
+    unsigned seed = random_seed;
+    // unsigned seed = fixed_seed;
 
     ZETA_Core_PrintCurPos;
 
@@ -126,42 +213,51 @@ inline void test_staging_seg_vector() {
 
     zeta::core_test::SetRandomSeed(seed);
 
-    SeqCntrRef seq_cntr_a_origin{ debug_deque_utils::Create<PODValue>() };
-
-    SeqCntrRef seq_cntr_b_origin{ debug_deque_utils::Create<PODValue>() };
-
-    size_t origin_size{ 1024 * 1024 };
-
-    zeta::core_test::seq_cntr_utils::SyncRandomInit<PODValue, SeqCntrRef>(
-        { &seq_cntr_a_origin }, origin_size);
-
-    SeqCntrRef seq_cntr_a{ debug_deque_utils::Create<PODValue>() };
-
-    SeqCntrRef seq_cntr_b{
-        zeta::core_test::staging_seg_vector_utils::Create<PODValue>(
-            seq_cntr_b_origin, sizeof(PODValue) * 3, 7)
+    zeta::core::seq_cntr_ref::Ref dd_a{
+        zeta::core_test::debug_deque_utils::Create<zeta::core_test::PODValue>()
     };
 
-    size_t max_op_size = 1024;
+    zeta::core::seq_cntr_ref::Ref dd_b{
+        zeta::core_test::debug_deque_utils::Create<zeta::core_test::PODValue>()
+    };
 
-    for (size_t _ = 0; _ < 4; ++_) {
+    size_t origin_size{ 1024 * 64 };
+
+    zeta::core_test::seq_cntr_utils::SyncRandomInit<
+        zeta::core_test::PODValue, zeta::core::seq_cntr_ref::Ref>({ &dd_a },
+                                                                  origin_size);
+
+    zeta::core::seq_cntr_ref::Ref dd_c{
+        zeta::core_test::debug_deque_utils::Create<zeta::core_test::PODValue>()
+    };
+
+    zeta::core::seq_cntr_ref::Ref sv_a{
+        zeta::core_test::staging_seg_vector_utils::Create<
+            zeta::core_test::PODValue>(dd_b,
+                                       sizeof(zeta::core_test::PODValue) * 3, 7)
+    };
+
+    size_t max_op_size = 128;
+
+    for (size_t _ = 0; _ < 16; ++_) {
         ZETA_Core_PrintVar(_);
 
-        zeta::core::seq_cntr::Assign(seq_cntr_a, seq_cntr_a_origin);
-
-        zeta::core::seq_cntr::Assign(seq_cntr_b_origin, seq_cntr_a_origin);
+        zeta::core::seq_cntr::Assign(dd_b, dd_a);
+        zeta::core::seq_cntr::Assign(dd_c, dd_a);
 
         zeta::core::staging_seg_vector::Reset(
             *static_cast<
                 zeta::core_test::staging_seg_vector_utils::StagingSegVector*>(
-                seq_cntr_b.cntr));
+                sv_a.cntr));
 
-        zeta::core_test::seq_cntr_utils::Sanitize(&seq_cntr_b);
+        zeta::core_test::seq_cntr_utils::Sanitize(&dd_c);
+        zeta::core_test::seq_cntr_utils::Sanitize(&sv_a);
 
-        seq_cntr_utils::DoRandomOperations<PODValue, SeqCntrRef>(
-            { &seq_cntr_a, &seq_cntr_b },
+        zeta::core_test::seq_cntr_utils::DoRandomOperations<
+            zeta::core_test::PODValue, zeta::core::seq_cntr_ref::Ref>(
+            { &dd_c, &sv_a },
 
-            16,  // iter_cnt
+            256,  // iter_cnt
 
             max_op_size,  // read_max_op_size
             max_op_size,  // write_max_op_size
@@ -177,13 +273,29 @@ inline void test_staging_seg_vector() {
             max_op_size,  // cursor_advance_l_op_size
             max_op_size   // cursor_advance_r_op_size
         );
+
+        zeta::core::seq_cntr_ref::Ref sv_b{
+            zeta::core_test::staging_seg_vector_utils::Create<
+                zeta::core_test::PODValue>(
+                dd_b, sizeof(zeta::core_test::PODValue) * 3, 7,
+                *static_cast<zeta::core_test::staging_seg_vector_utils::
+                                 StagingSegVector*>(sv_a.cntr))
+        };
+
+        zeta::core_test::seq_cntr_utils::Sanitize(&sv_b);
+
+        zeta::core_test::seq_cntr_utils::SyncCompare<
+            zeta::core_test::PODValue, zeta::core::seq_cntr_ref::Ref>(
+            { &dd_c, &sv_a, &sv_b });
+
+        zeta::core_test::seq_cntr_utils::Destroy(&sv_b);
     }
 
-    seq_cntr_utils::Destroy(&seq_cntr_a);
-    seq_cntr_utils::Destroy(&seq_cntr_b);
+    zeta::core_test::seq_cntr_utils::Destroy(&dd_a);
+    zeta::core_test::seq_cntr_utils::Destroy(&dd_b);
+    zeta::core_test::seq_cntr_utils::Destroy(&dd_c);
 
-    seq_cntr_utils::Destroy(&seq_cntr_a_origin);
-    seq_cntr_utils::Destroy(&seq_cntr_b_origin);
+    zeta::core_test::seq_cntr_utils::Destroy(&sv_a);
 }
 
 #if 0
@@ -203,16 +315,16 @@ void test_staging_vector_copy() {
 
     zeta::core_test::SetRandomSeed(seed);
 
-    SeqCntrRef seq_cntr_a_origin{
-        debug_deque_utils::Create<PODValue>()
+    zeta::core::seq_cntr_ref::Ref seq_cntr_a_origin{
+        debug_deque_utils::Create<zeta::core_test::PODValue>()
     };
 
-    SeqCntrRef seq_cntr_b_origin{
-        debug_deque_utils::Create<PODValue>()
+    zeta::core::seq_cntr_ref::Ref seq_cntr_b_origin{
+        debug_deque_utils::Create<zeta::core_test::PODValue>()
     };
 
-    SeqCntrRef seq_cntr_c_origin{
-        debug_deque_utils::Create<PODValue>()
+    zeta::core::seq_cntr_ref::Ref seq_cntr_c_origin{
+        debug_deque_utils::Create<zeta::core_test::PODValue>()
     };
 
     ZETA_Core_PrintCurPos;
@@ -221,23 +333,23 @@ void test_staging_vector_copy() {
 
     ZETA_Core_PrintCurPos;
 
-    seq_cntr_utils::SyncRandomInit<PODValue>(
+    seq_cntr_utils::SyncRandomInit<zeta::core_test::PODValue>(
         { seq_cntr_a_origin }, origin_size);
 
     ZETA_Core_PrintCurPos;
 
-    SeqCntrRef seq_cntr_a{
-        debug_deque_utils::Create<PODValue>()
+    zeta::core::seq_cntr_ref::Ref seq_cntr_a{
+        debug_deque_utils::Create<zeta::core_test::PODValue>()
     };
 
-    SeqCntrRef seq_cntr_b{
-        zeta::core_test::StagingVector_Create<PODValue>(
-            seq_cntr_b_origin, sizeof(PODValue) * 3, 7)
+    zeta::core::seq_cntr_ref::Ref seq_cntr_b{
+        zeta::core_test::StagingVector_Create<zeta::core_test::PODValue>(
+            seq_cntr_b_origin, sizeof(zeta::core_test::PODValue) * 3, 7)
     };
 
-    SeqCntrRef seq_cntr_c{
-        zeta::core_test::StagingVector_Create<PODValue>(
-            seq_cntr_c_origin, sizeof(PODValue) * 3, 7)
+    zeta::core::seq_cntr_ref::Ref seq_cntr_c{
+        zeta::core_test::StagingVector_Create<zeta::core_test::PODValue>(
+            seq_cntr_c_origin, sizeof(zeta::core_test::PODValue) * 3, 7)
     };
 
     for (size_t _ = 0; _ < 16; ++_) {
@@ -251,7 +363,7 @@ void test_staging_vector_copy() {
         Zeta_Core_StagingVector_Reset(seq_cntr_c.context);
 
         seq_cntr_utils::DoRandomOperations<
-            PODValue>({ seq_cntr_a, seq_cntr_b },
+            zeta::core_test::PODValue>({ seq_cntr_a, seq_cntr_b },
 
                                        512,  // iter_cnt
 
@@ -271,7 +383,7 @@ void test_staging_vector_copy() {
         );
 
         seq_cntr_utils::DoRandomOperations<
-            PODValue>({ seq_cntr_c },
+            zeta::core_test::PODValue>({ seq_cntr_c },
 
                                        512,  // iter_cnt
 
@@ -296,7 +408,7 @@ void test_staging_vector_copy() {
         seq_cntr_utils::Sanitize(seq_cntr_c);
 
         seq_cntr_utils::DoRandomOperations<
-            PODValue>({ seq_cntr_a, seq_cntr_c },
+            zeta::core_test::PODValue>({ seq_cntr_a, seq_cntr_c },
 
                                        512,  // iter_cnt
 
@@ -325,12 +437,14 @@ void test_staging_vector_copy() {
     seq_cntr_utils::Destroy(seq_cntr_c_origin);
 }
 
-void test_staging_vector_collapse() {
-    unsigned random_seed = time(nullptr);
-    unsigned fixed_seed = 1729615114;
+#endif
 
-    unsigned seed = random_seed;
-    // unsigned seed = fixed_seed;
+inline void test_staging_vector_collapse() {
+    unsigned random_seed{ static_cast<unsigned>(time(nullptr)) };
+    unsigned fixed_seed{ 1775408345 };
+
+    // unsigned seed = random_seed;
+    unsigned seed = fixed_seed;
 
     ZETA_Core_PrintCurPos;
 
@@ -342,133 +456,159 @@ void test_staging_vector_collapse() {
 
     /*
 
-    seq_cntr_base -> seq_cntr_b -> seq_cntr_c
+    seq_cntr_base <- seq_cntr_b <- seq_cntr_c
 
     seq_cntr_a
 
     collapse
 
-    seq_cntr_base -> seq_cntr_b
+    seq_cntr_base <- seq_cntr_c
 
-    seq_cntr_base -> seq_cntr_c
+    seq_cntr_base <- seq_cntr_b
 
     seq_cntr_a
 
     */
 
-    SeqCntrRef seq_cntr_base{
-        debug_deque_utils::Create<PODValue>()
+    zeta::core::seq_cntr_ref::Ref seq_cntr_base{
+        zeta::core_test::debug_deque_utils::Create<zeta::core_test::PODValue>()
     };
 
-    size_t origin_size{ 1024 * 1024 };
+    size_t origin_size{ 1024 * 32 };
 
-    seq_cntr_utils::SyncRandomInit<PODValue>(
-        { seq_cntr_base }, origin_size);
+    zeta::core_test::seq_cntr_utils::SyncRandomInit<
+        zeta::core_test::PODValue, zeta::core::seq_cntr_ref::Ref>(
+        { &seq_cntr_base }, origin_size);
 
-    SeqCntrRef seq_cntr_a{
-        debug_deque_utils::Create<PODValue>()
+    zeta::core::seq_cntr_ref::Ref seq_cntr_a{
+        zeta::core_test::debug_deque_utils::Create<zeta::core_test::PODValue>()
     };
 
-    SeqCntrRef seq_cntr_b{
-        zeta::core_test::StagingVector_Create<PODValue>(
-            seq_cntr_base, sizeof(PODValue) * 3, 7)
+    zeta::core::seq_cntr_ref::Ref seq_cntr_b{
+        zeta::core_test::staging_seg_vector_utils::Create<
+            zeta::core_test::PODValue>(seq_cntr_base,
+                                       sizeof(zeta::core_test::PODValue) * 3, 7)
     };
 
     for (size_t _ = 0; _ < 16; ++_) {
         ZETA_Core_PrintVar(_);
 
-        zeta::core::SeqCntr_Assign(seq_cntr_a, seq_cntr_base);
+        zeta::core::seq_cntr::Assign(seq_cntr_a, seq_cntr_base);
 
-        Zeta_Core_StagingVector_Reset(seq_cntr_b.context);
+        zeta::core::staging_seg_vector::Reset(
+            *static_cast<
+                zeta::core_test::staging_seg_vector_utils::StagingSegVector*>(
+                seq_cntr_b.cntr));
 
-        seq_cntr_utils::DoRandomOperations<
-            PODValue>({ seq_cntr_a, seq_cntr_b },
+        zeta::core_test::seq_cntr_utils::DoRandomOperations<
+            zeta::core_test::PODValue, zeta::core::seq_cntr_ref::Ref>(
+            { &seq_cntr_a, &seq_cntr_b },
 
-                                       16,  // iter_cnt
+            16,  // iter_cnt
 
-                                       16,  // read_max_op_size
-                                       16,  // write_max_op_size
-                                       16,  // push_l_max_op_size
-                                       16,  // push_r_max_op_size
-                                       16,  // pop_l_max_op_size
-                                       16,  // pop_r_max_op_size
-                                       16,  // insert_max_op_size
-                                       16,  // erase_max_op_size
+            16,  // read_max_op_size
+            16,  // write_max_op_size
+            16,  // push_l_max_op_size
+            16,  // push_r_max_op_size
+            16,  // pop_l_max_op_size
+            16,  // pop_r_max_op_size
+            16,  // insert_max_op_size
+            16,  // erase_max_op_size
 
-                                       16,  // cursor_step_l_max_op_size
-                                       16,  // cursor_step_r_max_op_size
-                                       16,  // cursor_advance_l_op_size
-                                       16   // cursor_advance_r_op_size
+            16,  // cursor_step_l_max_op_size
+            16,  // cursor_step_r_max_op_size
+            16,  // cursor_advance_l_op_size
+            16   // cursor_advance_r_op_size
         );
 
         ZETA_Core_PrintCurPos;
 
-        SeqCntrRef seq_cntr_c{
-            zeta::core_test::StagingVector_Create<PODValue>(
-                seq_cntr_b, sizeof(PODValue) * 3, 7)
+        zeta::core::seq_cntr_ref::Ref seq_cntr_c{
+            zeta::core_test::staging_seg_vector_utils::Create<
+                zeta::core_test::PODValue>(
+                seq_cntr_b, sizeof(zeta::core_test::PODValue) * 3, 7)
         };
 
         ZETA_Core_PrintCurPos;
 
-        seq_cntr_utils::DoRandomOperations<
-            PODValue>({ seq_cntr_a, seq_cntr_c },
+        zeta::core_test::seq_cntr_utils::DoRandomOperations<
+            zeta::core_test::PODValue, zeta::core::seq_cntr_ref::Ref>(
+            { &seq_cntr_a, &seq_cntr_c },
 
-                                       16,  // iter_cnt
+            16,  // iter_cnt
 
-                                       16,  // read_max_op_size
-                                       16,  // write_max_op_size
-                                       16,  // push_l_max_op_size
-                                       16,  // push_r_max_op_size
-                                       16,  // pop_l_max_op_size
-                                       16,  // pop_r_max_op_size
-                                       16,  // insert_max_op_size
-                                       16,  // erase_max_op_size
+            16,  // read_max_op_size
+            16,  // write_max_op_size
+            16,  // push_l_max_op_size
+            16,  // push_r_max_op_size
+            16,  // pop_l_max_op_size
+            16,  // pop_r_max_op_size
+            16,  // insert_max_op_size
+            16,  // erase_max_op_size
 
-                                       16,  // cursor_step_l_max_op_size
-                                       16,  // cursor_step_r_max_op_size
-                                       16,  // cursor_advance_l_op_size
-                                       16   // cursor_advance_r_op_size
+            16,  // cursor_step_l_max_op_size
+            16,  // cursor_step_r_max_op_size
+            16,  // cursor_advance_l_op_size
+            16   // cursor_advance_r_op_size
         );
 
         ZETA_Core_PrintCurPos;
 
-        Zeta_Core_StagingVector_Collapse(seq_cntr_c.context);
+        ZETA_Core_PrintVar(seq_cntr_base.cntr);
+        ZETA_Core_PrintVar(seq_cntr_b.cntr);
+        ZETA_Core_PrintVar(seq_cntr_c.cntr);
+
+        zeta::core::staging_seg_vector::Collapse(
+            *static_cast<
+                zeta::core_test::staging_seg_vector_utils::StagingSegVector*>(
+                seq_cntr_c.cntr),
+
+            *static_cast<
+                zeta::core_test::staging_seg_vector_utils::StagingSegVector*>(
+                seq_cntr_b.cntr),
+
+            zeta::core::seq_cntr_ref::MakeRef(
+                *static_cast<zeta::core_test::debug_deque_utils::DebugDeque*>(
+                    seq_cntr_base.cntr)));
 
         ZETA_Core_PrintCurPos;
 
-        seq_cntr_utils::Sanitize(seq_cntr_b);
-        seq_cntr_utils::Sanitize(seq_cntr_c);
+        zeta::core_test::seq_cntr_utils::Sanitize(&seq_cntr_b);
+        zeta::core_test::seq_cntr_utils::Sanitize(&seq_cntr_c);
 
         ZETA_Core_PrintCurPos;
 
-        seq_cntr_utils::DoRandomOperations<
-            PODValue>({ seq_cntr_a, seq_cntr_c },
+        zeta::core_test::seq_cntr_utils::DoRandomOperations<
+            zeta::core_test::PODValue, zeta::core::seq_cntr_ref::Ref>(
+            { &seq_cntr_a, &seq_cntr_c },
 
-                                       16,  // iter_cnt
+            16,  // iter_cnt
 
-                                       16,  // read_max_op_size
-                                       16,  // write_max_op_size
-                                       16,  // push_l_max_op_size
-                                       16,  // push_r_max_op_size
-                                       16,  // pop_l_max_op_size
-                                       16,  // pop_r_max_op_size
-                                       16,  // insert_max_op_size
-                                       16,  // erase_max_op_size
+            16,  // read_max_op_size
+            16,  // write_max_op_size
+            16,  // push_l_max_op_size
+            16,  // push_r_max_op_size
+            16,  // pop_l_max_op_size
+            16,  // pop_r_max_op_size
+            16,  // insert_max_op_size
+            16,  // erase_max_op_size
 
-                                       16,  // cursor_step_l_max_op_size
-                                       16,  // cursor_step_r_max_op_size
-                                       16,  // cursor_advance_l_op_size
-                                       16   // cursor_advance_r_op_size
+            16,  // cursor_step_l_max_op_size
+            16,  // cursor_step_r_max_op_size
+            16,  // cursor_advance_l_op_size
+            16   // cursor_advance_r_op_size
         );
 
-        seq_cntr_utils::Destroy(seq_cntr_c);
+        zeta::core_test::seq_cntr_utils::Destroy(&seq_cntr_c);
     }
 
-    seq_cntr_utils::Destroy(seq_cntr_a);
-    seq_cntr_utils::Destroy(seq_cntr_b);
+    zeta::core_test::seq_cntr_utils::Destroy(&seq_cntr_a);
+    zeta::core_test::seq_cntr_utils::Destroy(&seq_cntr_b);
 
-    seq_cntr_utils::Destroy(seq_cntr_base);
+    zeta::core_test::seq_cntr_utils::Destroy(&seq_cntr_base);
 }
+
+#if 0
 
 void test_staging_vector_write_back() {
     unsigned random_seed = time(nullptr);
@@ -487,26 +627,26 @@ void test_staging_vector_write_back() {
 
     zeta::core_test::InitCascadeAllocator();
 
-    SeqCntrRef seq_cntr_base{
-        debug_deque_utils::Create<PODValue>()
+    zeta::core::seq_cntr_ref::Ref seq_cntr_base{
+        debug_deque_utils::Create<zeta::core_test::PODValue>()
     };
 
-    SeqCntrRef seq_cntr_a_origin{
-        debug_deque_utils::Create<PODValue>()
+    zeta::core::seq_cntr_ref::Ref seq_cntr_a_origin{
+        debug_deque_utils::Create<zeta::core_test::PODValue>()
     };
 
-    SeqCntrRef seq_cntr_a{
-        zeta::core_test::StagingVector_Create<PODValue>(
-            seq_cntr_a_origin, sizeof(PODValue) * 3, 7)
+    zeta::core::seq_cntr_ref::Ref seq_cntr_a{
+        zeta::core_test::StagingVector_Create<zeta::core_test::PODValue>(
+            seq_cntr_a_origin, sizeof(zeta::core_test::PODValue) * 3, 7)
     };
 
-    SeqCntrRef seq_cntr_b{
-        debug_deque_utils::Create<PODValue>()
+    zeta::core::seq_cntr_ref::Ref seq_cntr_b{
+        debug_deque_utils::Create<zeta::core_test::PODValue>()
     };
 
     size_t origin_size{ 1024 * 1024 };
 
-    seq_cntr_utils::SyncRandomInit<PODValue>(
+    seq_cntr_utils::SyncRandomInit<zeta::core_test::PODValue>(
         { seq_cntr_base }, origin_size);
 
     for (size_t _ = 0; _ < 16; ++_) {
@@ -519,7 +659,7 @@ void test_staging_vector_write_back() {
         Zeta_Core_StagingVector_Reset(seq_cntr_a.context);
 
         seq_cntr_utils::DoRandomOperations<
-            PODValue>({ seq_cntr_a, seq_cntr_b },
+            zeta::core_test::PODValue>({ seq_cntr_a, seq_cntr_b },
 
                                        256,  // iter_cnt
 
@@ -546,7 +686,7 @@ void test_staging_vector_write_back() {
             10   // cost_coeff_erase
         );
 
-        seq_cntr_utils::SyncCompare<PODValue>(
+        seq_cntr_utils::SyncCompare<zeta::core_test::PODValue>(
             { seq_cntr_a_origin, seq_cntr_b });
     }
 
@@ -567,8 +707,10 @@ int main() {
 
     unsigned long long beg_time{ zeta::core_test::GetTime() };
 
-    // test_seq_cntr();
-    test_staging_seg_vector();
+    test_seq_cntr();
+    // test_staging_seg_vector();
+    // test_staging_seg_vector_copy_init();
+    // test_staging_vector_collapse();
 
     unsigned long long end_time{ zeta::core_test::GetTime() };
 

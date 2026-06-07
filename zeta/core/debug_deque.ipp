@@ -199,7 +199,7 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
 
     size_t beg{ pos_cursor->idx };
 
-    ZETA_Core_DebugAssert(seq_cntr::IsReferable(beg, cnt, deque->size()));
+    ZETA_Core_DebugAssert(seq_cntr::IsDereferable(beg, cnt, deque->size()));
 
     if (dst_cursor != nullptr) {
         dst_cursor->cntr = &cntr;
@@ -301,8 +301,6 @@ void* debug_deque::Insert(
     Cntr& cntr, Cursor* pos_cursor, size_t cnt,
     Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
     Cursor* dst_cursor) {
-    ZETA_Core_PrintCurPos;
-
     detail::CheckCursor_(cntr, pos_cursor);
 
     auto* deque{ cntr.deque };
@@ -400,7 +398,8 @@ inline bool debug_deque::AreEqualCursor(Cntr const& cntr,
 
 inline int debug_deque::CompareCursor(Cntr const& cntr, Cursor const* cursor_a,
                                       Cursor const* cursor_b) {
-    return compare::BasicCompare((GetCursorIdx)(cntr, cursor_a) + 1,
+    return compare::BasicCompare(compare::compare_type::ThreeWay{},
+                                 (GetCursorIdx)(cntr, cursor_a) + 1,
                                  (GetCursorIdx)(cntr, cursor_b) + 1);
 }
 
@@ -449,14 +448,13 @@ inline void debug_deque::CursorAdvanceR(Cntr const& cntr, Cursor* cursor,
     cursor->idx += step;
 }
 
-inline void*
-seq_cntr::CntrTraits<debug_deque::Cntr const, void>::GetReferedInst(
+inline void* seq_cntr::CntrTraits<debug_deque::Cntr const>::GetReferedInstPtr(
     debug_deque::Cntr const& cntr) {
     return &const_cast<debug_deque::Cntr&>(cntr);
 }
 
 constexpr seq_cntr::AbilityFlag
-seq_cntr::CntrTraits<debug_deque::Cntr, void>::GetStaticEnabledAbilityFlag() {
+seq_cntr::CntrTraits<debug_deque::Cntr>::GetStaticEnabledAbilityFlag() {
     return seq_cntr::AbilityFlagBuilder{
         .GetCursorSize = true,
 
@@ -501,70 +499,68 @@ seq_cntr::CntrTraits<debug_deque::Cntr, void>::GetStaticEnabledAbilityFlag() {
     }();
 }
 
-constexpr seq_cntr::AbilityFlag seq_cntr::CntrTraits<
-    debug_deque::Cntr const, void>::GetStaticEnabledAbilityFlag() {
-    return seq_cntr::CntrTraits<debug_deque::Cntr,
-                                void>::GetStaticEnabledAbilityFlag() &
+constexpr seq_cntr::AbilityFlag
+seq_cntr::CntrTraits<debug_deque::Cntr const>::GetStaticEnabledAbilityFlag() {
+    return seq_cntr::CntrTraits<
+               debug_deque::Cntr>::GetStaticEnabledAbilityFlag() &
            seq_cntr::const_ability_flag;
 }
 
 constexpr seq_cntr::AbilityFlag
-seq_cntr::CntrTraits<debug_deque::Cntr, void>::GetStaticDisabledAbilityFlag() {
+seq_cntr::CntrTraits<debug_deque::Cntr>::GetStaticDisabledAbilityFlag() {
     return seq_cntr::empty_ability_flag;
 }
 
-constexpr seq_cntr::AbilityFlag seq_cntr::CntrTraits<
-    debug_deque::Cntr const, void>::GetStaticDisabledAbilityFlag() {
+constexpr seq_cntr::AbilityFlag
+seq_cntr::CntrTraits<debug_deque::Cntr const>::GetStaticDisabledAbilityFlag() {
     return seq_cntr::non_const_ability_flag;
 }
 
-constexpr seq_cntr::AbilityFlag seq_cntr::CntrTraits<
-    debug_deque::Cntr const,
-    void>::GetDynamicEnabledAbilityFlag(debug_deque::Cntr const&) {
+constexpr seq_cntr::AbilityFlag
+seq_cntr::CntrTraits<debug_deque::Cntr const>::GetDynamicEnabledAbilityFlag(
+    debug_deque::Cntr const&) {
     return seq_cntr::empty_ability_flag;
 }
 
-constexpr seq_cntr::AbilityFlag seq_cntr::CntrTraits<
-    debug_deque::Cntr const,
-    void>::GetDynamicDisabledAbilityFlag(debug_deque::Cntr const&) {
+constexpr seq_cntr::AbilityFlag
+seq_cntr::CntrTraits<debug_deque::Cntr const>::GetDynamicDisabledAbilityFlag(
+    debug_deque::Cntr const&) {
     return seq_cntr::empty_ability_flag;
 }
 
-inline size_t
-seq_cntr::CntrTraits<debug_deque::Cntr const, void>::GetCursorSize(
+inline size_t seq_cntr::CntrTraits<debug_deque::Cntr const>::GetCursorSize(
     debug_deque::Cntr const& cntr) {
     return debug_deque::GetCursorSize(cntr);
 }
 
-inline size_t seq_cntr::CntrTraits<debug_deque::Cntr const, void>::GetElemSize(
+inline size_t seq_cntr::CntrTraits<debug_deque::Cntr const>::GetElemSize(
     debug_deque::Cntr const& cntr) {
     return debug_deque::GetElemSize(cntr);
 }
 
-inline size_t seq_cntr::CntrTraits<debug_deque::Cntr const, void>::GetElemCnt(
+inline size_t seq_cntr::CntrTraits<debug_deque::Cntr const>::GetElemCnt(
     debug_deque::Cntr const& cntr) {
     return debug_deque::GetElemCnt(cntr);
 }
 
-inline size_t
-seq_cntr::CntrTraits<debug_deque::Cntr const, void>::GetMaxElemCnt(
+inline size_t seq_cntr::CntrTraits<debug_deque::Cntr const>::GetMaxElemCnt(
     debug_deque::Cntr const& cntr) {
     return debug_deque::GetMaxElemCnt(cntr);
 }
 
-inline void seq_cntr::CntrTraits<debug_deque::Cntr const, void>::GetLBCursor(
+inline void seq_cntr::CntrTraits<debug_deque::Cntr const>::GetLBCursor(
     debug_deque::Cntr const& cntr, void* dst_cursor) {
     debug_deque::GetLBCursor(cntr,
                              static_cast<debug_deque::Cursor*>(dst_cursor));
 }
 
-inline void seq_cntr::CntrTraits<debug_deque::Cntr const, void>::GetRBCursor(
+inline void seq_cntr::CntrTraits<debug_deque::Cntr const>::GetRBCursor(
     debug_deque::Cntr const& cntr, void* dst_cursor) {
     debug_deque::GetRBCursor(cntr,
                              static_cast<debug_deque::Cursor*>(dst_cursor));
 }
 
-inline void* seq_cntr::CntrTraits<debug_deque::Cntr const, void>::PeekL(
+inline void* seq_cntr::CntrTraits<debug_deque::Cntr const>::PeekL(
     debug_deque::Cntr const& cntr, bool lazy_copy_elem, void* dst_cursor,
     void* dst_elem) {
     return debug_deque::PeekL(cntr, lazy_copy_elem,
@@ -572,7 +568,7 @@ inline void* seq_cntr::CntrTraits<debug_deque::Cntr const, void>::PeekL(
                               dst_elem);
 }
 
-inline void* seq_cntr::CntrTraits<debug_deque::Cntr const, void>::PeekR(
+inline void* seq_cntr::CntrTraits<debug_deque::Cntr const>::PeekR(
     debug_deque::Cntr const& cntr, bool lazy_copy_elem, void* dst_cursor,
     void* dst_elem) {
     return debug_deque::PeekR(cntr, lazy_copy_elem,
@@ -580,7 +576,7 @@ inline void* seq_cntr::CntrTraits<debug_deque::Cntr const, void>::PeekR(
                               dst_elem);
 }
 
-inline void* seq_cntr::CntrTraits<debug_deque::Cntr const, void>::Access(
+inline void* seq_cntr::CntrTraits<debug_deque::Cntr const>::Access(
     debug_deque::Cntr const& cntr, size_t idx, bool lazy_copy_elem,
     void* dst_cursor, void* dst_elem) {
     return debug_deque::Access(cntr, idx, lazy_copy_elem,
@@ -588,7 +584,7 @@ inline void* seq_cntr::CntrTraits<debug_deque::Cntr const, void>::Access(
                                dst_elem);
 }
 
-inline void* seq_cntr::CntrTraits<debug_deque::Cntr const, void>::Derefer(
+inline void* seq_cntr::CntrTraits<debug_deque::Cntr const>::Derefer(
     debug_deque::Cntr const& cntr, void const* pos_cursor, bool lazy_copy_elem,
     void* dst_elem) {
     return debug_deque::Derefer(
@@ -597,7 +593,7 @@ inline void* seq_cntr::CntrTraits<debug_deque::Cntr const, void>::Derefer(
 }
 
 template <typename Reader>
-void seq_cntr::CntrTraits<debug_deque::Cntr const, void>::Read(
+void seq_cntr::CntrTraits<debug_deque::Cntr const>::Read(
     debug_deque::Cntr const& cntr, void const* pos_cursor, size_t cnt,
     Reader&& reader, void* dst_cursor) {
     debug_deque::Read(cntr, static_cast<debug_deque::Cursor const*>(pos_cursor),
@@ -606,16 +602,17 @@ void seq_cntr::CntrTraits<debug_deque::Cntr const, void>::Read(
 }
 
 template <typename Writer>
-void seq_cntr::CntrTraits<debug_deque::Cntr, void>::Write(
-    debug_deque::Cntr& cntr, void* pos_cursor, size_t cnt, Writer&& writer,
-    void* dst_cursor) {
+void seq_cntr::CntrTraits<debug_deque::Cntr>::Write(debug_deque::Cntr& cntr,
+                                                    void* pos_cursor,
+                                                    size_t cnt, Writer&& writer,
+                                                    void* dst_cursor) {
     debug_deque::Write(cntr, static_cast<debug_deque::Cursor*>(pos_cursor), cnt,
                        meta::Forward<Writer>(writer),
                        static_cast<debug_deque::Cursor*>(dst_cursor));
 }
 
 template <typename ReaderWriter>
-void seq_cntr::CntrTraits<debug_deque::Cntr, void>::ReadWrite(
+void seq_cntr::CntrTraits<debug_deque::Cntr>::ReadWrite(
     debug_deque::Cntr& cntr, void* pos_cursor, size_t cnt,
     ReaderWriter&& reader_writer, void* dst_cursor) {
     debug_deque::ReadWrite(cntr, static_cast<debug_deque::Cursor*>(pos_cursor),
@@ -624,102 +621,107 @@ void seq_cntr::CntrTraits<debug_deque::Cntr, void>::ReadWrite(
 }
 
 template <typename Writer>
-void* seq_cntr::CntrTraits<debug_deque::Cntr, void>::PushL(
-    debug_deque::Cntr& cntr, size_t cnt, Writer&& writer, void* dst_cursor) {
+void* seq_cntr::CntrTraits<debug_deque::Cntr>::PushL(debug_deque::Cntr& cntr,
+                                                     size_t cnt,
+                                                     Writer&& writer,
+                                                     void* dst_cursor) {
     return debug_deque::PushL(cntr, cnt, meta::Forward<Writer>(writer),
                               static_cast<debug_deque::Cursor*>(dst_cursor));
 }
 
 template <typename Writer>
-void* seq_cntr::CntrTraits<debug_deque::Cntr, void>::PushR(
-    debug_deque::Cntr& cntr, size_t cnt, Writer&& writer, void* dst_cursor) {
+void* seq_cntr::CntrTraits<debug_deque::Cntr>::PushR(debug_deque::Cntr& cntr,
+                                                     size_t cnt,
+                                                     Writer&& writer,
+                                                     void* dst_cursor) {
     return debug_deque::PushR(cntr, cnt, meta::Forward<Writer>(writer),
                               static_cast<debug_deque::Cursor*>(dst_cursor));
 }
 
 template <typename Writer>
-void* seq_cntr::CntrTraits<debug_deque::Cntr, void>::Insert(
-    debug_deque::Cntr& cntr, void* pos_cursor, size_t cnt, Writer&& writer,
-    void* dst_cursor) {
+void* seq_cntr::CntrTraits<debug_deque::Cntr>::Insert(debug_deque::Cntr& cntr,
+                                                      void* pos_cursor,
+                                                      size_t cnt,
+                                                      Writer&& writer,
+                                                      void* dst_cursor) {
     return debug_deque::Insert(cntr,
                                static_cast<debug_deque::Cursor*>(pos_cursor),
                                cnt, meta::Forward<Writer>(writer),
                                static_cast<debug_deque::Cursor*>(dst_cursor));
 }
 
-inline void seq_cntr::CntrTraits<debug_deque::Cntr, void>::PopL(
+inline void seq_cntr::CntrTraits<debug_deque::Cntr>::PopL(
     debug_deque::Cntr& cntr, size_t cnt) {
     debug_deque::PopL(cntr, cnt);
 }
 
-inline void seq_cntr::CntrTraits<debug_deque::Cntr, void>::PopR(
+inline void seq_cntr::CntrTraits<debug_deque::Cntr>::PopR(
     debug_deque::Cntr& cntr, size_t cnt) {
     debug_deque::PopR(cntr, cnt);
 }
 
-inline void seq_cntr::CntrTraits<debug_deque::Cntr, void>::Erase(
+inline void seq_cntr::CntrTraits<debug_deque::Cntr>::Erase(
     debug_deque::Cntr& cntr, void* pos_cursor, size_t cnt) {
     debug_deque::Erase(cntr, static_cast<debug_deque::Cursor*>(pos_cursor),
                        cnt);
 }
 
-inline void seq_cntr::CntrTraits<debug_deque::Cntr, void>::EraseAll(
+inline void seq_cntr::CntrTraits<debug_deque::Cntr>::EraseAll(
     debug_deque::Cntr& cntr) {
     debug_deque::EraseAll(cntr);
 }
 
-inline void seq_cntr::CntrTraits<debug_deque::Cntr const, void>::CopyCursor(
+inline void seq_cntr::CntrTraits<debug_deque::Cntr const>::CopyCursor(
     debug_deque::Cntr const& cntr, void const* src_cursor, void* dst_cursor) {
     debug_deque::CopyCursor(cntr,
                             static_cast<debug_deque::Cursor const*>(src_cursor),
                             static_cast<debug_deque::Cursor*>(dst_cursor));
 }
 
-inline bool seq_cntr::CntrTraits<debug_deque::Cntr const, void>::AreEqualCursor(
+inline bool seq_cntr::CntrTraits<debug_deque::Cntr const>::AreEqualCursor(
     debug_deque::Cntr const& cntr, void const* cursor_a, void const* cursor_b) {
     return debug_deque::AreEqualCursor(
         cntr, static_cast<debug_deque::Cursor const*>(cursor_a),
         static_cast<debug_deque::Cursor const*>(cursor_b));
 }
 
-inline int seq_cntr::CntrTraits<debug_deque::Cntr const, void>::CompareCursor(
+inline int seq_cntr::CntrTraits<debug_deque::Cntr const>::CompareCursor(
     debug_deque::Cntr const& cntr, void const* cursor_a, void const* cursor_b) {
     return debug_deque::CompareCursor(
         cntr, static_cast<debug_deque::Cursor const*>(cursor_a),
         static_cast<debug_deque::Cursor const*>(cursor_b));
 }
 
-inline size_t
-seq_cntr::CntrTraits<debug_deque::Cntr const, void>::GetCursorDist(
+inline size_t seq_cntr::CntrTraits<debug_deque::Cntr const>::GetCursorDist(
     debug_deque::Cntr const& cntr, void const* cursor_a, void const* cursor_b) {
     return debug_deque::GetCursorDist(
         cntr, static_cast<debug_deque::Cursor const*>(cursor_a),
         static_cast<debug_deque::Cursor const*>(cursor_b));
 }
 
-inline size_t seq_cntr::CntrTraits<debug_deque::Cntr const, void>::GetCursorIdx(
+inline size_t seq_cntr::CntrTraits<debug_deque::Cntr const>::GetCursorIdx(
     debug_deque::Cntr const& cntr, void const* cursor) {
     return debug_deque::GetCursorIdx(
         cntr, static_cast<debug_deque::Cursor const*>(cursor));
 }
 
-inline void seq_cntr::CntrTraits<debug_deque::Cntr const, void>::CursorStepL(
+inline void seq_cntr::CntrTraits<debug_deque::Cntr const>::CursorStepL(
     debug_deque::Cntr const& cntr, void* cursor) {
     debug_deque::CursorStepL(cntr, static_cast<debug_deque::Cursor*>(cursor));
 }
 
-inline void seq_cntr::CntrTraits<debug_deque::Cntr const, void>::CursorStepR(
+inline void seq_cntr::CntrTraits<debug_deque::Cntr const>::CursorStepR(
     debug_deque::Cntr const& cntr, void* cursor) {
     debug_deque::CursorStepR(cntr, static_cast<debug_deque::Cursor*>(cursor));
 }
 
-inline void seq_cntr::CntrTraits<debug_deque::Cntr const, void>::CursorAdvanceL(
+inline void seq_cntr::CntrTraits<debug_deque::Cntr const>::CursorAdvanceL(
     debug_deque::Cntr const& cntr, void* cursor, size_t step) {
     debug_deque::CursorAdvanceL(cntr, static_cast<debug_deque::Cursor*>(cursor),
                                 step);
 }
 
-inline void seq_cntr::CntrTraits<debug_deque::Cntr const, void>::CursorAdvanceR(
+inline void seq_cntr::CntrTraits<debug_deque::Cntr const>::CursorAdvanceR(
     debug_deque::Cntr const& cntr, void* cursor, size_t step) {
     debug_deque::CursorAdvanceR(cntr, static_cast<debug_deque::Cursor*>(cursor),
                                 step);

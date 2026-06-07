@@ -1,11 +1,8 @@
 #pragma once
 
-#include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/llist.hpp>
 #include <zeta/core/ptr_utils.hpp>
-#include <zeta/core/type_wrapper.hpp>
-#include <zeta/core/utils.hpp>
 
 #pragma push_macro("NodeTplDeclParamList")
 #define NodeTplDeclParamList \
@@ -95,6 +92,6 @@ struct llist::NodeTraits<
 
 }  // namespace zeta::core
 
-#pragma pop_macro("NodeTplDeclParamList")
-#pragma pop_macro("NodeTplParamList")
 #pragma pop_macro("NodeTplArgList")
+#pragma pop_macro("NodeTplParamList")
+#pragma pop_macro("NodeTplDeclParamList")

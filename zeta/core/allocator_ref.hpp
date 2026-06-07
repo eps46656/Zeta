@@ -28,15 +28,15 @@ Ref MakeRef(Allocator& alctr);
 namespace zeta::core {
 
 template <>
-struct allocator::AllocatorTraits<allocator_ref::Ref const, void> {
-    static void* GetReferedInst(allocator_ref::Ref const& ref);
+struct allocator::AllocatorTraits<allocator_ref::Ref const> {
+    static void* GetReferedInstPtr(allocator_ref::Ref const& ref);
 
     static size_t GetAlign(allocator_ref::Ref const& ref);
 };
 
 template <>
-struct allocator::AllocatorTraits<allocator_ref::Ref, void>
-    : public allocator::AllocatorTraits<allocator_ref::Ref const, void> {
+struct allocator::AllocatorTraits<allocator_ref::Ref>
+    : public allocator::AllocatorTraits<allocator_ref::Ref const> {
     static void* Allocate(allocator_ref::Ref& ref, size_t size);
 
     static void Deallocate(allocator_ref::Ref& ref, void* ptr);

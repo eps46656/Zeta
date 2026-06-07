@@ -7,6 +7,8 @@
 
 #elif defined(_WIN32) || defined(_WIN64)
 
+// IWYU: no_include, include "minwindef.h"
+// IWYU: no_include, include "processthreadsapi.h"
 #include <windows.h>
 
 #else

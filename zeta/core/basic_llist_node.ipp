@@ -1,8 +1,8 @@
 #pragma once
 
 #include <zeta/core/basic_llist_node.hpp>
-#include <zeta/core/debug_utils.hpp>
-#include <zeta/core/ptr_utils.ipp>
+#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/llist.hpp>
 
 #pragma push_macro("NodeTplParamList")
 #define NodeTplParamList \
@@ -84,6 +84,60 @@ void basic_llist_node::Node<NodeTplArgList>::SetLColor(int color) {
 template <NodeTplParamList>
 void basic_llist_node::Node<NodeTplArgList>::SetRColor(int color) {
     this->r.SetColor(alignof(Node), this, color);
+}
+
+template <NodeTplParamList>
+constexpr bool
+llist::NodeTraits<basic_llist_node::Node<NodeTplArgList>>::IsConst() {
+    return false;
+}
+
+template <NodeTplParamList>
+constexpr bool
+llist::NodeTraits<basic_llist_node::Node<NodeTplArgList> const>::IsConst() {
+    return true;
+}
+
+template <NodeTplParamList>
+basic_llist_node::Node<NodeTplArgList>*
+llist::NodeTraits<basic_llist_node::Node<NodeTplArgList>>::GetL(
+    basic_llist_node::Node<NodeTplArgList>* n) {
+    return n->GetLPtr();
+}
+
+template <NodeTplParamList>
+basic_llist_node::Node<NodeTplArgList> const*
+llist::NodeTraits<basic_llist_node::Node<NodeTplArgList> const>::GetL(
+    basic_llist_node::Node<NodeTplArgList> const* n) {
+    return n->GetLPtr();
+}
+
+template <NodeTplParamList>
+basic_llist_node::Node<NodeTplArgList>*
+llist::NodeTraits<basic_llist_node::Node<NodeTplArgList>>::GetR(
+    basic_llist_node::Node<NodeTplArgList>* n) {
+    return n->GetRPtr();
+}
+
+template <NodeTplParamList>
+basic_llist_node::Node<NodeTplArgList> const*
+llist::NodeTraits<basic_llist_node::Node<NodeTplArgList> const>::GetR(
+    basic_llist_node::Node<NodeTplArgList> const* n) {
+    return n->GetRPtr();
+}
+
+template <NodeTplParamList>
+void llist::NodeTraits<basic_llist_node::Node<NodeTplArgList>>::SetL(
+    basic_llist_node::Node<NodeTplArgList>* n,
+    basic_llist_node::Node<NodeTplArgList>* m) {
+    n->SetLPtr(m);
+}
+
+template <NodeTplParamList>
+void llist::NodeTraits<basic_llist_node::Node<NodeTplArgList>>::SetR(
+    basic_llist_node::Node<NodeTplArgList>* n,
+    basic_llist_node::Node<NodeTplArgList>* m) {
+    n->SetRPtr(m);
 }
 
 }  // namespace zeta::core

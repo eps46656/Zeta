@@ -1,50 +1,84 @@
 #pragma once
 
+#include <zeta/core/meta.hpp>
+
 namespace zeta::core::compare {
 
+namespace compare_type {
+
+struct ThreeWay {};
+struct EqualTo {};
+struct NotEqualTo {};
+struct Less {};
+struct LessEqual {};
+struct Greater {};
+struct GreaterEqual {};
+
+template <typename CompareTypeTag>
+constexpr bool IsCompareType{
+    meta::IsAnyOf<CompareTypeTag, ThreeWay, EqualTo, NotEqualTo, Less,
+                  LessEqual, Greater, GreaterEqual>
+};
+
+};  // namespace compare_type
+
+template <typename Comparator, typename A, typename B>
+constexpr int Compare(Comparator const& cmptr, compare_type::ThreeWay, A&& a,
+                      B&& b);
+
+template <typename Comparator, typename CompareTypeTag, typename A, typename B,
+          typename = meta::EnableIf<
+              compare_type::IsCompareType<CompareTypeTag> &&
+                  !meta::IsAnyOf<CompareTypeTag, compare_type::ThreeWay>,
+              void>>
+constexpr bool Compare(Comparator const& cmptr, CompareTypeTag, A&& a, B&& b);
+
+template <typename Comparator, typename A, typename B>
+void CheckContract();
+
 template <typename A, typename B, typename = void>
-struct BasicCompareImpl;
+struct BasicComparator;  // IWYU pragma: export
 
-int LexMemCompare(void const* a, void const* b, size_t a_size, size_t b_size);
+template <typename CompareTypeTag, typename A, typename B>
+constexpr int BasicCompare(CompareTypeTag, A const& a, B const& y);
 
-int LexElemCompare(void const* a, void const* b, size_t a_width, size_t b_width,
-                   size_t a_stride, size_t b_stride, size_t a_cnt,
-                   size_t b_cnt);
+struct UniversalBasicComparator {
+    template <typename CompareTypeTag, typename A, typename B>
+    static constexpr int Compare(CompareTypeTag, A const& a, B const& b);
+};
 
-template <typename A, typename B>
-int BasicCompare(A const& a, B const& b);
-
-template <typename A, typename B>
-int TypeErasedBasicCompare(void const* a, void const* b);
+template <typename CompareTypeTag, typename A, typename B>
+constexpr int TypeErasedBasicCompare(CompareTypeTag, void const* a,
+                                     void const* b);
 
 template <typename A, typename B>
 struct CppStdBasicEqualTo {
-    bool operator()(A const& a, B const& b) const;
+    constexpr bool operator()(A const& a, B const& b) const;
 };
 
 template <typename A, typename B>
 struct CppStdBasicNotEqualTo {
-    bool operator()(A const& a, B const& b) const;
+    constexpr bool operator()(A const& a, B const& b) const;
 };
 
 template <typename A, typename B>
 struct CppStdBasicLess {
-    bool operator()(A const& a, B const& b) const;
+    constexpr bool operator()(A const& a, B const& b) const;
 };
 
 template <typename A, typename B>
 struct CppStdBasicLessEqual {
-    bool operator()(A const& a, B const& b) const;
+    constexpr bool operator()(A const& a, B const& b) const;
 };
 
 template <typename A, typename B>
 struct CppStdBasicGreater {
-    bool operator()(A const& a, B const& b) const;
+    constexpr bool operator()(A const& a, B const& b) const;
 };
 
 template <typename A, typename B>
 struct CppStdBasicGreaterEqual {
-    bool operator()(A const& a, B const& b) const;
+    constexpr bool operator()(A const& a, B const& b) const;
 };
 
 }  // namespace zeta::core::compare

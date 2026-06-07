@@ -11,8 +11,8 @@ struct Cntr {
     size_t elem_size;
     size_t elem_stride;
     size_t elem_cnt;
-    size_t elem_capacity;
-    size_t idx_offset;
+    size_t slot_cnt;
+    size_t rot;
 };
 
 struct Cursor {
@@ -22,13 +22,13 @@ struct Cursor {
 };
 
 void* ReferElem(void* data, size_t elem_stride, size_t elem_capacity,
-                size_t idx_offset, size_t idx);
+                size_t slot_offset, size_t idx);
 
 size_t GetLongestContSucr(size_t elem_cnt, size_t elem_capacity,
-                          size_t idx_offset, size_t idx);
+                          size_t slot_offset, size_t idx);
 
 size_t GetLongestContPred(size_t elem_cnt, size_t elem_capacity,
-                          size_t idx_offset, size_t idx);
+                          size_t slot_offset, size_t idx);
 
 template <typename SrcSeqCntr>
 void AssignFromSeqCntr(Cntr& cntr, size_t dst_beg,
@@ -141,8 +141,8 @@ void CursorAdvanceR(Cntr const& cntr, Cursor* cursor, size_t step);
 namespace zeta::core {
 
 template <>
-struct seq_cntr::CntrTraits<circular_array::Cntr const, void> {
-    static void* GetReferedInst(circular_array::Cntr const& cntr);
+struct seq_cntr::CntrTraits<circular_array::Cntr const> {
+    static void* GetReferedInstPtr(circular_array::Cntr const& cntr);
 
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
 
@@ -210,8 +210,8 @@ struct seq_cntr::CntrTraits<circular_array::Cntr const, void> {
 };
 
 template <>
-struct seq_cntr::CntrTraits<circular_array::Cntr, void>
-    : public seq_cntr::CntrTraits<circular_array::Cntr const, void> {
+struct seq_cntr::CntrTraits<circular_array::Cntr>
+    : public seq_cntr::CntrTraits<circular_array::Cntr const> {
     static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
 
     static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();

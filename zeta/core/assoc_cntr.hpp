@@ -3,9 +3,6 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/function_ref.hpp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/meta.hpp>
-#include <zeta/core/utils.hpp>
-#include <zeta/core/value_wrapper.hpp>
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define ZETA_Core_AssocCntr_AllocaCursor(cntr)             \
@@ -17,18 +14,19 @@
 
 namespace zeta::core::assoc_cntr {
 
-using FnHash = FunctionRef<unsigned long long(void const*, unsigned long long)>;
+using FnHash =
+    function_ref::Ref<unsigned long long(void const*, unsigned long long)>;
 
-using FnCompare = FunctionRef<int(void const*, void const*)>;
+using FnCompare = function_ref::Ref<int(void const*, void const*)>;
 
 // clang-format off
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define ZETA_Core_KKKCntr_Ability_XMacro(func, sep)                          \
+#define ZETA_Core_KKKCntr_Ability_XMacro(func, sep)                            \
     func(GetCursorSize) sep                                                    \
                                                                                \
-    func(GetWidth) sep                                                         \
-    func(GetSize) sep                                                          \
-    func(GetCapacity) sep                                                      \
+    func(GetElemSize) sep                                                      \
+    func(GetElemCnt) sep                                                       \
+    func(GetMaxElemCnt) sep                                                    \
                                                                                \
     func(GetLBCursor) sep                                                      \
     func(GetRBCursor) sep                                                      \
@@ -132,9 +130,9 @@ constexpr AbilityFlag full_ability_flag{ AbilityFlagBuilder{
 
 constexpr AbilityFlag non_const_ability_flag{ AbilityFlagBuilder{
     .GetCursorSize = false,
-    .GetWidth = false,
-    .GetSize = false,
-    .GetCapacity = false,
+    .GetElemSize = false,
+    .GetElemCnt = false,
+    .GetMaxElemCnt = false,
     .GetLBCursor = false,
     .GetRBCursor = false,
     .PeekL = false,
@@ -159,9 +157,9 @@ constexpr AbilityFlag non_const_ability_flag{ AbilityFlagBuilder{
 
 constexpr AbilityFlag const_ability_flag{ AbilityFlagBuilder{
     .GetCursorSize = true,
-    .GetWidth = true,
-    .GetSize = true,
-    .GetCapacity = true,
+    .GetElemSize = true,
+    .GetElemCnt = true,
+    .GetMaxElemCnt = true,
     .GetLBCursor = true,
     .GetRBCursor = true,
     .PeekL = true,
@@ -191,7 +189,7 @@ ZETA_Core_StaticAssert((non_const_ability_flag | const_ability_flag) ==
                        full_ability_flag);
 
 template <typename Cntr, typename = void>
-struct CntrTraits;
+struct CntrTraits;  // IWYU pragma: export
 
 constexpr bool CheckAbilityFlags(AbilityFlag static_enabled_ability_flag,
                                  AbilityFlag static_disabled_ability_flag);
@@ -220,13 +218,13 @@ template <typename Cntr>
 size_t GetCursorSize(Cntr& cntr);
 
 template <typename Cntr>
-size_t GetWidth(Cntr& cntr);
+size_t GetElemSize(Cntr& cntr);
 
 template <typename Cntr>
-size_t GetSize(Cntr& cntr);
+size_t GetElemCnt(Cntr& cntr);
 
 template <typename Cntr>
-size_t GetCapacity(Cntr& cntr);
+size_t GetMaxElemCnt(Cntr& cntr);
 
 template <typename Cntr>
 void GetLBCursor(Cntr& cntr, void* dst_cursor);
@@ -295,9 +293,9 @@ template <typename Cntr>
 void CheckContract(Cntr& cntr);
 
 struct VTable {
-    size_t (*GetSize)(void* cntr);
+    size_t (*GetElemCnt)(void* cntr);
 
-    size_t (*GetCapacity)(void* cntr);
+    size_t (*GetMaxElemCnt)(void* cntr);
 
     void (*GetLBCursor)(void* cntr, void* dst_cursor);
 

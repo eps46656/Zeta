@@ -22,19 +22,20 @@ constexpr Integral integral_utils::FromString(char const* str) {
 
     Integral ret{ 0 };
 
-    while (*str == '_') { ++str; }
+    while (*str == '\'') { ++str; }
 
     if (*str == '0') {
         switch (*(++str)) {
         case 'b':
             for (;;) {
                 char c{ *(++str) };
-                if (c == '_') { continue; }
+                if (c == '\'') { continue; }
                 if (c == '\0') { break; }
 
                 ZETA_Core_DebugAssert('0' <= c && c <= '1');
 
-                ret = ret * 2 + static_cast<Integral>(c - '0');
+                ret *= 2;
+                ret += static_cast<Integral>(c - '0');
             }
 
             return is_neg ? -ret : ret;
@@ -42,12 +43,27 @@ constexpr Integral integral_utils::FromString(char const* str) {
         case 'o':
             for (;;) {
                 char c{ *(++str) };
-                if (c == '_') { continue; }
+                if (c == '\'') { continue; }
                 if (c == '\0') { break; }
 
                 ZETA_Core_DebugAssert('0' <= c && c <= '7');
 
-                ret = ret * 8 + static_cast<Integral>(c - '0');
+                ret *= 8;
+                ret += static_cast<Integral>(c - '0');
+            }
+
+            return is_neg ? -ret : ret;
+
+        case 'd':
+            for (;;) {
+                char c{ *(++str) };
+                if (c == '\'') { continue; }
+                if (c == '\0') { break; }
+
+                ZETA_Core_DebugAssert('0' <= c && c <= '9');
+
+                ret *= 10;
+                ret += static_cast<Integral>(c - '0');
             }
 
             return is_neg ? -ret : ret;
@@ -55,7 +71,7 @@ constexpr Integral integral_utils::FromString(char const* str) {
         case 'x':
             for (;;) {
                 char c{ *(++str) };
-                if (c == '_') { continue; }
+                if (c == '\'') { continue; }
                 if (c == '\0') { break; }
 
                 ZETA_Core_DebugAssert(('0' <= c && c <= '9') ||
@@ -65,11 +81,11 @@ constexpr Integral integral_utils::FromString(char const* str) {
                 ret *= 16;
 
                 if ('0' <= c && c <= '9') {
-                    ret += c - '0';
+                    ret += static_cast<Integral>(c - '0');
                 } else if ('a' <= c && c <= 'f') {
-                    ret += c - 'a' + 10;
+                    ret += static_cast<Integral>(c - 'a' + 10);
                 } else {
-                    ret += c - 'A' + 10;
+                    ret += static_cast<Integral>(c - 'A' + 10);
                 }
             }
 
@@ -79,12 +95,13 @@ constexpr Integral integral_utils::FromString(char const* str) {
 
     for (;; ++str) {
         char c{ *str };
-        if (c == '_') { continue; }
+        if (c == '\'') { continue; }
         if (c == '\0') { break; }
 
         ZETA_Core_DebugAssert('0' <= c && c <= '9');
 
-        ret = ret * 10 + static_cast<Integral>(c - '0');
+        ret *= 10;
+        ret += static_cast<Integral>(c - '0');
     }
 
     return is_neg ? -ret : ret;

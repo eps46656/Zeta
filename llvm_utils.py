@@ -75,8 +75,12 @@ def get_llc_arch(target: utils.Target):
 get_clang_lang_table = {
     utils.Language.C_HEADER: "c-header",
     utils.Language.C_SOURCE: "c",
+    utils.Language.MACRO_C_HEADER: "c-header",
+    utils.Language.MACRO_C_SOURCE: "c",
     utils.Language.CPP_HEADER: "c++-header",
     utils.Language.CPP_SOURCE: "c++",
+    utils.Language.MACRO_CPP_HEADER: "c++-header",
+    utils.Language.MACRO_CPP_SOURCE: "c++",
 }
 
 
@@ -220,6 +224,7 @@ class LLVMCompiler:
             "clang": "clang",
             "clang++": "clang++",
             "llvm-link": "llvm-link",
+            "include-what-you-use": "include-what-you-use",
         }
 
         self.llvm_link_executable = "llvm-link"
@@ -395,10 +400,17 @@ class LLVMCompiler:
     def run_command_(
         self,
         *cmd: object,
-    ) -> None:
+        check: bool = True,
+        capture_output: bool = False,
+    ):
         list_cmd = utils.to_list_command(cmd)
         print_cmd(list_cmd)
-        subprocess.run(list_cmd, check=True)
+        return subprocess.run(
+            list_cmd,
+            check=check,
+            capture_output=capture_output,
+            text=True,
+        )
 
     def get_compile_args(
         self,
@@ -422,6 +434,30 @@ class LLVMCompiler:
                 "--language", get_clang_lang(lang),
             ],
         )
+
+    def run_iwyu(
+        self,
+        src: utils.PathLike,
+        lang: utils.Language,
+    ) -> None:
+        result = self.run_command_(
+            self.executables["include-what-you-use"],
+            "-Xiwyu",
+            "--no_fwd_decls",
+
+            "--compile",
+            *self.compile_args[lang.base],
+            "--language", get_clang_lang(lang),
+            src,
+
+            check=False,
+            capture_output=True,
+        )
+
+        print(result.stdout)
+        print(result.stderr)
+
+        assert "has correct" in result.stderr
 
     def get_including_pairs(
         self,

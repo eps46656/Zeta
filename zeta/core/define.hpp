@@ -1,16 +1,6 @@
 #pragma once
 
-#include <cstddef>
-
-// -----------------------------------------------------------------------------
-
-#if !defined(offsetof)
-#define offsetof(type, member) __builtin_offsetof(type, member)
-#endif
-
-// -----------------------------------------------------------------------------
-
-#define ZETA_Core_Unused(x) (void)(x)
+#define ZETA_Core_Unused(x) static_cast<void>(x)
 
 #define ZETA_Core_Error()
 
@@ -24,8 +14,6 @@
 #define ZETA_Core_LBrace {
 #define ZETA_Core_RBrace }
 
-// -----------------------------------------------------------------------------
-
 #define ZETA_Core_Get0(x, ...) x
 #define ZETA_Core_Get1(x, ...) ZETA_Core_Get0(__VA_ARGS__)
 #define ZETA_Core_Get2(x, ...) ZETA_Core_Get1(__VA_ARGS__)
@@ -35,11 +23,7 @@
 
 #define ZETA_Core_GetRes(x, ...) __VA_ARGS__
 
-// -----------------------------------------------------------------------------
-
 #define ZETA_Core_HasArgs(...) ZETA_Core_Get0(__VA_OPT__(1, ) 0)
-
-// -----------------------------------------------------------------------------
 
 #define ZETA_Core_ForEach_Identity(...) __VA_ARGS__
 #define ZETA_Core_ForEach_Get0(x, ...) x
@@ -117,8 +101,6 @@
 
 #define ZETA_Core_ForEach(func, ...) \
     ZETA_Core_ForEach_Fetch(ZETA_Core_ForEach_8(func, (), __VA_ARGS__))
-
-// -----------------------------------------------------------------------------
 
 #define ZETA_Core_ForEach_NoCamma_Identity(...) __VA_ARGS__
 #define ZETA_Core_ForEach_NoCamma_Get0(x, ...) x
@@ -210,8 +192,6 @@
     ZETA_Core_ForEach_NoCamma_Fetch(         \
         ZETA_Core_ForEach_NoCamma_8(func, (), __VA_ARGS__))
 
-// -----------------------------------------------------------------------------
-
 #define ZETA_Core_Zip2_Identity(...) __VA_ARGS__
 #define ZETA_Core_Zip2_Get0(x, ...) x
 #define ZETA_Core_Zip2_GetRes(x, ...) __VA_ARGS__
@@ -285,8 +265,6 @@
 #define ZETA_Core_Zip2(func, seq_a, seq_b) \
     ZETA_Core_Zip2_Fetch(ZETA_Core_Zip2_8(func, (), seq_a, seq_b))
 
-// -----------------------------------------------------------------------------
-
 #define ZETA_Core_ToStr_(x) #x
 #define ZETA_Core_ToStr(x) ZETA_Core_ToStr_(x)
 
@@ -304,80 +282,14 @@
 
 #define ZETA_Core_ImmPrint 1
 
-// -----------------------------------------------------------------------------
-
 #define ZETA_Core_PtrToAddr(x) (reinterpret_cast<uintptr_t>(x))
 
 #define ZETA_Core_AddrToPtr(x) (reinterpret_cast<void*>(x))
 
 #define ZETA_Core_MemberToStruct(struct_type, member_name, member_ptr) \
-    (reinterpret_cast<struct_type*>(                                   \
+    ((reinterpret_cast<struct_type*>(                                  \
         const_cast<char*>(reinterpret_cast<char const*>(member_ptr)) - \
-        offsetof(struct_type, member_name)))
-
-// -----------------------------------------------------------------------------
-
-#define ZETA_Core_IfNot(cond) \
-    if (cond) {               \
-    } else
-
-// -----------------------------------------------------------------------------
-
-#define ZETA_Core_ConstexprAndIfElse(static_cond, dynamic_cond, if_block, \
-                                     else_block)                          \
-    if constexpr (!static_cast<bool>(static_cond)) {                      \
-        else_block                                                        \
-    } else if (dynamic_cond) {                                            \
-        if_block                                                          \
-    } else {                                                              \
-        else_block                                                        \
-    }
-
-#define ZETA_Core_ConstexprAndIf(static_cond, dynamic_cond, if_block) \
-    ZETA_Core_ConstexprAndIfElse(static_cond, dynamic_cond, if_block, {})
-
-#define ZETA_Core_ConstexprOrIfElse(static_cond, dynamic_cond, if_block, \
-                                    else_block)                          \
-    if constexpr (static_cast<bool>(static_cond)) {                      \
-        if_block                                                         \
-    } else if (dynamic_cond) {                                           \
-        if_block                                                         \
-    } else {                                                             \
-        else_block                                                       \
-    }
-
-#define ZETA_Core_ConstexprOrIf(static_cond, dynamic_cond, if_block) \
-    ZETA_Core_ConstexprOrIfElse(static_cond, dynamic_cond, if_block, {})
-
-// -----------------------------------------------------------------------------
-
-#define ZETA_Core_BreakableIf_(tmp, cond) \
-    for (bool tmp{ static_cast<bool>(cond) }; tmp; tmp = false)
-
-#define ZETA_Core_BreakableIf(cond) \
-    ZETA_Core_BreakableIf_(ZETA_Core_TmpName, (cond))
-
-#define ZETA_Core_Breakable ZETA_Core_BreakableIf(true)
-
-#define ZETA_Core_ConstexprThreeWay_(tmp_ret, constexpr_cond, result_a, \
-                                     result_b)                          \
-    ({                                                                  \
-        zeta::core::Conditional<constexpr_cond, decltype(result_a),     \
-                                decltype(result_b)>                     \
-            tmp_ret;                                                    \
-                                                                        \
-        if constexpr (constexpr_cond) {                                 \
-            tmp_ret = (result_a);                                       \
-        } else {                                                        \
-            tmp_ret = (result_b);                                       \
-        }                                                               \
-                                                                        \
-        tmp_ret;                                                        \
-    })
-
-#define ZETA_Core_ConstexprThreeWay(constexpr_cond, result_a, result_b)       \
-    ZETA_Core_ConstexprThreeWay_(ZETA_Core_TmpName, constexpr_cond, result_a, \
-                                 result_b)
+        __builtin_offsetof(ZETA_Core_Identity(struct_type), member_name))))
 
 namespace zeta::core {
 
@@ -386,5 +298,7 @@ using size_t = __SIZE_TYPE__;
 using uintptr_t = __UINTPTR_TYPE__;
 using sintptr_t = __INTPTR_TYPE__;
 using ptrdiff_t = __PTRDIFF_TYPE__;
+
+static constexpr size_t max_align{ alignof(void*) };
 
 }  // namespace zeta::core

@@ -1,9 +1,8 @@
 #pragma once
 
+#include <zeta/core/define.hpp>
 #include <zeta/core/integral_math.ipp>
 #include <zeta/core/meta.hpp>
-#include <zeta/core/utils.hpp>
-#include <zeta/core/value_wrapper.hpp>
 
 namespace zeta::core::tuple {
 
@@ -13,6 +12,12 @@ template <typename T>
 struct Wrapper_ {
     T value;
 };
+/*
+We need to evaluate the size of T as a struct data member. For reference types,
+sizeof(T) reflects alias semantics (i.e. sizeof(T&) == sizeof(T)), which does
+not match their actual representation in an object. Therefore, we wrap T in
+Wrapper_ and use sizeof(Wrapper_<T>) instead.
+*/
 
 template <size_t N>
 struct LayoutResult_ {
@@ -86,16 +91,22 @@ constexpr LayoutResult_<sizeof...(Elems)> CalcLayout_() {
 
 namespace tag_ {
 
-struct ValueList_Insuff {};
-struct ValueList_Exact {};
+namespace value_list {
+struct Insuff {};
+struct Exact {};
+}  // namespace value_list
 
-struct LSrcTuple_Excess {};
-struct LSrcTuple_Exact {};
-struct LSrcTuple_Insuff {};
+namespace l_src_tuple {
+struct Excess {};
+struct Exact {};
+struct Insuff {};
+}  // namespace l_src_tuple
 
-struct RSrcTuple_Excess {};
-struct RSrcTuple_Exact {};
-struct RSrcTuple_Insuff {};
+namespace r_src_tuple {
+struct Excess {};
+struct Exact {};
+struct Insuff {};
+}  // namespace r_src_tuple
 
 }  // namespace tag_
 
@@ -130,32 +141,33 @@ struct Node_ {
     constexpr Node_() = default;
 
     template <typename... Args>
-    constexpr Node_(tag_::ValueList_Insuff, Args&&... args);
+    constexpr Node_(tag_::value_list::Insuff, Args&&... args);
 
     template <typename... Args>
-    constexpr Node_(tag_::ValueList_Exact, Args&&... args);
+    constexpr Node_(tag_::value_list::Exact, Args&&... args);
 
     template <size_t SrcN, typename... SrcElems>
-    constexpr Node_(tag_::LSrcTuple_Excess,
+    constexpr Node_(tag_::l_src_tuple::Excess,
                     Node_<SrcN, SrcElems...> const& src_node);
 
     template <size_t SrcN, typename... SrcElems>
-    constexpr Node_(tag_::LSrcTuple_Exact,
+    constexpr Node_(tag_::l_src_tuple::Exact,
                     Node_<SrcN, SrcElems...> const& src_node);
 
     template <size_t SrcN, typename... SrcElems>
-    constexpr Node_(tag_::LSrcTuple_Insuff,
+    constexpr Node_(tag_::l_src_tuple::Insuff,
                     Node_<SrcN, SrcElems...> const& src_node);
 
     template <size_t SrcN, typename... SrcElems>
-    constexpr Node_(tag_::RSrcTuple_Excess,
+    constexpr Node_(tag_::r_src_tuple::Excess,
                     Node_<SrcN, SrcElems...>&& src_node);
 
     template <size_t SrcN, typename... SrcElems>
-    constexpr Node_(tag_::RSrcTuple_Exact, Node_<SrcN, SrcElems...>&& src_node);
+    constexpr Node_(tag_::r_src_tuple::Exact,
+                    Node_<SrcN, SrcElems...>&& src_node);
 
     template <size_t SrcN, typename... SrcElems>
-    constexpr Node_(tag_::RSrcTuple_Insuff,
+    constexpr Node_(tag_::r_src_tuple::Insuff,
                     Node_<SrcN, SrcElems...>&& src_node);
 
     template <size_t SrcN, typename... SrcElems>
@@ -185,31 +197,32 @@ struct Node_<1, Elems...> {
     constexpr Node_() = default;
 
     template <typename... Args>
-    constexpr Node_(tag_::ValueList_Insuff, Args&&...);
+    constexpr Node_(tag_::value_list::Insuff, Args&&...);
 
     template <typename... Args>
-    constexpr Node_(tag_::ValueList_Exact, Args&&... args);
+    constexpr Node_(tag_::value_list::Exact, Args&&... args);
 
     template <size_t SrcN, typename... SrcElems>
-    constexpr Node_(tag_::LSrcTuple_Excess,
+    constexpr Node_(tag_::l_src_tuple::Excess,
                     Node_<SrcN, SrcElems...> const& src_node);
 
     template <size_t SrcN, typename... SrcElems>
-    constexpr Node_(tag_::LSrcTuple_Exact,
+    constexpr Node_(tag_::l_src_tuple::Exact,
                     Node_<SrcN, SrcElems...> const& src_node);
 
     template <size_t SrcN, typename... SrcElems>
-    constexpr Node_(tag_::LSrcTuple_Insuff, Node_<SrcN, SrcElems...> const&);
+    constexpr Node_(tag_::l_src_tuple::Insuff, Node_<SrcN, SrcElems...> const&);
 
     template <size_t SrcN, typename... SrcElems>
-    constexpr Node_(tag_::RSrcTuple_Excess,
+    constexpr Node_(tag_::r_src_tuple::Excess,
                     Node_<SrcN, SrcElems...>&& src_node);
 
     template <size_t SrcN, typename... SrcElems>
-    constexpr Node_(tag_::RSrcTuple_Exact, Node_<SrcN, SrcElems...>&& src_node);
+    constexpr Node_(tag_::r_src_tuple::Exact,
+                    Node_<SrcN, SrcElems...>&& src_node);
 
     template <size_t SrcN, typename... SrcElems>
-    constexpr Node_(tag_::RSrcTuple_Insuff, Node_<SrcN, SrcElems...>&&);
+    constexpr Node_(tag_::r_src_tuple::Insuff, Node_<SrcN, SrcElems...>&&);
 
     template <size_t SrcN, typename... SrcElems>
     constexpr Node_& operator=(Node_<SrcN, SrcElems...> const& src_node);

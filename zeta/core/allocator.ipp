@@ -3,10 +3,6 @@
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
-#include <zeta/core/integral.hpp>
-#include <zeta/core/meta.hpp>
-#include <zeta/core/utils.ipp>
-#include <zeta/core/value_wrapper.hpp>
 
 namespace zeta::core {
 
@@ -22,8 +18,8 @@ namespace zeta::core {
     ZETA_Core_StaticAssert(true)
 
 template <typename Allocator>
-void* allocator::GetReferedInst(Allocator& alctr) {
-    CallMethod(true, GetReferedInst, alctr);
+void* allocator::GetReferedInstPtr(Allocator& alctr) {
+    CallMethod(true, GetReferedInstPtr, alctr);
 }
 
 template <typename Allocator>
@@ -66,20 +62,19 @@ void* allocator::SafeAllocate(Allocator& alctr, size_t align, size_t size) {
 
 template <typename Allocator>
 void allocator::CheckContract(Allocator& alctr) {
-    void* void_ptr{ nullptr };
-
-    size_t size_val{ 0 };
-
 #pragma push_macro("CheckMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CheckMethod(method, ...) \
-    ZETA_Core_Unused(            \
-        (meta::Conditional<false, decltype((method)(__VA_ARGS__)), int>{}))
+#define CheckMethod(method, ...)                            \
+    ZETA_Core_Unused([&](void* void_ptr, size_t size_val) { \
+        ZETA_Core_Unused(void_ptr);                         \
+        ZETA_Core_Unused(size_val);                         \
+        (method)(__VA_ARGS__);                              \
+    })
 
-    CheckMethod(         //
-        GetReferedInst,  // method
-                         //
-        alctr            // allocator
+    CheckMethod(            //
+        GetReferedInstPtr,  // method
+                            //
+        alctr               // allocator
     );
 
     CheckMethod(   //

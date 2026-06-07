@@ -2,6 +2,7 @@
 #include <zeta/core/allocator.ipp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
+#include <zeta/core/lifecycle.hpp>
 #include <zeta/core/pool_allocator.hpp>
 
 #pragma push_macro("AllocatorTplParamList")
@@ -15,62 +16,76 @@
 
 namespace zeta::core {
 
-namespace pool_allocator::ops::detail {
+namespace pool_allocator::detail {
 
 template <AllocatorTplParamList>
 void Check_  // NOLINT(misc-use-internal-linkage)
-    (Allocator<AllocatorTplArgList>* pa) {
-    ZETA_Core_DebugAssert(pa != nullptr);
-
+    (Allocator<AllocatorTplArgList>& pa) {
     if (!meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Never>) {
-        ZETA_Core_DebugAssert(0 < pa->capacity);
-        ZETA_Core_DebugAssert(pa->cnt <= pa->capacity);
+        ZETA_Core_DebugAssert(0 < pa.capacity);
+        ZETA_Core_DebugAssert(pa.cnt <= pa.capacity);
     }
 
-    if (pa->head == nullptr) {
-        ZETA_Core_DebugAssert(pa->tail == nullptr);
+    if (pa.head == nullptr) {
+        ZETA_Core_DebugAssert(pa.tail == nullptr);
 
         if (!meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Never>) {
-            ZETA_Core_DebugAssert(pa->cnt == 0);
+            ZETA_Core_DebugAssert(pa.cnt == 0);
         }
-    } else if (pa->head == pa->tail) {
-        ZETA_Core_DebugAssert(pa->cnt == 1);
+    } else if (pa.head == pa.tail) {
+        ZETA_Core_DebugAssert(pa.cnt == 1);
     }
 }
 
-}  // namespace pool_allocator::ops::detail
+}  // namespace pool_allocator::detail
 
-template <AllocatorTplParamList>
-void pool_allocator::ops::Init(Allocator<AllocatorTplArgList>* pa) {
-    ZETA_Core_DebugAssert(pa != nullptr);
-
+template <typename ReuseStrategyTag, typename ReleaseStrategyTag,
+          typename SrcAllocatorLike, typename SrcAllocatorLikeInitArg, typename>
+void pool_allocator::Init(
+    Allocator<ReuseStrategyTag, ReleaseStrategyTag, SrcAllocatorLike>& pa,
+    SrcAllocatorLikeInitArg&& src_allocator_like_init_arg) {
     if constexpr (!meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Never>) {
-        pa->cnt = 0;
+        pa.cnt = 0;
     }
 
-    pa->head = nullptr;
-    pa->tail = nullptr;
+    pa.head = nullptr;
+    pa.tail = nullptr;
+
+    lifecycle::Init(pa.src_alctr, meta::Forward<SrcAllocatorLikeInitArg>(
+                                      src_allocator_like_init_arg));
+    allocator::CheckContract(meta::GetInstRef(pa.src_alctr));
+}
+
+template <typename ReuseStrategyTag, typename ReleaseStrategyTag>
+void pool_allocator::Init(
+    Allocator<ReuseStrategyTag, ReleaseStrategyTag, void>& pa) {
+    if constexpr (!meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Never>) {
+        pa.cnt = 0;
+    }
+
+    pa.head = nullptr;
+    pa.tail = nullptr;
 }
 
 template <AllocatorTplParamList>
-void pool_allocator::ops::Deinit(Allocator<AllocatorTplArgList>* pa) {
+void pool_allocator::Deinit(Allocator<AllocatorTplArgList>& pa) {
     detail::Check_(pa);
 
     if constexpr (meta::IsAnyOf<SrcAllocatorLike, void>) {
-        ZETA_Core_DebugAssert(pa->head == nullptr);
+        ZETA_Core_DebugAssert(pa.head == nullptr);
     } else {
-        if (pa->head != nullptr) { Release(pa, integral::RangeMaxOf<size_t>); }
+        if (pa.head != nullptr) { Release(pa, integral::RangeMaxOf<size_t>); }
     }
 }
 
 template <AllocatorTplParamList>
-size_t pool_allocator::ops::GetAlign(Allocator<AllocatorTplArgList> const* pa) {
+size_t pool_allocator::GetAlign(Allocator<AllocatorTplArgList> const& pa) {
     detail::Check_(pa);
 
     return alignof(void*);
 }
 
-namespace pool_allocator::ops::detail {
+namespace pool_allocator::detail {
 
 inline void PushTail_  // NOLINT(misc-use-internal-linkage)
     (void*& head, void*& tail, void* ptr) {
@@ -124,33 +139,33 @@ inline void PopTail_  // NOLINT(misc-use-internal-linkage)
     tail = tail_prv;
 }
 
-}  // namespace pool_allocator::ops::detail
+}  // namespace pool_allocator::detail
 
 template <AllocatorTplParamList>
-void* pool_allocator::ops::Allocate(Allocator<AllocatorTplArgList>* pa,
-                                    size_t size) {
+void* pool_allocator::Allocate(Allocator<AllocatorTplArgList>& pa,
+                               size_t size) {
     detail::Check_(pa);
 
     if (size == 0) { return nullptr; }
 
-    void* head{ pa->head };
-    void* tail{ pa->tail };
+    void* head{ pa.head };
+    void* tail{ pa.tail };
 
     if (head == nullptr) {
         if constexpr (!meta::IsAnyOf<SrcAllocatorLike, void>) {
-            return allocator::ops::Allocate(pa->src_alctr, size);
+            return allocator::Allocate(pa.src_alctr, size);
         }
 
         return nullptr;
     }
 
     if constexpr (!meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Never>) {
-        --pa->cnt;
+        --pa.cnt;
     }
 
     if (head == tail) {
-        pa->head = nullptr;
-        pa->tail = nullptr;
+        pa.head = nullptr;
+        pa.tail = nullptr;
         return head;
     }
 
@@ -159,12 +174,12 @@ void* pool_allocator::ops::Allocate(Allocator<AllocatorTplArgList>* pa,
     if constexpr (meta::IsAnyOf<ReuseStrategyTag, ReuseStrategy::Oldest>) {
         ret = head;
         detail::PopHead_(head, tail);
-        pa->head = head;
+        pa.head = head;
     } else if constexpr (meta::IsAnyOf<ReuseStrategyTag,
                                        ReuseStrategy::Latest>) {
         ret = tail;
         detail::PopTail_(head, tail);
-        pa->tail = tail;
+        pa.tail = tail;
     } else {
         ZETA_Core_StaticAssert(false);
     }
@@ -173,24 +188,23 @@ void* pool_allocator::ops::Allocate(Allocator<AllocatorTplArgList>* pa,
 }
 
 template <AllocatorTplParamList>
-void pool_allocator::ops::Deallocate(Allocator<AllocatorTplArgList>* pa,
-                                     void* ptr) {
+void pool_allocator::Deallocate(Allocator<AllocatorTplArgList>& pa, void* ptr) {
     detail::Check_(pa);
 
     if (ptr == nullptr) { return; }
 
     ZETA_Core_DebugAssert(__builtin_is_aligned(ptr, alignof(void*)));
 
-    void* head{ pa->head };
-    void* tail{ pa->tail };
-    size_t capacity{ pa->capacity };
+    void* head{ pa.head };
+    void* tail{ pa.tail };
+    size_t capacity{ pa.capacity };
 
     if (head == nullptr) {
-        pa->head = ptr;
-        pa->tail = ptr;
+        pa.head = ptr;
+        pa.tail = ptr;
 
         if (!meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Never>) {
-            pa->cnt = 1;
+            pa.cnt = 1;
         }
 
         *static_cast<uintptr_t*>(ptr) = 0;
@@ -198,40 +212,39 @@ void pool_allocator::ops::Deallocate(Allocator<AllocatorTplArgList>* pa,
     }
 
     if constexpr (meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Latest>) {
-        if (pa->cnt == capacity) {
-            allocator::ops::Deallocate(pa->src_alctr, ptr);
+        if (pa.cnt == capacity) {
+            allocator::Deallocate(pa.src_alctr, ptr);
             return;
         }
 
-        ++pa->cnt;
+        ++pa.cnt;
     }
 
     detail::PushTail_(head, tail, ptr);
 
     if constexpr (meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Oldest>) {
-        if (pa->cnt == capacity) {
+        if (pa.cnt == capacity) {
             void* n{ head };
             detail::PopHead_(head, tail);
-            allocator::ops::Deallocate(pa->src_alctr, n);
+            allocator::Deallocate(pa.src_alctr, n);
         } else {
-            ++pa->cnt;
+            ++pa.cnt;
         }
     }
 
-    pa->head = head;
-    pa->tail = tail;
+    pa.head = head;
+    pa.tail = tail;
 }
 
 template <AllocatorTplParamList, typename>
-void pool_allocator::ops::Release(Allocator<AllocatorTplArgList>* pa,
-                                  size_t cnt) {
+void pool_allocator::Release(Allocator<AllocatorTplArgList>& pa, size_t cnt) {
     detail::Check_(pa);
 
-    void* head{ pa->head };
-    void* tail{ pa->tail };
+    void* head{ pa.head };
+    void* tail{ pa.tail };
 
     if constexpr (!meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Never>) {
-        pa->cnt -= Min(cnt, pa->cnt);
+        pa.cnt -= Min(cnt, pa.cnt);
     }
 
     for (; 0 < cnt && head != nullptr; --cnt) {
@@ -255,30 +268,31 @@ void pool_allocator::ops::Release(Allocator<AllocatorTplArgList>* pa,
             ZETA_Core_StaticAssert(false);
         }
 
-        allocator::ops::Deallocate(pa->src_alctr, n);
+        allocator::Deallocate(pa.src_alctr, n);
     }
 
-    pa->head = head;
-    pa->tail = tail;
+    pa.head = head;
+    pa.tail = tail;
 }
 
 template <AllocatorTplParamList>
-void pool_allocator::ops::Sanitize(Allocator<AllocatorTplArgList>* pa,
-                                   mem_recorder::MemRecorder* mr) {
+void pool_allocator::Sanitize(Allocator<AllocatorTplArgList>& pa,
+                              mem_recorder::MemRecorder* mr) {
     detail::Check_(pa);
 
-    void* head{ pa->head };
-    void* tail{ pa->tail };
+    void* head{ pa.head };
+    void* tail{ pa.tail };
 
     if (head == nullptr) { return; }
 
-    void* n_prv{ pa->head };
+    void* n_prv{ pa.head };
     void* n{ n_prv };
 
     size_t cnt{ 0 };
 
     for (;;) {
-        mem_recorder::ops::Record(mr, n, sizeof(void*));
+        if (mr != nullptr) { mem_recorder::Record(*mr, n, sizeof(void*)); }
+
         ++cnt;
 
         if (n == tail) { break; }
@@ -292,7 +306,19 @@ void pool_allocator::ops::Sanitize(Allocator<AllocatorTplArgList>* pa,
         n = n_nxt;
     }
 
-    ZETA_Core_DebugAssert(cnt == pa->cnt);
+    ZETA_Core_DebugAssert(cnt == pa.cnt);
+}
+
+template <AllocatorTplParamList>
+void lifecycle::Traits<pool_allocator::Allocator<AllocatorTplArgList>>::Init(
+    pool_allocator::Allocator<AllocatorTplArgList>& pa, auto&&... args) {
+    pool_allocator::Init(pa, meta::Forward<decltype(args)>(args)...);
+}
+
+template <AllocatorTplParamList>
+void lifecycle::Traits<pool_allocator::Allocator<AllocatorTplArgList>>::Deinit(
+    pool_allocator::Allocator<AllocatorTplArgList>& pa) {
+    pool_allocator::Deinit(pa);
 }
 
 }  // namespace zeta::core

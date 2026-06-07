@@ -3,30 +3,30 @@
 namespace zeta::core::integral_bit {
 
 template <typename Integral, typename = void>
-struct Traits;
+struct IntegralTraits;  // IWYU pragma: export
 
-template <typename Num>
-constexpr long long BasicPopCount(Num num);
+template <typename Integral>
+constexpr unsigned long long BasicPopCount(Integral num);
 
-template <typename Num>
-constexpr long long PopCount(Num num);
+template <typename Integral>
+constexpr unsigned long long PopCount(Integral num);
 
-template <typename Num>
-constexpr long long BasicCLZ(Num num);
+template <typename Integral>
+constexpr unsigned long long BasicCLZ(Integral num);
 
-template <typename Num>
-constexpr long long CLZ(Num num);
+template <typename Integral>
+constexpr unsigned long long CLZ(Integral num);
 
-template <typename Num>
-constexpr long long BasicCTZ(Num num);
+template <typename Integral>
+constexpr unsigned long long BasicCTZ(Integral num);
 
-template <typename Num>
-constexpr long long CTZ(Num num);
+template <typename Integral>
+constexpr unsigned long long CTZ(Integral num);
 
-template <typename Num>
-constexpr long long FindPrevBit(Num num, long long pos);
+template <typename Integral>
+constexpr unsigned long long FindPrevBit(Integral num, unsigned long long pos);
 
-template <typename Num>
-constexpr long long FindNextBit(Num num, long long pos);
+template <typename Integral>
+constexpr unsigned long long FindNextBit(Integral num, unsigned long long pos);
 
 }  // namespace zeta::core::integral_bit
