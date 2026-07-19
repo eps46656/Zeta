@@ -1,10 +1,17 @@
 #pragma once
 
+#include <zeta/core/debug_utils.hpp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/pair.hpp>
 
 #define ZETA_Core_AreOverlapped(a_beg, a_end, b_beg, b_end) \
     (((a_beg) < (b_end)) && ((b_beg) < (a_end)))
+
+#define ZETA_Core_Unreachable()                    \
+    ZETA_Core_WhenEnableDebug(ZETA_Core_Identity({ \
+        ZETA_Core_DebugAssert(false);              \
+        __builtin_unreachable();                   \
+    }))
 
 namespace zeta::core::utils {
 

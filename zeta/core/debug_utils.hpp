@@ -28,33 +28,24 @@
 
 #endif
 
-#define ZETA_Core_PrintCurPos                                        \
-    zeta::core::debug_utils::PrintPos(std::cout, __FILE__, __LINE__, \
-                                      __PRETTY_FUNCTION__)           \
-        << "\n\n";                                                   \
-    ZETA_Core_StaticAssert(true)
+#define ZETA_Core_EnPrint 1
 
-#define ZETA_Core_Debug_PrintCurPos                                    \
-    zeta::core::debug_utils::PrintPos(                                 \
-        zeta::core::debug_utils::debug_str_stream, __FILE__, __LINE__, \
-        __PRETTY_FUNCTION__)                                           \
-        << "\n\n";                                                     \
-    ZETA_Core_StaticAssert(true)
+#if ZETA_Core_EnPrint
 
-#define ZETA_Core_Pause    \
-    ZETA_Core_PrintCurPos; \
-    std::cin.get();        \
-    ZETA_Core_StaticAssert(true)
-
-#if ZETA_Core_EnableDebug
-
-#define ZETA_Core_DebugPause ZETA_Core_Pause
+#define ZETA_Core_WhenEnPrint(...) __VA_ARGS__
 
 #else
 
-#define ZETA_Core_DebugPause
+#define ZETA_Core_WhenEnPrint(...) ZETA_Core_Unused(__VA_ARGS__)
 
 #endif
+
+#define ZETA_Core_Pause         \
+    ZETA_Core_ForcePrintCurPos; \
+    std::cin.get();             \
+    ZETA_Core_StaticAssert(true)
+
+#define ZETA_Core_DebugPause ZETA_Core_WhenEnableDebug(ZETA_Core_Pause)
 
 namespace zeta::core::debug_utils {
 

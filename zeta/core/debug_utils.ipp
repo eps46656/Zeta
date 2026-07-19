@@ -13,20 +13,37 @@
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
 
-#define ZETA_Core_PrintVar(var)                                      \
-    zeta::core::debug_utils::PrintVar(std::cout, __FILE__, __LINE__, \
-                                      __PRETTY_FUNCTION__,           \
-                                      ZETA_Core_ToStr(var), (var))   \
+#define ZETA_Core_ForcePrintCurPos                                   \
+    zeta::core::debug_utils::PrintPos(std::cout, __FILE__, __LINE__, \
+                                      __PRETTY_FUNCTION__)           \
         << "\n\n";                                                   \
-    if (ZETA_Core_ImmPrint) { std::cout.flush(); }                   \
     ZETA_Core_StaticAssert(true)
 
-#define ZETA_Core_Debug_PrintVar(var)                                  \
-    zeta::core::debug_utils::PrintVar(                                 \
-        zeta::core::debug_utils::debug_str_stream, __FILE__, __LINE__, \
-        __PRETTY_FUNCTION__, ZETA_Core_ToStr(var), (var))              \
-        << "\n\n";                                                     \
-    ZETA_Core_StaticAssert(true)
+#define ZETA_Core_PrintCurPos ZETA_Core_WhenEnPrint(ZETA_Core_ForcePrintCurPos)
+
+#define ZETA_Core_ForcePrintVarToPipe_(tmp_var, dst_pipe, var)           \
+    ({                                                                   \
+        decltype(auto) tmp_var{ (var) };                                 \
+        zeta::core::debug_utils::PrintVar(dst_pipe, __FILE__, __LINE__,  \
+                                          __PRETTY_FUNCTION__,           \
+                                          ZETA_Core_ToStr(var), tmp_var) \
+            << "\n\n";                                                   \
+        if (ZETA_Core_ImmPrint) { dst_pipe.flush(); }                    \
+        zeta::core::meta::Forward<decltype(tmp_var)>(tmp_var);           \
+    })
+
+#define ZETA_Core_ForcePrintVarToPipe(dst_pipe, var) \
+    ZETA_Core_ForcePrintVarToPipe_(ZETA_Core_TmpName, dst_pipe, var)
+
+#define ZETA_Core_ForcePrintVar(var) \
+    ZETA_Core_ForcePrintVarToPipe(std::cout, var)
+
+#define ZETA_Core_PrintVar(var) \
+    ZETA_Core_WhenEnPrint(ZETA_Core_ForcePrintVar(var))
+
+#define ZETA_Core_Debug_PrintVar(var)                        \
+    ZETA_Core_WhenEnableDebug(ZETA_Core_ForcePrintVarToPipe( \
+        zeta::core::debug_utils::debug_str_stream, var))
 
 #define ZETA_Core_DebugAssert_(tmp_cond, cond)                                 \
     {                                                                          \
@@ -34,7 +51,7 @@
                                                                                \
         if (tmp_cond) {                                                        \
         } else {                                                               \
-            ZETA_Core_PrintVar("Debug Assert !!!");                            \
+            ZETA_Core_ForcePrintVar("Debug Assert !!!");                       \
                                                                                \
             zeta::core::debug_utils::PrintVar(std::cout, __FILE__, __LINE__,   \
                                               __PRETTY_FUNCTION__,             \
@@ -45,7 +62,7 @@
                                                                                \
             ZETA_Core_PrintStackTrace;                                         \
                                                                                \
-            std::cout.flush();                                                 \
+            if (ZETA_Core_ImmPrint) { std::cout.flush(); }                     \
                                                                                \
             exit(1);                                                           \
         }                                                                      \
@@ -59,10 +76,47 @@
 #define Format(left_right, width) \
     left_right << std::setfill(' ') << std::setw(width)
 
-namespace zeta::core::debug_utils {
+namespace zeta::core {
+
+namespace debug_utils::detail {
+
+template <unsigned Numeral, typename UnsignedIntegral>
+std::string IntegralToStr_(UnsignedIntegral value) {
+    ZETA_Core_StaticAssert(integral::IsIntegral<UnsignedIntegral>);
+
+    ZETA_Core_StaticAssert(Numeral == 2 || Numeral == 8 || Numeral == 10 ||
+                           Numeral == 16);
+
+    constexpr char c[]{ "0123456789ABCDEF" };
+
+    unsigned sep_size;
+
+    switch (Numeral) {
+    case 2: sep_size = 4; break;
+    case 8: sep_size = 3; break;
+    case 10: sep_size = 3; break;
+    case 16: sep_size = 2; break;
+    }
+
+    std::string str;
+
+    for (; 0 < value; value /= Numeral) {
+        if (str.size() % (sep_size + 1) == sep_size) { str.push_back('\''); }
+
+        str.push_back(c[value % Numeral]);
+    }
+
+    if (str.empty()) { str.push_back('0'); }
+
+    std::reverse(str.begin(), str.end());
+
+    return str;
+}
+
+}  // namespace debug_utils::detail
 
 template <typename T>
-constexpr std::string GetTypeStr() {
+constexpr std::string debug_utils::GetTypeStr() {
     std::string func_name{ __PRETTY_FUNCTION__ };
 
     size_t l_size{ func_name.find("T = ") + 4 };
@@ -72,7 +126,7 @@ constexpr std::string GetTypeStr() {
 }
 
 template <>
-struct VarPrinter<bool> {
+struct debug_utils::VarPrinter<bool> {
     static std::ostream& Print(std::ostream& os, bool value) {
         return os << Format(std::right, dec_width)
                   << (value ? "true" : "false");
@@ -80,22 +134,53 @@ struct VarPrinter<bool> {
 };
 
 template <typename T>
-struct VarPrinter<
+struct debug_utils::VarPrinter<
     T, meta::EnableIf<(integral::IsIntegral<T> || meta::IsPointer<T>), void>> {
     static std::ostream& Print(std::ostream& os, T const& value) {
         auto proc_value{ [=]() {
             if constexpr (meta::IsPointer<T>) {
                 return reinterpret_cast<uintptr_t>(value);
+            } else if constexpr (integral::IsSignedIntegral<T> &&
+                                 integral::WidthOf<T> <
+                                     integral::WidthOf<int>) {
+                return static_cast<int>(value);
+            } else if constexpr (integral::IsUnsignedIntegral<T> &&
+                                 integral::WidthOf<T> <
+                                     integral::WidthOf<unsigned>) {
+                return static_cast<unsigned>(value);
             } else {
                 return value;
             }
         }() };
 
-        os << Format(std::right, dec_width) << std::dec << proc_value << 'd'
-           << space_str << Format(std::right, hex_width) << std::hex
-           << std::uppercase << proc_value << 'h';
+        bool is_signed{ integral::IsSignedIntegral<T> };
 
-        if constexpr (meta::IsAnyOf<T, char*, char const*>) {
+        using UnProcValue = integral::MakeUnsignedOf<decltype(proc_value)>;
+
+        UnProcValue un_proc_value;
+
+        if (is_signed) {
+            un_proc_value = static_cast<UnProcValue>(
+                proc_value < 0 ? -proc_value : proc_value);
+        } else {
+            un_proc_value = static_cast<UnProcValue>(proc_value);
+        }
+
+        os << Format(std::right, dec_width)
+           << (is_signed ? proc_value < 0 ? '-' : '+' : ' ')
+           << detail::IntegralToStr_<10>(un_proc_value) << "d";
+
+        os << space_str;
+
+        os << Format(std::right, dec_width)
+           << (is_signed ? proc_value < 0 ? '-' : '+' : ' ')
+           << detail::IntegralToStr_<16>(un_proc_value) << "h";
+
+        os << Format(std::right, dec_width)
+           << (is_signed ? proc_value < 0 ? '-' : '+' : ' ')
+           << detail::IntegralToStr_<2>(un_proc_value) << "b";
+
+        if constexpr (meta::IsAnySame<T, char*, char const*>) {
             os << space_str << "\"" << value << "\"";
         }
 
@@ -104,40 +189,41 @@ struct VarPrinter<
 };
 
 template <>
-struct VarPrinter<double> {
+struct debug_utils::VarPrinter<double> {
     static std::ostream& Print(std::ostream& os, double value) {
         return os << space_str << "\"" << value << "\"";
     }
 };
 
 template <>
-struct VarPrinter<char[]> {
+struct debug_utils::VarPrinter<char[]> {
     static std::ostream& Print(std::ostream& os, char const* value) {
         return os << space_str << "\"" << value << "\"";
     }
 };
 
 template <>
-struct VarPrinter<char const[]> : public VarPrinter<char[]> {};
+struct debug_utils::VarPrinter<char const[]> : public VarPrinter<char[]> {};
 
 template <size_t N>
-struct VarPrinter<char[N]> : public VarPrinter<char[]> {};
+struct debug_utils::VarPrinter<char[N]> : public VarPrinter<char[]> {};
 
 template <size_t N>
-struct VarPrinter<char const[N]> : public VarPrinter<char[]> {};
+struct debug_utils::VarPrinter<char const[N]> : public VarPrinter<char[]> {};
 
 template <>
-struct VarPrinter<std::string> {
+struct debug_utils::VarPrinter<std::string> {
     static std::ostream& Print(std::ostream& os, std::string const& str) {
         return VarPrinter<char const*>::Print(os, str.c_str());
     }
 };
 
 template <>
-struct VarPrinter<std::string const> : public VarPrinter<std::string> {};
+struct debug_utils::VarPrinter<std::string const>
+    : public VarPrinter<std::string> {};
 
-inline std::ostream& PrintPos(std::ostream& os, char const* file, int line,
-                              char const* func) {
+inline std::ostream& debug_utils::PrintPos(std::ostream& os, char const* file,
+                                           int line, char const* func) {
     return os <<                                                           //
            "\033[36m" << Format(std::right, file_width) << file << ':' <<  //
            Format(std::left, line_width) << std::dec << line << "\033[0m"
@@ -146,8 +232,9 @@ inline std::ostream& PrintPos(std::ostream& os, char const* file, int line,
 }
 
 template <typename T>
-std::ostream& PrintVar(std::ostream& os, char const* file, int line,
-                       char const* func, char const* var_name, T const& var) {
+std::ostream& debug_utils::PrintVar(std::ostream& os, char const* file,
+                                    int line, char const* func,
+                                    char const* var_name, T const& var) {
     PrintPos(os, file, line, func) << space_str <<                       //
         Format(std::right, var_name_width) << "\033[32m" << var_name <<  //
         " = " <<                                                         //
@@ -157,18 +244,19 @@ std::ostream& PrintVar(std::ostream& os, char const* file, int line,
     return VarPrinter<T>::Print(os, var) << "\033[0m";
 }
 
-inline void PrintDebugStrStream() {
-    std::cout << debug_str_stream.rdbuf();
+inline void debug_utils::PrintDebugStrStream() {
+    std::cout << debug_str_stream.str();
     std::cout.flush();
 }
 
-inline void ClearDebugStrStream() {
+inline void debug_utils::ClearDebugStrStream() {
     debug_str_stream.str("");
     debug_str_stream.clear();
 }
 
+/*
 template <typename Iterator>
-Iterator FindEnclosedBlock(Iterator iter) {
+Iterator debug_utils::FindEnclosedBlock(Iterator iter) {
     char first_c{ *iter };
 
     switch (first_c) {
@@ -219,7 +307,8 @@ Iterator FindEnclosedBlock(Iterator iter) {
 
     return iter;
 }
+*/
 
-}  // namespace zeta::core::debug_utils
+}  // namespace zeta::core
 
 #pragma pop_macro("Format")

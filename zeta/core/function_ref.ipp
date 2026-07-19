@@ -68,7 +68,7 @@ Ret function_ref::Ref<Ret(Args...)>::operator()(Args... args) const {
         return this->const_contextual_func.ptr(
             this->const_contextual_func.context, meta::Forward<Args>(args)...);
 
-    default: __builtin_unreachable();
+    default: ZETA_Core_Unreachable();
     }
 }
 

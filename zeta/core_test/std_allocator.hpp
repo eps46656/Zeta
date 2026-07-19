@@ -61,7 +61,7 @@ namespace zeta::core {
 
 template <typename Allocator>
 struct allocator::AllocatorTraits<
-    Allocator, meta::EnableIf<meta::IsAnyOf<
+    Allocator, meta::EnableIf<meta::IsAnySame<
                    Allocator, zeta::core_test::std_allocator::Allocator,
                    zeta::core_test::std_allocator::Allocator const>>> {
     static void* GetReferedInstPtr(Allocator const& alctr) {

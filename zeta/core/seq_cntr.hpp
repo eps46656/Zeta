@@ -1,3 +1,7 @@
+/*
+@file zeta/core/seq_cntr.hpp
+*/
+
 #pragma once
 
 #include <zeta/core/debug_utils.ipp>
@@ -10,6 +14,8 @@
 #include <zeta/core/value_wrapper.ipp>
 
 namespace zeta::core::seq_cntr {
+
+constexpr size_t max_max_elem_cnt{ integral::RangeMaxOf<size_t> / 2 };
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define ZETA_Core_SeqCntr_AllocaCursor(cntr)             \
@@ -38,7 +44,7 @@ using FnReaderWriter = function_ref::Ref<void(void*,   // data
 
 // clang-format off
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define ZETA_Core_SeqCntr_Ability_XMacro(func, sep) \
+#define ZETA_Core_SeqCntr_Capability_XMacro(func, sep) \
     func(GetCursorSize) sep                                                    \
                                                                                \
     func(GetElemSize) sep                                                      \
@@ -51,7 +57,7 @@ using FnReaderWriter = function_ref::Ref<void(void*,   // data
     func(PeekL) sep                                                            \
     func(PeekR) sep                                                            \
                                                                                \
-    func(Access) sep                                                           \
+    func(Refer) sep                                                            \
     func(Derefer) sep                                                          \
                                                                                \
     func(Read) sep                                                             \
@@ -81,76 +87,67 @@ using FnReaderWriter = function_ref::Ref<void(void*,   // data
     func(CursorAdvanceR)
 // clang-format on
 
-struct AbilityEnum {
-    static constexpr size_t NumBase{ __COUNTER__ + 1 };
+struct CapabilityEnum {
+    using Type = unsigned;
 
-    static constexpr size_t Never{ __COUNTER__ - NumBase };
-    static constexpr size_t Always{ __COUNTER__ - NumBase };
+    static constexpr Type NumBase{ __COUNTER__ + 1 };
+
+    struct Never {
+        static constexpr Type value{ __COUNTER__ - NumBase };
+    };
+
+    struct Always {
+        static constexpr Type value{ __COUNTER__ - NumBase };
+    };
 
 #pragma push_macro("F")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define F(name) static constexpr size_t name{ __COUNTER__ - NumBase };
+#define F(name)                                               \
+    struct name {                                             \
+        static constexpr Type value{ __COUNTER__ - NumBase }; \
+    };
 
-    ZETA_Core_SeqCntr_Ability_XMacro(F, );
+    ZETA_Core_SeqCntr_Capability_XMacro(F, );
 
 #pragma pop_macro("F")
 
-    static constexpr size_t Total{ __COUNTER__ - NumBase };
+    static constexpr Type Total{ __COUNTER__ - NumBase };
 };
 
-using AbilityFlag = unsigned;
+using CapabilityFlag = unsigned;
 
-ZETA_Core_StaticAssert(AbilityEnum::Total <= integral::WidthOf<AbilityFlag>);
+ZETA_Core_StaticAssert(CapabilityEnum::Total <=
+                       integral::WidthOf<CapabilityFlag>);
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
-struct AbilityFlagBuilder {
+struct CapabilityFlagBuilder {
 #pragma push_macro("F")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define F(name) bool const name;
 
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
-    ZETA_Core_SeqCntr_Ability_XMacro(F, );
+    ZETA_Core_SeqCntr_Capability_XMacro(F, );
 
 #pragma pop_macro("F")
 
-    constexpr AbilityFlag operator()() const {
+    constexpr CapabilityFlag operator()() const {
 #pragma push_macro("F")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define F(name) (static_cast<AbilityFlag>(this->name) << AbilityEnum::name)
+#define F(name) \
+    (static_cast<CapabilityFlag>(this->name) << CapabilityEnum::name::value)
 
-        return (static_cast<AbilityFlag>(1) << AbilityEnum::Always) |
-               ZETA_Core_SeqCntr_Ability_XMacro(F, |);
+        return (static_cast<CapabilityFlag>(1)
+                << CapabilityEnum::Always::value) |
+               ZETA_Core_SeqCntr_Capability_XMacro(F, |);
 
 #pragma pop_macro("F")
     }
 };
 
-constexpr AbilityFlag empty_ability_flag{ AbilityFlagBuilder{
-#pragma push_macro("F")
-
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define F(name) .name = false,
-
-    ZETA_Core_SeqCntr_Ability_XMacro(F, )
-
-#pragma pop_macro("F")
-}() };
-
-constexpr AbilityFlag full_ability_flag{ AbilityFlagBuilder{
-#pragma push_macro("F")
-
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define F(name) .name = true,
-
-    ZETA_Core_SeqCntr_Ability_XMacro(F, )
-
-#pragma pop_macro("F")
-}() };
-
-constexpr AbilityFlag non_const_ability_flag{ AbilityFlagBuilder{
+constexpr CapabilityFlag empty_capability_flag{ CapabilityFlagBuilder{
     .GetCursorSize = false,
     .GetElemSize = false,
     .GetElemCnt = false,
@@ -159,7 +156,71 @@ constexpr AbilityFlag non_const_ability_flag{ AbilityFlagBuilder{
     .GetRBCursor = false,
     .PeekL = false,
     .PeekR = false,
-    .Access = false,
+    .Refer = false,
+    .Derefer = false,
+    .Read = false,
+    .Write = false,
+    .ReadWrite = false,
+    .PushL = false,
+    .PushR = false,
+    .Insert = false,
+    .PopL = false,
+    .PopR = false,
+    .Erase = false,
+    .EraseAll = false,
+    .CopyCursor = false,
+    .AreEqualCursor = false,
+    .CompareCursor = false,
+    .GetCursorDist = false,
+    .GetCursorIdx = false,
+    .CursorStepL = false,
+    .CursorStepR = false,
+    .CursorAdvanceL = false,
+    .CursorAdvanceR = false,
+}() };
+
+constexpr CapabilityFlag full_capability_flag{ CapabilityFlagBuilder{
+    .GetCursorSize = true,
+    .GetElemSize = true,
+    .GetElemCnt = true,
+    .GetMaxElemCnt = true,
+    .GetLBCursor = true,
+    .GetRBCursor = true,
+    .PeekL = true,
+    .PeekR = true,
+    .Refer = true,
+    .Derefer = true,
+    .Read = true,
+    .Write = true,
+    .ReadWrite = true,
+    .PushL = true,
+    .PushR = true,
+    .Insert = true,
+    .PopL = true,
+    .PopR = true,
+    .Erase = true,
+    .EraseAll = true,
+    .CopyCursor = true,
+    .AreEqualCursor = true,
+    .CompareCursor = true,
+    .GetCursorDist = true,
+    .GetCursorIdx = true,
+    .CursorStepL = true,
+    .CursorStepR = true,
+    .CursorAdvanceL = true,
+    .CursorAdvanceR = true,
+}() };
+
+constexpr CapabilityFlag non_const_capability_flag{ CapabilityFlagBuilder{
+    .GetCursorSize = false,
+    .GetElemSize = false,
+    .GetElemCnt = false,
+    .GetMaxElemCnt = false,
+    .GetLBCursor = false,
+    .GetRBCursor = false,
+    .PeekL = false,
+    .PeekR = false,
+    .Refer = false,
     .Derefer = false,
     .Read = false,
     .Write = true,
@@ -182,7 +243,7 @@ constexpr AbilityFlag non_const_ability_flag{ AbilityFlagBuilder{
     .CursorAdvanceR = false,
 }() };
 
-constexpr AbilityFlag const_ability_flag{ AbilityFlagBuilder{
+constexpr CapabilityFlag const_capability_flag{ CapabilityFlagBuilder{
     .GetCursorSize = true,
     .GetElemSize = true,
     .GetElemCnt = true,
@@ -191,7 +252,7 @@ constexpr AbilityFlag const_ability_flag{ AbilityFlagBuilder{
     .GetRBCursor = true,
     .PeekL = true,
     .PeekR = true,
-    .Access = true,
+    .Refer = true,
     .Derefer = true,
     .Read = true,
     .Write = false,
@@ -214,19 +275,43 @@ constexpr AbilityFlag const_ability_flag{ AbilityFlagBuilder{
     .CursorAdvanceR = true,
 }() };
 
-ZETA_Core_StaticAssert((non_const_ability_flag & const_ability_flag) ==
-                       empty_ability_flag);
+ZETA_Core_StaticAssert((non_const_capability_flag & const_capability_flag) ==
+                       empty_capability_flag);
 
-ZETA_Core_StaticAssert((non_const_ability_flag | const_ability_flag) ==
-                       full_ability_flag);
+ZETA_Core_StaticAssert((non_const_capability_flag | const_capability_flag) ==
+                       full_capability_flag);
+
+struct ElemPtrView {
+    struct AliasabilityEnum {
+        using Type = unsigned;
+
+        static constexpr Type Null{ 0 };
+        static constexpr Type ReadOnly{ 1 };
+        static constexpr Type ReadWrite{ 2 };
+    };
+
+    void* ptr;
+    AliasabilityEnum::Type aliasability;
+
+    bool operator==(ElemPtrView const&) const = default;
+    bool operator!=(ElemPtrView const&) const = default;
+};
+
+struct CursorLimit {
+    void* content[8];
+} __attribute__((aligned(alignof(max_align_t))));
 
 struct EmptyReader {
     constexpr void operator()(void const*, size_t, size_t) const;
 };
 
+constexpr EmptyReader empty_reader;
+
 struct EmptyWriter {
     constexpr void operator()(void*, size_t, size_t) const;
 };
+
+constexpr EmptyWriter empty_writer;
 
 struct MemReader {
     void* data;
@@ -244,31 +329,35 @@ struct MemWriter {
     void operator()(void* dst, size_t dst_elem_stride, size_t cnt);
 };
 
+/**
+@page zeta__core__seq_cntr__CntrTraits CntrTraits
+*/
 template <typename Cntr, typename = void>
 struct CntrTraits;  // IWYU pragma: export
 
-constexpr bool CheckAbilityFlags(AbilityFlag static_enabled_ability_flag,
-                                 AbilityFlag static_disabled_ability_flag);
+constexpr bool CheckCapabilityFlags(
+    CapabilityFlag static_enabled_capability_flag,
+    CapabilityFlag static_disabled_capability_flag);
 
-bool CheckAbilityFlags(AbilityFlag static_enabled_ability_flag,
-                       AbilityFlag static_disabled_ability_flag,
-                       AbilityFlag dynamic_enabled_ability_flag,
-                       AbilityFlag dynamic_disabled_ability_flag);
+bool CheckCapabilityFlags(CapabilityFlag static_enabled_capability_flag,
+                          CapabilityFlag static_disabled_capability_flag,
+                          CapabilityFlag dynamic_enabled_capability_flag,
+                          CapabilityFlag dynamic_disabled_capability_flag);
 
 template <typename Cntr>
 void* GetReferedInstPtr(Cntr& cntr);
 
 template <typename Cntr>
-constexpr AbilityFlag GetStaticEnabledAbilityFlag();
+constexpr CapabilityFlag GetStaticEnabledCapabilityFlag();
 
 template <typename Cntr>
-constexpr AbilityFlag GetStaticDisabledAbilityFlag();
+constexpr CapabilityFlag GetStaticDisabledCapabilityFlag();
 
 template <typename Cntr>
-AbilityFlag GetDynamicEnabledAbilityFlag(Cntr& cntr);
+CapabilityFlag GetDynamicEnabledCapabilityFlag(Cntr& cntr);
 
 template <typename Cntr>
-AbilityFlag GetDynamicDisabledAbilityFlag(Cntr& cntr);
+CapabilityFlag GetDynamicDisabledCapabilityFlag(Cntr& cntr);
 
 template <typename Cntr>
 size_t GetCursorSize(Cntr& cntr);
@@ -289,21 +378,23 @@ template <typename Cntr>
 void GetRBCursor(Cntr& cntr, void* dst_cursor);
 
 template <typename Cntr>
-void* PeekL(Cntr& cntr, bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
+void PeekL(Cntr& cntr, bool lazy_copy_elem, ElemPtrView* dst_elem_ptr_view,
+           void* dst_cursor, void* dst_elem);
 
 template <typename Cntr>
-void* PeekR(Cntr& cntr, bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
+void PeekR(Cntr& cntr, bool lazy_copy_elem, ElemPtrView* dst_elem_ptr_view,
+           void* dst_cursor, void* dst_elem);
 
 template <typename Cntr>
-void* Access(Cntr& cntr, size_t idx, bool lazy_copy_elem, void* dst_cursor,
-             void* dst_elem);
+void Refer(Cntr& cntr, size_t idx, bool lazy_copy_elem,
+           ElemPtrView* dst_elem_ptr_view, void* dst_cursor, void* dst_elem);
 
 template <typename Cntr>
-void* Derefer(Cntr& cntr, void const* pos_cursor, bool lazy_copy_elem,
-              void* dst_elem);
+void Derefer(Cntr& cntr, void* pos_cursor, bool lazy_copy_elem,
+             ElemPtrView* dst_elem_ptr_view, void* dst_elem);
 
 template <typename Cntr, typename Reader>
-void Read(Cntr& cntr, void const* pos_cursor, size_t cnt, Reader&& reader,
+void Read(Cntr& cntr, void* pos_cursor, size_t cnt, Reader&& reader,
           void* dst_cursor);
 
 template <typename Cntr, typename Writer>
@@ -315,41 +406,41 @@ void ReadWrite(Cntr& cntr, void* pos_cursor, size_t cnt,
                ReaderWriter&& reader_writer, void* dst_cursor);
 
 template <typename Cntr, typename Writer>
-void* PushL(Cntr& cntr, size_t cnt, Writer&& writer, void* dst_cursor);
+void PushL(Cntr& cntr, size_t cnt, Writer&& writer, void* dst_cursor);
 
 template <typename Cntr, typename Writer>
-void* PushR(Cntr& cntr, size_t cnt, Writer&& writer, void* dst_cursor);
+void PushR(Cntr& cntr, size_t cnt, Writer&& writer, void* dst_cursor);
 
 template <typename Cntr, typename Writer>
-void* Insert(Cntr& cntr, void* pos_cursor, size_t cnt, Writer&& writer,
-             void* dst_cursor);
+void Insert(Cntr& cntr, void* pos_cursor, size_t cnt, Writer&& writer,
+            void* dst_cursor);
 
-template <typename Cntr>
-void PopL(Cntr& cntr, size_t cnt);
+template <typename Cntr, typename Reader>
+void PopL(Cntr& cntr, size_t cnt, Reader&& reader);
 
-template <typename Cntr>
-void PopR(Cntr& cntr, size_t cnt);
+template <typename Cntr, typename Reader>
+void PopR(Cntr& cntr, size_t cnt, Reader&& reader);
 
-template <typename Cntr>
-void Erase(Cntr& cntr, void* pos_cursor, size_t cnt);
+template <typename Cntr, typename Reader>
+void Erase(Cntr& cntr, void* pos_cursor, size_t cnt, Reader&& reader);
 
 template <typename Cntr>
 void EraseAll(Cntr& cntr);
 
 template <typename Cntr>
-void CopyCursor(Cntr& cntr, void const* src_cursor, void* dst_cursor);
+void CopyCursor(Cntr& cntr, void* src_cursor, void* dst_cursor);
 
 template <typename Cntr>
-bool AreEqualCursor(Cntr& cntr, void const* cursor_a, void const* cursor_b);
+bool AreEqualCursor(Cntr& cntr, void* cursor_a, void* cursor_b);
 
 template <typename Cntr>
-int CompareCursor(Cntr& cntr, void const* cursor_a, void const* cursor_b);
+int CompareCursor(Cntr& cntr, void* cursor_a, void* cursor_b);
 
 template <typename Cntr>
-size_t GetCursorDist(Cntr& cntr, void const* cursor_a, void const* cursor_b);
+size_t GetCursorDist(Cntr& cntr, void* cursor_a, void* cursor_b);
 
 template <typename Cntr>
-size_t GetCursorIdx(Cntr& cntr, void const* cursor);
+size_t GetCursorIdx(Cntr& cntr, void* cursor);
 
 template <typename Cntr>
 void CursorStepL(Cntr& cntr, void* cursor);
@@ -377,78 +468,98 @@ struct VTable {
 
     void (*GetRBCursor)(void* cntr, void* dst_cursor);
 
-    void* (*PeekL)(void* cntr, bool lazy_copy_elem, void* dst_cursor,
-                   void* dst_elem);
+    void (*PeekL)(void* cntr, bool lazy_copy_elem,
+                  ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+                  void* dst_elem);
 
-    void* (*PeekR)(void* cntr, bool lazy_copy_elem, void* dst_cursor,
-                   void* dst_elem);
+    void (*PeekR)(void* cntr, bool lazy_copy_elem,
+                  ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+                  void* dst_elem);
 
-    void* (*Access)(void* cntr, size_t idx, bool lazy_copy_elem,
-                    void* dst_cursor, void* dst_elem);
+    void (*Refer)(void* cntr, size_t idx, bool lazy_copy_elem,
+                  ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+                  void* dst_elem);
 
-    void* (*Derefer)(void* cntr, void const* pos_cursor, bool lazy_copy_elem,
-                     void* dst_elem);
+    void (*Derefer)(void* cntr, void* pos_cursor, bool lazy_copy_elem,
+                    ElemPtrView* dst_elem_ptr_view, void* dst_elem);
 
-    void (*FnRead)(void* cntr, void const* pos_cursor, size_t cnt,
-                   FnReader reader, void* dst_cursor);
+    void (*EmptyRead)(void* cntr, void* pos_cursor, size_t cnt,
+                      EmptyReader reader, void* dst_cursor);
 
-    void (*MemRead)(void* cntr, void const* pos_cursor, size_t cnt,
-                    MemReader& reader, void* dst_cursor);
-
-    void (*FnWrite)(void* cntr, void* pos_cursor, size_t cnt, FnWriter writer,
+    void (*MemRead)(void* cntr, void* pos_cursor, size_t cnt, MemReader& reader,
                     void* dst_cursor);
+
+    void (*FnRead)(void* cntr, void* pos_cursor, size_t cnt, FnReader reader,
+                   void* dst_cursor);
+
+    void (*EmptyWrite)(void* cntr, void* pos_cursor, size_t cnt,
+                       EmptyWriter writer, void* dst_cursor);
 
     void (*MemWrite)(void* cntr, void* pos_cursor, size_t cnt,
                      MemWriter& writer, void* dst_cursor);
 
+    void (*FnWrite)(void* cntr, void* pos_cursor, size_t cnt, FnWriter writer,
+                    void* dst_cursor);
+
     void (*FnReadWrite)(void* cntr, void* pos_cursor, size_t cnt,
                         FnReaderWriter reader_writer, void* dst_cursor);
 
-    void* (*FnPushL)(void* cntr, size_t cnt, FnWriter writer, void* dst_cursor);
+    void (*EmptyPushL)(void* cntr, size_t cnt, EmptyWriter writer,
+                       void* dst_cursor);
 
-    void* (*MemPushL)(void* cntr, size_t cnt, MemWriter& writer,
-                      void* dst_cursor);
+    void (*MemPushL)(void* cntr, size_t cnt, MemWriter& writer,
+                     void* dst_cursor);
 
-    void* (*EmptyPushL)(void* cntr, size_t cnt, EmptyWriter writer,
-                        void* dst_cursor);
+    void (*FnPushL)(void* cntr, size_t cnt, FnWriter writer, void* dst_cursor);
 
-    void* (*FnPushR)(void* cntr, size_t cnt, FnWriter writer, void* dst_cursor);
+    void (*EmptyPushR)(void* cntr, size_t cnt, EmptyWriter writer,
+                       void* dst_cursor);
 
-    void* (*MemPushR)(void* cntr, size_t cnt, MemWriter& writer,
-                      void* dst_cursor);
+    void (*MemPushR)(void* cntr, size_t cnt, MemWriter& writer,
+                     void* dst_cursor);
 
-    void* (*EmptyPushR)(void* cntr, size_t cnt, EmptyWriter writer,
-                        void* dst_cursor);
+    void (*FnPushR)(void* cntr, size_t cnt, FnWriter writer, void* dst_cursor);
 
-    void* (*FnInsert)(void* cntr, void* pos_cursor, size_t cnt, FnWriter writer,
-                      void* dst_cursor);
+    void (*EmptyInsert)(void* cntr, void* pos_cursor, size_t cnt,
+                        EmptyWriter writer, void* dst_cursor);
 
-    void* (*MemInsert)(void* cntr, void* pos_cursor, size_t cnt,
-                       MemWriter& writer, void* dst_cursor);
+    void (*MemInsert)(void* cntr, void* pos_cursor, size_t cnt,
+                      MemWriter& writer, void* dst_cursor);
 
-    void* (*EmptyInsert)(void* cntr, void* pos_cursor, size_t cnt,
-                         EmptyWriter writer, void* dst_cursor);
+    void (*FnInsert)(void* cntr, void* pos_cursor, size_t cnt, FnWriter writer,
+                     void* dst_cursor);
 
-    void (*PopL)(void* cntr, size_t cnt);
+    void (*EmptyPopL)(void* cntr, size_t cnt, EmptyReader reader);
 
-    void (*PopR)(void* cntr, size_t cnt);
+    void (*MemPopL)(void* cntr, size_t cnt, MemReader& reader);
 
-    void (*Erase)(void* cntr, void* pos_cursor, size_t cnt);
+    void (*FnPopL)(void* cntr, size_t cnt, FnReader reader);
+
+    void (*EmptyPopR)(void* cntr, size_t cnt, EmptyReader reader);
+
+    void (*MemPopR)(void* cntr, size_t cnt, MemReader& reader);
+
+    void (*FnPopR)(void* cntr, size_t cnt, FnReader reader);
+
+    void (*EmptyErase)(void* cntr, void* pos_cursor, size_t cnt,
+                       EmptyReader reader);
+
+    void (*MemErase)(void* cntr, void* pos_cursor, size_t cnt,
+                     MemReader& reader);
+
+    void (*FnErase)(void* cntr, void* pos_cursor, size_t cnt, FnReader reader);
 
     void (*EraseAll)(void* cntr);
 
-    void (*CopyCursor)(void* cntr, void const* src_cursor, void* dst_cursor);
+    void (*CopyCursor)(void* cntr, void* src_cursor, void* dst_cursor);
 
-    bool (*AreEqualCursor)(void* cntr, void const* cursor_a,
-                           void const* cursor_b);
+    bool (*AreEqualCursor)(void* cntr, void* cursor_a, void* cursor_b);
 
-    int (*CompareCursor)(void* cntr, void const* cursor_a,
-                         void const* cursor_b);
+    int (*CompareCursor)(void* cntr, void* cursor_a, void* cursor_b);
 
-    size_t (*GetCursorDist)(void* cntr, void const* cursor_a,
-                            void const* cursor_b);
+    size_t (*GetCursorDist)(void* cntr, void* cursor_a, void* cursor_b);
 
-    size_t (*GetCursorIdx)(void* cntr, void const* cursor);
+    size_t (*GetCursorIdx)(void* cntr, void* cursor);
 
     void (*CursorStepL)(void* cntr, void* cursor);
 
@@ -478,18 +589,34 @@ constexpr VTable BuildVTable();
 template <typename Cntr>
 constexpr VTable const& GetVTable();
 
-constexpr bool IsReferable(size_t idx, size_t cnt, size_t elem_cnt);
+namespace check_operation {
 
-constexpr bool IsDereferable(size_t idx, size_t cnt, size_t elem_cnt);
+constexpr bool CanRefer(size_t idx, size_t cnt, size_t elem_cnt);
 
-constexpr bool IsInsertable(size_t idx, size_t cnt, size_t elem_cnt,
-                            size_t max_elem_cnt);
+constexpr bool CanDerefer(size_t idx, size_t cnt, size_t elem_cnt);
 
-constexpr bool IsErasable(size_t idx, size_t cnt, size_t elem_cnt);
+constexpr bool CanPushL(size_t cnt, size_t elem_cnt, size_t max_elem_cnt);
 
-constexpr bool IsAdvancableL(size_t idx, size_t step, size_t elem_cnt);
+constexpr bool CanPushR(size_t cnt, size_t elem_cnt, size_t max_elem_cnt);
 
-constexpr bool IsAdvancableR(size_t idx, size_t step, size_t elem_cnt);
+constexpr bool CanInsert(size_t idx, size_t cnt, size_t elem_cnt,
+                         size_t max_elem_cnt);
+
+constexpr bool CanPopL(size_t cnt, size_t elem_cnt);
+
+constexpr bool CanPopR(size_t cnt, size_t elem_cnt);
+
+constexpr bool CanErase(size_t idx, size_t cnt, size_t elem_cnt);
+
+constexpr bool CanStepL(size_t idx, size_t elem_cnt);
+
+constexpr bool CanStepR(size_t idx, size_t elem_cnt);
+
+constexpr bool CanAdvancableL(size_t idx, size_t step, size_t elem_cnt);
+
+constexpr bool CanAdvancableR(size_t idx, size_t step, size_t elem_cnt);
+
+}  // namespace check_operation
 
 template <typename DstSeqCntr, typename SrcSeqCntr>
 void RangeAssign(DstSeqCntr& dst_cntr, SrcSeqCntr& src_cntr, size_t dst_beg,

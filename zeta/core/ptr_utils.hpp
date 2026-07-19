@@ -74,14 +74,14 @@ struct AugPtrTpl {
     ZETA_Core_StaticAssert(!meta::IsRef<LinkType>);
 
     ZETA_Core_StaticAssert(
-        meta::IsAnyOf<meta::RemoveVolatile<LinkType>, void*> ||
+        meta::IsSame<meta::RemoveVolatile<LinkType>, void*> ||
         integral::IsSignedIntegral<meta::RemoveVolatile<LinkType>>);
 
-    ZETA_Core_StaticAssert(meta::IsAnyOf<ColorTag, value_wrapper::TrueType,
-                                         value_wrapper::FalseType>);
+    ZETA_Core_StaticAssert(meta::IsAnySame<ColorTag, value_wrapper::TrueType,
+                                           value_wrapper::FalseType>);
 
     static constexpr bool IsRelLink{
-        !meta::IsAnyOf<meta::RemoveVolatile<LinkType>, void*>
+        !meta::IsSame<meta::RemoveVolatile<LinkType>, void*>
     };
 
     LinkType link;

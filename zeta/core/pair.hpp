@@ -1,6 +1,6 @@
 #pragma once
 
-#include <zeta/core/compare.hpp>
+#include <zeta/core/comparison.hpp>
 #include <zeta/core/hash.hpp>
 
 namespace zeta::core::pair {
@@ -45,10 +45,12 @@ struct hash::BasicHasher<pair::Pair<First, Second>> {
         pair::Pair<First, Second> const& value, unsigned long long salt) const;
 };
 
-template <typename AFirst, typename ASecond, typename BFirst, typename BSecond>
-struct compare::BasicComparator<pair::Pair<AFirst, ASecond>,
-                                pair::Pair<BFirst, BSecond>> {
-    constexpr int operator()(pair::Pair<AFirst, ASecond> const& a,
+template <typename ComparisonType, typename AFirst, typename ASecond,
+          typename BFirst, typename BSecond>
+struct comparison::BasicComparator<ComparisonType, pair::Pair<AFirst, ASecond>,
+                                   pair::Pair<BFirst, BSecond>> {
+    constexpr int operator()(ComparisonType,
+                             pair::Pair<AFirst, ASecond> const& a,
                              pair::Pair<BFirst, BSecond> const& b) const;
 };
 

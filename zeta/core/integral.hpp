@@ -94,7 +94,7 @@ using TryMakeUnsignedOf = decltype([]() {
     using UnsignedIntegral = IntegralTraits<Integral>::UnsignedType;
 
     ZETA_Core_StaticAssert(
-        meta::IsAnyOf<UnsignedIntegral, meta::NeverMatchTag> ||
+        meta::IsSame<UnsignedIntegral, meta::NeverMatchTag> ||
         integral::IsIntegral<UnsignedIntegral>);
 
     return meta::TypeWrapper<UnsignedIntegral>{};
@@ -106,7 +106,7 @@ using TryMakeSignedOf = decltype([]() {
 
     using SignedIntegral = IntegralTraits<Integral>::SignedType;
 
-    ZETA_Core_StaticAssert(meta::IsAnyOf<SignedIntegral, meta::NeverMatchTag> ||
+    ZETA_Core_StaticAssert(meta::IsSame<SignedIntegral, meta::NeverMatchTag> ||
                            integral::IsIntegral<SignedIntegral>);
 
     return meta::TypeWrapper<SignedIntegral>{};

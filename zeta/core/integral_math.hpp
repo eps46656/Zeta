@@ -15,6 +15,9 @@ template <typename Num>
 constexpr bool IsPowerOf2(Num num);
 
 template <typename Base, typename Exp>
+constexpr Base PowerOf2Minus1(Exp exp);
+
+template <typename Base, typename Exp>
 constexpr Base PowerOf2(Exp exp);
 
 template <typename Base, typename Exp>

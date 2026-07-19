@@ -44,11 +44,11 @@ SeqCntrRef Create(size_t stride, size_t seg_capacity) {
 
     sv->data_alctr = zeta::core::allocator_ref::MakeRef(pack->data_alctr);
 
-    SegVectorNS::Init(*sv, zeta::core::lifecycle::SkipInitTag{},
-                      zeta::core::lifecycle::SkipInitTag{}, sizeof(Elem),
-                      stride, seg_capacity);
+    SegVectorNS::Init(*sv, sizeof(Elem), stride, seg_capacity,
+                      zeta::core::lifecycle::SkipInitTag{},
+                      zeta::core::lifecycle::SkipInitTag{});
 
-    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(sv) };
+    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(*sv) };
 
     seq_cntr_utils::AddSanitizeFunc(sv, Sanitize);
 

@@ -150,14 +150,23 @@ inline void utils::ElemCopy(void* dst_, void const* src_, size_t elem_size,
 
     if (dst == src || cnt == 0) { return; }
 
+    ZETA_Core_DebugAssert(dst_elem_stride == 0 || elem_size <= dst_elem_stride);
+    ZETA_Core_DebugAssert(src_elem_stride == 0 || elem_size <= src_elem_stride);
+    ZETA_Core_DebugAssert(cnt <= 1 || dst_elem_stride != 0 ||
+                          src_elem_stride == 0);
+
+    if (elem_size == 0 || cnt == 0) { return; }
+
     ZETA_Core_DebugAssert(dst != nullptr);
     ZETA_Core_DebugAssert(src != nullptr);
-    ZETA_Core_DebugAssert(elem_size <= dst_elem_stride);
-    ZETA_Core_DebugAssert(elem_size <= src_elem_stride);
 
-    if (elem_size == 0) { return; }
+    if (dst_elem_stride == 0 || cnt == 1) {  // src_elem_stride == 0
+        (MemCopy)(dst, src, elem_size);
+        return;
+    }
 
-    if (elem_size == dst_elem_stride && elem_size == src_elem_stride) {
+    if ((elem_size == dst_elem_stride && elem_size == src_elem_stride) ||
+        cnt == 1) {
         (MemCopy)(dst, src, elem_size * cnt);
         return;
     }
@@ -176,48 +185,58 @@ inline void utils::ElemMove(void* dst_, void const* src_, size_t elem_size,
 
     ZETA_Core_DebugAssert(dst_elem_stride == 0 || elem_size <= dst_elem_stride);
     ZETA_Core_DebugAssert(src_elem_stride == 0 || elem_size <= src_elem_stride);
-    ZETA_Core_DebugAssert((dst_elem_stride == 0) == (src_elem_stride == 0));
+    ZETA_Core_DebugAssert(cnt <= 1 || dst_elem_stride != 0 ||
+                          src_elem_stride == 0);
+    // can not process when multiple src elems move to single dst elem.
 
     if (elem_size == 0 || cnt == 0) { return; }
 
     ZETA_Core_DebugAssert(dst != nullptr);
     ZETA_Core_DebugAssert(src != nullptr);
 
-    if ((elem_size == dst_elem_stride && elem_size == src_elem_stride) ||
-        (dst_elem_stride == 0 && src_elem_stride == 0) || cnt == 1) {
-        (MemMove)(dst, src, elem_size * cnt);
+    if (dst_elem_stride == 0 || cnt == 1) {  // src_elem_stride == 0
+        (MemMove)(dst, src, elem_size);
         return;
     }
 
+    // dst_elem_stride != 0 && 1 < cnt
+
     char* dst_end{ dst + dst_elem_stride * (cnt - 1) + elem_size };
     char const* src_end{ src + src_elem_stride * (cnt - 1) + elem_size };
+
+    if (src_elem_stride == 0) {
+        (MemMove)(dst, src, elem_size);
+
+        for (char* dst_iter{ dst + dst_elem_stride }; dst_iter != dst_end;
+             dst_iter += dst_elem_stride) {
+            (MemCopy)(dst_iter, dst, elem_size);
+        }
+
+        return;
+    }
 
     if (dst_end <= src || src_end <= dst) {
         (ElemCopy)(dst, src, elem_size, dst_elem_stride, src_elem_stride, cnt);
         return;
     }
 
-    if (dst <= src && dst_end <= src_end) {
-        for (; 0 < cnt--; dst += dst_elem_stride, src += src_elem_stride) {
-            (MemCopy)(dst, src, elem_size);
-        }
+    /* {  // DEBUG only
+        char* tmp{ static_cast<char*>(std::malloc(elem_size * cnt)) };
 
-        return;
-    }
-
-    if (src <= dst && src_end <= dst_end) {
-        dst += dst_elem_stride * cnt;
-        src += src_elem_stride * cnt;
-
-        while (0 < cnt--) {
-            (MemCopy)(dst -= dst_elem_stride, src -= src_elem_stride,
+        for (size_t i{ 0 }; i < cnt; ++i) {
+            (MemCopy)(tmp + elem_size * i, src + src_elem_stride * i,
                       elem_size);
         }
 
-        return;
-    }
+        for (size_t i{ 0 }; i < cnt; ++i) {
+            (MemCopy)(dst + dst_elem_stride * i, tmp + elem_size * i,
+                      elem_size);
+        }
 
-    ZETA_Core_DebugAssert(false);
+        std::free(tmp);
+
+        return;
+    } */
 
     constexpr size_t buffer_capacity{ integral::WidthOf<size_t> + 4 };
 
@@ -244,32 +263,32 @@ inline void utils::ElemMove(void* dst_, void const* src_, size_t elem_size,
         size_t cur_l_cnt{ cur_cnt / 2 };
         size_t cur_r_cnt{ cur_cnt - cur_l_cnt };
 
-        char* dst_mid{ dst + dst_elem_stride * cur_l_cnt };
-        char const* src_mid{ src + src_elem_stride * cur_l_cnt };
+        char* dst_mid{ dst + dst_elem_stride * (cur_beg + cur_l_cnt) };
+        char const* src_mid{ src + src_elem_stride * (cur_beg + cur_l_cnt) };
 
         if (dst_mid <= src_mid) {
             ZETA_Core_DebugAssert(buffer_i < buffer_capacity);
 
-            begs[buffer_i] = cur_beg;
-            cnts[buffer_i] = cur_l_cnt;
+            begs[buffer_i] = cur_beg + cur_l_cnt;
+            cnts[buffer_i] = cur_r_cnt;
             ++buffer_i;
 
             ZETA_Core_DebugAssert(buffer_i < buffer_capacity);
 
-            begs[buffer_i] = cur_beg + cur_l_cnt;
-            cnts[buffer_i] = cur_r_cnt;
+            begs[buffer_i] = cur_beg;
+            cnts[buffer_i] = cur_l_cnt;
             ++buffer_i;
         } else {
             ZETA_Core_DebugAssert(buffer_i < buffer_capacity);
 
-            begs[buffer_i] = cur_beg + cur_l_cnt;
-            cnts[buffer_i] = cur_r_cnt;
+            begs[buffer_i] = cur_beg;
+            cnts[buffer_i] = cur_l_cnt;
             ++buffer_i;
 
             ZETA_Core_DebugAssert(buffer_i < buffer_capacity);
 
-            begs[buffer_i] = cur_beg;
-            cnts[buffer_i] = cur_l_cnt;
+            begs[buffer_i] = cur_beg + cur_l_cnt;
+            cnts[buffer_i] = cur_r_cnt;
             ++buffer_i;
         }
     }
@@ -412,23 +431,21 @@ inline unsigned long long utils::GetRandom() {
 
 inline int utils::Choose2(bool cond0, bool cond1,
                           unsigned long long* random_seed) {
-    ZETA_Core_DebugAssert(cond0 || cond1);
-
     switch (static_cast<int>(cond1) * 0b10 + static_cast<int>(cond0) * 0b01) {
+    case 0b00: return -1;
     case 0b01: return 0;
     case 0b10: return 1;
     case 0b11: return static_cast<int>((SimpleRandomRotate)(random_seed) % 2);
-    default: __builtin_unreachable();
+    default: ZETA_Core_Unreachable();
     }
 }
 
 inline int utils::Choose3(bool cond0, bool cond1, bool cond2,
                           unsigned long long* random_seed) {
-    ZETA_Core_DebugAssert(cond0 || cond1 || cond2);
-
     switch (static_cast<int>(cond2) * 0b100 +  //
             static_cast<int>(cond1) * 0b010 +  //
             static_cast<int>(cond0) * 0b001) {
+    case 0b000: return -1;
     case 0b001: return 0;
     case 0b010: return 1;
     case 0b100: return 2;
@@ -438,7 +455,7 @@ inline int utils::Choose3(bool cond0, bool cond1, bool cond2,
     case 0b110:
         return static_cast<int>((SimpleRandomRotate)(random_seed) % 2) + 1;
     case 0b111: return static_cast<int>((SimpleRandomRotate)(random_seed) % 3);
-    default: __builtin_unreachable();
+    default: ZETA_Core_Unreachable();
     }
 }
 

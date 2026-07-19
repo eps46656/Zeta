@@ -69,7 +69,7 @@ AssocCntrRef Create() {
 
         core::hash::TypeErasedBasicHash<Elem>,  // elem_hash_init_arg
 
-        core::compare::TypeErasedBasicCompare<Elem, Elem>,
+        core::comparison::TypeErasedBasicCompare<Elem, Elem>,
         // elem_compare_init_arg
 
         core::lifecycle::SkipInitTag{},  // salt_random_engine_init_arg

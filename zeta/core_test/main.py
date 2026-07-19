@@ -413,19 +413,6 @@ def add_deps(builder: building_utils.Builder, config: Config):
     )
 
     add_c_cpp_bc_exe(
-        "test_utf8",
-        C,
-        {
-            zeta_core_out_dir / "debugger.bc",
-            zeta_core_out_dir / "debug_str_pipe.bc",
-            zeta_core_out_dir / "logger.bc",
-            zeta_core_out_dir / "io.bc",
-            zeta_core_out_dir / "utf8.bc",
-            zeta_core_out_dir / "utils.bc",
-        }
-    )
-
-    add_c_cpp_bc_exe(
         "test_utf16",
         C,
         {
@@ -435,6 +422,14 @@ def add_deps(builder: building_utils.Builder, config: Config):
             zeta_core_out_dir / "io.bc",
             zeta_core_out_dir / "utf16.bc",
             zeta_core_out_dir / "utils.bc",
+        }
+    )
+
+    add_c_cpp_bc_exe(
+        "test_osn",
+        CPP,
+        {
+            out_dir / "timer.bc",
         }
     )
 
@@ -720,6 +715,23 @@ def add_deps(builder: building_utils.Builder, config: Config):
             zeta_core_out_dir / "llist_node.bc",
             zeta_core_out_dir / "multi_level_ptr_table.bc",
             zeta_core_out_dir / "utils.bc",
+        },
+    )
+
+    add_c_cpp_bc_exe(
+        "test_serde_utils",
+        CPP,
+        {
+            out_dir / "timer.bc",
+        },
+    )
+
+    add_c_cpp_bc_exe(
+        "test_utf8",
+        CPP,
+        {
+            zeta_core_out_dir / "utils.bc",
+            out_dir / "timer.bc",
         },
     )
 

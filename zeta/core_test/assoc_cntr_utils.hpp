@@ -79,10 +79,10 @@ template <typename AssocCntr, typename Key, typename Elem>
 Elem* Find(AssocCntr* ac, Key const& key) {
     void* cursor{ ZETA_Core_AssocCntr_AllocaCursor(*ac) };
 
-    auto elem{ static_cast<Elem*>(
-        core::assoc_cntr::Find(*ac, &key, core::hash::TypeErasedBasicHash<Key>,
-                               core::compare::TypeErasedBasicCompare<Key, Elem>,
-                               true, cursor, nullptr)) };
+    auto elem{ static_cast<Elem*>(core::assoc_cntr::Find(
+        *ac, &key, core::hash::TypeErasedBasicHash<Key>,
+        core::comparison::TypeErasedBasicCompare<Key, Elem>, true, cursor,
+        nullptr)) };
 
     Sanitize(ac);
 
@@ -91,7 +91,7 @@ Elem* Find(AssocCntr* ac, Key const& key) {
 
     if (elem == nullptr) { return nullptr; }
 
-    ZETA_Core_DebugAssert(core::compare::BasicCompare(key, *elem) == 0);
+    ZETA_Core_DebugAssert(core::comparison::BasicCompare(key, *elem) == 0);
 
     return elem;
 }
@@ -110,7 +110,7 @@ Elem* Insert(AssocCntr* ac, Elem const& elem) {
 
     ZETA_Core_DebugAssert(ins_elem != nullptr);
 
-    ZETA_Core_DebugAssert(core::compare::BasicCompare(elem, *ins_elem) == 0);
+    ZETA_Core_DebugAssert(core::comparison::BasicCompare(elem, *ins_elem) == 0);
 
     return ins_elem;
 }
@@ -119,10 +119,10 @@ template <typename AssocCntr, typename Key, typename Elem>
 bool Erase(AssocCntr* ac, Key const& key) {
     void* cursor{ ZETA_Core_AssocCntr_AllocaCursor(*ac) };
 
-    auto elem{ static_cast<Elem*>(
-        core::assoc_cntr::Find(*ac, &key, core::hash::TypeErasedBasicHash<Key>,
-                               core::compare::TypeErasedBasicCompare<Key, Elem>,
-                               true, cursor, nullptr)) };
+    auto elem{ static_cast<Elem*>(core::assoc_cntr::Find(
+        *ac, &key, core::hash::TypeErasedBasicHash<Key>,
+        core::comparison::TypeErasedBasicCompare<Key, Elem>, true, cursor,
+        nullptr)) };
 
     Sanitize(ac);
 
@@ -131,7 +131,7 @@ bool Erase(AssocCntr* ac, Key const& key) {
 
     if (elem == nullptr) { return false; }
 
-    ZETA_Core_DebugAssert(core::compare::BasicCompare(key, *elem) == 0);
+    ZETA_Core_DebugAssert(core::comparison::BasicCompare(key, *elem) == 0);
 
     size_t old_size{ core::assoc_cntr::GetElemCnt(*ac) };
     ZETA_Core_DebugAssert(0 < old_size);
@@ -176,7 +176,7 @@ Elem* SyncFind(std::vector<AssocCntr*> const& acs, Key const& key) {
 
         if (elem != nullptr) {
             ZETA_Core_DebugAssert(
-                core::compare::BasicCompare(*elem, *cur_elem) == 0);
+                core::comparison::BasicCompare(*elem, *cur_elem) == 0);
         }
     }
 

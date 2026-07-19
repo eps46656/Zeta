@@ -35,7 +35,7 @@ void CheckCntr_(Cntr<CntrTplArgList> const& cntr) {
     size_t elem_stride{ cntr.elem_stride };
     size_t seg_elem_slot_cnt{ cntr.seg_elem_slot_cnt };
     size_t elem_cnt{ cntr.elem_cnt };
-    size_t elem_offset{ cntr.elem_offset };
+    size_t elem_offset{ cntr.tree_elem_offset };
 
     size_t level{ cntr.level };
     void* root{ cntr.root };
@@ -72,17 +72,8 @@ void CheckCursor_(Cntr<CntrTplArgList> const& cntr, Cursor const* cursor) {
 
     ZETA_Core_DebugAssert(cursor != nullptr);
 
-    ZETA_Core_DebugAssert(&cntr == cursor->cntr);
-
     Cursor re_cursor;
-    (Access)(cntr, cursor->idx, true, &re_cursor, nullptr);
-
-    ZETA_Core_DebugAssert(cursor->cntr == re_cursor.cntr);
-    ZETA_Core_DebugAssert(cursor->idx == re_cursor.idx);
-    ZETA_Core_DebugAssert(cursor->n == re_cursor.n);
-    ZETA_Core_DebugAssert(cursor->seg_elem_slot_idx ==
-                          re_cursor.seg_elem_slot_idx);
-    ZETA_Core_DebugAssert(cursor->elem == re_cursor.elem);
+    (Refer)(cntr, cursor->idx, true, nullptr, &re_cursor, nullptr);
 
     ZETA_Core_DebugAssert(*cursor == re_cursor);
 }
@@ -134,17 +125,19 @@ struct AccessType_ {
 };
 
 template <typename Type, CntrTplParamList>
-void* Access_(Cntr<CntrTplArgList> const& cntr, size_t idx, bool lazy_copy_elem,
-              Cursor* dst_cursor, void* dst_elem) {
+void Access_(Cntr<CntrTplArgList> const& cntr, size_t idx, bool lazy_copy_elem,
+             seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+             void* dst_elem) {
     ZETA_Core_StaticAssert(
-        meta::IsAnyOf<Type, AccessType_::FromL, AccessType_::FromR,
-                      AccessType_::AutoWithHint, AccessType_::AutoWithoutHint>);
+        meta::IsAnySame<Type, AccessType_::FromL, AccessType_::FromR,
+                        AccessType_::AutoWithHint,
+                        AccessType_::AutoWithoutHint>);
 
     constexpr size_t branch_num{ Cntr<CntrTplArgList>::branch_num };
 
     detail::CheckCntr_(cntr);
 
-    if constexpr (meta::IsAnyOf<Type, AccessType_::AutoWithHint>) {
+    if constexpr (meta::IsSame<Type, AccessType_::AutoWithHint>) {
         ZETA_Core_DebugAssert(dst_cursor != nullptr);
         (CheckCursor_)(cntr, dst_cursor);
     }
@@ -152,7 +145,7 @@ void* Access_(Cntr<CntrTplArgList> const& cntr, size_t idx, bool lazy_copy_elem,
     size_t elem_size{ cntr.elem_size };
     size_t elem_stride{ cntr.elem_stride };
     size_t seg_elem_slot_cnt{ cntr.seg_elem_slot_cnt };
-    size_t tree_elem_offset{ cntr.elem_offset };
+    size_t tree_elem_offset{ cntr.tree_elem_offset };
     size_t elem_cnt{ cntr.elem_cnt };
 
     multi_level_ptr_table::BranchNum const* rots{ cntr.rots };
@@ -167,28 +160,22 @@ void* Access_(Cntr<CntrTplArgList> const& cntr, size_t idx, bool lazy_copy_elem,
 
     ZETA_Core_DebugAssert(seq_cntr::IsReferable(idx, 1, elem_cnt));
 
-    if (idx == static_cast<size_t>(-1)) {
+    if (idx == static_cast<size_t>(-1) || idx == elem_cnt) {
+        if (dst_elem_ptr_view != nullptr) {
+            dst_elem_ptr_view->ptr = nullptr;
+            dst_elem_ptr_view->aliasability =
+                seq_cntr::ElemPtrView::AliasabilityEnum::Null;
+        }
+
         if (dst_cursor != nullptr) {
             dst_cursor->cntr = &cntr;
-            dst_cursor->idx = static_cast<size_t>(-1);
+            dst_cursor->idx = idx;
             dst_cursor->n = head_n;
             dst_cursor->seg_elem_slot_idx = 0;
             dst_cursor->elem = nullptr;
         }
 
-        return nullptr;
-    }
-
-    if (idx == elem_cnt) {
-        if (dst_cursor != nullptr) {
-            dst_cursor->cntr = &cntr;
-            dst_cursor->idx = elem_cnt;
-            dst_cursor->n = head_n;
-            dst_cursor->seg_elem_slot_idx = 0;
-            dst_cursor->elem = nullptr;
-        }
-
-        return nullptr;
+        return;
     }
 
     size_t tree_seg_offset{ tree_elem_offset / seg_elem_slot_cnt };
@@ -210,16 +197,16 @@ void* Access_(Cntr<CntrTplArgList> const& cntr, size_t idx, bool lazy_copy_elem,
 
     size_t cursor_seg_idx;
 
-    if constexpr (meta::IsAnyOf<Type, AccessType_::FromL>) {
+    if constexpr (meta::IsSame<Type, AccessType_::FromL>) {
         goto ACCESS_FROM_L;
     }
 
-    if constexpr (meta::IsAnyOf<Type, AccessType_::FromR>) {
+    if constexpr (meta::IsSame<Type, AccessType_::FromR>) {
         goto ACCESS_FROM_R;
     }
 
     {
-        if constexpr (meta::IsAnyOf<Type, AccessType_::AutoWithHint>) {
+        if constexpr (meta::IsSame<Type, AccessType_::AutoWithHint>) {
             if (dst_cursor->idx == static_cast<size_t>(-1) ||
                 dst_cursor->idx == elem_cnt) {
                 dist_from_cursor = integral::RangeMaxOf<size_t>;
@@ -235,18 +222,18 @@ void* Access_(Cntr<CntrTplArgList> const& cntr, size_t idx, bool lazy_copy_elem,
 
         size_t best_dist;
 
-        if constexpr (meta::IsAnyOf<Type, AccessType_::AutoWithHint>) {
-            best_dist = compare_utils::BasicMin(
+        if constexpr (meta::IsSame<Type, AccessType_::AutoWithHint>) {
+            best_dist = comparison_utils::BasicMin(
                 dist_from_l, dist_from_r, dist_from_mlpt, dist_from_cursor);
         } else {
-            best_dist = compare_utils::BasicMin(dist_from_l, dist_from_r,
-                                                dist_from_mlpt);
+            best_dist = comparison_utils::BasicMin(dist_from_l, dist_from_r,
+                                                   dist_from_mlpt);
         }
 
         if (dist_from_l == best_dist) { goto ACCESS_FROM_L; }
         if (dist_from_r == best_dist) { goto ACCESS_FROM_R; }
 
-        if constexpr (meta::IsAnyOf<Type, AccessType_::AutoWithHint>) {
+        if constexpr (meta::IsSame<Type, AccessType_::AutoWithHint>) {
             if (dist_from_cursor == best_dist) { goto ACCESS_FROM_CURSOR; }
         }
 
@@ -266,7 +253,7 @@ ACCESS_FROM_R: {
 }
 
 ACCESS_FROM_CURSOR: {
-    if constexpr (meta::IsAnyOf<Type, AccessType_::AutoWithHint>) {
+    if constexpr (meta::IsSame<Type, AccessType_::AutoWithHint>) {
         n = dst_cursor->n;
 
         if (cursor_seg_idx <= seg_idx) {
@@ -294,7 +281,7 @@ ACCESS_FROM_MLPT: {
             .nav_node_alctr = node_alctr,
         };
 
-    n = static_cast<Node*>(*static_cast<void**>(multi_level_ptr_table::Access(
+    n = static_cast<Node*>(*static_cast<void**>(multi_level_ptr_table::Refer(
         mlpt,
         SrcBranchIdxes_{
             .seg_idx = tree_seg_offset + seg_idx,
@@ -310,6 +297,12 @@ END: {
     Seg* seg{ detail::NToSeg_(n) };
     void* elem{ seg->data + elem_stride * seg_elem_slot_idx };
 
+    if (dst_elem_ptr_view != nullptr) {
+        dst_elem_ptr_view->ptr = elem;
+        dst_elem_ptr_view->aliasability =
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadWrite;
+    }
+
     if (dst_cursor != nullptr) {
         dst_cursor->cntr = &cntr;
         dst_cursor->idx = idx;
@@ -321,14 +314,12 @@ END: {
     if (elem != nullptr && !lazy_copy_elem && dst_elem != nullptr) {
         utils::MemCopy(dst_elem, elem, elem_size);
     }
-
-    return elem;
 }
 }
 
 template <bool EnWrite, CntrTplParamList, typename ReaderWriter>
 void ReadWrite_(Cntr<CntrTplArgList>& cntr, Cursor const* pos_cursor,
-                size_t cnt, ReaderWriter&& reader_writer, Cursor* dst_cursor) {
+                size_t cnt, ReaderWriter& reader_writer, Cursor* dst_cursor) {
     (CheckCntr_)(cntr);
     (CheckCursor_)(cntr, pos_cursor);
 
@@ -344,7 +335,7 @@ void ReadWrite_(Cntr<CntrTplArgList>& cntr, Cursor const* pos_cursor,
     size_t end_idx{ pos_cursor->idx + cnt };
 
     while (0 < cnt) {
-        size_t cur_cnt{ compare_utils::BasicMin(
+        size_t cur_cnt{ comparison_utils::BasicMin(
             cnt, seg_elem_slot_cnt - seg_elem_slot_idx) };
 
         reader_writer(
@@ -389,8 +380,6 @@ void InsertSegs_(
     constexpr size_t branch_num{ Cntr<CntrTplArgList>::branch_num };
     constexpr auto acc_branch_nums{ Cntr<CntrTplArgList>::acc_branch_nums };
 
-    ZETA_Core_DebugAssert(0 < cnt);
-
     size_t elem_stride{ cntr.elem_stride };
     size_t seg_elem_slot_cnt{ cntr.seg_elem_slot_cnt };
 
@@ -403,16 +392,8 @@ void InsertSegs_(
         size_t seg_size{ detail::GetSegSize_(elem_stride, seg_elem_slot_cnt) };
 
         while (0 < cnt) {
-            // SANITIZE
-            ZETA_Core_DebugAssert(seg_slot_idx < branch_num);
-
             size_t mlpt_slot_idx{ rot + seg_slot_idx };
             if (branch_num <= mlpt_slot_idx) { mlpt_slot_idx -= branch_num; }
-
-            // SANITIZE
-            ZETA_Core_DebugAssert(
-                (mlpt_node->active_map &
-                 (static_cast<ActiveMap>(1) << mlpt_slot_idx)) == 0);
 
             Seg* ins_seg{ detail::AllocateSeg_(seg_size, seg_alctr) };
 
@@ -437,7 +418,7 @@ void InsertSegs_(
         size_t mlpt_slot_idx{ rot + sub_tree_slot_idx };
         if (branch_num <= mlpt_slot_idx) { mlpt_slot_idx -= branch_num; }
 
-        size_t cur_cnt{ compare_utils::BasicMin(
+        size_t cur_cnt{ comparison_utils::BasicMin(
             sub_tree_seg_slot_cnt - sub_seg_slot_idx, cnt) };
 
         multi_level_ptr_table::NavNode<ActiveMap>* sub_mlpt_node;
@@ -477,8 +458,6 @@ bool EraseSegs_(
     constexpr size_t branch_num{ Cntr<CntrTplArgList>::branch_num };
     constexpr auto acc_branch_nums{ Cntr<CntrTplArgList>::acc_branch_nums };
 
-    ZETA_Core_DebugAssert(0 < cnt);
-
     multi_level_ptr_table::BranchNum rot{ cntr.rots[level_i] };
 
     auto& node_alctr{ meta::GetInstRef(cntr.node_alctr) };
@@ -486,16 +465,8 @@ bool EraseSegs_(
 
     if (level_i == 0) {
         while (0 < cnt) {
-            // SANITIZE
-            ZETA_Core_DebugAssert(seg_slot_idx < branch_num);
-
             size_t mlpt_slot_idx{ rot + seg_slot_idx };
             if (branch_num <= mlpt_slot_idx) { mlpt_slot_idx -= branch_num; }
-
-            // SANITIZE
-            ZETA_Core_DebugAssert(
-                (mlpt_node->active_map &
-                 (static_cast<ActiveMap>(1) << mlpt_slot_idx)) != 0);
 
             Seg* era_seg{ ZETA_Core_MemberToStruct(
                 Seg, n, mlpt_node->ptrs[mlpt_slot_idx]) };
@@ -525,18 +496,10 @@ bool EraseSegs_(
     size_t sub_seg_slot_idx{ seg_slot_idx % sub_tree_seg_slot_cnt };
 
     while (0 < cnt) {
-        // SANITIZE
-        ZETA_Core_DebugAssert(sub_tree_slot_idx < branch_num);
-
         size_t mlpt_slot_idx{ rot + sub_tree_slot_idx };
         if (branch_num <= mlpt_slot_idx) { mlpt_slot_idx -= branch_num; }
 
-        // SANITIZE
-        ZETA_Core_DebugAssert((mlpt_node->active_map &
-                               (static_cast<ActiveMap>(1) << mlpt_slot_idx)) !=
-                              0);
-
-        size_t cur_cnt{ compare_utils::BasicMin(
+        size_t cur_cnt{ comparison_utils::BasicMin(
             sub_tree_seg_slot_cnt - sub_seg_slot_idx, cnt) };
 
         bool sub_is_empty{ (
@@ -565,8 +528,8 @@ bool EraseSegs_(
     return is_empty;
 }
 
-template <int LR, CntrTplParamList, typename Writer>
-void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
+template <int D, CntrTplParamList, typename Writer>
+void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer& writer,
            Cursor* dst_cursor) {
     (CheckCntr_)(cntr);
 
@@ -576,7 +539,7 @@ void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
 
     size_t elem_stride{ cntr.elem_stride };
     size_t seg_elem_slot_cnt{ cntr.seg_elem_slot_cnt };
-    size_t tree_elem_offset{ cntr.elem_offset };
+    size_t tree_elem_offset{ cntr.tree_elem_offset };
     size_t elem_cnt{ cntr.elem_cnt };
     size_t max_elem_cnt{ (GetMaxElemCnt_<branch_num>)(seg_elem_slot_cnt) };
 
@@ -598,7 +561,7 @@ void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
 
     size_t nxt_seg_elem_offset;
 
-    if constexpr (LR == 0) {
+    if constexpr (D == 0) {
         size_t k{ cnt % seg_elem_slot_cnt };
 
         nxt_seg_elem_offset = cur_seg_elem_offset < k
@@ -615,12 +578,12 @@ void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
         nxt_seg_elem_offset + nxt_elem_cnt, seg_elem_slot_cnt) };
 
     if (cnt == 0) {
-        if constexpr (LR == 0) {
+        if constexpr (D == 0) {
             (Access_<detail::AccessType_::FromL>)(cntr, 0, true, nullptr,
-                                                  dst_cursor);
+                                                  dst_cursor, nullptr);
         } else {
             (Access_<detail::AccessType_::FromR>)(cntr, elem_cnt, true, nullptr,
-                                                  dst_cursor);
+                                                  dst_cursor, nullptr);
         }
 
         return;
@@ -649,7 +612,7 @@ void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
 
     size_t tree_l_seg_offset{ tree_elem_offset / seg_elem_slot_cnt };
 
-    if constexpr (LR == 0) {
+    if constexpr (D == 0) {
         if (cur_elem_cnt == 0) {
             tree_l_seg_offset = acc_branch_nums[mlpt.level - 1] * branch_num;
         } else {
@@ -657,9 +620,6 @@ void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
                 static_cast<multi_level_ptr_table::NavNode<ActiveMap>*>(
                     mlpt.root)
                     ->active_map) };
-
-            // SANITIZE
-            ZETA_Core_DebugAssert(0 < cur_sub_tree_cnt);
 
             size_t rot{ branch_num - cur_sub_tree_cnt };
 
@@ -676,29 +636,7 @@ void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
     size_t tree_r_seg_offset{ acc_branch_nums[mlpt.level] - tree_l_seg_offset -
                               cur_seg_cnt };
 
-    void* old_first_n;
-    void* new_first_n;
-
-    // SANITIZE
-    if constexpr (LR == 1) {
-        if (elem_cnt != 0) {
-            void* mp{ multi_level_ptr_table::Access(
-                mlpt,
-                detail::SrcBranchIdxes_{
-                    .seg_idx = tree_l_seg_offset + 0,
-                    .rots = rots + (mlpt.level - 1),
-                    .branch_num = branch_num,
-                    .acc_branch_num =
-                        TableMeta<branch_num>::acc_branch_nums[mlpt.level - 1],
-                }) };
-
-            ZETA_Core_DebugAssert(mp != nullptr);
-
-            old_first_n = *static_cast<void**>(mp);
-        }
-    }
-
-    while (LR == 0
+    while (D == 0
                ? acc_branch_nums[mlpt.level] < tree_r_seg_offset + nxt_seg_cnt
                : acc_branch_nums[mlpt.level] <
                      tree_l_seg_offset + nxt_seg_cnt) {
@@ -707,7 +645,7 @@ void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
                 branch_num, node_alctr)
         };
 
-        if constexpr (LR == 0) {
+        if constexpr (D == 0) {
             new_root->active_map = static_cast<ActiveMap>(1)
                                    << (branch_num - 1);
             new_root->ptrs[branch_num - 1] = mlpt.root;
@@ -722,34 +660,13 @@ void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
         rots[mlpt.level - 1] = 0;
     }
 
-    // SANITIZE
-    if constexpr (LR == 1) {
-        if (elem_cnt != 0) {
-            void* mp{ multi_level_ptr_table::Access(
-                mlpt,
-                detail::SrcBranchIdxes_{
-                    .seg_idx = tree_l_seg_offset + 0,
-                    .rots = rots + (mlpt.level - 1),
-                    .branch_num = branch_num,
-                    .acc_branch_num =
-                        TableMeta<branch_num>::acc_branch_nums[mlpt.level - 1],
-                }) };
-
-            ZETA_Core_DebugAssert(mp != nullptr);
-
-            new_first_n = *static_cast<void**>(mp);
-
-            ZETA_Core_DebugAssert(old_first_n == new_first_n);
-        }
-    }
-
     Node* old_last_n{ elem_cnt == 0 ? head_n : llist::GetL(head_n) };
     size_t old_last_seg_elem_slot_idx{ elem_cnt == 0
                                            ? seg_elem_slot_cnt - 1
                                            : (tree_elem_offset + elem_cnt - 1) %
                                                  seg_elem_slot_cnt };
 
-    if constexpr (LR == 0) {
+    if constexpr (D == 0) {
         tree_l_seg_offset =
             acc_branch_nums[mlpt.level] - nxt_seg_cnt - tree_r_seg_offset;
 
@@ -777,7 +694,7 @@ void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
 
     mlpt.size = nxt_seg_cnt;
 
-    if constexpr (LR == 0) {
+    if constexpr (D == 0) {
         rots[mlpt.level - 1] = ({
             size_t k{ rots[mlpt.level - 1] +
                       tree_l_seg_offset / acc_branch_nums[mlpt.level - 1] };
@@ -790,8 +707,8 @@ void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
 
     cntr.elem_cnt = nxt_elem_cnt;
 
-    if constexpr (LR == 0) {
-        cntr.elem_offset =
+    if constexpr (D == 0) {
+        cntr.tree_elem_offset =
             seg_elem_slot_cnt * tree_l_seg_offset + nxt_seg_elem_offset;
     }
 
@@ -800,7 +717,7 @@ void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
 
     dst_cursor->cntr = &cntr;
 
-    if constexpr (LR == 0) {
+    if constexpr (D == 0) {
         dst_cursor->idx = 0;
         dst_cursor->n = llist::GetR(head_n);
         dst_cursor->seg_elem_slot_idx = nxt_seg_elem_offset;
@@ -824,12 +741,6 @@ void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
     dst_cursor->elem = (NToSeg_)(dst_cursor->n)->data +
                        elem_stride * dst_cursor->seg_elem_slot_idx;
 
-    // SANITIZE
-    (Sanitize)(cntr, nullptr, nullptr);
-
-    // SANITIZE
-    (CheckCursor_)(cntr, dst_cursor);
-
     (ReadWrite_<true>)(cntr, dst_cursor, cnt, writer, nullptr);
 }
 
@@ -843,7 +754,7 @@ void Pop_(Cntr<CntrTplArgList>& cntr, size_t cnt) {
 
     size_t seg_elem_slot_cnt{ cntr.seg_elem_slot_cnt };
     size_t elem_cnt{ cntr.elem_cnt };
-    size_t tree_elem_offset{ cntr.elem_offset };
+    size_t tree_elem_offset{ cntr.tree_elem_offset };
 
     multi_level_ptr_table::BranchNum* rots{ cntr.rots };
 
@@ -852,7 +763,8 @@ void Pop_(Cntr<CntrTplArgList>& cntr, size_t cnt) {
 
     auto& node_alctr{ meta::GetInstRef(cntr.node_alctr) };
 
-    ZETA_Core_DebugAssert(seq_cntr::IsErasable(0, cnt, elem_cnt));
+    ZETA_Core_DebugAssert(
+        seq_cntr::check_operation::IsErasable(0, cnt, elem_cnt));
 
     if (cnt == 0) { return; }
 
@@ -922,16 +834,11 @@ void Pop_(Cntr<CntrTplArgList>& cntr, size_t cnt) {
                     mlpt.root)
             };
 
-            // SANITIZE
-            ZETA_Core_DebugAssert(old_root->active_map != 0);
-
             if (1 < integral_bit::PopCount(old_root->active_map)) { break; }
 
             void* new_root{
                 old_root->ptrs[integral_bit::CTZ(old_root->active_map)]
             };
-
-            ZETA_Core_DebugAssert(new_root != nullptr);
 
             multi_level_ptr_table::detail::DeallocateNavNode_(old_root,
                                                               node_alctr);
@@ -953,34 +860,24 @@ void Pop_(Cntr<CntrTplArgList>& cntr, size_t cnt) {
     }
 
     cntr.elem_cnt = nxt_elem_cnt;
-    cntr.elem_offset =
+    cntr.tree_elem_offset =
         seg_elem_slot_cnt * tree_l_seg_offset + nxt_seg_elem_offset;
 
     cntr.level = mlpt.level;
     cntr.root = mlpt.root;
 }
 
-template <int LR, int CopyMove>
+template <int D, int CopyOrMove>
 pair::Pair<pair::Pair<Node*, size_t>, pair::Pair<Node const*, size_t>> Assign_(
     size_t elem_size, size_t dst_elem_stride, size_t src_elem_stride,
     size_t dst_seg_elem_slot_cnt, size_t src_seg_elem_slot_cnt, Node* dst_n,
     Node const* src_n, size_t dst_seg_elem_slot_idx,
     size_t src_seg_elem_slot_idx, size_t cnt) {
-    ZETA_Core_StaticAssert(LR == 0 || LR == 1);
-    ZETA_Core_StaticAssert(CopyMove == 0 || CopyMove == 1);
+    ZETA_Core_StaticAssert(D == 0 || D == 1);
+    ZETA_Core_StaticAssert(CopyOrMove == 0 || CopyOrMove == 1);
 
     for (;;) {
-        if constexpr (LR == 0) {
-            if (dst_seg_elem_slot_idx == 0) {
-                dst_n = llist::GetL(dst_n);
-                dst_seg_elem_slot_idx = dst_seg_elem_slot_cnt;
-            }
-
-            if (src_seg_elem_slot_idx == 0) {
-                src_n = llist::GetL(src_n);
-                src_seg_elem_slot_idx = src_seg_elem_slot_cnt;
-            }
-        } else {
+        if constexpr (D == 1) {
             if (dst_seg_elem_slot_idx == dst_seg_elem_slot_cnt) {
                 dst_n = llist::GetR(dst_n);
                 dst_seg_elem_slot_idx = 0;
@@ -994,26 +891,35 @@ pair::Pair<pair::Pair<Node*, size_t>, pair::Pair<Node const*, size_t>> Assign_(
 
         if (cnt == 0) { break; }
 
+        if constexpr (D == 0) {
+            if (dst_seg_elem_slot_idx == 0) {
+                dst_n = llist::GetL(dst_n);
+                dst_seg_elem_slot_idx = dst_seg_elem_slot_cnt;
+            }
+
+            if (src_seg_elem_slot_idx == 0) {
+                src_n = llist::GetL(src_n);
+                src_seg_elem_slot_idx = src_seg_elem_slot_cnt;
+            }
+        }
+
         size_t cur_cnt;
         void* dst_elem;
         void const* src_elem;
 
-        if constexpr (LR == 0) {
-            cur_cnt = compare_utils::BasicMin(
-                cnt, compare_utils::BasicMin(src_seg_elem_slot_idx,
-                                             dst_seg_elem_slot_idx));
+        if constexpr (D == 0) {
+            cur_cnt = comparison_utils::BasicMin(src_seg_elem_slot_idx,
+                                                 dst_seg_elem_slot_idx, cnt);
 
             dst_elem = (NToSeg_)(dst_n)->data +
                        dst_elem_stride * (dst_seg_elem_slot_idx - cur_cnt);
 
             src_elem = (NToSeg_)(src_n)->data +
                        src_elem_stride * (src_seg_elem_slot_idx - cur_cnt);
-
         } else {
-            cur_cnt = compare_utils::BasicMin(
-                cnt, compare_utils::BasicMin(
-                         src_seg_elem_slot_cnt - src_seg_elem_slot_idx,
-                         dst_seg_elem_slot_cnt - dst_seg_elem_slot_idx));
+            cur_cnt = comparison_utils::BasicMin(
+                src_seg_elem_slot_cnt - src_seg_elem_slot_idx,
+                dst_seg_elem_slot_cnt - dst_seg_elem_slot_idx, cnt);
 
             dst_elem = (NToSeg_)(dst_n)->data +
                        dst_elem_stride * dst_seg_elem_slot_idx;
@@ -1022,7 +928,7 @@ pair::Pair<pair::Pair<Node*, size_t>, pair::Pair<Node const*, size_t>> Assign_(
                        src_elem_stride * src_seg_elem_slot_idx;
         }
 
-        if constexpr (CopyMove == 0) {
+        if constexpr (CopyOrMove == 0) {
             utils::ElemCopy(dst_elem, src_elem, elem_size, dst_elem_stride,
                             src_elem_stride, cur_cnt);
         } else {
@@ -1030,7 +936,7 @@ pair::Pair<pair::Pair<Node*, size_t>, pair::Pair<Node const*, size_t>> Assign_(
                             src_elem_stride, cur_cnt);
         }
 
-        if constexpr (LR == 0) {
+        if constexpr (D == 0) {
             dst_seg_elem_slot_idx -= cur_cnt;
             src_seg_elem_slot_idx -= cur_cnt;
         } else {
@@ -1069,7 +975,7 @@ void multi_level_circular_array::Init(
     cntr.elem_size = elem_size;
     cntr.elem_stride = elem_stride;
     cntr.seg_elem_slot_cnt = seg_elem_slot_cnt;
-    cntr.elem_offset = 0;
+    cntr.tree_elem_offset = 0;
     cntr.elem_cnt = 0;
 
     cntr.rots[0] = 0;
@@ -1155,65 +1061,156 @@ void multi_level_circular_array::GetRBCursor(Cntr<CntrTplArgList> const& cntr,
 }
 
 template <CntrTplParamList>
-void* multi_level_circular_array::PeekL(Cntr<CntrTplArgList> const& cntr,
-                                        bool lazy_copy_elem, Cursor* dst_cursor,
-                                        void* dst_elem) {
+void multi_level_circular_array::PeekL(Cntr<CntrTplArgList>& cntr,
+                                       bool lazy_copy_elem,
+                                       seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                                       Cursor* dst_cursor, void* dst_elem) {
     detail::CheckCntr_(cntr);
 
-    return detail::Access_<detail::AccessType_::FromL>(cntr, 0, lazy_copy_elem,
-                                                       dst_cursor, dst_elem);
+    detail::Access_<detail::AccessType_::FromL>(
+        cntr, 0, lazy_copy_elem, dst_elem_ptr_view, dst_cursor, dst_elem);
 }
 
 template <CntrTplParamList>
-void* multi_level_circular_array::PeekR(Cntr<CntrTplArgList> const& cntr,
-                                        bool lazy_copy_elem, Cursor* dst_cursor,
-                                        void* dst_elem) {
+void multi_level_circular_array::PeekL(Cntr<CntrTplArgList> const& cntr,
+                                       bool lazy_copy_elem,
+                                       seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                                       Cursor* dst_cursor, void* dst_elem) {
+    (PeekL)(const_cast<Cntr<CntrTplArgList>&>(cntr), lazy_copy_elem,
+            dst_elem_ptr_view, dst_cursor, dst_elem);
+
+    if (dst_elem_ptr_view != nullptr &&
+        dst_elem_ptr_view->aliasability ==
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadWrite) {
+        dst_elem_ptr_view->aliasability =
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadOnly;
+    }
+}
+
+template <CntrTplParamList>
+void multi_level_circular_array::PeekR(Cntr<CntrTplArgList>& cntr,
+                                       bool lazy_copy_elem,
+                                       seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                                       Cursor* dst_cursor, void* dst_elem) {
     detail::CheckCntr_(cntr);
 
     size_t elem_cnt{ cntr.elem_cnt };
 
     return detail::Access_<detail::AccessType_::FromR>(
-        cntr, elem_cnt - 1, lazy_copy_elem, dst_cursor, dst_elem);
+        cntr, elem_cnt - 1, lazy_copy_elem, dst_elem_ptr_view, dst_cursor,
+        dst_elem);
 }
 
 template <CntrTplParamList>
-void* multi_level_circular_array::Access(Cntr<CntrTplArgList> const& cntr,
-                                         size_t idx, bool lazy_copy_elem,
-                                         Cursor* dst_cursor, void* dst_elem) {
-    return detail::Access_<detail::AccessType_::AutoWithoutHint>(
-        cntr, idx, lazy_copy_elem, dst_cursor, dst_elem);
+void multi_level_circular_array::PeekR(Cntr<CntrTplArgList> const& cntr,
+                                       bool lazy_copy_elem,
+                                       seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                                       Cursor* dst_cursor, void* dst_elem) {
+    (PeekR)(const_cast<Cntr<CntrTplArgList>&>(cntr), lazy_copy_elem,
+            dst_elem_ptr_view, dst_cursor, dst_elem);
+
+    if (dst_elem_ptr_view != nullptr &&
+        dst_elem_ptr_view->aliasability ==
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadWrite) {
+        dst_elem_ptr_view->aliasability =
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadOnly;
+    }
 }
 
 template <CntrTplParamList>
-void* multi_level_circular_array::AccessWithHint(
+void multi_level_circular_array::Refer(Cntr<CntrTplArgList>& cntr, size_t idx,
+                                       bool lazy_copy_elem,
+                                       seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                                       Cursor* dst_cursor, void* dst_elem) {
+    detail::Access_<detail::AccessType_::AutoWithoutHint>(
+        cntr, idx, lazy_copy_elem, dst_elem_ptr_view, dst_cursor, dst_elem);
+}
+
+template <CntrTplParamList>
+void multi_level_circular_array::Refer(Cntr<CntrTplArgList> const& cntr,
+                                       size_t idx, bool lazy_copy_elem,
+                                       seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                                       Cursor* dst_cursor, void* dst_elem) {
+    (Refer)(const_cast<Cntr<CntrTplArgList>&>(cntr), idx, lazy_copy_elem,
+            dst_elem_ptr_view, dst_cursor, dst_elem);
+
+    if (dst_elem_ptr_view != nullptr &&
+        dst_elem_ptr_view->aliasability ==
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadWrite) {
+        dst_elem_ptr_view->aliasability =
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadOnly;
+    }
+}
+
+template <CntrTplParamList>
+void multi_level_circular_array::AccessWithHint(
+    Cntr<CntrTplArgList>& cntr, size_t idx, bool lazy_copy_elem,
+    seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+    void* dst_elem) {
+    detail::Access_<detail::AccessType_::AutoWithHint>(
+        cntr, idx, lazy_copy_elem, dst_elem_ptr_view, dst_cursor, dst_elem);
+}
+
+template <CntrTplParamList>
+void multi_level_circular_array::AccessWithHint(
     Cntr<CntrTplArgList> const& cntr, size_t idx, bool lazy_copy_elem,
-    Cursor* dst_cursor, void* dst_elem) {
-    return detail::Access_<detail::AccessType_::AutoWithHint>(
-        cntr, idx, lazy_copy_elem, dst_cursor, dst_elem);
+    seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+    void* dst_elem) {
+    (AccessWithHint)(const_cast<Cntr<CntrTplArgList>&>(cntr), idx,
+                     lazy_copy_elem, dst_elem_ptr_view, dst_cursor, dst_elem);
+
+    if (dst_elem_ptr_view != nullptr &&
+        dst_elem_ptr_view->aliasability ==
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadWrite) {
+        dst_elem_ptr_view->aliasability =
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadOnly;
+    }
 }
 
 template <CntrTplParamList>
-void* multi_level_circular_array::Derefer(Cntr<CntrTplArgList> const& cntr,
-                                          Cursor const* pos_cursor,
-                                          bool lazy_copy_elem, void* dst_elem) {
+void multi_level_circular_array::Derefer(
+    Cntr<CntrTplArgList>& cntr, Cursor const* pos_cursor, bool lazy_copy_elem,
+    seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_elem) {
     detail::CheckCntr_(cntr);
     detail::CheckCursor_(cntr, pos_cursor);
+
+    ZETA_Core_DebugAssert(dst_elem_ptr_view != nullptr || dst_elem != nullptr);
 
     size_t elem_size{ cntr.elem_size };
 
     void* elem{ pos_cursor->elem };
 
+    if (dst_elem_ptr_view != nullptr) {
+        dst_elem_ptr_view->ptr = elem;
+        dst_elem_ptr_view->aliasability =
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadOnly;
+    }
+
     if (!lazy_copy_elem && elem != nullptr && dst_elem != nullptr) {
         utils::MemCopy(dst_elem, elem, elem_size);
     }
+}
 
-    return elem;
+template <CntrTplParamList>
+void multi_level_circular_array::Derefer(
+    Cntr<CntrTplArgList> const& cntr, Cursor const* pos_cursor,
+    bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
+    void* dst_elem) {
+    (Derefer)(const_cast<Cntr<CntrTplArgList>&>(cntr), pos_cursor,
+              lazy_copy_elem, dst_elem_ptr_view, dst_elem);
+
+    if (dst_elem_ptr_view != nullptr &&
+        dst_elem_ptr_view->aliasability ==
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadWrite) {
+        dst_elem_ptr_view->aliasability =
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadOnly;
+    }
 }
 
 template <CntrTplParamList, typename Reader>
 void multi_level_circular_array::Read(Cntr<CntrTplArgList> const& cntr,
                                       Cursor const* pos_cursor, size_t cnt,
-                                      Reader&& reader, Cursor* dst_cursor) {
+                                      Reader& reader, Cursor* dst_cursor) {
     detail::ReadWrite_<false>(const_cast<Cntr<CntrTplArgList>&>(cntr),
                               pos_cursor, cnt, reader, dst_cursor);
 }
@@ -1221,80 +1218,110 @@ void multi_level_circular_array::Read(Cntr<CntrTplArgList> const& cntr,
 template <CntrTplParamList, typename Writer>
 void multi_level_circular_array::Write(Cntr<CntrTplArgList>& cntr,
                                        Cursor* pos_cursor, size_t cnt,
-                                       Writer&& writer, Cursor* dst_cursor) {
+                                       Writer& writer, Cursor* dst_cursor) {
     detail::ReadWrite_<true>(cntr, pos_cursor, cnt, writer, dst_cursor);
 }
 
 template <CntrTplParamList, typename ReaderWriter>
 void multi_level_circular_array::ReadWrite(Cntr<CntrTplArgList>& cntr,
                                            Cursor* pos_cursor, size_t cnt,
-                                           ReaderWriter&& reader_writer,
+                                           ReaderWriter& reader_writer,
                                            Cursor* dst_cursor) {
     detail::ReadWrite_<true>(cntr, pos_cursor, cnt, reader_writer, dst_cursor);
 }
 
 template <CntrTplParamList, typename Writer>
-void* multi_level_circular_array::PushL(Cntr<CntrTplArgList>& cntr, size_t cnt,
-                                        Writer&& writer, Cursor* dst_cursor) {
+void multi_level_circular_array::PushL(Cntr<CntrTplArgList>& cntr, size_t cnt,
+                                       Writer& writer, Cursor* dst_cursor) {
     if (dst_cursor == nullptr) {
         dst_cursor = static_cast<Cursor*>(__builtin_alloca(sizeof(Cursor)));
     }
 
     detail::Push_<0>(cntr, cnt, writer, dst_cursor);
-
-    return dst_cursor->elem;
 }
 
 template <CntrTplParamList, typename Writer>
-void* multi_level_circular_array::PushR(Cntr<CntrTplArgList>& cntr, size_t cnt,
-                                        Writer&& writer, Cursor* dst_cursor) {
+void multi_level_circular_array::PushR(Cntr<CntrTplArgList>& cntr, size_t cnt,
+                                       Writer& writer, Cursor* dst_cursor) {
     if (dst_cursor == nullptr) {
         dst_cursor = static_cast<Cursor*>(__builtin_alloca(sizeof(Cursor)));
     }
 
     detail::Push_<1>(cntr, cnt, writer, dst_cursor);
-
-    return dst_cursor->elem;
 }
 
 template <CntrTplParamList, typename Writer>
-void* multi_level_circular_array::Insert(Cntr<CntrTplArgList>& cntr,
-                                         Cursor* pos_cursor, size_t cnt,
-                                         Writer&& writer, Cursor* dst_cursor) {
+void multi_level_circular_array::Insert(Cntr<CntrTplArgList>& cntr,
+                                        Cursor* pos_cursor, size_t cnt,
+                                        Writer& writer, Cursor* dst_cursor) {
     detail::CheckCntr_(cntr);
     detail::CheckCursor_(cntr, pos_cursor);
 
     if (cnt == 0) {
         if (dst_cursor != nullptr) { *dst_cursor = *pos_cursor; }
-        return pos_cursor->elem;
+        return;
     }
 
     size_t elem_size{ cntr.elem_size };
     size_t elem_stride{ cntr.elem_stride };
     size_t seg_elem_slot_cnt{ cntr.seg_elem_slot_cnt };
-    size_t tree_elem_offset{ cntr.elem_offset };
+    size_t tree_elem_offset{ cntr.tree_elem_offset };
     size_t elem_cnt{ cntr.elem_cnt };
+
+    Node* head_n{ cntr.head_n };
 
     size_t idx{ pos_cursor->idx };
 
     size_t l_cnt{ idx };
     size_t r_cnt{ elem_cnt - idx };
 
+    if (r_cnt == 0) {
+        (PushR)(cntr, cnt, writer, pos_cursor);
+
+        if (dst_cursor != nullptr) {
+            dst_cursor->cntr = &cntr;
+            dst_cursor->idx = elem_cnt + cnt;
+            dst_cursor->n = head_n;
+            dst_cursor->seg_elem_slot_idx = 0;
+            dst_cursor->elem = nullptr;
+        }
+
+        return;
+    }
+
+    if (l_cnt == 0) {
+        Node* pos_n{ pos_cursor->n };
+        size_t pos_seg_elem_slot_idx{ pos_cursor->seg_elem_slot_idx };
+        void* pos_elem{ pos_cursor->elem };
+
+        (PushL)(cntr, cnt, writer, pos_cursor);
+
+        if (dst_cursor != nullptr) {
+            dst_cursor->cntr = &cntr;
+            dst_cursor->idx = elem_cnt + cnt;
+            dst_cursor->n = pos_n;
+            dst_cursor->seg_elem_slot_idx = pos_seg_elem_slot_idx;
+            dst_cursor->elem = pos_elem;
+        }
+
+        return;
+    }
+
+    if (dst_cursor == nullptr) {
+        dst_cursor = static_cast<Cursor*>(__builtin_alloca(sizeof(Cursor)));
+    }
+
     unsigned long long random_seed{ utils::GetRandom() };
 
     switch (utils::Choose2(l_cnt <= r_cnt, r_cnt <= l_cnt, &random_seed)) {
     case 0: {
-        if (dst_cursor == nullptr) {
-            dst_cursor = static_cast<Cursor*>(__builtin_alloca(sizeof(Cursor)));
-        }
+        Node* old_l_n{ llist::GetR(head_n) };
+        size_t old_l_seg_elem_slot_idx{ tree_elem_offset % seg_elem_slot_cnt };
 
-        Node* old_l_n{ llist::GetR(cntr.head_n) };
-        size_t old_l_seg_elem_slot_idx{ cntr.elem_offset % seg_elem_slot_cnt };
-
-        detail::Push_<0>(cntr, cnt, seq_cntr::EmptyWriter{}, dst_cursor);
+        detail::Push_<0>(cntr, cnt, seq_cntr::empty_writer, dst_cursor);
 
         if (cnt < seg_elem_slot_cnt) {
-            auto p{ detail::Assign_<0, 1>(elem_size, elem_stride, elem_stride,
+            auto p{ detail::Assign_<1, 1>(elem_size, elem_stride, elem_stride,
                                           seg_elem_slot_cnt, seg_elem_slot_cnt,
                                           dst_cursor->n, old_l_n,
                                           dst_cursor->seg_elem_slot_idx,
@@ -1303,7 +1330,7 @@ void* multi_level_circular_array::Insert(Cntr<CntrTplArgList>& cntr,
             dst_cursor->n = p.first.first;
             dst_cursor->seg_elem_slot_idx = p.first.second;
         } else {
-            auto p{ detail::Assign_<0, 0>(elem_size, elem_stride, elem_stride,
+            auto p{ detail::Assign_<1, 0>(elem_size, elem_stride, elem_stride,
                                           seg_elem_slot_cnt, seg_elem_slot_cnt,
                                           dst_cursor->n, old_l_n,
                                           dst_cursor->seg_elem_slot_idx,
@@ -1317,22 +1344,25 @@ void* multi_level_circular_array::Insert(Cntr<CntrTplArgList>& cntr,
         dst_cursor->elem = detail::NToSeg_(dst_cursor->n)->data +
                            elem_stride * dst_cursor->seg_elem_slot_idx;
 
-        detail::ReadWrite_<true>(cntr, dst_cursor, cnt, writer, nullptr);
+        *pos_cursor = *dst_cursor;
+
+        detail::ReadWrite_<true>(cntr, dst_cursor, cnt, writer, dst_cursor);
+
+        break;
     }
     case 1: {
-        if (dst_cursor == nullptr) {
-            dst_cursor = static_cast<Cursor*>(__builtin_alloca(sizeof(Cursor)));
-        }
+        detail::Push_<1>(cntr, cnt, seq_cntr::empty_writer, dst_cursor);
 
-        detail::Push_<1>(cntr, cnt, seq_cntr::EmptyWriter{}, dst_cursor);
+        (Sanitize)(cntr, nullptr, nullptr);
 
-        Node* r_n{ llist::GetL(cntr.head_n) };
+        Node* r_n{ llist::GetL(head_n) };
 
-        size_t r_seg_elem_slot_idx{ (tree_elem_offset + elem_cnt + cnt - 1) %
-                                    seg_elem_slot_cnt };
+        size_t r_seg_elem_slot_idx{
+            (tree_elem_offset + elem_cnt + cnt - 1) % seg_elem_slot_cnt + 1
+        };
 
         if (cnt < seg_elem_slot_cnt) {
-            auto p{ detail::Assign_<1, 1>(
+            auto p{ detail::Assign_<0, 1>(
                 elem_size, elem_stride, elem_stride, seg_elem_slot_cnt,
                 seg_elem_slot_cnt, r_n, dst_cursor->n, r_seg_elem_slot_idx,
                 dst_cursor->seg_elem_slot_idx, r_cnt) };
@@ -1340,7 +1370,7 @@ void* multi_level_circular_array::Insert(Cntr<CntrTplArgList>& cntr,
             dst_cursor->n = const_cast<Node*>(p.second.first);
             dst_cursor->seg_elem_slot_idx = p.second.second;
         } else {
-            auto p{ detail::Assign_<1, 0>(
+            auto p{ detail::Assign_<0, 0>(
                 elem_size, elem_stride, elem_stride, seg_elem_slot_cnt,
                 seg_elem_slot_cnt, r_n, dst_cursor->n, r_seg_elem_slot_idx,
                 dst_cursor->seg_elem_slot_idx, r_cnt) };
@@ -1353,9 +1383,11 @@ void* multi_level_circular_array::Insert(Cntr<CntrTplArgList>& cntr,
         dst_cursor->elem = detail::NToSeg_(dst_cursor->n)->data +
                            elem_stride * dst_cursor->seg_elem_slot_idx;
 
-        detail::ReadWrite_<true>(cntr, dst_cursor, cnt, writer, nullptr);
+        detail::ReadWrite_<true>(cntr, dst_cursor, cnt, writer, dst_cursor);
+
+        break;
     }
-    default: __builtin_unreachable();
+    default: ZETA_Core_Unreachable();
     }
 }
 
@@ -1384,8 +1416,10 @@ void multi_level_circular_array::Erase(Cntr<CntrTplArgList>& cntr,
 
     ZETA_Core_DebugAssert(seq_cntr::IsErasable(idx, cnt, elem_cnt));
 
+    if (cnt == 0) { return; }
+
     size_t l_cnt{ idx };
-    size_t r_cnt{ elem_cnt - idx };
+    size_t r_cnt{ elem_cnt - idx - cnt };
 
     if (r_cnt == 0) {
         (PopR)(cntr, cnt);
@@ -1395,36 +1429,38 @@ void multi_level_circular_array::Erase(Cntr<CntrTplArgList>& cntr,
 
     if (l_cnt == 0) {
         (PopL)(cntr, cnt);
-        (PeekL)(cntr, true, pos_cursor, nullptr);
+        (PeekL)(cntr, true, nullptr, pos_cursor, nullptr);
         return;
     }
 
     unsigned long long random_seed{ utils::GetRandom() };
 
     Cursor end_cursor{ *pos_cursor };
-    (AccessWithHint)(cntr, idx + cnt, true, &end_cursor, nullptr);
+    (AccessWithHint)(cntr, idx + cnt, true, nullptr, &end_cursor, nullptr);
 
     switch (utils::Choose2(l_cnt <= r_cnt, r_cnt <= l_cnt, &random_seed)) {
     case 0: {
         if (cnt < seg_elem_slot_cnt) {
             detail::Assign_<0, 1>(elem_size, elem_stride, elem_stride,
                                   seg_elem_slot_cnt, seg_elem_slot_cnt,
-                                  pos_cursor->n, end_cursor.n,
-                                  pos_cursor->seg_elem_slot_idx,
-                                  end_cursor.seg_elem_slot_idx, l_cnt);
+                                  end_cursor.n, pos_cursor->n,
+                                  end_cursor.seg_elem_slot_idx,
+                                  pos_cursor->seg_elem_slot_idx, l_cnt);
         } else {
             detail::Assign_<0, 0>(elem_size, elem_stride, elem_stride,
                                   seg_elem_slot_cnt, seg_elem_slot_cnt,
-                                  pos_cursor->n, end_cursor.n,
-                                  pos_cursor->seg_elem_slot_idx,
-                                  end_cursor.seg_elem_slot_idx, l_cnt);
+                                  end_cursor.n, pos_cursor->n,
+                                  end_cursor.seg_elem_slot_idx,
+                                  pos_cursor->seg_elem_slot_idx, l_cnt);
         }
 
         detail::Pop_<0>(cntr, cnt);
 
-        *pos_cursor = end_cursor;
+        pos_cursor->n = end_cursor.n;
+        pos_cursor->seg_elem_slot_idx = end_cursor.seg_elem_slot_idx;
+        pos_cursor->elem = end_cursor.elem;
 
-        return;
+        break;
     }
     case 1: {
         if (cnt < seg_elem_slot_cnt) {
@@ -1443,9 +1479,9 @@ void multi_level_circular_array::Erase(Cntr<CntrTplArgList>& cntr,
 
         detail::Pop_<1>(cntr, cnt);
 
-        return;
+        break;
     }
-    default: __builtin_unreachable();
+    default: ZETA_Core_Unreachable();
     }
 }
 
@@ -1481,9 +1517,9 @@ template <CntrTplParamList>
 int multi_level_circular_array::CompareCursor(Cntr<CntrTplArgList> const& cntr,
                                               Cursor const* cursor_a,
                                               Cursor const* cursor_b) {
-    return compare::BasicCompare(compare::compare_type::ThreeWay{},
-                                 (GetCursorIdx)(cntr, cursor_a) + 1,
-                                 (GetCursorIdx)(cntr, cursor_b) + 1);
+    return comparison::BasicCompare(comparison::ComparisonTypeEnum::ThreeWay{},
+                                    (GetCursorIdx)(cntr, cursor_a) + 1,
+                                    (GetCursorIdx)(cntr, cursor_b) + 1);
 }
 
 template <CntrTplParamList>
@@ -1523,8 +1559,8 @@ void multi_level_circular_array::CursorAdvanceL(
     ZETA_Core_DebugAssert(
         seq_cntr::IsAdvancableL(cursor->idx, step, cntr.elem_cnt));
 
-    detail::Access_<detail::AccessType_::AutoWithHint>(cntr, cursor->idx - step,
-                                                       true, cursor, nullptr);
+    detail::Access_<detail::AccessType_::AutoWithHint>(
+        cntr, cursor->idx - step, true, nullptr, cursor, nullptr);
 }
 
 template <CntrTplParamList>
@@ -1536,8 +1572,8 @@ void multi_level_circular_array::CursorAdvanceR(
     ZETA_Core_DebugAssert(
         seq_cntr::IsAdvancableR(cursor->idx, step, cntr.elem_cnt));
 
-    detail::Access_<detail::AccessType_::AutoWithHint>(cntr, cursor->idx + step,
-                                                       true, cursor, nullptr);
+    detail::Access_<detail::AccessType_::AutoWithHint>(
+        cntr, cursor->idx + step, true, nullptr, cursor, nullptr);
 }
 
 namespace multi_level_circular_array::detail {
@@ -1620,7 +1656,7 @@ pair::Pair<Node*, Node*> SanitizeMLPTNode_(
             sub_tree_slot_idx -= branch_num;
         }
 
-        size_t cur_cnt{ compare_utils::BasicMin(
+        size_t cur_cnt{ comparison_utils::BasicMin(
             sub_tree_seg_slot_cnt - seg_idx % sub_tree_seg_slot_cnt, cnt) };
 
         auto [cur_first_n, cur_last_n]{ (
@@ -1660,7 +1696,7 @@ void multi_level_circular_array::Sanitize(Cntr<CntrTplArgList> const& cntr,
 
     size_t elem_stride{ cntr.elem_stride };
     size_t seg_elem_slot_cnt{ cntr.seg_elem_slot_cnt };
-    size_t elem_offset{ cntr.elem_offset };
+    size_t elem_offset{ cntr.tree_elem_offset };
     size_t elem_cnt{ cntr.elem_cnt };
 
     Node* head_n{ cntr.head_n };
@@ -1699,7 +1735,7 @@ void multi_level_circular_array::Sanitize(Cntr<CntrTplArgList> const& cntr,
         Node* n{ llist::GetR(head_n) };
 
         for (size_t seg_idx{ 0 }; seg_idx != seg_cnt; ++seg_idx) {
-            void* mp{ multi_level_ptr_table::Access(
+            void* mp{ multi_level_ptr_table::Refer(
                 mlpt,
                 detail::SrcBranchIdxes_{
                     .seg_idx = tree_seg_offset + seg_idx,
@@ -1727,7 +1763,7 @@ void multi_level_circular_array::Sanitize(Cntr<CntrTplArgList> const& cntr,
 
         for (size_t seg_idx{ seg_cnt - 1 }; seg_idx != static_cast<size_t>(-1);
              --seg_idx) {
-            void* mp{ multi_level_ptr_table::Access(
+            void* mp{ multi_level_ptr_table::Refer(
                 mlpt,
                 detail::SrcBranchIdxes_{
                     .seg_idx = tree_seg_offset + seg_idx,
@@ -1745,6 +1781,23 @@ void multi_level_circular_array::Sanitize(Cntr<CntrTplArgList> const& cntr,
 
             n = llist::GetL(n);
         }
+    }
+
+    if (seg_cnt == 0) {
+        ZETA_Core_DebugAssert(llist::GetL(head_n) == head_n);
+        ZETA_Core_DebugAssert(llist::GetR(head_n) == head_n);
+    } else {
+        auto [first_n, last_n]{ detail::SanitizeMLPTNode_(
+            cntr, mlpt.level - 1,
+            static_cast<multi_level_ptr_table::NavNode<
+                typename Cntr<CntrTplArgList>::ActiveMap>*>(mlpt.root),
+            tree_seg_offset, seg_cnt) };
+
+        ZETA_Core_DebugAssert(llist::GetR(head_n) == first_n);
+        ZETA_Core_DebugAssert(llist::GetL(first_n) == head_n);
+
+        ZETA_Core_DebugAssert(llist::GetR(last_n) == head_n);
+        ZETA_Core_DebugAssert(llist::GetL(head_n) == last_n);
     }
 
     if (origin_dst_node != dst_node) {
@@ -1780,10 +1833,10 @@ void* seq_cntr::CntrTraits<
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::AbilityFlag
+constexpr seq_cntr::CapabilityFlag
 seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
-    GetStaticEnabledAbilityFlag() {
-    return seq_cntr::AbilityFlagBuilder{
+    GetStaticEnabledCapabilityFlag() {
+    return seq_cntr::CapabilityFlagBuilder{
         .GetCursorSize = true,
 
         .GetElemSize = true,
@@ -1796,7 +1849,7 @@ seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
         .PeekL = true,
         .PeekR = true,
 
-        .Access = true,
+        .Refer = true,
         .Derefer = true,
 
         .Read = true,
@@ -1828,42 +1881,42 @@ seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::AbilityFlag
+constexpr seq_cntr::CapabilityFlag
 seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList> const>::
-    GetStaticEnabledAbilityFlag() {
+    GetStaticEnabledCapabilityFlag() {
     return seq_cntr::CntrTraits<multi_level_circular_array::Cntr<
-               CntrTplArgList>>::GetStaticEnabledAbilityFlag() &
-           seq_cntr::const_ability_flag;
+               CntrTplArgList>>::GetStaticEnabledCapabilityFlag() &
+           seq_cntr::const_capability_flag;
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::AbilityFlag
+constexpr seq_cntr::CapabilityFlag
 seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
-    GetStaticDisabledAbilityFlag() {
-    return seq_cntr::empty_ability_flag;
+    GetStaticDisabledCapabilityFlag() {
+    return seq_cntr::empty_capability_flag;
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::AbilityFlag
+constexpr seq_cntr::CapabilityFlag
 seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList> const>::
-    GetStaticDisabledAbilityFlag() {
-    return seq_cntr::non_const_ability_flag;
+    GetStaticDisabledCapabilityFlag() {
+    return seq_cntr::non_const_capability_flag;
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::AbilityFlag
+constexpr seq_cntr::CapabilityFlag
 seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList> const>::
-    GetDynamicEnabledAbilityFlag(
+    GetDynamicEnabledCapabilityFlag(
         multi_level_circular_array::Cntr<CntrTplArgList> const&) {
-    return seq_cntr::empty_ability_flag;
+    return seq_cntr::empty_capability_flag;
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::AbilityFlag
+constexpr seq_cntr::CapabilityFlag
 seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList> const>::
-    GetDynamicDisabledAbilityFlag(
+    GetDynamicDisabledCapabilityFlag(
         multi_level_circular_array::Cntr<CntrTplArgList> const&) {
-    return seq_cntr::empty_ability_flag;
+    return seq_cntr::empty_capability_flag;
 }
 
 template <CntrTplParamList>
@@ -1915,44 +1968,88 @@ void seq_cntr::CntrTraits<
 }
 
 template <CntrTplParamList>
-void* seq_cntr::
+void seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
+    PeekL(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
+          bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
+          void* dst_cursor, void* dst_elem) {
+    return multi_level_circular_array::PeekL(
+        cntr, lazy_copy_elem, dst_elem_ptr_view,
+        static_cast<multi_level_circular_array::Cursor*>(dst_cursor), dst_elem);
+}
+
+template <CntrTplParamList>
+void seq_cntr::
     CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList> const>::PeekL(
         multi_level_circular_array::Cntr<CntrTplArgList> const& cntr,
-        bool lazy_copy_elem, void* dst_cursor, void* dst_elem) {
+        bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
+        void* dst_cursor, void* dst_elem) {
     return multi_level_circular_array::PeekL(
-        cntr, lazy_copy_elem,
+        cntr, lazy_copy_elem, dst_elem_ptr_view,
         static_cast<multi_level_circular_array::Cursor*>(dst_cursor), dst_elem);
 }
 
 template <CntrTplParamList>
-void* seq_cntr::
+void seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
+    PeekR(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
+          bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
+          void* dst_cursor, void* dst_elem) {
+    return multi_level_circular_array::PeekR(
+        cntr, lazy_copy_elem, dst_elem_ptr_view,
+        static_cast<multi_level_circular_array::Cursor*>(dst_cursor), dst_elem);
+}
+
+template <CntrTplParamList>
+void seq_cntr::
     CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList> const>::PeekR(
         multi_level_circular_array::Cntr<CntrTplArgList> const& cntr,
-        bool lazy_copy_elem, void* dst_cursor, void* dst_elem) {
+        bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
+        void* dst_cursor, void* dst_elem) {
     return multi_level_circular_array::PeekR(
-        cntr, lazy_copy_elem,
+        cntr, lazy_copy_elem, dst_elem_ptr_view,
         static_cast<multi_level_circular_array::Cursor*>(dst_cursor), dst_elem);
 }
 
 template <CntrTplParamList>
-void* seq_cntr::
-    CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList> const>::Access(
+void seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
+    Refer(multi_level_circular_array::Cntr<CntrTplArgList>& cntr, size_t idx,
+          bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
+          void* dst_cursor, void* dst_elem) {
+    multi_level_circular_array::Refer(
+        cntr, idx, lazy_copy_elem, dst_elem_ptr_view,
+        static_cast<multi_level_circular_array::Cursor*>(dst_cursor), dst_elem);
+}
+
+template <CntrTplParamList>
+void seq_cntr::
+    CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList> const>::Refer(
         multi_level_circular_array::Cntr<CntrTplArgList> const& cntr,
-        size_t idx, bool lazy_copy_elem, void* dst_cursor, void* dst_elem) {
-    return multi_level_circular_array::Access(
-        cntr, idx, lazy_copy_elem,
+        size_t idx, bool lazy_copy_elem,
+        seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+        void* dst_elem) {
+    multi_level_circular_array::Refer(
+        cntr, idx, lazy_copy_elem, dst_elem_ptr_view,
         static_cast<multi_level_circular_array::Cursor*>(dst_cursor), dst_elem);
 }
 
 template <CntrTplParamList>
-void* seq_cntr::
+void seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
+    Derefer(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
+            void* pos_cursor, bool lazy_copy_elem,
+            seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_elem) {
+    return multi_level_circular_array::Derefer(
+        cntr, static_cast<multi_level_circular_array::Cursor*>(pos_cursor),
+        lazy_copy_elem, dst_elem_ptr_view, dst_elem);
+}
+
+template <CntrTplParamList>
+void seq_cntr::
     CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList> const>::Derefer(
         multi_level_circular_array::Cntr<CntrTplArgList> const& cntr,
-        void const* pos_cursor, bool lazy_copy_elem, void* dst_elem) {
+        void* pos_cursor, bool lazy_copy_elem,
+        seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_elem) {
     return multi_level_circular_array::Derefer(
-        cntr,
-        static_cast<multi_level_circular_array::Cursor const*>(pos_cursor),
-        lazy_copy_elem, dst_elem);
+        cntr, static_cast<multi_level_circular_array::Cursor*>(pos_cursor),
+        lazy_copy_elem, dst_elem_ptr_view, dst_elem);
 }
 
 template <CntrTplParamList>
@@ -1960,12 +2057,9 @@ template <typename Reader>
 void seq_cntr::
     CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList> const>::Read(
         multi_level_circular_array::Cntr<CntrTplArgList> const& cntr,
-        void const* pos_cursor, size_t cnt,
-        Reader&& reader,  // NOLINT(cppcoreguidelines-missing-std-forward)
-        void* dst_cursor) {
+        void* pos_cursor, size_t cnt, Reader& reader, void* dst_cursor) {
     multi_level_circular_array::Read(
-        cntr,
-        static_cast<multi_level_circular_array::Cursor const*>(pos_cursor), cnt,
+        cntr, static_cast<multi_level_circular_array::Cursor*>(pos_cursor), cnt,
         reader, static_cast<multi_level_circular_array::Cursor*>(dst_cursor));
 }
 
@@ -1973,9 +2067,7 @@ template <CntrTplParamList>
 template <typename Writer>
 void seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
     Write(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
-          void* pos_cursor, size_t cnt,
-          Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-          void* dst_cursor) {
+          void* pos_cursor, size_t cnt, Writer& writer, void* dst_cursor) {
     multi_level_circular_array::Write(
         cntr, static_cast<multi_level_circular_array::Cursor*>(pos_cursor), cnt,
         writer, static_cast<multi_level_circular_array::Cursor*>(dst_cursor));
@@ -1984,12 +2076,9 @@ void seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
 template <CntrTplParamList>
 template <typename ReaderWriter>
 void seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
-    ReadWrite(
-        multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
-        void* pos_cursor, size_t cnt,
-        ReaderWriter&&
-            reader_writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-        void* dst_cursor) {
+    ReadWrite(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
+              void* pos_cursor, size_t cnt, ReaderWriter& reader_writer,
+              void* dst_cursor) {
     multi_level_circular_array::ReadWrite(
         cntr, static_cast<multi_level_circular_array::Cursor*>(pos_cursor), cnt,
         reader_writer,
@@ -1998,34 +2087,30 @@ void seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
 
 template <CntrTplParamList>
 template <typename Writer>
-void* seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
+void seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
     PushL(multi_level_circular_array::Cntr<CntrTplArgList>& cntr, size_t cnt,
-          Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-          void* dst_cursor) {
-    return multi_level_circular_array::PushL(
+          Writer& writer, void* dst_cursor) {
+    multi_level_circular_array::PushL(
         cntr, cnt, writer,
         static_cast<multi_level_circular_array::Cursor*>(dst_cursor));
 }
 
 template <CntrTplParamList>
 template <typename Writer>
-void* seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
+void seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
     PushR(multi_level_circular_array::Cntr<CntrTplArgList>& cntr, size_t cnt,
-          Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-          void* dst_cursor) {
-    return multi_level_circular_array::PushR(
+          Writer& writer, void* dst_cursor) {
+    multi_level_circular_array::PushR(
         cntr, cnt, writer,
         static_cast<multi_level_circular_array::Cursor*>(dst_cursor));
 }
 
 template <CntrTplParamList>
 template <typename Writer>
-void* seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
+void seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
     Insert(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
-           void* pos_cursor, size_t cnt,
-           Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-           void* dst_cursor) {
-    return multi_level_circular_array::Insert(
+           void* pos_cursor, size_t cnt, Writer& writer, void* dst_cursor) {
+    multi_level_circular_array::Insert(
         cntr, static_cast<multi_level_circular_array::Cursor*>(pos_cursor), cnt,
         writer, static_cast<multi_level_circular_array::Cursor*>(dst_cursor));
 }

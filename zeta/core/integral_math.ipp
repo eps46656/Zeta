@@ -46,8 +46,26 @@ constexpr bool integral_math::IsPowerOf2(Num num) {
 }
 
 template <typename Base, typename Exp>
+constexpr Base integral_math::PowerOf2Minus1(Exp exp) {
+    ZETA_Core_DebugAssert(static_cast<Exp>(0) <= exp);
+    ZETA_Core_DebugAssert(exp <= static_cast<Exp>(integral::WidthOf<Base>));
+
+    if (exp == static_cast<Exp>(0)) { return static_cast<Base>(0); }
+
+    Base x{ static_cast<Base>(1) };
+
+    x <<= exp - 1;  // x = 2^(exp - 1)
+    --x;            // x = 2^(exp - 1) - 1
+    x <<= 1;        // x = 2^exp - 2
+    ++x;            // x = 2^exp - 1
+
+    return x;
+}
+
+template <typename Base, typename Exp>
 constexpr Base integral_math::PowerOf2(Exp exp) {
     ZETA_Core_DebugAssert(static_cast<Exp>(0) <= exp);
+    ZETA_Core_DebugAssert(exp < static_cast<Exp>(integral::WidthOf<Base>));
     return static_cast<Base>(1) << exp;
 }
 
@@ -257,7 +275,7 @@ constexpr auto integral_math::GCD(Num x, Num y) {
         y %= x;
     }
 
-    __builtin_unreachable();
+    ZETA_Core_Unreachable();
 }
 
 template <typename Num>

@@ -1,6 +1,6 @@
 #pragma once
 
-namespace zeta::core::compare_utils {
+namespace zeta::core::comparison_utils {
 
 template <typename Comparator, typename Value0, typename... Values>
 constexpr decltype(auto) Min(Comparator const& cmptr, Value0&& value0,
@@ -28,4 +28,4 @@ constexpr int PairWiseLexCompare(Args&&... args);
 template <typename Comparator, typename SeqA, typename SeqB>
 int SeqWiseLexCompare(Comparator const& cmptr, SeqA&& a, SeqB&& b);
 
-}  // namespace zeta::core::compare_utils
+}  // namespace zeta::core::comparison_utils

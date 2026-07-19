@@ -1,97 +1,98 @@
 #pragma once
 
+#include <zeta/core/define.hpp>
+
 namespace zeta::core::meta {
 
 template <typename T>
 T Declval() {};
 
+struct NullTag {};
+
 struct Monostate {};
 
-struct NoneType {};
+/*
+
+                    NeverMatchTag       AlwaysMatchTag      TB
+NeverMatchTag       false                  X                false
+AlwaysMatchTag          X               true                true
+TA                  false               true                false/true
+
+*/
 
 struct NeverMatchTag {};
 
 struct AlwaysMatchTag {};
 
+template <typename TA, typename TB>
+constexpr bool IsSame{ __is_same(TA, TB) };
+
 namespace detail {
 
-/*
+template <typename TA, typename TB>
+struct IsMatched_ {
+    ZETA_Core_StaticAssert(
+        !((IsSame<TA, NeverMatchTag> && IsSame<TB, AlwaysMatchTag>) ||
+          (IsSame<TA, AlwaysMatchTag> && IsSame<TB, NeverMatchTag>)));
 
-                    NeverMatchTag       AlwaysMatchTag      T
-NeverMatchTag       false               false               false
-AlwaysMatchTag      true                true                true
-T                   false               true                false/true
+    static constexpr bool value{ IsSame<TA, AlwaysMatchTag> ||
+                                 IsSame<TB, AlwaysMatchTag> ||
+                                 (!IsSame<TA, NeverMatchTag> &&
+                                  !IsSame<TB, NeverMatchTag> &&
+                                  IsSame<TA, TB>)};
+};
 
-*/
+}  // namespace detail
+
+template <typename TA, typename TB>
+constexpr bool IsMatched{ detail::IsMatched_<TA, TB>::value };
+
+namespace detail {
 
 template <typename X, typename... Ts>
-struct IsAnyOf_;
+struct IsAnySame_;
 
 template <typename X>
-struct IsAnyOf_<X> {
+struct IsAnySame_<X> {
     static constexpr bool value{ false };
-};
-
-template <typename... Ts>
-struct IsAnyOf_<NeverMatchTag, NeverMatchTag, Ts...> {
-    static constexpr bool value{ false };
-};
-
-template <typename... Ts>
-struct IsAnyOf_<NeverMatchTag, AlwaysMatchTag, Ts...> {
-    static constexpr bool value{ false };
-};
-
-template <typename T0, typename... Ts>
-struct IsAnyOf_<NeverMatchTag, T0, Ts...> {
-    static constexpr bool value{ false };
-};
-
-template <typename... Ts>
-struct IsAnyOf_<AlwaysMatchTag, NeverMatchTag, Ts...> {
-    static constexpr bool value{ true };
-};
-
-template <typename... Ts>
-struct IsAnyOf_<AlwaysMatchTag, AlwaysMatchTag, Ts...> {
-    static constexpr bool value{ true };
-};
-
-template <typename T0, typename... Ts>
-struct IsAnyOf_<AlwaysMatchTag, T0, Ts...> {
-    static constexpr bool value{ true };
-};
-
-template <typename X, typename... Ts>
-struct IsAnyOf_<X, NeverMatchTag, Ts...> {
-    static constexpr bool value{ IsAnyOf_<X, Ts...>::value };
-};
-
-template <typename X, typename... Ts>
-struct IsAnyOf_<X, AlwaysMatchTag, Ts...> {
-    static constexpr bool value{ true };
 };
 
 template <typename X, typename T0, typename... Ts>
-struct IsAnyOf_<X, T0, Ts...> {
-    static constexpr bool value{ IsAnyOf_<X, Ts...>::value };
-};
-
-template <typename X, typename... Ts>
-struct IsAnyOf_<X, X, Ts...> {
-    static constexpr bool value{ true };
+struct IsAnySame_<X, T0, Ts...> {
+    static constexpr bool value{ IsSame<X, T0> || IsAnySame_<X, Ts...>::value };
 };
 
 }  // namespace detail
 
 template <typename X, typename... Ts>
-constexpr bool IsAnyOf{ detail::IsAnyOf_<X, Ts...>::value };
+constexpr bool IsAnySame{ detail::IsAnySame_<X, Ts...>::value };
 
 namespace detail {
 
-template <typename Type_>
+template <typename X, typename... Ts>
+struct IsAnyMatched_;
+
+template <typename X>
+struct IsAnyMatched_<X> {
+    static constexpr bool value{ false };
+};
+
+template <typename X, typename T0, typename... Ts>
+struct IsAnyMatched_<X, T0, Ts...> {
+    static constexpr bool value{ IsMatched<X, T0> ||
+                                 IsAnyMatched_<X, Ts...>::value };
+};
+
+}  // namespace detail
+
+template <typename X, typename... Ts>
+constexpr bool IsAnyMatched{ detail::IsAnyMatched_<X, Ts...>::value };
+
+namespace detail {
+
+template <typename T>
 struct RemoveConst_ {
-    using Type = Type_;
+    using Type = T;
 };
 
 template <typename T>
@@ -264,7 +265,7 @@ template <typename T>
 constexpr bool IsPointerToMember{ __is_member_pointer(T) };
 
 template <typename T>
-constexpr bool IsNullPointer{ IsAnyOf<T, decltype(nullptr)> };
+constexpr bool IsNullPointer{ IsSame<T, decltype(nullptr)> };
 
 template <typename T>
 constexpr bool IsEnum{ __is_enum(T) };
@@ -417,69 +418,6 @@ struct TypeWrapper {
                            // hicpp-explicit-conversions)
         (TypeWrapper<T> const&){};
 };
-
-namespace detail {
-
-template <size_t N>
-struct GetNthArg_ {
-    template <typename Arg0, typename Arg1, typename Arg2, typename Arg3,
-              typename Arg4, typename Arg5, typename Arg6, typename Arg7,
-              typename Arg8, typename Arg9, typename Arg10, typename Arg11,
-              typename Arg12, typename Arg13, typename Arg14, typename Arg15,
-              typename... Args>
-    static constexpr decltype(auto) Get(Arg0&& x0, Arg1&& x1, Arg2&& x2,
-                                        Arg3&& x3, Arg4&& x4, Arg5&& x5,
-                                        Arg6&& x6, Arg7&& x7, Arg8&& x8,
-                                        Arg9&& x9, Arg10&& x10, Arg11&& x11,
-                                        Arg12&& x12, Arg13&& x13, Arg14&& x14,
-                                        Arg15&& x15, Args&&... args) {
-#pragma push_macro("F")
-
-#define F(i)                          \
-    if constexpr (N == i) {           \
-        return Forward<Arg##i>(x##i); \
-    } else
-
-        F(0)
-        F(1)
-        F(2)
-        F(3)
-        F(4)
-        F(5)
-        F(6)
-        F(7)
-        F(8)
-        F(9)
-        F(10)
-        F(11)
-        F(12)
-        F(13)
-        F(14)
-        F(15) {  //
-            return GetNthArg_<N - 16>::Get(Forward<Args>(args)...);
-        }
-
-#pragma pop_macro("F")
-    }
-};
-
-}  // namespace detail
-
-template <size_t N, typename... Args>
-constexpr decltype(auto) GetNthArg(Args&&... args) {
-    static_assert(N < sizeof...(Args));
-    return detail::GetNthArg_<N>::Get(
-        Forward<Args>(args)...,              //
-        nullptr, nullptr, nullptr, nullptr,  // 0 ~ 3
-        nullptr, nullptr, nullptr, nullptr,  // 4 ~ 7
-        nullptr, nullptr, nullptr, nullptr,  // 8 ~ 11
-        nullptr, nullptr, nullptr, nullptr   // 12 ~ 15
-    );
-}
-
-template <size_t N, typename... Ts>
-using GetNthType =
-    RemoveCVRef<decltype(GetNthArg<N>(TypeWrapper<Ts>{}...))>::Type;
 
 template <typename T>
 T& GetInstRef(T* inst) {

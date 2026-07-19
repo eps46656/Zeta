@@ -36,12 +36,12 @@ struct Allocator {
     using SrcAllocatorLike = SrcAllocatorLike_;
 
     ZETA_Core_StaticAssert(
-        meta::IsAnyOf<ReuseStrategyTag, ReuseStrategy::Oldest,
-                      ReuseStrategy::Latest>);
+        meta::IsAnySame<ReuseStrategyTag, ReuseStrategy::Oldest,
+                        ReuseStrategy::Latest>);
 
     ZETA_Core_StaticAssert(
-        meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Oldest,
-                      ReleaseStrategy::Latest>);
+        meta::IsAnySame<ReleaseStrategyTag, ReleaseStrategy::Oldest,
+                        ReleaseStrategy::Latest>);
 
     size_t cnt;
     size_t capacity;
@@ -57,8 +57,8 @@ struct Allocator<ReuseStrategyTag_, ReleaseStrategy::Never, SrcAllocatorLike_> {
     using SrcAllocatorLike = SrcAllocatorLike_;
 
     ZETA_Core_StaticAssert(
-        meta::IsAnyOf<ReuseStrategyTag, ReuseStrategy::Oldest,
-                      ReuseStrategy::Latest>);
+        meta::IsAnySame<ReuseStrategyTag, ReuseStrategy::Oldest,
+                        ReuseStrategy::Latest>);
 
     SrcAllocatorLike src_allocator;
     void* head;
@@ -72,8 +72,8 @@ struct Allocator<ReuseStrategyTag_, ReleaseStrategy::Never, void> {
     using SrcAllocatorLike = void;
 
     ZETA_Core_StaticAssert(
-        meta::IsAnyOf<ReuseStrategyTag, ReuseStrategy::Oldest,
-                      ReuseStrategy::Latest>);
+        meta::IsAnySame<ReuseStrategyTag, ReuseStrategy::Oldest,
+                        ReuseStrategy::Latest>);
 
     void* head;
     void* tail;
@@ -81,7 +81,7 @@ struct Allocator<ReuseStrategyTag_, ReleaseStrategy::Never, void> {
 
 template <typename ReuseStrategyTag, typename ReleaseStrategyTag,
           typename SrcAllocatorLike, typename SrcAllocatorLikeInitArg,
-          typename = meta::EnableIf<!meta::IsAnyOf<SrcAllocatorLike, void>>>
+          typename = meta::EnableIf<!meta::IsSame<SrcAllocatorLike, void>>>
 void Init(Allocator<ReuseStrategyTag, ReleaseStrategyTag, SrcAllocatorLike>& pa,
           SrcAllocatorLikeInitArg&& src_allocator_like_init_arg);
 
@@ -102,7 +102,7 @@ void Deallocate(Allocator<AllocatorTplArgList>& pa, void* ptr);
 
 template <AllocatorTplParamList,
           typename = meta::EnableIf<
-              !meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Never>>>
+              !meta::IsSame<ReleaseStrategyTag, ReleaseStrategy::Never>>>
 void Release(Allocator<AllocatorTplArgList>& pa, size_t cnt);
 
 template <AllocatorTplParamList>

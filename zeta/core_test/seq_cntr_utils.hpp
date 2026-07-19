@@ -8,6 +8,7 @@
 #include <zeta/core/seq_cntr.hpp>
 #include <zeta/core/seq_cntr_ref.hpp>
 #include <zeta/core/seq_cntr_ref.ipp>
+#include <zeta/core/static_seq.hpp>
 #include <zeta/core/utils.hpp>
 #include <zeta/core/utils.ipp>
 #include <zeta/core/value_wrapper.hpp>
@@ -18,9 +19,10 @@ namespace zeta::core_test::seq_cntr_utils {
 
 using VTable = core::seq_cntr::VTable;
 
-template <typename Elem>
-size_t GetRandomStride() {
-    return sizeof(Elem) + alignof(Elem) * (GetRandomInt<size_t>)(1, 4);
+inline size_t GetRandomStride(size_t elem_size) {
+    ZETA_Core_DebugAssert(1 <= elem_size);
+
+    return elem_size + (GetRandomInt<size_t>)(0, elem_size * 2);
 }
 
 inline auto& GetSanitizeFuncs() {
@@ -83,35 +85,38 @@ inline void Destroy(core::seq_cntr_ref::Ref* sc) { Destroy(sc->cntr); }
 
 template <typename SeqCntr>
 void Read_(SeqCntr* sc, size_t idx, size_t cnt, void* dst, size_t dst_stride) {
-    void* pos_cursor{ ZETA_Core_SeqCntr_AllocaCursor(*sc) };
+    core::seq_cntr::CursorLimit pos_cursor;
 
     size_t size{ core::seq_cntr::GetElemCnt(*sc) };
 
     ZETA_Core_DebugAssert(cnt <= size);
 
-    core::seq_cntr::Access(*sc, idx, true, pos_cursor, nullptr);
+    core::seq_cntr::Refer(*sc, idx, true, nullptr, &pos_cursor, nullptr);
 
     (Sanitize)(sc);
 
-    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, pos_cursor) == idx);
+    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, &pos_cursor) ==
+                          idx);
 
     (Sanitize)(sc);
 
-    void* dst_cursor{ GetRandomInt<int>(0, 1) == 0
-                          ? pos_cursor
-                          : ZETA_Core_SeqCntr_AllocaCursor(*sc) };
+    core::seq_cntr::CursorLimit fallback_dst_cursor;
+
+    core::seq_cntr::CursorLimit* dst_cursor{ GetRandomInt<int>(0, 1) == 0
+                                                 ? &pos_cursor
+                                                 : &fallback_dst_cursor };
 
     core::seq_cntr::MemReader mem_reader{ .data = dst,
                                           .elem_size =
                                               core::seq_cntr::GetElemSize(*sc),
                                           .elem_stride = dst_stride };
 
-    core::seq_cntr::Read(*sc, pos_cursor, cnt, mem_reader, dst_cursor);
+    core::seq_cntr::Read(*sc, &pos_cursor, cnt, mem_reader, dst_cursor);
 
     (Sanitize)(sc);
 
-    if (pos_cursor != dst_cursor) {
-        ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, pos_cursor) ==
+    if (&pos_cursor != dst_cursor) {
+        ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, &pos_cursor) ==
                               idx);
     }
 
@@ -123,22 +128,18 @@ void Read_(SeqCntr* sc, size_t idx, size_t cnt, void* dst, size_t dst_stride) {
 
 template <typename SeqCntr>
 void Read(SeqCntr* sc, size_t idx, size_t cnt, void* dst, size_t dst_stride) {
-    size_t size{ core::seq_cntr::GetElemCnt(*sc) };
+    size_t elem_cnt{ core::seq_cntr::GetElemCnt(*sc) };
 
-    ZETA_Core_DebugAssert(cnt <= size);
+    ZETA_Core_DebugAssert(cnt <= elem_cnt);
 
-    size_t cnt_a{ core::compare_utils::BasicMin(cnt, size - idx) };
+    size_t cnt_a{ core::comparison_utils::BasicMin(cnt, elem_cnt - idx) };
     size_t cnt_b{ cnt - cnt_a };
-
-    for (size_t i{ 0 }, i_end{ dst_stride * cnt }; i < i_end; ++i) {
-        static_cast<char*>(dst)[i] = GetRandom<char>();
-    }
 
     if (0 < cnt_a) {
         (Read_)(sc, idx, cnt_a, dst, dst_stride);
 
         dst = static_cast<char*>(dst) + dst_stride * cnt_a;
-        idx = (idx + cnt_a) % size;
+        idx = (idx + cnt_a) % elem_cnt;
     }
 
     if (0 < cnt_b) { (Read_)(sc, 0, cnt_b, dst, dst_stride); }
@@ -147,40 +148,43 @@ void Read(SeqCntr* sc, size_t idx, size_t cnt, void* dst, size_t dst_stride) {
 template <typename SeqCntr>
 void Write_(SeqCntr* sc, size_t idx, size_t cnt, void const* src,
             size_t src_stride) {
-    void* pos_cursor{ ZETA_Core_SeqCntr_AllocaCursor(*sc) };
+    core::seq_cntr::CursorLimit pos_cursor;
 
-    size_t width{ core::seq_cntr::GetElemSize(*sc) };
+    size_t elem_size{ core::seq_cntr::GetElemSize(*sc) };
 
-    size_t size{ core::seq_cntr::GetElemCnt(*sc) };
-
-    (Sanitize)(sc);
-
-    ZETA_Core_DebugAssert(cnt <= size);
-
-    core::seq_cntr::Access(*sc, idx, true, pos_cursor, nullptr);
+    size_t elem_cnt{ core::seq_cntr::GetElemCnt(*sc) };
 
     (Sanitize)(sc);
 
-    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, pos_cursor) == idx);
+    ZETA_Core_DebugAssert(cnt <= elem_cnt);
+
+    core::seq_cntr::Refer(*sc, idx, true, nullptr, &pos_cursor, nullptr);
 
     (Sanitize)(sc);
 
-    void* dst_cursor{ GetRandomInt<int>(0, 1) == 0
-                          ? pos_cursor
-                          : ZETA_Core_SeqCntr_AllocaCursor(*sc) };
+    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, &pos_cursor) ==
+                          idx);
+
+    (Sanitize)(sc);
+
+    core::seq_cntr::CursorLimit fallback_dst_cursor;
+
+    core::seq_cntr::CursorLimit* dst_cursor{ GetRandomInt<int>(0, 1) == 0
+                                                 ? &pos_cursor
+                                                 : &fallback_dst_cursor };
 
     core::seq_cntr::Write(
-        *sc, pos_cursor, cnt,
+        *sc, &pos_cursor, cnt,
         core::seq_cntr::MemWriter{
-            .data = src, .elem_size = width, .elem_stride = src_stride },
+            .data = src, .elem_size = elem_size, .elem_stride = src_stride },
         dst_cursor);
 
     (Sanitize)(sc);
 
-    ZETA_Core_DebugAssert(core::seq_cntr::GetElemCnt(*sc) == size);
+    ZETA_Core_DebugAssert(core::seq_cntr::GetElemCnt(*sc) == elem_cnt);
 
-    if (pos_cursor != dst_cursor) {
-        ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, pos_cursor) ==
+    if (&pos_cursor != dst_cursor) {
+        ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, &pos_cursor) ==
                               idx);
 
         (Sanitize)(sc);
@@ -191,13 +195,14 @@ void Write_(SeqCntr* sc, size_t idx, size_t cnt, void const* src,
 
     (Sanitize)(sc);
 
-    void* buffer{ std::malloc(src_stride * cnt) };
+    void* buffer{ cnt == 0 ? nullptr
+                           : std::malloc(src_stride * (cnt - 1) + elem_size) };
 
     (Read)(sc, idx, cnt, buffer, src_stride);
 
-    ZETA_Core_DebugAssert(
-        core::compare_utils::MemSeqLexCompare(
-            src, buffer, width, width, src_stride, src_stride, cnt, cnt) == 0);
+    ZETA_Core_DebugAssert(core::comparison_utils::MemSeqLexCompare(
+                              src, buffer, elem_size, elem_size, src_stride,
+                              src_stride, cnt, cnt) == 0);
 
     std::free(buffer);
 }
@@ -205,18 +210,18 @@ void Write_(SeqCntr* sc, size_t idx, size_t cnt, void const* src,
 template <typename SeqCntr>
 void Write(SeqCntr* sc, size_t idx, size_t cnt, void const* src,
            size_t src_stride) {
-    size_t size{ core::seq_cntr::GetElemCnt(*sc) };
+    size_t elem_cnt{ core::seq_cntr::GetElemCnt(*sc) };
 
-    ZETA_Core_DebugAssert(cnt <= size);
+    ZETA_Core_DebugAssert(cnt <= elem_cnt);
 
-    size_t cnt_a{ core::compare_utils::BasicMin(cnt, size - idx) };
+    size_t cnt_a{ core::comparison_utils::BasicMin(cnt, elem_cnt - idx) };
     size_t cnt_b{ cnt - cnt_a };
 
     if (0 < cnt_a) {
         (Write_)(sc, idx, cnt_a, src, src_stride);
 
         src = static_cast<char const*>(src) + src_stride * cnt_a;
-        idx = (idx + cnt_a) % size;
+        idx = (idx + cnt_a) % elem_cnt;
     }
 
     if (0 < cnt_b) { (Write_)(sc, 0, cnt_b, src, src_stride); }
@@ -250,7 +255,7 @@ template <typename SeqCntr>
 void PopL(SeqCntr* sc, size_t cnt) {
     ZETA_Core_DebugAssert(cnt <= core::seq_cntr::GetElemCnt(*sc));
 
-    core::seq_cntr::PopL(*sc, cnt);
+    core::seq_cntr::PopL(*sc, cnt, core::seq_cntr::empty_reader);
 
     (Sanitize)(sc);
 }
@@ -261,30 +266,33 @@ void PopR(SeqCntr* sc, size_t cnt) {
 
     (Sanitize)(sc);
 
-    core::seq_cntr::PopR(*sc, cnt);
+    core::seq_cntr::PopR(*sc, cnt, core::seq_cntr::empty_reader);
 
     (Sanitize)(sc);
 }
 
 template <typename SeqCntr, typename Writer>
 void Insert(SeqCntr* sc, size_t idx, size_t cnt, Writer&& writer) {
-    void* pos_cursor{ ZETA_Core_SeqCntr_AllocaCursor(*sc) };
+    core::seq_cntr::CursorLimit pos_cursor;
 
-    core::seq_cntr::Access(*sc, idx, true, pos_cursor, nullptr);
-
-    (Sanitize)(sc);
-
-    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, pos_cursor) == idx);
+    core::seq_cntr::Refer(*sc, idx, true, nullptr, &pos_cursor, nullptr);
 
     (Sanitize)(sc);
 
-    void* dst_cursor{ (GetRandomInt<int>)(0, 1) == 0
-                          ? pos_cursor
-                          : ZETA_Core_SeqCntr_AllocaCursor(*sc) };
+    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, &pos_cursor) ==
+                          idx);
+
+    (Sanitize)(sc);
+
+    core::seq_cntr::CursorLimit fallback_dst_cursor;
+
+    core::seq_cntr::CursorLimit* dst_cursor{ (GetRandomInt<int>)(0, 1) == 0
+                                                 ? &pos_cursor
+                                                 : &fallback_dst_cursor };
 
     size_t old_elem_cnt{ core::seq_cntr::GetElemCnt(*sc) };
 
-    core::seq_cntr::Insert(*sc, pos_cursor, cnt,
+    core::seq_cntr::Insert(*sc, &pos_cursor, cnt,
                            core::meta::Forward<Writer>(writer), dst_cursor);
 
     (Sanitize)(sc);
@@ -292,8 +300,8 @@ void Insert(SeqCntr* sc, size_t idx, size_t cnt, Writer&& writer) {
     ZETA_Core_DebugAssert(core::seq_cntr::GetElemCnt(*sc) ==
                           old_elem_cnt + cnt);
 
-    if (dst_cursor != pos_cursor) {
-        ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, pos_cursor) ==
+    if (dst_cursor != &pos_cursor) {
+        ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, &pos_cursor) ==
                               idx);
 
         (Sanitize)(sc);
@@ -311,26 +319,65 @@ void Erase(SeqCntr* sc, size_t idx, size_t cnt) {
 
     (Sanitize)(sc);
 
-    size_t size{ core::seq_cntr::GetElemCnt(*sc) };
+    size_t elem_size{ core::seq_cntr::GetElemSize(*sc) };
 
-    ZETA_Core_DebugAssert(cnt <= size);
+    size_t elem_cnt{ core::seq_cntr::GetElemCnt(*sc) };
 
-    void* pos_cursor{ ZETA_Core_SeqCntr_AllocaCursor(*sc) };
+    ZETA_Core_DebugAssert(cnt <= elem_cnt);
 
-    core::seq_cntr::Access(*sc, idx, true, pos_cursor, nullptr);
+    core::seq_cntr::CursorLimit pos_cursor;
 
-    (Sanitize)(sc);
-
-    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, pos_cursor) == idx);
+    core::seq_cntr::Refer(*sc, idx, true, nullptr, &pos_cursor, nullptr);
 
     (Sanitize)(sc);
 
-    size_t cur_cnt{ std::min(size - idx, cnt) };
+    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, &pos_cursor) ==
+                          idx);
+
+    (Sanitize)(sc);
+
+    bool check_reader{ core::utils::GetRandom() % 2 == 0 };
+
+    size_t stride_a{ (GetRandomStride)(elem_size) };
+    size_t stride_b{ (GetRandomStride)(elem_size) };
+
+    void* buffer_a{ check_reader && 0 < cnt
+                        ? std::malloc(stride_a * (cnt - 1) + elem_size)
+                        : nullptr };
+    void* buffer_b{ check_reader && 0 < cnt
+                        ? std::malloc(stride_b * (cnt - 1) + elem_size)
+                        : nullptr };
+
+    size_t origin_cnt{ cnt };
+
+    core::seq_cntr::MemReader reader_a{ .data = buffer_a,
+                                        .elem_size = elem_size,
+                                        .elem_stride = stride_a };
+
+    core::seq_cntr::MemReader reader_b{ .data = buffer_b,
+                                        .elem_size = elem_size,
+                                        .elem_stride = stride_b };
+
+    size_t cur_cnt{ std::min(elem_cnt - idx, cnt) };
 
     {
         size_t old_elem_cnt{ core::seq_cntr::GetElemCnt(*sc) };
 
-        core::seq_cntr::Erase(*sc, pos_cursor, cur_cnt);
+        if (check_reader) {
+            core::seq_cntr::Read(*sc, &pos_cursor, cur_cnt, reader_a, nullptr);
+
+            (Sanitize)(sc);
+
+            ZETA_Core_DebugAssert(
+                core::seq_cntr::GetCursorIdx(*sc, &pos_cursor) == idx);
+        }
+
+        if (check_reader) {
+            core::seq_cntr::Erase(*sc, &pos_cursor, cur_cnt, reader_b);
+        } else {
+            core::seq_cntr::Erase(*sc, &pos_cursor, cur_cnt,
+                                  core::seq_cntr::empty_reader);
+        }
 
         (Sanitize)(sc);
 
@@ -340,30 +387,58 @@ void Erase(SeqCntr* sc, size_t idx, size_t cnt) {
 
     cnt -= cur_cnt;
 
-    ZETA_Core_DebugAssert(core::seq_cntr::GetElemCnt(*sc) == size - cur_cnt);
+    ZETA_Core_DebugAssert(core::seq_cntr::GetElemCnt(*sc) ==
+                          elem_cnt - cur_cnt);
 
     (Sanitize)(sc);
 
-    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, pos_cursor) == idx);
+    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, &pos_cursor) ==
+                          idx);
 
     (Sanitize)(sc);
 
-    core::seq_cntr::PeekL(*sc, true, pos_cursor, nullptr);
+    core::seq_cntr::PeekL(*sc, true, nullptr, &pos_cursor, nullptr);
 
     (Sanitize)(sc);
 
-    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, pos_cursor) == 0);
+    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc, &pos_cursor) == 0);
 
     {
+        cur_cnt = cnt;
+
+        if (check_reader) {
+            core::seq_cntr::Read(*sc, &pos_cursor, cur_cnt, reader_a, nullptr);
+
+            (Sanitize)(sc);
+
+            ZETA_Core_DebugAssert(
+                core::seq_cntr::GetCursorIdx(*sc, &pos_cursor) == 0);
+        }
+
         size_t old_elem_cnt{ core::seq_cntr::GetElemCnt(*sc) };
 
-        core::seq_cntr::Erase(*sc, pos_cursor, cnt);
+        if (check_reader) {
+            core::seq_cntr::Erase(*sc, &pos_cursor, cur_cnt, reader_b);
+        } else {
+            core::seq_cntr::Erase(*sc, &pos_cursor, cur_cnt,
+                                  core::seq_cntr::empty_reader);
+        }
 
         (Sanitize)(sc);
 
         ZETA_Core_DebugAssert(core::seq_cntr::GetElemCnt(*sc) ==
-                              old_elem_cnt - cnt);
+                              old_elem_cnt - cur_cnt);
     }
+
+    if (check_reader) {
+        ZETA_Core_DebugAssert(core::comparison_utils::MemSeqLexCompare(
+                                  buffer_a, buffer_b, elem_size, elem_size,
+                                  stride_a, stride_b, origin_cnt,
+                                  origin_cnt) == 0);
+    }
+
+    std::free(buffer_a);
+    std::free(buffer_b);
 }
 
 template <typename SeqCntr>
@@ -372,29 +447,29 @@ void CheckCursor(SeqCntr* sc, size_t max_op_size) {
 
     size_t size{ zeta::core::seq_cntr::GetElemCnt(*sc) };
 
-    void* cursor{ ZETA_Core_SeqCntr_AllocaCursor(*sc) };
+    zeta::core::seq_cntr::CursorLimit cursor;
 
-    zeta::core::seq_cntr::GetLBCursor(*sc, cursor);
+    zeta::core::seq_cntr::GetLBCursor(*sc, &cursor);
 
     for (size_t idx{ static_cast<size_t>(-1) }; idx != size; ++idx) {
-        ZETA_Core_DebugAssert(zeta::core::seq_cntr::GetCursorIdx(*sc, cursor) ==
-                              idx);
+        ZETA_Core_DebugAssert(
+            zeta::core::seq_cntr::GetCursorIdx(*sc, &cursor) == idx);
 
-        zeta::core::seq_cntr::CursorStepR(*sc, cursor);
+        zeta::core::seq_cntr::CursorStepR(*sc, &cursor);
     }
 
-    zeta::core::seq_cntr::GetRBCursor(*sc, cursor);
+    zeta::core::seq_cntr::GetRBCursor(*sc, &cursor);
 
     for (size_t idx{ size }; idx != static_cast<size_t>(-1); --idx) {
-        ZETA_Core_DebugAssert(zeta::core::seq_cntr::GetCursorIdx(*sc, cursor) ==
-                              idx);
+        ZETA_Core_DebugAssert(
+            zeta::core::seq_cntr::GetCursorIdx(*sc, &cursor) == idx);
 
-        zeta::core::seq_cntr::CursorStepL(*sc, cursor);
+        zeta::core::seq_cntr::CursorStepL(*sc, &cursor);
     }
 
-    void* cursor_a{ ZETA_Core_SeqCntr_AllocaCursor(*sc) };
-    void* cursor_b{ ZETA_Core_SeqCntr_AllocaCursor(*sc) };
-    void* cursor_c{ ZETA_Core_SeqCntr_AllocaCursor(*sc) };
+    zeta::core::seq_cntr::CursorLimit cursor_a;
+    zeta::core::seq_cntr::CursorLimit cursor_b;
+    zeta::core::seq_cntr::CursorLimit cursor_c;
 
     for (size_t i{ 0 }; i < max_op_size; ++i) {
         size_t idx_a{ static_cast<size_t>(
@@ -402,75 +477,96 @@ void CheckCursor(SeqCntr* sc, size_t max_op_size) {
         size_t idx_b{ static_cast<size_t>(
             (GetRandomInt<long long>)(-1, size)) };
 
-        zeta::core::seq_cntr::Access(*sc, idx_a, true, cursor_a, nullptr);
-        zeta::core::seq_cntr::Access(*sc, idx_b, true, cursor_b, nullptr);
+        zeta::core::seq_cntr::Refer(*sc, idx_a, true, nullptr, &cursor_a,
+                                    nullptr);
+        zeta::core::seq_cntr::Refer(*sc, idx_b, true, nullptr, &cursor_b,
+                                    nullptr);
 
         ZETA_Core_DebugAssert(
-            zeta::core::seq_cntr::GetCursorIdx(*sc, cursor_a) == idx_a);
+            zeta::core::seq_cntr::GetCursorIdx(*sc, &cursor_a) == idx_a);
         ZETA_Core_DebugAssert(
-            zeta::core::seq_cntr::GetCursorIdx(*sc, cursor_b) == idx_b);
-
-        ZETA_Core_DebugAssert(zeta::core::seq_cntr::AreEqualCursor(
-                                  *sc, cursor_a, cursor_b) == (idx_a == idx_b));
+            zeta::core::seq_cntr::GetCursorIdx(*sc, &cursor_b) == idx_b);
 
         ZETA_Core_DebugAssert(
-            zeta::core::seq_cntr::CompareCursor(*sc, cursor_a, cursor_b) ==
-            core::compare::BasicCompare(core::compare::compare_type::ThreeWay{},
-                                        idx_a + 1, idx_b + 1));
+            zeta::core::seq_cntr::AreEqualCursor(*sc, &cursor_a, &cursor_b) ==
+            (idx_a == idx_b));
+
+        ZETA_Core_DebugAssert(
+            zeta::core::seq_cntr::CompareCursor(*sc, &cursor_a, &cursor_b) ==
+            core::comparison::BasicCompare(
+                core::comparison::ComparisonTypeEnum::ThreeWay{}, idx_a + 1,
+                idx_b + 1));
 
         ZETA_Core_DebugAssert(zeta::core::seq_cntr::GetCursorDist(
-                                  *sc, cursor_a, cursor_b) == idx_b - idx_a);
+                                  *sc, &cursor_a, &cursor_b) == idx_b - idx_a);
 
-        zeta::core::seq_cntr::Access(*sc, idx_a, true, cursor_c, nullptr);
+        zeta::core::seq_cntr::Refer(*sc, idx_a, true, nullptr, &cursor_c,
+                                    nullptr);
 
         if (idx_a + 1 <= idx_b + 1) {
-            zeta::core::seq_cntr::CursorAdvanceR(*sc, cursor_c, idx_b - idx_a);
+            zeta::core::seq_cntr::CursorAdvanceR(*sc, &cursor_c, idx_b - idx_a);
         } else {
-            zeta::core::seq_cntr::CursorAdvanceL(*sc, cursor_c, idx_a - idx_b);
+            zeta::core::seq_cntr::CursorAdvanceL(*sc, &cursor_c, idx_a - idx_b);
         }
 
         ZETA_Core_DebugAssert(
-            zeta::core::seq_cntr::GetCursorIdx(*sc, cursor_c) == idx_b);
+            zeta::core::seq_cntr::GetCursorIdx(*sc, &cursor_c) == idx_b);
 
-        zeta::core::seq_cntr::Access(*sc, idx_b, true, cursor_c, nullptr);
+        zeta::core::seq_cntr::Refer(*sc, idx_b, true, nullptr, &cursor_c,
+                                    nullptr);
 
         if (idx_a + 1 <= idx_b + 1) {
-            zeta::core::seq_cntr::CursorAdvanceL(*sc, cursor_c, idx_b - idx_a);
+            zeta::core::seq_cntr::CursorAdvanceL(*sc, &cursor_c, idx_b - idx_a);
         } else {
-            zeta::core::seq_cntr::CursorAdvanceR(*sc, cursor_c, idx_a - idx_b);
+            zeta::core::seq_cntr::CursorAdvanceR(*sc, &cursor_c, idx_a - idx_b);
         }
 
         ZETA_Core_DebugAssert(
-            zeta::core::seq_cntr::GetCursorIdx(*sc, cursor_c) == idx_a);
+            zeta::core::seq_cntr::GetCursorIdx(*sc, &cursor_c) == idx_a);
     }
 }
 
 template <typename SeqCntr>
-size_t SyncGetSize(std::vector<SeqCntr*> const& scs) {
+size_t SyncGetElemSize(std::vector<SeqCntr*> const& scs) {
     ZETA_Core_DebugAssert(!scs.empty());
 
-    size_t size{ core::seq_cntr::GetElemCnt(*scs[0]) };
+    size_t elem_size{ core::seq_cntr::GetElemSize(*scs[0]) };
 
     for (auto& sc : scs) {
-        ZETA_Core_DebugAssert(size == core::seq_cntr::GetElemCnt(*sc));
+        ZETA_Core_DebugAssert(elem_size == core::seq_cntr::GetElemSize(*sc));
     }
 
-    return size;
+    return elem_size;
 }
 
-template <typename Elem, typename SeqCntr>
+template <typename SeqCntr>
+size_t SyncGetElemCnt(std::vector<SeqCntr*> const& scs) {
+    ZETA_Core_DebugAssert(!scs.empty());
+
+    size_t elem_cnt{ core::seq_cntr::GetElemCnt(*scs[0]) };
+
+    for (auto& sc : scs) {
+        ZETA_Core_DebugAssert(elem_cnt == core::seq_cntr::GetElemCnt(*sc));
+    }
+
+    return elem_cnt;
+}
+
+template <typename SeqCntr>
 void SyncRandomRead(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
-    size_t stride{ (GetRandomStride<Elem>)() };
+    size_t elem_size{ (SyncGetElemSize)(scs) };
 
-    ZETA_Core_DebugAssert(sizeof(Elem) <= stride);
+    size_t stride{ (GetRandomStride)(elem_size) };
 
-    size_t size{ (SyncGetSize)(scs) };
+    size_t size{ (SyncGetElemCnt)(scs) };
 
     size_t idx{ (GetRandomInt<size_t>)(0, size) };
     size_t cnt{ (GetRandomInt<size_t>)(0, std::min(max_op_size, size)) };
 
-    Elem* buffer_a{ static_cast<Elem*>(std::malloc(stride * cnt)) };
-    Elem* buffer_b{ static_cast<Elem*>(std::malloc(stride * cnt)) };
+    void* buffer_a{ cnt == 0 ? nullptr
+                             : std::malloc(stride * (cnt - 1) + elem_size) };
+    void* buffer_b{ cnt == 0 ? nullptr
+                             : std::malloc(stride * (cnt - 1) + elem_size) };
 
     bool read{ false };
 
@@ -478,13 +574,15 @@ void SyncRandomRead(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
         Read(sc, idx, cnt, buffer_b, stride);
 
         if (read) {
-            ZETA_Core_DebugAssert(core::compare_utils::MemSeqLexCompare(
-                                      buffer_a, buffer_b, sizeof(Elem),
-                                      sizeof(Elem), stride, stride, cnt,
-                                      cnt) == 0);
+            ZETA_Core_DebugAssert(core::comparison_utils::MemSeqLexCompare(
+                                      buffer_a, buffer_b, elem_size, elem_size,
+                                      stride, stride, cnt, cnt) == 0);
         } else {
             read = true;
-            std::memcpy(buffer_a, buffer_b, stride * cnt);
+
+            if (0 < cnt) {
+                std::memcpy(buffer_a, buffer_b, stride * (cnt - 1) + elem_size);
+            }
         }
     }
 
@@ -492,90 +590,96 @@ void SyncRandomRead(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
     std::free(buffer_b);
 }
 
-template <typename Elem, typename SeqCntr>
+template <typename SeqCntr>
 void SyncRandomWrite(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
-    size_t stride{ (GetRandomStride<Elem>)() };
+    size_t elem_size{ (SyncGetElemSize(scs)) };
 
-    size_t size{ (SyncGetSize)(scs) };
+    size_t elem_cnt{ (SyncGetElemCnt)(scs) };
 
-    size_t idx{ (GetRandomInt<size_t>)(0, size) };
-    size_t cnt{ (GetRandomInt<size_t>)(0, std::min(max_op_size, size)) };
+    size_t idx{ (GetRandomInt<size_t>)(0, elem_cnt) };
+    size_t cnt{ (GetRandomInt<size_t>)(0, std::min(max_op_size, elem_cnt)) };
 
-    Elem* buffer_a{ static_cast<Elem*>(std::malloc(stride * cnt)) };
-    Elem* buffer_b{ static_cast<Elem*>(std::malloc(stride * cnt)) };
+    size_t stride{ (GetRandomStride)(elem_size) };
 
-    (GetRandoms<Elem>)(PtrIter<Elem>{ buffer_a,
-                                      static_cast<ptrdiff_t>(stride) },
-                       PtrIter<Elem>{ buffer_a,
-                                      static_cast<ptrdiff_t>(stride) } +
-                           static_cast<long long>(cnt));
+    void* buffer_a{ cnt == 0 ? nullptr
+                             : std::malloc(stride * (cnt - 1) + elem_size) };
+    void* buffer_b{ cnt == 0 ? nullptr
+                             : std::malloc(stride * (cnt - 1) + elem_size) };
 
-    std::memcpy(buffer_b, buffer_a, stride * cnt);
+    GetRandomMemSeq(buffer_a, elem_size, stride, cnt);
+
+    if (0 < cnt) {
+        std::memcpy(buffer_b, buffer_a, stride * (cnt - 1) + elem_size);
+    }
 
     for (auto& sc : scs) {
         (Write)(sc, idx, cnt, buffer_a, stride);
 
-        ZETA_Core_DebugAssert(core::compare_utils::MemSeqLexCompare(
-                                  buffer_a, buffer_b, sizeof(Elem),
-                                  sizeof(Elem), stride, stride, cnt, cnt) == 0);
+        ZETA_Core_DebugAssert(core::comparison_utils::MemSeqLexCompare(
+                                  buffer_a, buffer_b, elem_size, elem_size,
+                                  stride, stride, cnt, cnt) == 0);
     }
 
     std::free(buffer_a);
     std::free(buffer_b);
 }
 
-template <typename Elem, typename SeqCntr>
+template <typename SeqCntr>
 void SyncRandomPushL(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
-    size_t stride{ (GetRandomStride<Elem>)() };
+    size_t elem_size{ (SyncGetElemSize)(scs) };
+
+    size_t stride{ (GetRandomStride)(elem_size) };
 
     size_t cnt{ (GetRandomInt<size_t>)(0, max_op_size) };
 
-    Elem* buffer_a{ static_cast<Elem*>(std::malloc(stride * cnt)) };
-    Elem* buffer_b{ static_cast<Elem*>(std::malloc(stride * cnt)) };
+    void* buffer_a{ cnt == 0 ? nullptr
+                             : std::malloc(stride * (cnt - 1) + elem_size) };
+    void* buffer_b{ cnt == 0 ? nullptr
+                             : std::malloc(stride * (cnt - 1) + elem_size) };
 
-    (GetRandoms<Elem>)(PtrIter<Elem>{ buffer_a,
-                                      static_cast<ptrdiff_t>(stride) },
-                       PtrIter<Elem>{ buffer_a,
-                                      static_cast<ptrdiff_t>(stride) } +
-                           static_cast<long long>(cnt));
+    GetRandomMemSeq(buffer_a, elem_size, stride, cnt);
 
-    std::memcpy(buffer_b, buffer_a, stride * cnt);
+    if (0 < cnt) {
+        std::memcpy(buffer_b, buffer_a, stride * (cnt - 1) + elem_size);
+    }
 
     for (auto& sc : scs) {
-        PushL(sc, cnt, buffer_a, stride);
+        (PushL)(sc, cnt, buffer_a, stride);
 
-        ZETA_Core_DebugAssert(core::compare_utils::MemSeqLexCompare(
-                                  buffer_a, buffer_b, sizeof(Elem),
-                                  sizeof(Elem), stride, stride, cnt, cnt) == 0);
+        ZETA_Core_DebugAssert(core::comparison_utils::MemSeqLexCompare(
+                                  buffer_a, buffer_b, elem_size, elem_size,
+                                  stride, stride, cnt, cnt) == 0);
     }
 
     std::free(buffer_a);
     std::free(buffer_b);
 }
 
-template <typename Elem, typename SeqCntr>
+template <typename SeqCntr>
 void SyncRandomPushR(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
-    size_t stride{ (GetRandomStride<Elem>)() };
+    size_t elem_size{ (SyncGetElemSize)(scs) };
+
+    size_t stride{ (GetRandomStride)(elem_size) };
 
     size_t cnt{ (GetRandomInt<size_t>)(0, max_op_size) };
 
-    Elem* buffer_a{ static_cast<Elem*>(std::malloc(stride * cnt)) };
-    Elem* buffer_b{ static_cast<Elem*>(std::malloc(stride * cnt)) };
+    void* buffer_a{ cnt == 0 ? nullptr
+                             : std::malloc(stride * (cnt - 1) + elem_size) };
+    void* buffer_b{ cnt == 0 ? nullptr
+                             : std::malloc(stride * (cnt - 1) + elem_size) };
 
-    (GetRandoms<Elem>)(PtrIter<Elem>{ buffer_a,
-                                      static_cast<ptrdiff_t>(stride) },
-                       PtrIter<Elem>{ buffer_a,
-                                      static_cast<ptrdiff_t>(stride) } +
-                           static_cast<long long>(cnt));
+    GetRandomMemSeq(buffer_a, elem_size, stride, cnt);
 
-    std::memcpy(buffer_b, buffer_a, stride * cnt);
+    if (0 < cnt) {
+        std::memcpy(buffer_b, buffer_a, stride * (cnt - 1) + elem_size);
+    }
 
     for (auto& sc : scs) {
         (PushR)(sc, cnt, buffer_a, stride);
 
-        ZETA_Core_DebugAssert(core::compare_utils::MemSeqLexCompare(
-                                  buffer_a, buffer_b, sizeof(Elem),
-                                  sizeof(Elem), stride, stride, cnt, cnt) == 0);
+        ZETA_Core_DebugAssert(core::comparison_utils::MemSeqLexCompare(
+                                  buffer_a, buffer_b, elem_size, elem_size,
+                                  stride, stride, cnt, cnt) == 0);
     }
 
     std::free(buffer_a);
@@ -584,7 +688,7 @@ void SyncRandomPushR(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
 
 template <typename SeqCntr>
 void SyncRandomPopL(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
-    size_t size{ (SyncGetSize)(scs) };
+    size_t size{ (SyncGetElemCnt)(scs) };
 
     size_t cnt{ (GetRandomInt<size_t>)(0, std::min(max_op_size, size)) };
 
@@ -593,32 +697,34 @@ void SyncRandomPopL(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
 
 template <typename SeqCntr>
 void SyncRandomPopR(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
-    size_t size{ (SyncGetSize)(scs) };
+    size_t size{ (SyncGetElemCnt)(scs) };
 
     size_t cnt{ (GetRandomInt<size_t>)(0, std::min(max_op_size, size)) };
 
     for (auto& sc : scs) { (PopR)(sc, cnt); }
 }
 
-template <typename Elem, typename SeqCntr>
+template <typename SeqCntr>
 void SyncRandomInsert(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
-    size_t stride{ (GetRandomStride<Elem>)() };
+    size_t elem_size{ (SyncGetElemSize)(scs) };
 
-    size_t size{ (SyncGetSize)(scs) };
+    size_t stride{ (GetRandomStride)(elem_size) };
+
+    size_t size{ (SyncGetElemCnt)(scs) };
 
     size_t idx{ (GetRandomInt<size_t>)(0, size) };
     size_t cnt{ (GetRandomInt<size_t>)(0, max_op_size) };
 
-    Elem* buffer_a{ static_cast<Elem*>(std::malloc(stride * cnt)) };
-    Elem* buffer_b{ static_cast<Elem*>(std::malloc(stride * cnt)) };
+    void* buffer_a{ cnt == 0 ? nullptr
+                             : std::malloc(stride * (cnt - 1) + elem_size) };
+    void* buffer_b{ cnt == 0 ? nullptr
+                             : std::malloc(stride * (cnt - 1) + elem_size) };
 
-    (GetRandoms<Elem>)(PtrIter<Elem>{ buffer_a,
-                                      static_cast<ptrdiff_t>(stride) },
-                       PtrIter<Elem>{ buffer_a,
-                                      static_cast<ptrdiff_t>(stride) } +
-                           static_cast<long long>(cnt));
+    GetRandomMemSeq(buffer_a, elem_size, stride, cnt);
 
-    std::memcpy(buffer_b, buffer_a, stride * cnt);
+    if (0 < cnt) {
+        std::memcpy(buffer_b, buffer_a, stride * (cnt - 1) + elem_size);
+    }
 
     for (auto& sc : scs) {
         (Insert)(sc, idx, cnt,
@@ -627,9 +733,9 @@ void SyncRandomInsert(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
                      .elem_size = core::seq_cntr::GetElemSize(*sc),
                      .elem_stride = stride });
 
-        ZETA_Core_DebugAssert(core::compare_utils::MemSeqLexCompare(
-                                  buffer_a, buffer_b, sizeof(Elem),
-                                  sizeof(Elem), stride, stride, cnt, cnt) == 0);
+        ZETA_Core_DebugAssert(core::comparison_utils::MemSeqLexCompare(
+                                  buffer_a, buffer_b, elem_size, elem_size,
+                                  stride, stride, cnt, cnt) == 0);
     }
 
     std::free(buffer_a);
@@ -638,7 +744,7 @@ void SyncRandomInsert(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
 
 template <typename SeqCntr>
 void SyncRandomErase(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
-    size_t size{ SyncGetSize(scs) };
+    size_t size{ SyncGetElemCnt(scs) };
 
     size_t idx{ (GetRandomInt<size_t>)(0, size) };
     size_t cnt{ (GetRandomInt<size_t>)(0, std::min(max_op_size, size)) };
@@ -646,139 +752,144 @@ void SyncRandomErase(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
     for (auto& sc : scs) { (Erase)(sc, idx, cnt); }
 }
 
-template <typename Elem, typename SeqCntr>
-void SyncRandomInit(std::vector<SeqCntr*> const& scs, size_t size) {
-    size_t stride{ (GetRandomStride<Elem>)() };
+template <typename SeqCntr>
+void SyncRandomInit(std::vector<SeqCntr*> const& scs, size_t elem_cnt) {
+    size_t elem_size{ (SyncGetElemSize)(scs) };
 
-    Elem* buffer_a{ static_cast<Elem*>(std::malloc(stride * size)) };
-    Elem* buffer_b{ static_cast<Elem*>(std::malloc(stride * size)) };
+    size_t stride{ (GetRandomStride)(elem_size) };
 
-    (GetRandoms<Elem>)(PtrIter<Elem>{ buffer_a,
-                                      static_cast<ptrdiff_t>(stride) },
-                       PtrIter<Elem>{ buffer_a,
-                                      static_cast<ptrdiff_t>(stride) } +
-                           static_cast<long long>(size));
+    ZETA_Core_PrintVar(elem_size);
+    ZETA_Core_PrintVar(stride);
 
-    std::memcpy(buffer_b, buffer_a, stride * size);
+    void* buffer_a{ elem_cnt == 0
+                        ? nullptr
+                        : std::malloc(stride * (elem_cnt - 1) + elem_size) };
+    void* buffer_b{ elem_cnt == 0
+                        ? nullptr
+                        : std::malloc(stride * (elem_cnt - 1) + elem_size) };
+
+    GetRandomMemSeq(buffer_a, elem_size, stride, elem_cnt);
+
+    if (0 < elem_cnt) {
+        std::memcpy(buffer_b, buffer_a, stride * (elem_cnt - 1) + elem_size);
+    }
 
     for (auto& sc : scs) {
         (Erase)(sc, 0, core::seq_cntr::GetElemCnt(*sc));
 
-        (PushR)(sc, size, buffer_b, stride);
+        (PushR)(sc, elem_cnt, buffer_b, stride);
 
-        ZETA_Core_DebugAssert(core::compare_utils::MemSeqLexCompare(
-                                  buffer_a, buffer_b, sizeof(Elem),
-                                  sizeof(Elem), stride, stride, size,
-                                  size) == 0);
+        ZETA_Core_DebugAssert(core::comparison_utils::MemSeqLexCompare(
+                                  buffer_a, buffer_b, elem_size, elem_size,
+                                  stride, stride, elem_cnt, elem_cnt) == 0);
     }
 
     std::free(buffer_a);
     std::free(buffer_b);
 }
 
-template <typename Elem, typename SeqCntrA, typename SeqCntrB>
+template <typename SeqCntrA, typename SeqCntrB>
 void SyncCompare2_(SeqCntrA* sc_a, SeqCntrB* sc_b) {
-    size_t width_a{ core::seq_cntr::GetElemSize(*sc_a) };
-    size_t width_b{ core::seq_cntr::GetElemSize(*sc_b) };
+    size_t elem_size{ (SyncGetElemSize)(std::vector<SeqCntrA*>{ sc_a }) };
 
-    ZETA_Core_DebugAssert(width_a == width_b);
+    size_t elem_cnt{ (SyncGetElemCnt)(std::vector<SeqCntrA*>{ sc_a }) };
 
-    size_t stride{ (GetRandomStride<Elem>)() };
+    core::seq_cntr::CursorLimit cursor_a;
+    core::seq_cntr::CursorLimit cursor_b;
 
-    size_t size_a{ core::seq_cntr::GetElemCnt(*sc_a) };
-    size_t size_b{ core::seq_cntr::GetElemCnt(*sc_b) };
+    size_t stride_a{ (GetRandomStride)(elem_size) };
+    size_t stride_b{ (GetRandomStride)(elem_size) };
 
-    ZETA_Core_DebugAssert(size_a == size_b);
+    void* buffer_a{ elem_cnt == 0
+                        ? nullptr
+                        : std::malloc(stride_a * (elem_cnt - 1) + elem_size) };
+    void* buffer_b{ elem_cnt == 0
+                        ? nullptr
+                        : std::malloc(stride_b * (elem_cnt - 1) + elem_size) };
 
-    void* cursor_a{ ZETA_Core_SeqCntr_AllocaCursor(*sc_a) };
-    void* cursor_b{ ZETA_Core_SeqCntr_AllocaCursor(*sc_b) };
+    core::seq_cntr::PeekL(*sc_a, true, nullptr, &cursor_a, nullptr);
+    core::seq_cntr::PeekL(*sc_b, true, nullptr, &cursor_b, nullptr);
 
-    Elem* buffer_a{ static_cast<Elem*>(std::malloc(stride * size_a)) };
-    Elem* buffer_b{ static_cast<Elem*>(std::malloc(stride * size_b)) };
-
-    core::seq_cntr::PeekL(*sc_a, true, cursor_a, nullptr);
-    core::seq_cntr::PeekL(*sc_b, true, cursor_b, nullptr);
-
-    for (size_t i{ 0 }; i < size_a; ++i) {
-        ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc_a, cursor_a) ==
+    for (size_t i{ 0 }; i < elem_cnt; ++i) {
+        ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc_a, &cursor_a) ==
                               i);
 
-        ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc_b, cursor_b) ==
+        ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc_b, &cursor_b) ==
                               i);
 
-        core::seq_cntr::Read(*sc_a, cursor_a, 1,
+        core::seq_cntr::Read(*sc_a, &cursor_a, 1,
                              core::seq_cntr::MemReader{
                                  .data = buffer_a,
-                                 .elem_size = width_a,
-                                 .elem_stride = width_a,
+                                 .elem_size = elem_size,
+                                 .elem_stride = stride_a,
                              },
-                             cursor_a);
+                             &cursor_a);
 
-        core::seq_cntr::Read(*sc_b, cursor_b, 1,
+        core::seq_cntr::Read(*sc_b, &cursor_b, 1,
                              core::seq_cntr::MemReader{
                                  .data = buffer_b,
-                                 .elem_size = width_b,
-                                 .elem_stride = width_b,
+                                 .elem_size = elem_size,
+                                 .elem_stride = stride_b,
                              },
-                             cursor_b);
+                             &cursor_b);
 
-        ZETA_Core_DebugAssert(
-            core::compare_utils::MemLexCompare(buffer_a, buffer_b, sizeof(Elem),
-                                               sizeof(Elem)) == 0);
+        ZETA_Core_DebugAssert(core::comparison_utils::MemLexCompare(
+                                  buffer_a, buffer_b, elem_size, elem_size) ==
+                              0);
     }
 
-    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc_a, cursor_a) ==
-                          size_a);
+    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc_a, &cursor_a) ==
+                          elem_cnt);
 
-    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc_b, cursor_b) ==
-                          size_b);
+    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc_b, &cursor_b) ==
+                          elem_cnt);
 
-    core::seq_cntr::PeekR(*sc_a, true, cursor_a, nullptr);
-    core::seq_cntr::PeekR(*sc_b, true, cursor_b, nullptr);
+    core::seq_cntr::PeekR(*sc_a, true, nullptr, &cursor_a, nullptr);
+    core::seq_cntr::PeekR(*sc_b, true, nullptr, &cursor_b, nullptr);
 
-    for (size_t i{ size_a }; 0 < i--;) {
-        ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc_a, cursor_a) ==
+    for (size_t i{ elem_cnt }; 0 < i--;) {
+        ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc_a, &cursor_a) ==
                               i);
 
-        ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc_b, cursor_b) ==
+        ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc_b, &cursor_b) ==
                               i);
 
-        core::seq_cntr::Read(*sc_a, cursor_a, 1,
+        core::seq_cntr::Read(*sc_a, &cursor_a, 1,
                              core::seq_cntr::MemReader{
                                  .data = buffer_a,
-                                 .elem_size = width_a,
-                                 .elem_stride = width_a,
+                                 .elem_size = elem_size,
+                                 .elem_stride = stride_a,
                              },
                              nullptr);
 
-        core::seq_cntr::Read(*sc_b, cursor_b, 1,
+        core::seq_cntr::Read(*sc_b, &cursor_b, 1,
                              core::seq_cntr::MemReader{
                                  .data = buffer_b,
-                                 .elem_size = width_b,
-                                 .elem_stride = width_b,
+                                 .elem_size = elem_size,
+                                 .elem_stride = stride_b,
                              },
                              nullptr);
 
-        ZETA_Core_DebugAssert(
-            core::compare_utils::MemLexCompare(buffer_a, buffer_b, sizeof(Elem),
-                                               sizeof(Elem)) == 0);
+        ZETA_Core_DebugAssert(core::comparison_utils::MemLexCompare(
+                                  buffer_a, buffer_b, elem_size, elem_size) ==
+                              0);
 
-        core::seq_cntr::CursorStepL(*sc_a, cursor_a);
+        core::seq_cntr::CursorStepL(*sc_a, &cursor_a);
 
-        core::seq_cntr::CursorStepL(*sc_b, cursor_b);
+        core::seq_cntr::CursorStepL(*sc_b, &cursor_b);
     }
 
-    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc_a, cursor_a) ==
+    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc_a, &cursor_a) ==
                           static_cast<size_t>(-1));
 
-    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc_b, cursor_b) ==
+    ZETA_Core_DebugAssert(core::seq_cntr::GetCursorIdx(*sc_b, &cursor_b) ==
                           static_cast<size_t>(-1));
 
     std::free(buffer_a);
     std::free(buffer_b);
 }
 
-template <typename Elem, typename SeqCntr>
+template <typename SeqCntr>
 void SyncCompare(std::vector<SeqCntr*> const& scs) {
     size_t cntr_cnt{ scs.size() };
 
@@ -787,7 +898,7 @@ void SyncCompare(std::vector<SeqCntr*> const& scs) {
     for (size_t i{ 0 }; i < cntr_cnt; ++i) {
         auto& sc_a{ scs[i] };
         auto& sc_b{ scs[(i + 1) % cntr_cnt] };
-        (SyncCompare2_<Elem>)(sc_a, sc_b);
+        (SyncCompare2_)(sc_a, sc_b);
     }
 }
 
@@ -807,7 +918,7 @@ enum OpEnum : int {
     CURSOR_ADVANCE_R,
 };
 
-template <typename Elem, typename SeqCntr>
+template <typename SeqCntr>
 void DoRandomOperations(std::vector<SeqCntr*> scs,
                         size_t iter_cnt,  //
 
@@ -854,22 +965,22 @@ void DoRandomOperations(std::vector<SeqCntr*> scs,
         switch (ops[(GetRandomInt<size_t>)(0, ops.size() - 1)]) {
         case OpEnum::READ:
             ZETA_Core_PrintVar("READ");
-            (SyncRandomRead<Elem>)(scs, read_max_op_size);
+            (SyncRandomRead)(scs, read_max_op_size);
             break;
 
         case OpEnum::WRITE:
             ZETA_Core_PrintVar("WRITE");
-            (SyncRandomWrite<Elem>)(scs, write_max_op_size);
+            (SyncRandomWrite)(scs, write_max_op_size);
             break;
 
         case OpEnum::PUSH_L:
             ZETA_Core_PrintVar("PUSH_L");
-            (SyncRandomPushL<Elem>)(scs, push_l_max_op_size);
+            (SyncRandomPushL)(scs, push_l_max_op_size);
             break;
 
         case OpEnum::PUSH_R:
             ZETA_Core_PrintVar("PUSH_R");
-            (SyncRandomPushR<Elem>)(scs, push_r_max_op_size);
+            (SyncRandomPushR)(scs, push_r_max_op_size);
             break;
 
         case OpEnum::POP_L:
@@ -884,7 +995,7 @@ void DoRandomOperations(std::vector<SeqCntr*> scs,
 
         case OpEnum::INSERT:
             ZETA_Core_PrintVar("INSERT");
-            (SyncRandomInsert<Elem>)(scs, insert_max_op_size);
+            (SyncRandomInsert)(scs, insert_max_op_size);
             break;
 
         case OpEnum::ERASE:
@@ -897,7 +1008,7 @@ void DoRandomOperations(std::vector<SeqCntr*> scs,
 
         for (auto& sc : scs) { (CheckCursor)(sc, 16); }
 
-        (SyncCompare<Elem>)(scs);
+        (SyncCompare)(scs);
     }
 }
 

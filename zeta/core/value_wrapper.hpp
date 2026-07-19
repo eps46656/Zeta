@@ -27,47 +27,89 @@ using TrueType = StaticValueWrapper<bool, true>;
 
 namespace detail {
 
-template <typename T, typename TargetValueType>
+template <typename T>
 struct IsStaticValueWrapperImpl_ {
     static constexpr bool value{ false };
 };
 
-template <typename ValueType, ValueType Value, typename TargetValueType>
-struct IsStaticValueWrapperImpl_<StaticValueWrapper<ValueType, Value>,
-                                 TargetValueType> {
-    static constexpr bool value{ meta::IsAnyOf<ValueType, TargetValueType> };
+template <typename ValueType, ValueType Value>
+struct IsStaticValueWrapperImpl_<StaticValueWrapper<ValueType, Value>> {
+    static constexpr bool value{ true };
 };
 
 }  // namespace detail
 
-template <typename T, typename TargetValueType>
+template <typename T>
 constexpr bool IsStaticValueWrapper{
-    detail::IsStaticValueWrapperImpl_<T, TargetValueType>::value
+    detail::IsStaticValueWrapperImpl_<T>::value
 };
 
 namespace detail {
 
-template <typename T, typename TargetValueType>
-struct IsDynamicValueWrapperImpl_ {
+template <typename T, typename ValueType>
+struct IsStaticValueWrapperWithImpl_ {
     static constexpr bool value{ false };
 };
 
-template <typename ValueType, typename TargetValueType>
-struct IsDynamicValueWrapperImpl_<DynamicValueWrapper<ValueType>,
-                                  TargetValueType> {
-    static constexpr bool value{ meta::IsAnyOf<ValueType, TargetValueType> };
+template <typename ValueType, ValueType Value>
+struct IsStaticValueWrapperWithImpl_<StaticValueWrapper<ValueType, Value>,
+                                     ValueType> {
+    static constexpr bool value{ true };
 };
 
 }  // namespace detail
 
 template <typename T, typename TargetValueType>
-constexpr bool IsDynamicValueWrapper{
-    detail::IsDynamicValueWrapperImpl_<T, TargetValueType>::value
+constexpr bool IsStaticValueWrapperWith{
+    detail::IsStaticValueWrapperWithImpl_<T, TargetValueType>::value
 };
 
+namespace detail {
+
+template <typename T>
+struct IsDynamicValueWrapper_ {
+    static constexpr bool value{ false };
+};
+
+template <typename ValueType>
+struct IsDynamicValueWrapper_<DynamicValueWrapper<ValueType>> {
+    static constexpr bool value{ true };
+};
+
+}  // namespace detail
+
+template <typename T>
+constexpr bool IsDynamicValueWrapper{
+    detail::IsDynamicValueWrapper_<T>::value
+};
+
+namespace detail {
+
+template <typename T, typename ValueType>
+struct IsDynamicValueWrapperWithImpl_ {
+    static constexpr bool value{ false };
+};
+
+template <typename ValueType>
+struct IsDynamicValueWrapperWithImpl_<DynamicValueWrapper<ValueType>,
+                                      ValueType> {
+    static constexpr bool value{ true };
+};
+
+}  // namespace detail
+
 template <typename T, typename TargetValueType>
-constexpr bool IsValueWrapper{ IsStaticValueWrapper<T, TargetValueType> ||
-                               IsDynamicValueWrapper<T, TargetValueType> };
+constexpr bool IsDynamicValueWrapperWith{
+    detail::IsDynamicValueWrapperWithImpl_<T, TargetValueType>::value
+};
+
+template <typename T>
+constexpr bool IsValueWrapper{ IsStaticValueWrapper<T> ||
+                               IsDynamicValueWrapper<T> };
+
+template <typename T, typename ValueType>
+constexpr bool IsValueWrapperWith{ IsStaticValueWrapperWith<T, ValueType> ||
+                                   IsDynamicValueWrapperWith<T, ValueType> };
 
 template <bool Cond, typename TX, typename TY>
 constexpr decltype(auto) Conditional(StaticValueWrapper<bool, Cond> const& cond,

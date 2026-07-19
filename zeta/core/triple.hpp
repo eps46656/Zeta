@@ -55,8 +55,8 @@ struct hash::BasicHashImpl<triple::Triple<First, Second, Third>> {
 
 template <typename XFirst, typename XSecond, typename XThird, typename YFirst,
           typename YSecond, typename YThird>
-struct compare::BasicCompareImpl<triple::Triple<XFirst, XSecond, XThird>,
-                                 triple::Triple<YFirst, YSecond, YThird>> {
+struct comparison::BasicCompareImpl<triple::Triple<XFirst, XSecond, XThird>,
+                                    triple::Triple<YFirst, YSecond, YThird>> {
     constexpr int operator()(
         triple::Triple<XFirst, XSecond, XThird> const& x,
         triple::Triple<YFirst, YSecond, YThird> const& y) const;

@@ -99,11 +99,11 @@ template <CntrTplParamList>
 void Deinit(Cntr<CntrTplArgList>& cntr);
 
 template <CntrTplParamList>
-assoc_cntr::AbilityFlag GetDynamicEnabledAbilityFlag(
+assoc_cntr::CapabilityFlag GetDynamicEnabledCapabilityFlag(
     Cntr<CntrTplArgList> const& cntr);
 
 template <CntrTplParamList>
-assoc_cntr::AbilityFlag GetDynamicDisabledAbilityFlag(
+assoc_cntr::CapabilityFlag GetDynamicDisabledCapabilityFlag(
     Cntr<CntrTplArgList> const& cntr);
 
 template <CntrTplParamList>
@@ -157,7 +157,7 @@ template <CntrTplParamList>
 void EraseAll(Cntr<CntrTplArgList>& cntr);
 
 template <CntrTplParamList>
-void CopyCursor(Cntr<CntrTplArgList> const& cntr, Cursor const* src_cursor,
+void CopyCursor(Cntr<CntrTplArgList> const& cntr, Cursor* src_cursor,
                 Cursor* dst_cursor);
 
 template <CntrTplParamList>
@@ -219,14 +219,17 @@ struct assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList> const> {
     static void* GetReferedInstPtr(
         dynamic_hash_table::Cntr<CntrTplArgList> const& cntr);
 
-    static constexpr assoc_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
+    static constexpr assoc_cntr::CapabilityFlag
+    GetStaticEnabledCapabilityFlag();
 
-    static constexpr assoc_cntr::AbilityFlag GetStaticDisabledAbilityFlag();
+    static constexpr assoc_cntr::CapabilityFlag
+    GetStaticDisabledCapabilityFlag();
 
-    static constexpr assoc_cntr::AbilityFlag GetDynamicEnabledAbilityFlag(
+    static constexpr assoc_cntr::CapabilityFlag GetDynamicEnabledCapabilityFlag(
         dynamic_hash_table::Cntr<CntrTplArgList> const&);
 
-    static constexpr assoc_cntr::AbilityFlag GetDynamicDisabledAbilityFlag(
+    static constexpr assoc_cntr::CapabilityFlag
+    GetDynamicDisabledCapabilityFlag(
         dynamic_hash_table::Cntr<CntrTplArgList> const&);
 
     static constexpr size_t GetCursorSize(
@@ -252,8 +255,7 @@ struct assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList> const> {
                        bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
 
     static void* Derefer(dynamic_hash_table::Cntr<CntrTplArgList> const& cntr,
-                         void const* pos_cursor, bool lazy_copy_elem,
-                         void* dst_elem);
+                         void* pos_cursor, bool lazy_copy_elem, void* dst_elem);
 
     template <typename KeyHasher, typename KeyElemComparator>
     static void* Find(dynamic_hash_table::Cntr<CntrTplArgList> const& cntr,
@@ -262,7 +264,7 @@ struct assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList> const> {
                       bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
 
     static void CopyCursor(dynamic_hash_table::Cntr<CntrTplArgList> const& cntr,
-                           void const* src_cursor, void* dst_cursor);
+                           void* src_cursor, void* dst_cursor);
 
     static bool AreEqualCursor(
         dynamic_hash_table::Cntr<CntrTplArgList> const& cntr,
@@ -279,9 +281,11 @@ template <CntrTplParamList>
 struct assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList>>
     : public assoc_cntr::CntrTraits<
           dynamic_hash_table::Cntr<CntrTplArgList> const> {
-    static constexpr assoc_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
+    static constexpr assoc_cntr::CapabilityFlag
+    GetStaticEnabledCapabilityFlag();
 
-    static constexpr assoc_cntr::AbilityFlag GetStaticDisabledAbilityFlag();
+    static constexpr assoc_cntr::CapabilityFlag
+    GetStaticDisabledCapabilityFlag();
 
     static void* Insert(dynamic_hash_table::Cntr<CntrTplArgList>& cntr,
                         void const* elem, void* dst_cursor);

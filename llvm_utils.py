@@ -207,6 +207,9 @@ class LLVMCompilerConfig:
     enable_debug: bool
     enable_asan: bool
 
+    c_defines: dict[str, str]
+    cpp_defines: dict[str, str]
+
     opt_type: str
     link_time_opt: bool
 
@@ -278,6 +281,7 @@ class LLVMCompiler:
 
             "-Wall",
             "-Wextra",
+            "-Wimplicit-fallthrough",
             "-Werror",
             "-Wmissing-prototypes",
 
@@ -311,6 +315,11 @@ class LLVMCompiler:
         c_compile_args = [
             *compile_args,
 
+            *(
+                f"{key}={value}"
+                for key, value in config.c_defines.items()
+            ),
+
             f"--std={self.standard[utils.Language.C]}",
 
             *(f"--include-directory={include_dir.as_posix()}"
@@ -325,6 +334,11 @@ class LLVMCompiler:
 
         cpp_compile_args = [
             *compile_args,
+
+            *(
+                f"{key}={value}"
+                for key, value in config.cpp_defines.items()
+            ),
 
             f"--std={self.standard[utils.Language.CPP]}",
 

@@ -11,21 +11,21 @@ struct Ref {
     size_t width;
     size_t capacity;
 
-    assoc_cntr::AbilityFlag dynamic_enabled_ability_flag;
-    assoc_cntr::AbilityFlag dynamic_disabled_ability_flag;
+    assoc_cntr::CapabilityFlag dynamic_enabled_capability_flag;
+    assoc_cntr::CapabilityFlag dynamic_disabled_capability_flag;
 
     assoc_cntr::VTable const* vtable;
 
     void* cntr;
 };
 
-assoc_cntr::AbilityFlag GetDynamicEnabledAbilityFlag(Ref& ref);
+assoc_cntr::CapabilityFlag GetDynamicEnabledCapabilityFlag(Ref& ref);
 
-assoc_cntr::AbilityFlag GetDynamicEnabledAbilityFlag(Ref const& ref);
+assoc_cntr::CapabilityFlag GetDynamicEnabledCapabilityFlag(Ref const& ref);
 
-assoc_cntr::AbilityFlag GetDynamicDisabledAbilityFlag(Ref& ref);
+assoc_cntr::CapabilityFlag GetDynamicDisabledCapabilityFlag(Ref& ref);
 
-assoc_cntr::AbilityFlag GetDynamicDisabledAbilityFlag(Ref const& ref);
+assoc_cntr::CapabilityFlag GetDynamicDisabledCapabilityFlag(Ref const& ref);
 
 size_t GetCursorSize(Ref const&);
 
@@ -52,7 +52,7 @@ void* PeekR(Ref const& ref, bool lazy_copy_elem, void* dst_cursor,
 void* Access(Ref const& ref, size_t idx, bool lazy_copy_elem, void* dst_cursor,
              void* dst_elem);
 
-void* Derefer(Ref const& ref, void const* pos_cursor, bool lazy_copy_elem,
+void* Derefer(Ref const& ref, void* pos_cursor, bool lazy_copy_elem,
               void* dst_elem);
 
 template <typename KeyHash, typename KeyElemCompare>
@@ -70,7 +70,7 @@ void Erase(Ref& ref, void* pos_cursor);
 
 void EraseAll(Ref& ref);
 
-void CopyCursor(Ref const& ref, void const* src_cursor, void* dst_cursor);
+void CopyCursor(Ref const& ref, void* src_cursor, void* dst_cursor);
 
 bool AreEqualCursor(Ref const& ref, void const* cursor_a, void const* cursor_b);
 
@@ -102,15 +102,17 @@ template <>
 struct assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const> {
     static void* GetReferedInstPtr(assoc_cntr_ref::Ref const& ref);
 
-    static constexpr assoc_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
+    static constexpr assoc_cntr::CapabilityFlag
+    GetStaticEnabledCapabilityFlag();
 
-    static constexpr assoc_cntr::AbilityFlag GetStaticDisabledAbilityFlag();
+    static constexpr assoc_cntr::CapabilityFlag
+    GetStaticDisabledCapabilityFlag();
 
-    static constexpr assoc_cntr::AbilityFlag GetDynamicEnabledAbilityFlag(
+    static constexpr assoc_cntr::CapabilityFlag GetDynamicEnabledCapabilityFlag(
         assoc_cntr_ref::Ref const& ref);
 
-    static constexpr assoc_cntr::AbilityFlag GetDynamicDisabledAbilityFlag(
-        assoc_cntr_ref::Ref const& ref);
+    static constexpr assoc_cntr::CapabilityFlag
+    GetDynamicDisabledCapabilityFlag(assoc_cntr_ref::Ref const& ref);
 
     static size_t GetCursorSize(assoc_cntr_ref::Ref const& ref);
 
@@ -130,7 +132,7 @@ struct assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const> {
     static void* PeekR(assoc_cntr_ref::Ref const& ref, bool lazy_copy_elem,
                        void* dst_cursor, void* dst_elem);
 
-    static void* Derefer(assoc_cntr_ref::Ref const& ref, void const* pos_cursor,
+    static void* Derefer(assoc_cntr_ref::Ref const& ref, void* pos_cursor,
                          bool lazy_copy_elem, void* dst_elem);
 
     template <typename KeyHash, typename KeyElemCompare>
@@ -138,8 +140,8 @@ struct assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const> {
                       KeyHash&& key_hash, KeyElemCompare&& key_elem_compare,
                       bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
 
-    static void CopyCursor(assoc_cntr_ref::Ref const& ref,
-                           void const* src_cursor, void* dst_cursor);
+    static void CopyCursor(assoc_cntr_ref::Ref const& ref, void* src_cursor,
+                           void* dst_cursor);
 
     static bool AreEqualCursor(assoc_cntr_ref::Ref const& ref,
                                void const* cursor_a, void const* cursor_b);
@@ -167,9 +169,11 @@ struct assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const> {
 template <>
 struct assoc_cntr::CntrTraits<assoc_cntr_ref::Ref>
     : public assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const> {
-    static constexpr assoc_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
+    static constexpr assoc_cntr::CapabilityFlag
+    GetStaticEnabledCapabilityFlag();
 
-    static constexpr assoc_cntr::AbilityFlag GetStaticDisabledAbilityFlag();
+    static constexpr assoc_cntr::CapabilityFlag
+    GetStaticDisabledCapabilityFlag();
 
     static void* Insert(assoc_cntr_ref::Ref& ref, void const* elem,
                         void* dst_cursor);

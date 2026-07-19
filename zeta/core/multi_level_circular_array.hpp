@@ -126,7 +126,7 @@ struct Cntr {
     size_t elem_size;
     size_t elem_stride;
     size_t seg_elem_slot_cnt;
-    size_t elem_offset;
+    size_t tree_elem_offset;
     size_t elem_cnt;
 
     multi_level_ptr_table::BranchNum rots[multi_level_ptr_table::max_level];
@@ -174,48 +174,79 @@ template <CntrTplParamList>
 void GetRBCursor(Cntr<CntrTplArgList> const& cntr, Cursor* dst_cursor);
 
 template <CntrTplParamList>
-void* PeekL(Cntr<CntrTplArgList> const& cntr, bool lazy_copy_elem,
-            Cursor* dst_cursor, void* dst_elem);
+void PeekL(Cntr<CntrTplArgList>& cntr, bool lazy_copy_elem,
+           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+           void* dst_elem);
 
 template <CntrTplParamList>
-void* PeekR(Cntr<CntrTplArgList> const& cntr, bool lazy_copy_elem,
-            Cursor* dst_cursor, void* dst_elem);
+void PeekL(Cntr<CntrTplArgList> const& cntr, bool lazy_copy_elem,
+           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+           void* dst_elem);
 
 template <CntrTplParamList>
-void* Access(Cntr<CntrTplArgList> const& cntr, size_t idx, bool lazy_copy_elem,
-             Cursor* dst_cursor, void* dst_elem);
+void PeekR(Cntr<CntrTplArgList>& cntr, bool lazy_copy_elem,
+           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+           void* dst_elem);
 
 template <CntrTplParamList>
-void* AccessWithHint(Cntr<CntrTplArgList> const& cntr, size_t idx,
-                     bool lazy_copy_elem, Cursor* dst_cursor, void* dst_elem);
+void PeekR(Cntr<CntrTplArgList> const& cntr, bool lazy_copy_elem,
+           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+           void* dst_elem);
 
 template <CntrTplParamList>
-void* Derefer(Cntr<CntrTplArgList> const& cntr, Cursor const* pos_cursor,
-              bool lazy_copy_elem, void* dst_elem);
+void Refer(Cntr<CntrTplArgList>& cntr, size_t idx, bool lazy_copy_elem,
+           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+           void* dst_elem);
+
+template <CntrTplParamList>
+void Refer(Cntr<CntrTplArgList> const& cntr, size_t idx, bool lazy_copy_elem,
+           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+           void* dst_elem);
+
+template <CntrTplParamList>
+void AccessWithHint(Cntr<CntrTplArgList>& cntr, size_t idx, bool lazy_copy_elem,
+                    seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                    Cursor* dst_cursor, void* dst_elem);
+
+template <CntrTplParamList>
+void AccessWithHint(Cntr<CntrTplArgList> const& cntr, size_t idx,
+                    bool lazy_copy_elem,
+                    seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                    Cursor* dst_cursor, void* dst_elem);
+
+template <CntrTplParamList>
+void Derefer(Cntr<CntrTplArgList> const& cntr, Cursor const* pos_cursor,
+             bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
+             void* dst_elem);
+
+template <CntrTplParamList>
+void Derefer(Cntr<CntrTplArgList>& cntr, Cursor const* pos_cursor,
+             bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
+             void* dst_elem);
 
 template <CntrTplParamList, typename Reader>
 void Read(Cntr<CntrTplArgList> const& cntr, Cursor const* pos_cursor,
-          size_t cnt, Reader&& reader, Cursor* dst_cursor);
+          size_t cnt, Reader& reader, Cursor* dst_cursor);
 
 template <CntrTplParamList, typename Writer>
 static void Write(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor, size_t cnt,
-                  Writer&& writer, Cursor* dst_cursor);
+                  Writer& writer, Cursor* dst_cursor);
 
 template <CntrTplParamList, typename ReaderWriter>
 void ReadWrite(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor, size_t cnt,
-               ReaderWriter&& reader_writer, Cursor* dst_cursor);
+               ReaderWriter& reader_writer, Cursor* dst_cursor);
 
 template <CntrTplParamList, typename Writer>
-void* PushL(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
-            Cursor* dst_cursor);
+void PushL(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer& writer,
+           Cursor* dst_cursor);
 
 template <CntrTplParamList, typename Writer>
-void* PushR(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
-            Cursor* dst_cursor);
+void PushR(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer& writer,
+           Cursor* dst_cursor);
 
 template <CntrTplParamList, typename Writer>
-void* Insert(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor, size_t cnt,
-             Writer&& writer, Cursor* dst_cursor);
+void Insert(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor, size_t cnt,
+            Writer& writer, Cursor* dst_cursor);
 
 template <CntrTplParamList>
 void PopL(Cntr<CntrTplArgList>& cntr, size_t cnt);
@@ -286,14 +317,14 @@ struct seq_cntr::CntrTraits<
     static void* GetReferedInstPtr(
         multi_level_circular_array::Cntr<CntrTplArgList> const& cntr);
 
-    static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
+    static constexpr seq_cntr::CapabilityFlag GetStaticEnabledCapabilityFlag();
 
-    static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();
+    static constexpr seq_cntr::CapabilityFlag GetStaticDisabledCapabilityFlag();
 
-    static constexpr seq_cntr::AbilityFlag GetDynamicEnabledAbilityFlag(
+    static constexpr seq_cntr::CapabilityFlag GetDynamicEnabledCapabilityFlag(
         multi_level_circular_array::Cntr<CntrTplArgList> const& cntr);
 
-    static constexpr seq_cntr::AbilityFlag GetDynamicDisabledAbilityFlag(
+    static constexpr seq_cntr::CapabilityFlag GetDynamicDisabledCapabilityFlag(
         multi_level_circular_array::Cntr<CntrTplArgList> const& cntr);
 
     static size_t GetCursorSize(
@@ -316,26 +347,31 @@ struct seq_cntr::CntrTraits<
         multi_level_circular_array::Cntr<CntrTplArgList> const& cntr,
         void* dst_cursor);
 
-    static void* PeekL(
+    static void PeekL(
         multi_level_circular_array::Cntr<CntrTplArgList> const& cntr,
-        bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
+        bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
+        void* dst_cursor, void* dst_elem);
 
-    static void* PeekR(
+    static void PeekR(
         multi_level_circular_array::Cntr<CntrTplArgList> const& cntr,
-        bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
+        bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
+        void* dst_cursor, void* dst_elem);
 
-    static void* Access(
+    static void Refer(
         multi_level_circular_array::Cntr<CntrTplArgList> const& cntr,
-        size_t idx, bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
+        size_t idx, bool lazy_copy_elem,
+        seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+        void* dst_elem);
 
-    static void* Derefer(
+    static void Derefer(
         multi_level_circular_array::Cntr<CntrTplArgList> const& cntr,
-        void const* pos_cursor, bool lazy_copy_elem, void* dst_elem);
+        void* pos_cursor, bool lazy_copy_elem,
+        seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_elem);
 
     template <typename Reader>
     static void Read(
         multi_level_circular_array::Cntr<CntrTplArgList> const& cntr,
-        void const* pos_cursor, size_t cnt, Reader&& reader, void* dst_cursor);
+        void* pos_cursor, size_t cnt, Reader& reader, void* dst_cursor);
 
     static void CopyCursor(
         multi_level_circular_array::Cntr<CntrTplArgList> const& cntr,
@@ -378,33 +414,53 @@ template <CntrTplParamList>
 struct seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>
     : public seq_cntr::CntrTraits<
           multi_level_circular_array::Cntr<CntrTplArgList> const> {
-    static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
+    static constexpr seq_cntr::CapabilityFlag GetStaticEnabledCapabilityFlag();
 
-    static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();
+    static constexpr seq_cntr::CapabilityFlag GetStaticDisabledCapabilityFlag();
+
+    static void PeekL(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
+                      bool lazy_copy_elem,
+                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                      void* dst_cursor, void* dst_elem);
+
+    static void PeekR(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
+                      bool lazy_copy_elem,
+                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                      void* dst_cursor, void* dst_elem);
+
+    static void Refer(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
+                      size_t idx, bool lazy_copy_elem,
+                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                      void* dst_cursor, void* dst_elem);
+
+    static void Derefer(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
+                        void* pos_cursor, bool lazy_copy_elem,
+                        seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                        void* dst_elem);
 
     template <typename Writer>
     static void Write(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
-                      void* pos_cursor, size_t cnt, Writer&& writer,
+                      void* pos_cursor, size_t cnt, Writer& writer,
                       void* dst_cursor);
 
     template <typename ReaderWriter>
     static void ReadWrite(
         multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
-        void* pos_cursor, size_t cnt, ReaderWriter&& reader_writer,
+        void* pos_cursor, size_t cnt, ReaderWriter& reader_writer,
         void* dst_cursor);
 
     template <typename Writer>
-    static void* PushL(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
-                       size_t cnt, Writer&& writer, void* dst_cursor);
+    static void PushL(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
+                      size_t cnt, Writer& writer, void* dst_cursor);
 
     template <typename Writer>
-    static void* PushR(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
-                       size_t cnt, Writer&& writer, void* dst_cursor);
+    static void PushR(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
+                      size_t cnt, Writer& writer, void* dst_cursor);
 
     template <typename Writer>
-    static void* Insert(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
-                        void* pos_cursor, size_t cnt, Writer&& writer,
-                        void* dst_cursor);
+    static void Insert(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
+                       void* pos_cursor, size_t cnt, Writer& writer,
+                       void* dst_cursor);
 
     static void PopL(multi_level_circular_array::Cntr<CntrTplArgList>& cntr,
                      size_t cnt);

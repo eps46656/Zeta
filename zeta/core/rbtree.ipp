@@ -342,7 +342,7 @@ RBTreeNode* rbtree::Extract(RBTreeNode* pos) {
 
                 break;
 
-            default: __builtin_unreachable();
+            default: ZETA_Core_Unreachable();
             }
         }
     }

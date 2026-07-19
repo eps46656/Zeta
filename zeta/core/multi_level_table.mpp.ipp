@@ -78,8 +78,8 @@ struct TransferBranchIdxesCore_ {
 };
 
 template <>
-struct TransferBranchIdxesCore_<meta::NoneType> {
-    static auto Dst(unsigned, meta::NoneType&) {
+struct TransferBranchIdxesCore_<meta::NullTag> {
+    static auto Dst(unsigned, meta::NullTag&) {
         struct {
             void operator()(BranchNum) {}
         } ret;
@@ -160,10 +160,8 @@ void CheckBranchIdx_  // NOLINT(misc-use-internal-linkage)
 }
 
 template <typename SrcBranchIdxes>
-BranchNum FetchAndCheckBranchIdx_(
-    SrcBranchIdxes&&
-        src_branch_idxes,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    BranchNum branch_num) {
+BranchNum FetchAndCheckBranchIdx_(SrcBranchIdxes& src_branch_idxes,
+                                  BranchNum branch_num) {
     auto branch_idx{ src_branch_idxes() };
     ZETA_Core_StaticAssert(integral::IsIntegral<decltype(branch_idx)>);
     ZETA_Core_DebugAssert(0 <= branch_idx);

@@ -7,50 +7,55 @@ namespace zeta::core {
 template <typename Comparator>
 template <typename A, typename B>
 int reversed_comparator::ReversedComparator<Comparator>::Compare(
-    compare::compare_type::ThreeWay, A const& a, B const& b) const {
-    return -this->cmptr.Compare(compare::compare_type::ThreeWay{}, a, b);
+    comparison::ComparisonTypeEnum::ThreeWay, A const& a, B const& b) const {
+    return -this->cmptr.Compare(comparison::ComparisonTypeEnum::ThreeWay{}, a,
+                                b);
 }
 
 template <typename Comparator>
 template <typename A, typename B>
 bool reversed_comparator::ReversedComparator<Comparator>::Compare(
-    compare::compare_type::EqualTo, A const& a, B const& b) const {
-    return this->cmptr.Compare(compare::compare_type::EqualTo{}, a, b);
+    comparison::ComparisonTypeEnum::EqualTo, A const& a, B const& b) const {
+    return this->cmptr.Compare(comparison::ComparisonTypeEnum::EqualTo{}, a, b);
 }
 
 template <typename Comparator>
 template <typename A, typename B>
 bool reversed_comparator::ReversedComparator<Comparator>::Compare(
-    compare::compare_type::NotEqualTo, A const& a, B const& b) const {
-    return this->cmptr.Compare(compare::compare_type::NotEqualTo{}, a, b);
+    comparison::ComparisonTypeEnum::NotEqualTo, A const& a, B const& b) const {
+    return this->cmptr.Compare(comparison::ComparisonTypeEnum::NotEqualTo{}, a,
+                               b);
 }
 
 template <typename Comparator>
 template <typename A, typename B>
 bool reversed_comparator::ReversedComparator<Comparator>::Compare(
-    compare::compare_type::Less, A const& a, B const& b) const {
-    return this->cmptr.Compare(compare::compare_type::Greater{}, a, b);
+    comparison::ComparisonTypeEnum::Less, A const& a, B const& b) const {
+    return this->cmptr.Compare(comparison::ComparisonTypeEnum::Greater{}, a, b);
 }
 
 template <typename Comparator>
 template <typename A, typename B>
 bool reversed_comparator::ReversedComparator<Comparator>::Compare(
-    compare::compare_type::LessEqual, A const& a, B const& b) const {
-    return this->cmptr.Compare(compare::compare_type::GreaterEqual{}, a, b);
+    comparison::ComparisonTypeEnum::LessEqual, A const& a, B const& b) const {
+    return this->cmptr.Compare(comparison::ComparisonTypeEnum::GreaterEqual{},
+                               a, b);
 }
 
 template <typename Comparator>
 template <typename A, typename B>
 bool reversed_comparator::ReversedComparator<Comparator>::Compare(
-    compare::compare_type::Greater, A const& a, B const& b) const {
-    return this->cmptr.Compare(compare::compare_type::Less{}, a, b);
+    comparison::ComparisonTypeEnum::Greater, A const& a, B const& b) const {
+    return this->cmptr.Compare(comparison::ComparisonTypeEnum::Less{}, a, b);
 }
 
 template <typename Comparator>
 template <typename A, typename B>
 bool reversed_comparator::ReversedComparator<Comparator>::Compare(
-    compare::compare_type::GreaterEqual, A const& a, B const& b) const {
-    return this->cmptr.Compare(compare::compare_type::LessEqual{}, a, b);
+    comparison::ComparisonTypeEnum::GreaterEqual, A const& a,
+    B const& b) const {
+    return this->cmptr.Compare(comparison::ComparisonTypeEnum::LessEqual{}, a,
+                               b);
 }
 
 template <typename Comparator>

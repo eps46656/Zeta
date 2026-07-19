@@ -60,6 +60,13 @@ def add_deps(builder: building_utils.Builder, config: Config):
         enable_debug=config.enable_debug,
         enable_asan=config.enable_asan,
 
+        c_defines={
+            "ZetaDir": f'"{DIR.as_posix()}"',
+        },
+        cpp_defines={
+            "ZetaDir": f'"{DIR.as_posix()}"',
+        },
+
         opt_type=config.opt_type,
         link_time_opt=config.link_time_opt,
     ))
@@ -155,7 +162,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         )
 
     @beartype.beartype
-    def add_c_cpp_module(module: str, macro: bool = False):
+    def add_c_cpp_module(module: str):
         h_file = DIR / f"{module}.h"
         hpp_file = DIR / f"{module}.hpp"
         ipp_file = DIR / f"{module}.ipp"
@@ -165,45 +172,47 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
         assert not c_file.exists() or not cpp_file.exists()
 
+        is_macro = module.endswith(".mpp")
+
         if h_file.exists():
             add_c_cpp(
                 h_file,
                 utils.Language.MACRO_C_HEADER
-                if macro else utils.Language.C_HEADER
+                if is_macro else utils.Language.C_HEADER
             )
 
         if hpp_file.exists():
             add_c_cpp(
                 hpp_file,
                 utils.Language.MACRO_CPP_HEADER
-                if macro else utils.Language.CPP_HEADER
+                if is_macro else utils.Language.CPP_HEADER
             )
 
         if ipp_file.exists():
             add_c_cpp(
                 ipp_file,
                 utils.Language.MACRO_CPP_HEADER
-                if macro else utils.Language.CPP_HEADER
+                if is_macro else utils.Language.CPP_HEADER
             )
 
         if c_file.exists():
             add_c_cpp(
                 c_file,
                 utils.Language.MACRO_C_SOURCE
-                if macro else utils.Language.C_SOURCE
+                if is_macro else utils.Language.C_SOURCE
             )
 
-            if not macro:
+            if not is_macro:
                 add_c_cpp_to_bc(bc_file, c_file, utils.Language.C_SOURCE)
 
         if cpp_file.exists():
             add_c_cpp(
                 cpp_file,
                 utils.Language.MACRO_CPP_SOURCE
-                if macro else utils.Language.CPP_SOURCE
+                if is_macro else utils.Language.CPP_SOURCE
             )
 
-            if not macro:
+            if not is_macro:
                 add_c_cpp_to_bc(bc_file, cpp_file, utils.Language.CPP_SOURCE)
 
     # --------------------------------------------------------------------------
@@ -220,14 +229,15 @@ def add_deps(builder: building_utils.Builder, config: Config):
     add_c_cpp_module("bin_tree")
     add_c_cpp_module("cascade_allocator")
     add_c_cpp_module("circular_array")
-    add_c_cpp_module("compare_utils")
-    add_c_cpp_module("compare")
+    add_c_cpp_module("comparison_utils")
+    add_c_cpp_module("comparison")
     add_c_cpp_module("datetime")
     add_c_cpp_module("debug_deque")
     add_c_cpp_module("debug_hash_table")
     add_c_cpp_module("debug_utils")
     add_c_cpp_module("define")
     add_c_cpp_module("dynamic_hash_table")
+    add_c_cpp_module("error")
     add_c_cpp_module("fixed_point")
     add_c_cpp_module("function_ref")
     add_c_cpp_module("generic_hash_table")
@@ -247,7 +257,8 @@ def add_deps(builder: building_utils.Builder, config: Config):
     add_c_cpp_module("multi_level_circular_array")
     add_c_cpp_module("multi_level_data_table")
     add_c_cpp_module("multi_level_ptr_table")
-    add_c_cpp_module("multi_level_table.mpp", macro=True)
+    add_c_cpp_module("multi_level_table.mpp")
+    add_c_cpp_module("object_state_notation")
     add_c_cpp_module("pair")
     add_c_cpp_module("percent_prime_table")
     add_c_cpp_module("pool_allocator")
@@ -256,12 +267,17 @@ def add_deps(builder: building_utils.Builder, config: Config):
     add_c_cpp_module("rbtree")
     add_c_cpp_module("reduce")
     add_c_cpp_module("seg_utils")
-    add_c_cpp_module("seg_vector.mpp", macro=True)
+    add_c_cpp_module("seg_vector.mpp")
     add_c_cpp_module("seg_vector")
     add_c_cpp_module("seq_cntr_ref")
     add_c_cpp_module("seq_cntr")
+    add_c_cpp_module("serde_utils")
+    add_c_cpp_module("string")
     add_c_cpp_module("staging_seg_vector")
+    add_c_cpp_module("static_seq")
     add_c_cpp_module("tuple")
     add_c_cpp_module("type_list")
+    add_c_cpp_module("unicode")
+    add_c_cpp_module("utf8")
     add_c_cpp_module("utils")
     add_c_cpp_module("value_wrapper")

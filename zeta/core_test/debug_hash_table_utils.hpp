@@ -39,7 +39,7 @@ AssocCntrRef Create() {
         core::hash::TypeErasedBasicHash<Elem>;
 
     pack->debug_ht.elem_key_eq_proxy.elem_cmptr =
-        core::compare::TypeErasedBasicCompare<Elem, Elem>;
+        core::comparison::TypeErasedBasicCompare<Elem, Elem>;
 
     DebugHashTableNS::Init(pack->debug_ht);
 

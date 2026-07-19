@@ -34,8 +34,10 @@ using ActiveMap = unsigned long long;
 
 constexpr auto max_level{ multi_level_ptr_table::max_level };
 
-constexpr multi_level_ptr_table::BranchNum branch_num{ compare_utils::BasicMin(
-    integral::WidthOf<ActiveMap>, multi_level_ptr_table::max_branch_num) };
+constexpr multi_level_ptr_table::BranchNum branch_num{
+    comparison_utils::BasicMin(integral::WidthOf<ActiveMap>,
+                               multi_level_ptr_table::max_branch_num)
+};
 
 constexpr array::Array<multi_level_ptr_table::BranchNum, max_level> branch_nums{
     [] {

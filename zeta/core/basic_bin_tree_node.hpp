@@ -25,9 +25,9 @@ template <typename LinkType, typename PColorTag, typename LColorTag,
 struct NodeBase<LinkType, PColorTag, LColorTag, RColorTag,
                 value_wrapper::FalseType, PrimaryColorTag> {
     ZETA_Core_StaticAssert(
-        meta::IsAnyOf<PrimaryColorTag, PrimaryColorTagEnum::Null,
-                      PrimaryColorTagEnum::P, PrimaryColorTagEnum::L,
-                      PrimaryColorTagEnum::R>);
+        meta::IsAnySame<PrimaryColorTag, PrimaryColorTagEnum::Null,
+                        PrimaryColorTagEnum::P, PrimaryColorTagEnum::L,
+                        PrimaryColorTagEnum::R>);
 
     ptr_utils::AugPtrTpl<LinkType, PColorTag> p;
     ptr_utils::AugPtrTpl<LinkType, LColorTag> l;
@@ -39,9 +39,9 @@ template <typename LinkType, typename PColorTag, typename LColorTag,
 struct NodeBase<LinkType, PColorTag, LColorTag, RColorTag,
                 value_wrapper::TrueType, PrimaryColorTag> {
     ZETA_Core_StaticAssert(
-        meta::IsAnyOf<PrimaryColorTag, PrimaryColorTagEnum::Null,
-                      PrimaryColorTagEnum::P, PrimaryColorTagEnum::L,
-                      PrimaryColorTagEnum::R>);
+        meta::IsAnySame<PrimaryColorTag, PrimaryColorTagEnum::Null,
+                        PrimaryColorTagEnum::P, PrimaryColorTagEnum::L,
+                        PrimaryColorTagEnum::R>);
 
     ptr_utils::AugPtrTpl<LinkType, PColorTag> p;
     ptr_utils::AugPtrTpl<LinkType, LColorTag> l;
@@ -162,7 +162,7 @@ template <typename LinkType, typename PColorTag, typename LColorTag,
 struct rbtree::NodeTraits<
     basic_bin_tree_node::Node<LinkType, PColorTag, LColorTag, RColorTag,
                               AccSizeTag, PrimaryColorTag> const,
-    meta::EnableIf<meta::IsAnyOf<
+    meta::EnableIf<meta::IsAnySame<
         PrimaryColorTag, basic_bin_tree_node::PrimaryColorTagEnum::P,
         basic_bin_tree_node::PrimaryColorTagEnum::L,
         basic_bin_tree_node::PrimaryColorTagEnum::R>>> {
@@ -178,10 +178,10 @@ template <typename LinkType, typename PColorTag, typename LColorTag,
 struct rbtree::NodeTraits<
     basic_bin_tree_node::Node<LinkType, PColorTag, LColorTag, RColorTag,
                               AccSizeTag, PrimaryColorTag>,
-    meta::EnableIf<meta::IsAnyOf<PrimaryColorTag,
-                                 basic_bin_tree_node::PrimaryColorTagEnum::P,
-                                 basic_bin_tree_node::PrimaryColorTagEnum::L,
-                                 basic_bin_tree_node::PrimaryColorTagEnum::R>>>
+    meta::EnableIf<meta::IsAnySame<
+        PrimaryColorTag, basic_bin_tree_node::PrimaryColorTagEnum::P,
+        basic_bin_tree_node::PrimaryColorTagEnum::L,
+        basic_bin_tree_node::PrimaryColorTagEnum::R>>>
     : public rbtree::NodeTraits<
           basic_bin_tree_node::Node<LinkType, PColorTag, LColorTag, RColorTag,
                                     AccSizeTag, PrimaryColorTag> const> {

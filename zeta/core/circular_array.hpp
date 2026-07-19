@@ -58,17 +58,35 @@ void GetLBCursor(Cntr const& cntr, Cursor* dst_cursor);
 
 void GetRBCursor(Cntr const& cntr, Cursor* dst_cursor);
 
-void* PeekL(Cntr const& cntr, bool lazy_copy_elem, Cursor* dst_cursor,
-            void* dst_elem);
+void PeekL(Cntr& cntr, bool lazy_copy_elem,
+           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+           void* dst_elem);
 
-void* PeekR(Cntr const& cntr, bool lazy_copy_elem, Cursor* dst_cursor,
-            void* dst_elem);
+void PeekL(Cntr const& cntr, bool lazy_copy_elem,
+           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+           void* dst_elem);
 
-void* Access(Cntr const& cntr, size_t idx, bool lazy_copy_elem,
-             Cursor* dst_cursor, void* dst_elem);
+void PeekR(Cntr& cntr, bool lazy_copy_elem,
+           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+           void* dst_elem);
 
-void* Derefer(Cntr const& cntr, Cursor const* pos_cursor, bool lazy_copy_elem,
-              void* dst_elem);
+void PeekR(Cntr const& cntr, bool lazy_copy_elem,
+           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+           void* dst_elem);
+
+void Refer(Cntr& cntr, size_t idx, bool lazy_copy_elem,
+           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+           void* dst_elem);
+
+void Refer(Cntr const& cntr, size_t idx, bool lazy_copy_elem,
+           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+           void* dst_elem);
+
+void Derefer(Cntr const& cntr, Cursor const* pos_cursor, bool lazy_copy_elem,
+             seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_elem);
+
+void Derefer(Cntr& cntr, Cursor const* pos_cursor, bool lazy_copy_elem,
+             seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_elem);
 
 template <typename Reader>
 void Read(Cntr const& cntr, Cursor const* pos_cursor, size_t cnt,
@@ -93,25 +111,29 @@ void IdxReadWrite(Cntr& cntr, size_t idx, size_t cnt,
                   ReaderWriter&& reader_writer);
 
 template <typename Writer>
-void* PushL(Cntr& cntr, size_t cnt, Writer&& writer, Cursor* dst_cursor);
+void PushL(Cntr& cntr, size_t cnt, Writer&& writer, Cursor* dst_cursor);
 
 template <typename Writer>
-void* PushR(Cntr& cntr, size_t cnt, Writer&& writer, Cursor* dst_cursor);
+void PushR(Cntr& cntr, size_t cnt, Writer&& writer, Cursor* dst_cursor);
 
 template <typename Writer>
-void* Insert(Cntr& cntr, Cursor* pos_cursor, size_t cnt, Writer&& writer,
-             Cursor* dst_cursor);
+void Insert(Cntr& cntr, Cursor* pos_cursor, size_t cnt, Writer&& writer,
+            Cursor* dst_cursor);
 
 template <typename Writer>
-void* IdxInsert(Cntr& cntr, size_t idx, size_t cnt, Writer&& writer);
+void IdxInsert(Cntr& cntr, size_t idx, size_t cnt, Writer&& writer);
 
-void PopL(Cntr& cntr, size_t cnt);
+template <typename Reader>
+void PopL(Cntr& cntr, size_t cnt, Reader&& reader);
 
-void PopR(Cntr& cntr, size_t cnt);
+template <typename Reader>
+void PopR(Cntr& cntr, size_t cnt, Reader&& reader);
 
-void Erase(Cntr& cntr, Cursor* pos_cursor, size_t cnt);
+template <typename Reader>
+void Erase(Cntr& cntr, Cursor* pos_cursor, size_t cnt, Reader&& reader);
 
-void IdxErase(Cntr& cntr, size_t idx, size_t cnt);
+template <typename Reader>
+void IdxErase(Cntr& cntr, size_t idx, size_t cnt, Reader&& reader);
 
 void EraseAll(Cntr& cntr);
 
@@ -144,14 +166,14 @@ template <>
 struct seq_cntr::CntrTraits<circular_array::Cntr const> {
     static void* GetReferedInstPtr(circular_array::Cntr const& cntr);
 
-    static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
+    static constexpr seq_cntr::CapabilityFlag GetStaticEnabledCapabilityFlag();
 
-    static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();
+    static constexpr seq_cntr::CapabilityFlag GetStaticDisabledCapabilityFlag();
 
-    static constexpr seq_cntr::AbilityFlag GetDynamicEnabledAbilityFlag(
+    static constexpr seq_cntr::CapabilityFlag GetDynamicEnabledCapabilityFlag(
         circular_array::Cntr const& cntr);
 
-    static constexpr seq_cntr::AbilityFlag GetDynamicDisabledAbilityFlag(
+    static constexpr seq_cntr::CapabilityFlag GetDynamicDisabledCapabilityFlag(
         circular_array::Cntr const& cntr);
 
     static size_t GetCursorSize(circular_array::Cntr const& cntr);
@@ -166,21 +188,26 @@ struct seq_cntr::CntrTraits<circular_array::Cntr const> {
 
     static void GetRBCursor(circular_array::Cntr const& cntr, void* dst_cursor);
 
-    static void* PeekL(circular_array::Cntr const& cntr, bool lazy_copy_elem,
-                       void* dst_cursor, void* dst_elem);
+    static void PeekL(circular_array::Cntr const& cntr, bool lazy_copy_elem,
+                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                      void* dst_cursor, void* dst_elem);
 
-    static void* PeekR(circular_array::Cntr const& cntr, bool lazy_copy_elem,
-                       void* dst_cursor, void* dst_elem);
+    static void PeekR(circular_array::Cntr const& cntr, bool lazy_copy_elem,
+                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                      void* dst_cursor, void* dst_elem);
 
-    static void* Access(circular_array::Cntr const& cntr, size_t idx,
-                        bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
+    static void Refer(circular_array::Cntr const& cntr, size_t idx,
+                      bool lazy_copy_elem,
+                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                      void* dst_cursor, void* dst_elem);
 
-    static void* Derefer(circular_array::Cntr const& cntr,
-                         void const* pos_cursor, bool lazy_copy_elem,
-                         void* dst_elem);
+    static void Derefer(circular_array::Cntr const& cntr, void* pos_cursor,
+                        bool lazy_copy_elem,
+                        seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                        void* dst_elem);
 
     template <typename Reader>
-    static void Read(circular_array::Cntr const& cntr, void const* pos_cursor,
+    static void Read(circular_array::Cntr const& cntr, void* pos_cursor,
                      size_t cnt, Reader&& reader, void* dst_cursor);
 
     static void CopyCursor(circular_array::Cntr const& cntr,
@@ -212,9 +239,27 @@ struct seq_cntr::CntrTraits<circular_array::Cntr const> {
 template <>
 struct seq_cntr::CntrTraits<circular_array::Cntr>
     : public seq_cntr::CntrTraits<circular_array::Cntr const> {
-    static constexpr seq_cntr::AbilityFlag GetStaticEnabledAbilityFlag();
+    static constexpr seq_cntr::CapabilityFlag GetStaticEnabledCapabilityFlag();
 
-    static constexpr seq_cntr::AbilityFlag GetStaticDisabledAbilityFlag();
+    static constexpr seq_cntr::CapabilityFlag GetStaticDisabledCapabilityFlag();
+
+    static void PeekL(circular_array::Cntr& cntr, bool lazy_copy_elem,
+                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                      void* dst_cursor, void* dst_elem);
+
+    static void PeekR(circular_array::Cntr& cntr, bool lazy_copy_elem,
+                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                      void* dst_cursor, void* dst_elem);
+
+    static void Refer(circular_array::Cntr& cntr, size_t idx,
+                      bool lazy_copy_elem,
+                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                      void* dst_cursor, void* dst_elem);
+
+    static void Derefer(circular_array::Cntr& cntr, void* pos_cursor,
+                        bool lazy_copy_elem,
+                        seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                        void* dst_elem);
 
     template <typename Writer>
     static void Write(circular_array::Cntr& cntr, void* pos_cursor, size_t cnt,
@@ -226,22 +271,26 @@ struct seq_cntr::CntrTraits<circular_array::Cntr>
                           void* dst_cursor);
 
     template <typename Writer>
-    static void* PushL(circular_array::Cntr& cntr, size_t cnt, Writer&& writer,
-                       void* dst_cursor);
+    static void PushL(circular_array::Cntr& cntr, size_t cnt, Writer&& writer,
+                      void* dst_cursor);
 
     template <typename Writer>
-    static void* PushR(circular_array::Cntr& cntr, size_t cnt, Writer&& writer,
-                       void* dst_cursor);
+    static void PushR(circular_array::Cntr& cntr, size_t cnt, Writer&& writer,
+                      void* dst_cursor);
 
     template <typename Writer>
-    static void* Insert(circular_array::Cntr& cntr, void* pos_cursor,
-                        size_t cnt, Writer&& writer, void* dst_cursor);
+    static void Insert(circular_array::Cntr& cntr, void* pos_cursor, size_t cnt,
+                       Writer&& writer, void* dst_cursor);
 
-    static void PopL(circular_array::Cntr& cntr, size_t cnt);
+    template <typename Reader>
+    static void PopL(circular_array::Cntr& cntr, size_t cnt, Reader&& reader);
 
-    static void PopR(circular_array::Cntr& cntr, size_t cnt);
+    template <typename Reader>
+    static void PopR(circular_array::Cntr& cntr, size_t cnt, Reader&& reader);
 
-    static void Erase(circular_array::Cntr& cntr, void* pos_cursor, size_t cnt);
+    template <typename Reader>
+    static void Erase(circular_array::Cntr& cntr, void* pos_cursor, size_t cnt,
+                      Reader&& reader);
 
     static void EraseAll(circular_array::Cntr& cntr);
 };

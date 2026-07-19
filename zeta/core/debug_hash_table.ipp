@@ -387,9 +387,9 @@ void* assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const>::
 }
 
 template <CntrTplParamList>
-constexpr assoc_cntr::AbilityFlag assoc_cntr::CntrTraits<
-    debug_hash_table::Cntr<CntrTplArgList>>::GetStaticEnabledAbilityFlag() {
-    return assoc_cntr::AbilityFlagBuilder{
+constexpr assoc_cntr::CapabilityFlag assoc_cntr::CntrTraits<
+    debug_hash_table::Cntr<CntrTplArgList>>::GetStaticEnabledCapabilityFlag() {
+    return assoc_cntr::CapabilityFlagBuilder{
         .GetCursorSize = true,
         .GetElemSize = true,
         .GetElemCnt = true,
@@ -418,17 +418,18 @@ constexpr assoc_cntr::AbilityFlag assoc_cntr::CntrTraits<
 }
 
 template <CntrTplParamList>
-constexpr assoc_cntr::AbilityFlag assoc_cntr::CntrTraits<debug_hash_table::Cntr<
-    CntrTplArgList> const>::GetStaticEnabledAbilityFlag() {
+constexpr assoc_cntr::CapabilityFlag
+assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const>::
+    GetStaticEnabledCapabilityFlag() {
     return assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList>>::
-               GetStaticEnabledAbilityFlag() &
-           assoc_cntr::const_ability_flag;
+               GetStaticEnabledCapabilityFlag() &
+           assoc_cntr::const_capability_flag;
 }
 
 template <CntrTplParamList>
-constexpr assoc_cntr::AbilityFlag assoc_cntr::CntrTraits<
-    debug_hash_table::Cntr<CntrTplArgList>>::GetStaticDisabledAbilityFlag() {
-    return assoc_cntr::AbilityFlagBuilder{
+constexpr assoc_cntr::CapabilityFlag assoc_cntr::CntrTraits<
+    debug_hash_table::Cntr<CntrTplArgList>>::GetStaticDisabledCapabilityFlag() {
+    return assoc_cntr::CapabilityFlagBuilder{
         .GetCursorSize = false,
         .GetElemSize = false,
         .GetElemCnt = false,
@@ -457,27 +458,28 @@ constexpr assoc_cntr::AbilityFlag assoc_cntr::CntrTraits<
 }
 
 template <CntrTplParamList>
-constexpr assoc_cntr::AbilityFlag assoc_cntr::CntrTraits<debug_hash_table::Cntr<
-    CntrTplArgList> const>::GetStaticDisabledAbilityFlag() {
+constexpr assoc_cntr::CapabilityFlag
+assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const>::
+    GetStaticDisabledCapabilityFlag() {
     return assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList>>::
-               GetStaticDisabledAbilityFlag() |
-           assoc_cntr::non_const_ability_flag;
+               GetStaticDisabledCapabilityFlag() |
+           assoc_cntr::non_const_capability_flag;
 }
 
 template <CntrTplParamList>
-constexpr assoc_cntr::AbilityFlag
+constexpr assoc_cntr::CapabilityFlag
 assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const>::
-    GetDynamicEnabledAbilityFlag(
+    GetDynamicEnabledCapabilityFlag(
         debug_hash_table::Cntr<CntrTplArgList> const&) {
-    return assoc_cntr::empty_ability_flag;
+    return assoc_cntr::empty_capability_flag;
 }
 
 template <CntrTplParamList>
-constexpr assoc_cntr::AbilityFlag
+constexpr assoc_cntr::CapabilityFlag
 assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const>::
-    GetDynamicDisabledAbilityFlag(
+    GetDynamicDisabledCapabilityFlag(
         debug_hash_table::Cntr<CntrTplArgList> const&) {
-    return assoc_cntr::empty_ability_flag;
+    return assoc_cntr::empty_capability_flag;
 }
 
 template <CntrTplParamList>
@@ -539,7 +541,7 @@ void* assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const>::
 template <CntrTplParamList>
 void* assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const>::
     Derefer(debug_hash_table::Cntr<CntrTplArgList> const& cntr,
-            void const* pos_cursor, bool lazy_copy_elem, void* dst_elem) {
+            void* pos_cursor, bool lazy_copy_elem, void* dst_elem) {
     return debug_hash_table::Derefer(
         cntr,
         static_cast<typename debug_hash_table::hash_table_t<
@@ -599,7 +601,7 @@ void assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList>>::EraseAll(
 template <CntrTplParamList>
 void assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const>::
     CopyCursor(debug_hash_table::Cntr<CntrTplArgList> const& cntr,
-               void const* src_cursor, void* dst_cursor) {
+               void* src_cursor, void* dst_cursor) {
     debug_hash_table::CopyCursor(
         cntr,
         static_cast<typename debug_hash_table::hash_table_t<

@@ -62,15 +62,15 @@ struct RandomCore<PODValue> {
 namespace zeta::core {
 
 template <>
-struct compare::BasicComparator<core_test::PODValue, core_test::PODValue> {
+struct comparison::BasicComparator<core_test::PODValue, core_test::PODValue> {
     template <typename CompareTypeTag>
     auto Compare(CompareTypeTag, core_test::PODValue const& x,
                  core_test::PODValue const& y) const {
-        return compare::BasicCompare(
+        return comparison::BasicCompare(
             CompareTypeTag{},
-            compare_utils::MemLexCompare(x.data, y.data,
-                                         core_test::PODValue::width,
-                                         core_test::PODValue::width),
+            comparison_utils::MemLexCompare(x.data, y.data,
+                                            core_test::PODValue::width,
+                                            core_test::PODValue::width),
             0);
     }
 };
@@ -80,33 +80,33 @@ struct compare::BasicComparator<core_test::PODValue, core_test::PODValue> {
 namespace zeta::core_test {
 
 inline bool operator==(PODValue const& x, PODValue const& y) {
-    return core::compare::BasicCompare(core::compare::compare_type::EqualTo{},
-                                       x, y);
+    return core::comparison::BasicCompare(
+        core::comparison::ComparisonTypeEnum::EqualTo{}, x, y);
 }
 
 inline bool operator!=(PODValue const& x, PODValue const& y) {
-    return core::compare::BasicCompare(
-        core::compare::compare_type::NotEqualTo{}, x, y);
+    return core::comparison::BasicCompare(
+        core::comparison::ComparisonTypeEnum::NotEqualTo{}, x, y);
 }
 
 inline bool operator<(PODValue const& x, PODValue const& y) {
-    return core::compare::BasicCompare(core::compare::compare_type::Less{}, x,
-                                       y);
+    return core::comparison::BasicCompare(
+        core::comparison::ComparisonTypeEnum::Less{}, x, y);
 }
 
 inline bool operator<=(PODValue const& x, PODValue const& y) {
-    return core::compare::BasicCompare(core::compare::compare_type::LessEqual{},
-                                       x, y);
+    return core::comparison::BasicCompare(
+        core::comparison::ComparisonTypeEnum::LessEqual{}, x, y);
 }
 
 inline bool operator>(PODValue const& x, PODValue const& y) {
-    return core::compare::BasicCompare(core::compare::compare_type::Greater{},
-                                       x, y);
+    return core::comparison::BasicCompare(
+        core::comparison::ComparisonTypeEnum::Greater{}, x, y);
 }
 
 inline bool operator>=(PODValue const& x, PODValue const& y) {
-    return core::compare::BasicCompare(
-        core::compare::compare_type::GreaterEqual{}, x, y);
+    return core::comparison::BasicCompare(
+        core::comparison::ComparisonTypeEnum::GreaterEqual{}, x, y);
 }
 
 }  // namespace zeta::core_test

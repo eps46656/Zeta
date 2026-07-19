@@ -1,3 +1,7 @@
+#if ZETA_Core_Editor
+#define EnStaging 1
+#endif
+
 #if !defined(EnStaging)
 #error "EnStaging is not defined."
 #endif
@@ -62,43 +66,6 @@
 namespace zeta::core {
 
 namespace Namespace::detail {
-
-template <CntrTplParamList>
-void CheckCntr_  // NOLINT(misc-use-internal-linkage)
-    (Cntr<CntrTplArgList> const& cntr) {
-#if EnStaging
-    auto& origin{ meta::GetInstRef(cntr.origin) };
-    seq_cntr::CheckContract(origin);
-#endif
-
-    size_t elem_size{ cntr.elem_size };
-
-    ZETA_Core_DebugAssert(0 < elem_size);
-
-#if EnStaging
-    ZETA_Core_DebugAssert(elem_size == seq_cntr::GetElemSize(origin));
-#endif
-
-    size_t elem_stride{ cntr.elem_stride };
-    ZETA_Core_DebugAssert(elem_size <= elem_stride);
-
-    size_t seg_elem_slot_cnt{ cntr.seg_elem_slot_cnt };
-    ZETA_Core_DebugAssert(0 < seg_elem_slot_cnt);
-    ZETA_Core_DebugAssert(seg_elem_slot_cnt <= max_seg_elem_slot_cnt);
-}
-
-template <CntrTplParamList>
-void CheckCursor_  // NOLINT(misc-use-internal-linkage)
-    (Cntr<CntrTplArgList> const& cntr, Cursor const* cursor) {
-    (CheckCntr_)(cntr);
-
-    ZETA_Core_DebugAssert(cursor != nullptr);
-
-    Cursor re_cursor;
-    (Access)(cntr, cursor->idx, true, &re_cursor, nullptr);
-
-    ZETA_Core_DebugAssert(*cursor == re_cursor);
-}
 
 #if EnStaging
 
@@ -267,16 +234,12 @@ struct SegWork_ {
         this->seg = seg;
 
 #if EnStaging
-        unsigned color{ GetNColor_(&seg->n) };
-#endif
+        this->color = GetNColor_(&seg->n);
 
-#if EnStaging
-        this->color = color;
-
-        if (color == ref_color) {
+        if (this->color == ref_color) {
             this->ref_beg = seg->ref.beg;
             this->ca.elem_cnt = seg->ref.elem_cnt;
-            this->elem_vac = ca.slot_cnt - compare_utils::BasicMin(
+            this->elem_vac = ca.slot_cnt - comparison_utils::BasicMin(
                                                seg->ref.elem_cnt, ca.slot_cnt);
         } else
 #endif
@@ -439,8 +402,9 @@ void MaterializeRefSeg_(CntrWorkType& cntr_work, SegWork_& seg_work) {
 
     void* data{ (AllocateData_)(cntr_work.data_size, cntr_work.data_alctr) };
 
-    seq_cntr::Access(cntr_work.origin, seg_work.ref_beg, true, origin_cursor,
-                     nullptr);
+    seq_cntr::Refer(cntr_work.origin, seg_work.ref_beg, true, nullptr,
+                    origin_cursor, nullptr);
+
     seq_cntr::Read(cntr_work.origin, origin_cursor, seg_work.ca.elem_cnt,
                    seq_cntr::MemReader{
                        .data = data,
@@ -455,22 +419,36 @@ void MaterializeRefSeg_(CntrWorkType& cntr_work, SegWork_& seg_work) {
     seg_work.ca.rot = 0;
 }
 
-template <typename CntrWorkType, typename Writer>
+template <typename CntrWorkType, typename Reader, typename Writer>
 void AugMaterializeRefSeg_(CntrWorkType& cntr_work, SegWork_& seg_work,
                            size_t l_cnt, size_t ins_cnt, size_t r_cnt,
-                           Writer&& writer) {
+                           Reader&& reader, Writer&& writer) {
+    using RawReader = meta::RemoveRef<Reader>;
+
     ZETA_Core_DebugAssert(!seg_work.is_null);
     ZETA_Core_DebugAssert(seg_work.color == ref_color);
     ZETA_Core_DebugAssert(l_cnt + ins_cnt + r_cnt <= seg_work.ca.slot_cnt);
     ZETA_Core_DebugAssert(l_cnt + r_cnt <= seg_work.ca.elem_cnt);
 
     void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(cntr_work.origin) };
+    bool origin_cursor_is_refered{ false };
+    size_t origin_cursor_refer_idx{ 0 };
 
     void* data{ (AllocateData_)(cntr_work.data_size, cntr_work.data_alctr) };
 
     if (0 < l_cnt) {
-        seq_cntr::Access(cntr_work.origin, seg_work.ref_beg, true,
-                         origin_cursor, nullptr);
+        size_t target_idx{ seg_work.ref_beg };
+
+        if (!origin_cursor_is_refered) {
+            seq_cntr::Refer(cntr_work.origin, target_idx, true, nullptr,
+                            origin_cursor, nullptr);
+
+            origin_cursor_is_refered = true;
+            origin_cursor_refer_idx = target_idx;
+        }
+
+        ZETA_Core_DebugAssert(origin_cursor_is_refered);
+        ZETA_Core_DebugAssert(origin_cursor_refer_idx == target_idx);
 
         seq_cntr::Read(cntr_work.origin, origin_cursor, l_cnt,
                        seq_cntr::MemReader{
@@ -478,7 +456,34 @@ void AugMaterializeRefSeg_(CntrWorkType& cntr_work, SegWork_& seg_work,
                            .elem_size = cntr_work.elem_size,
                            .elem_stride = cntr_work.elem_stride,
                        },
-                       nullptr);
+                       origin_cursor);
+
+        origin_cursor_refer_idx += l_cnt;
+    }
+
+    if constexpr (!meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
+        size_t m_cnt{ seg_work.ca.elem_cnt - l_cnt - r_cnt };
+
+        if (0 < m_cnt) {
+            if (!origin_cursor_is_refered) {
+                size_t target_idx{ seg_work.ref_beg + l_cnt };
+
+                seq_cntr::Refer(cntr_work.origin, target_idx, true, nullptr,
+                                origin_cursor, nullptr);
+
+                origin_cursor_is_refered = true;
+                origin_cursor_refer_idx = target_idx;
+            }
+
+            // SANITIZE
+            ZETA_Core_DebugAssert(origin_cursor_refer_idx ==
+                                  seg_work.ref_beg + l_cnt);
+
+            seq_cntr::Read(cntr_work.origin, origin_cursor, m_cnt, reader,
+                           origin_cursor);
+
+            origin_cursor_refer_idx += m_cnt;
+        }
     }
 
     if (0 < ins_cnt) {
@@ -487,9 +492,22 @@ void AugMaterializeRefSeg_(CntrWorkType& cntr_work, SegWork_& seg_work,
     }
 
     if (0 < r_cnt) {
-        seq_cntr::Access(cntr_work.origin,
-                         seg_work.ref_beg + seg_work.ca.elem_cnt - r_cnt, true,
-                         origin_cursor, nullptr);
+        size_t target_idx{ seg_work.ref_beg + seg_work.ca.elem_cnt - r_cnt };
+
+        if (!origin_cursor_is_refered) {
+            seq_cntr::Refer(cntr_work.origin, target_idx, true, nullptr,
+                            origin_cursor, nullptr);
+
+            origin_cursor_is_refered = true;
+        } else if (origin_cursor_refer_idx != target_idx) {
+            // SANITIZE
+            ZETA_Core_DebugAssert(origin_cursor_refer_idx < target_idx);
+
+            seq_cntr::CursorAdvanceR(cntr_work.origin, origin_cursor,
+                                     target_idx - origin_cursor_refer_idx);
+        }
+
+        origin_cursor_refer_idx = target_idx;
 
         seq_cntr::Read(cntr_work.origin, origin_cursor, r_cnt,
                        seq_cntr::MemReader{
@@ -538,10 +556,10 @@ void SegShoveL_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
     if (r_seg_work.color == ref_color) {
         void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(cntr_work.origin) };
 
-        seq_cntr::Access(cntr_work.origin, r_seg_work.ref_beg, true,
-                         origin_cursor, nullptr);
+        seq_cntr::Refer(cntr_work.origin, r_seg_work.ref_beg, true, nullptr,
+                        origin_cursor, nullptr);
 
-        circular_array::PushR(l_seg_work.ca, shove_cnt, seq_cntr::EmptyWriter{},
+        circular_array::PushR(l_seg_work.ca, shove_cnt, seq_cntr::empty_writer,
                               nullptr);
 
         circular_array::AssignFromSeqCntr(
@@ -552,8 +570,8 @@ void SegShoveL_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
         r_seg_work.ca.elem_cnt -= shove_cnt;
         r_seg_work.elem_vac =
             cntr_work.seg_elem_slot_cnt -
-            compare_utils::BasicMin(r_seg_work.ca.elem_cnt,
-                                    cntr_work.seg_elem_slot_cnt);
+            comparison_utils::BasicMin(r_seg_work.ca.elem_cnt,
+                                       cntr_work.seg_elem_slot_cnt);
     } else
 #endif
     {
@@ -593,12 +611,11 @@ void SegShoveR_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
     if (l_seg_work.color == ref_color) {
         void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(cntr_work.origin) };
 
-        seq_cntr::Access(
-            cntr_work.origin,
-            l_seg_work.ref_beg + l_seg_work.ca.elem_cnt - shove_cnt, true,
-            origin_cursor, nullptr);
+        seq_cntr::Refer(cntr_work.origin,
+                        l_seg_work.ref_beg + l_seg_work.ca.elem_cnt - shove_cnt,
+                        true, nullptr, origin_cursor, nullptr);
 
-        circular_array::PushL(r_seg_work.ca, shove_cnt, seq_cntr::EmptyWriter{},
+        circular_array::PushL(r_seg_work.ca, shove_cnt, seq_cntr::empty_writer,
                               nullptr);
 
         circular_array::AssignFromSeqCntr(r_seg_work.ca, 0, cntr_work.origin,
@@ -607,8 +624,8 @@ void SegShoveR_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
         l_seg_work.ca.elem_cnt -= shove_cnt;
         l_seg_work.elem_vac =
             cntr_work.seg_elem_slot_cnt -
-            compare_utils::BasicMin(l_seg_work.ca.elem_cnt,
-                                    cntr_work.seg_elem_slot_cnt);
+            comparison_utils::BasicMin(l_seg_work.ca.elem_cnt,
+                                       cntr_work.seg_elem_slot_cnt);
     } else
 #endif
     {
@@ -622,19 +639,17 @@ void SegShoveR_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
 }
 
 template <typename CntrWorkType, typename Writer>
-void SegInsertShoveL_(
-    CntrWorkType& cntr_work, SegWork_& l_seg_work, SegWork_& r_seg_work,
-    size_t rl_cnt, size_t ins_cnt, size_t shove_cnt,
-    Writer&& writer  // NOLINT(cppcoreguidelines-missing-std-forward)
-) {
+void SegInsertShoveL_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
+                      SegWork_& r_seg_work, size_t rl_cnt, size_t ins_cnt,
+                      size_t shove_cnt, Writer&& writer) {
     (CheckCntrSegWorkMatched_)(cntr_work, l_seg_work);
     (CheckCntrSegWorkMatched_)(cntr_work, r_seg_work);
 
     ZETA_Core_DebugAssert(!l_seg_work.is_null);
     ZETA_Core_DebugAssert(!r_seg_work.is_null);
 
-    size_t l_vac{ cntr_work.seg_elem_slot_cnt - l_seg_work.ca.elem_cnt };
-    size_t r_vac{ cntr_work.seg_elem_slot_cnt - r_seg_work.ca.elem_cnt };
+    size_t l_vac{ l_seg_work.elem_vac };
+    size_t r_vac{ r_seg_work.elem_vac };
 
     ZETA_Core_DebugAssert(0 < shove_cnt);
     ZETA_Core_DebugAssert(rl_cnt <= r_seg_work.ca.elem_cnt);
@@ -672,20 +687,20 @@ void SegInsertShoveL_(
     }
 
 #if EnStaging
-    size_t cnt_a{ compare_utils::BasicMin(rl_cnt, shove_cnt) };
-    size_t cnt_b{ compare_utils::BasicMin(ins_cnt, shove_cnt - cnt_a) };
+    size_t cnt_a{ comparison_utils::BasicMin(rl_cnt, shove_cnt) };
+    size_t cnt_b{ comparison_utils::BasicMin(ins_cnt, shove_cnt - cnt_a) };
     size_t cnt_c{ shove_cnt - cnt_a - cnt_b };
 
     size_t l_elem_cnt{ l_seg_work.ca.elem_cnt };
 
     void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(cntr_work.origin) };
 
-    circular_array::PushR(l_seg_work.ca, shove_cnt, seq_cntr::EmptyWriter{},
+    circular_array::PushR(l_seg_work.ca, shove_cnt, seq_cntr::empty_writer,
                           nullptr);
 
     if (0 < cnt_a) {
-        seq_cntr::Access(cntr_work.origin, r_seg_work.ref_beg, true,
-                         origin_cursor, nullptr);
+        seq_cntr::Refer(cntr_work.origin, r_seg_work.ref_beg, true, nullptr,
+                        origin_cursor, nullptr);
 
         circular_array::AssignFromSeqCntr(
             l_seg_work.ca, l_elem_cnt, cntr_work.origin, origin_cursor, cnt_a);
@@ -697,8 +712,8 @@ void SegInsertShoveL_(
     }
 
     if (0 < cnt_c) {
-        seq_cntr::Access(cntr_work.origin, r_seg_work.ref_beg + cnt_a, true,
-                         origin_cursor, nullptr);
+        seq_cntr::Refer(cntr_work.origin, r_seg_work.ref_beg + cnt_a, true,
+                        nullptr, origin_cursor, nullptr);
 
         circular_array::AssignFromSeqCntr(
             l_seg_work.ca, l_elem_cnt + cnt_a + cnt_b, cntr_work.origin,
@@ -713,8 +728,8 @@ void SegInsertShoveL_(
         r_seg_work.ca.elem_cnt += ins_cnt - shove_cnt;
         r_seg_work.elem_vac =
             cntr_work.seg_elem_slot_cnt -
-            compare_utils::BasicMin(r_seg_work.ca.elem_cnt,
-                                    cntr_work.seg_elem_slot_cnt);
+            comparison_utils::BasicMin(r_seg_work.ca.elem_cnt,
+                                       cntr_work.seg_elem_slot_cnt);
 
         return;
     }
@@ -726,8 +741,8 @@ void SegInsertShoveL_(
     size_t rr_cnt{ r_seg_work.ca.elem_cnt - rl_cnt };
 
     if (0 < rl_cnt - cnt_a) {
-        seq_cntr::Access(cntr_work.origin, r_seg_work.ref_beg + cnt_a, true,
-                         origin_cursor, nullptr);
+        seq_cntr::Refer(cntr_work.origin, r_seg_work.ref_beg + cnt_a, true,
+                        nullptr, origin_cursor, nullptr);
 
         seq_cntr::Read(cntr_work.origin, origin_cursor, rl_cnt - cnt_a,
                        seq_cntr::MemReader{
@@ -746,8 +761,8 @@ void SegInsertShoveL_(
     }
 
     if (0 < rr_cnt - cnt_c) {
-        seq_cntr::Access(cntr_work.origin, r_seg_work.ref_beg + rl_cnt, true,
-                         origin_cursor, nullptr);
+        seq_cntr::Refer(cntr_work.origin, r_seg_work.ref_beg + rl_cnt, true,
+                        nullptr, origin_cursor, nullptr);
 
         seq_cntr::Read(cntr_work.origin, origin_cursor, rr_cnt - cnt_c,
                        seq_cntr::MemReader{
@@ -769,19 +784,17 @@ void SegInsertShoveL_(
 }
 
 template <typename CntrWorkType, typename Writer>
-void SegInsertShoveR_(
-    CntrWorkType& cntr_work, SegWork_& l_seg_work, SegWork_& r_seg_work,
-    size_t lr_cnt, size_t ins_cnt, size_t shove_cnt,
-    Writer&& writer  // NOLINT(cppcoreguidelines-missing-std-forward)
-) {
+void SegInsertShoveR_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
+                      SegWork_& r_seg_work, size_t lr_cnt, size_t ins_cnt,
+                      size_t shove_cnt, Writer&& writer) {
     (CheckCntrSegWorkMatched_)(cntr_work, l_seg_work);
     (CheckCntrSegWorkMatched_)(cntr_work, r_seg_work);
 
     ZETA_Core_DebugAssert(!l_seg_work.is_null);
     ZETA_Core_DebugAssert(!r_seg_work.is_null);
 
-    size_t l_vac{ cntr_work.seg_elem_slot_cnt - l_seg_work.ca.elem_cnt };
-    size_t r_vac{ cntr_work.seg_elem_slot_cnt - r_seg_work.ca.elem_cnt };
+    size_t l_vac{ l_seg_work.elem_vac };
+    size_t r_vac{ r_seg_work.elem_vac };
 
     ZETA_Core_DebugAssert(0 < shove_cnt);
     ZETA_Core_DebugAssert(lr_cnt <= l_seg_work.ca.elem_cnt);
@@ -816,20 +829,20 @@ void SegInsertShoveR_(
     }
 
 #if EnStaging
-    size_t cnt_a{ compare_utils::BasicMin(lr_cnt, shove_cnt) };
-    size_t cnt_b{ compare_utils::BasicMin(ins_cnt, shove_cnt - cnt_a) };
+    size_t cnt_a{ comparison_utils::BasicMin(lr_cnt, shove_cnt) };
+    size_t cnt_b{ comparison_utils::BasicMin(ins_cnt, shove_cnt - cnt_a) };
     size_t cnt_c{ shove_cnt - cnt_a - cnt_b };
 
     void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(cntr_work.origin) };
 
-    circular_array::PushL(r_seg_work.ca, shove_cnt, seq_cntr::EmptyWriter{},
+    circular_array::PushL(r_seg_work.ca, shove_cnt, seq_cntr::empty_writer,
                           nullptr);
 
     if (0 < cnt_c) {
-        seq_cntr::Access(
+        seq_cntr::Refer(
             cntr_work.origin,
             l_seg_work.ref_beg + l_seg_work.ca.elem_cnt - cnt_a - cnt_c, true,
-            origin_cursor, nullptr);
+            nullptr, origin_cursor, nullptr);
 
         circular_array::AssignFromSeqCntr(r_seg_work.ca, 0, cntr_work.origin,
                                           origin_cursor, cnt_c);
@@ -840,9 +853,9 @@ void SegInsertShoveR_(
     }
 
     if (0 < cnt_a) {
-        seq_cntr::Access(cntr_work.origin,
-                         l_seg_work.ref_beg + l_seg_work.ca.elem_cnt - cnt_a,
-                         true, origin_cursor, nullptr);
+        seq_cntr::Refer(cntr_work.origin,
+                        l_seg_work.ref_beg + l_seg_work.ca.elem_cnt - cnt_a,
+                        true, nullptr, origin_cursor, nullptr);
 
         circular_array::AssignFromSeqCntr(r_seg_work.ca, cnt_c + cnt_b,
                                           cntr_work.origin, origin_cursor,
@@ -853,8 +866,8 @@ void SegInsertShoveR_(
         l_seg_work.ca.elem_cnt += ins_cnt - shove_cnt;
         l_seg_work.elem_vac =
             cntr_work.seg_elem_slot_cnt -
-            compare_utils::BasicMin(l_seg_work.ca.elem_cnt,
-                                    cntr_work.seg_elem_slot_cnt);
+            comparison_utils::BasicMin(l_seg_work.ca.elem_cnt,
+                                       cntr_work.seg_elem_slot_cnt);
 
         r_seg_work.elem_vac =
             cntr_work.seg_elem_slot_cnt - r_seg_work.ca.elem_cnt;
@@ -869,8 +882,8 @@ void SegInsertShoveR_(
     size_t ll_cnt{ l_seg_work.ca.elem_cnt - lr_cnt };
 
     if (0 < ll_cnt - cnt_c) {
-        seq_cntr::Access(cntr_work.origin, l_seg_work.ref_beg, true,
-                         origin_cursor, nullptr);
+        seq_cntr::Refer(cntr_work.origin, l_seg_work.ref_beg, true, nullptr,
+                        origin_cursor, nullptr);
 
         seq_cntr::Read(cntr_work.origin, origin_cursor, ll_cnt - cnt_c,
                        seq_cntr::MemReader{
@@ -889,8 +902,8 @@ void SegInsertShoveR_(
     }
 
     if (0 < lr_cnt - cnt_a) {
-        seq_cntr::Access(cntr_work.origin, l_seg_work.ref_beg + ll_cnt, true,
-                         origin_cursor, nullptr);
+        seq_cntr::Refer(cntr_work.origin, l_seg_work.ref_beg + ll_cnt, true,
+                        nullptr, origin_cursor, nullptr);
 
         seq_cntr::Read(cntr_work.origin, origin_cursor, lr_cnt - cnt_a,
                        seq_cntr::MemReader{
@@ -911,10 +924,10 @@ void SegInsertShoveR_(
 #endif
 }
 
-template <typename CntrWorkType>
+template <typename CntrWorkType, typename Reader>
 void SegEraseShoveL_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
                      SegWork_& r_seg_work, size_t rl_cnt, size_t ers_cnt,
-                     size_t shove_cnt) {
+                     size_t shove_cnt, Reader&& reader) {
     (CheckCntrSegWorkMatched_)(cntr_work, l_seg_work);
     (CheckCntrSegWorkMatched_)(cntr_work, r_seg_work);
 
@@ -940,7 +953,7 @@ void SegEraseShoveL_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
 #endif
     {
         seg_utils::SegEraseShoveL(l_seg_work.ca, r_seg_work.ca, rl_cnt, ers_cnt,
-                                  shove_cnt);
+                                  shove_cnt, reader);
 
         l_seg_work.elem_vac =
             cntr_work.seg_elem_slot_cnt - l_seg_work.ca.elem_cnt;
@@ -951,28 +964,28 @@ void SegEraseShoveL_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
     }
 
 #if EnStaging
-    size_t cnt_a{ compare_utils::BasicMin(rl_cnt, shove_cnt) };
+    size_t cnt_a{ comparison_utils::BasicMin(rl_cnt, shove_cnt) };
     size_t cnt_b{ ers_cnt };
     size_t cnt_c{ shove_cnt - cnt_a };
 
     size_t l_elem_cnt{ l_seg_work.ca.elem_cnt };
 
-    circular_array::PushR(l_seg_work.ca, shove_cnt, seq_cntr::EmptyWriter{},
+    circular_array::PushR(l_seg_work.ca, shove_cnt, seq_cntr::empty_writer,
                           nullptr);
 
     void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(cntr_work.origin) };
 
     if (0 < cnt_a) {
-        seq_cntr::Access(cntr_work.origin, r_seg_work.ref_beg, true,
-                         origin_cursor, nullptr);
+        seq_cntr::Refer(cntr_work.origin, r_seg_work.ref_beg, true, nullptr,
+                        origin_cursor, nullptr);
 
         circular_array::AssignFromSeqCntr(
             l_seg_work.ca, l_elem_cnt, cntr_work.origin, origin_cursor, cnt_a);
     }
 
     if (0 < cnt_c) {
-        seq_cntr::Access(cntr_work.origin, r_seg_work.ref_beg + cnt_a + cnt_b,
-                         true, origin_cursor, nullptr);
+        seq_cntr::Refer(cntr_work.origin, r_seg_work.ref_beg + cnt_a + cnt_b,
+                        true, nullptr, origin_cursor, nullptr);
 
         circular_array::AssignFromSeqCntr(l_seg_work.ca, l_elem_cnt + cnt_a,
                                           cntr_work.origin, origin_cursor,
@@ -983,16 +996,21 @@ void SegEraseShoveL_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
 
     r_seg_work.ref_beg += cnt_a + cnt_b + cnt_c;
     r_seg_work.ca.elem_cnt -= cnt_a + cnt_b + cnt_c;
-    r_seg_work.elem_vac = cntr_work.seg_elem_slot_cnt -
-                          compare_utils::BasicMin(r_seg_work.ca.elem_cnt,
-                                                  cntr_work.seg_elem_slot_cnt);
+    r_seg_work.elem_vac =
+        cntr_work.seg_elem_slot_cnt -
+        comparison_utils::BasicMin(r_seg_work.ca.elem_cnt,
+                                   cntr_work.seg_elem_slot_cnt);
 #endif
 }
 
-template <typename CntrWorkType>
+template <typename CntrWorkType, typename Reader>
 void SegEraseShoveR_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
                      SegWork_& r_seg_work, size_t lr_cnt, size_t ers_cnt,
-                     size_t shove_cnt) {
+                     size_t shove_cnt, Reader&& reader) {
+#if EnStaging
+    using RawReader = meta::RemoveRef<Reader>;
+#endif
+
     (CheckCntrSegWorkMatched_)(cntr_work, l_seg_work);
     (CheckCntrSegWorkMatched_)(cntr_work, r_seg_work);
 
@@ -1018,7 +1036,7 @@ void SegEraseShoveR_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
 #endif
     {
         seg_utils::SegEraseShoveR(l_seg_work.ca, r_seg_work.ca, lr_cnt, ers_cnt,
-                                  shove_cnt);
+                                  shove_cnt, reader);
 
         l_seg_work.elem_vac =
             cntr_work.seg_elem_slot_cnt - l_seg_work.ca.elem_cnt;
@@ -1029,38 +1047,88 @@ void SegEraseShoveR_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
     }
 
 #if EnStaging
-    size_t cnt_a{ compare_utils::BasicMin(lr_cnt, shove_cnt) };
+    size_t cnt_a{ comparison_utils::BasicMin(lr_cnt, shove_cnt) };
     size_t cnt_b{ ers_cnt };
     size_t cnt_c{ shove_cnt - cnt_a };
 
-    circular_array::PushL(r_seg_work.ca, shove_cnt, seq_cntr::EmptyWriter{},
+    circular_array::PushL(r_seg_work.ca, shove_cnt, seq_cntr::empty_writer,
                           nullptr);
 
     void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(cntr_work.origin) };
+    bool origin_cursor_is_refered{ false };
+    size_t origin_cursor_refer_idx{ 0 };
 
     if (0 < cnt_c) {
-        seq_cntr::Access(
-            cntr_work.origin,
-            l_seg_work.ref_beg + l_seg_work.ca.elem_cnt - cnt_a - cnt_b - cnt_c,
-            true, origin_cursor, nullptr);
+        size_t target_idx{ l_seg_work.ref_beg + l_seg_work.ca.elem_cnt - cnt_a -
+                           cnt_b - cnt_c };
+
+        if (!origin_cursor_is_refered) {
+            seq_cntr::Refer(cntr_work.origin, target_idx, true, nullptr,
+                            origin_cursor, nullptr);
+
+            origin_cursor_is_refered = true;
+            origin_cursor_refer_idx = target_idx;
+        }
+
+        ZETA_Core_DebugAssert(origin_cursor_is_refered);
+        ZETA_Core_DebugAssert(origin_cursor_refer_idx == target_idx);
 
         circular_array::AssignFromSeqCntr(r_seg_work.ca, 0, cntr_work.origin,
                                           origin_cursor, cnt_c);
+
+        origin_cursor_refer_idx += cnt_c;
+    }
+
+    if constexpr (!meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
+        size_t target_idx{ l_seg_work.ref_beg + l_seg_work.ca.elem_cnt -
+                           lr_cnt - ers_cnt };
+
+        if (!origin_cursor_is_refered) {
+            seq_cntr::Refer(cntr_work.origin, target_idx, true, nullptr,
+                            origin_cursor, nullptr);
+
+            origin_cursor_is_refered = true;
+            origin_cursor_refer_idx = target_idx;
+        }
+
+        ZETA_Core_DebugAssert(origin_cursor_is_refered);
+        ZETA_Core_DebugAssert(origin_cursor_refer_idx == target_idx);
+
+        seq_cntr::Read(cntr_work.origin, origin_cursor, ers_cnt, reader,
+                       origin_cursor);
     }
 
     if (0 < cnt_a) {
-        seq_cntr::Access(cntr_work.origin,
-                         l_seg_work.ref_beg + l_seg_work.ca.elem_cnt - cnt_a,
-                         true, origin_cursor, nullptr);
+        size_t target_idx{ l_seg_work.ref_beg + l_seg_work.ca.elem_cnt -
+                           cnt_a };
+
+        if (!origin_cursor_is_refered) {
+            seq_cntr::Refer(cntr_work.origin, target_idx, true, nullptr,
+                            origin_cursor, nullptr);
+
+            origin_cursor_is_refered = true;
+
+        } else if (origin_cursor_refer_idx != target_idx) {
+            // SANITIZE
+            ZETA_Core_DebugAssert(origin_cursor_refer_idx < target_idx);
+
+            seq_cntr::CursorAdvanceR(cntr_work.origin, origin_cursor,
+                                     target_idx - origin_cursor_refer_idx);
+        }
+
+        origin_cursor_refer_idx = target_idx;
 
         circular_array::AssignFromSeqCntr(
             r_seg_work.ca, cnt_c, cntr_work.origin, origin_cursor, cnt_a);
+
+        origin_cursor_refer_idx += cnt_a;
     }
 
     l_seg_work.ca.elem_cnt -= cnt_a + cnt_b + cnt_c;
-    l_seg_work.elem_vac = cntr_work.seg_elem_slot_cnt -
-                          compare_utils::BasicMin(l_seg_work.ca.elem_cnt,
-                                                  cntr_work.seg_elem_slot_cnt);
+    l_seg_work.elem_vac =
+        cntr_work.seg_elem_slot_cnt -
+        comparison_utils::BasicMin(l_seg_work.ca.elem_cnt,
+                                   cntr_work.seg_elem_slot_cnt);
 
     r_seg_work.elem_vac = cntr_work.seg_elem_slot_cnt - r_seg_work.ca.elem_cnt;
 #endif
@@ -1086,8 +1154,8 @@ inline int Merge2_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
         void* data{ (AllocateData_)(cntr_work.data_size,
                                     cntr_work.data_alctr) };
 
-        seq_cntr::Access(cntr_work.origin, l_seg_work.ref_beg, true,
-                         origin_cursor, nullptr);
+        seq_cntr::Refer(cntr_work.origin, l_seg_work.ref_beg, true, nullptr,
+                        origin_cursor, nullptr);
 
         seq_cntr::Read(cntr_work.origin, origin_cursor, l_seg_work.ca.elem_cnt,
                        seq_cntr::MemReader{
@@ -1097,8 +1165,9 @@ inline int Merge2_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
                        },
                        nullptr);
 
-        seq_cntr::Access(cntr_work.origin, r_seg_work.ref_beg, true,
-                         origin_cursor, nullptr);
+        seq_cntr::Refer(cntr_work.origin, r_seg_work.ref_beg, true, nullptr,
+                        origin_cursor, nullptr);
+
         seq_cntr::Read(
             cntr_work.origin, origin_cursor, r_seg_work.ca.elem_cnt,
             seq_cntr::MemReader{
@@ -1124,7 +1193,7 @@ inline int Merge2_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
             dst_seg_work = &r_seg_work;
             other_seg_work = &l_seg_work;
             break;
-        default: __builtin_unreachable();
+        default: ZETA_Core_Unreachable();
         }
 
         dst_seg_work->color = dat_color;
@@ -1161,7 +1230,7 @@ inline int Merge2_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
     case 1:
         (SegShoveR_)(cntr_work, l_seg_work, r_seg_work, l_seg_work.ca.elem_cnt);
         break;
-    default: __builtin_unreachable();
+    default: ZETA_Core_Unreachable();
     }
 
     return side;
@@ -1198,6 +1267,118 @@ struct ElemCntBalancer_ {
     }
 };
 
+template <CntrTplParamList>
+void CheckCntr_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList> const& cntr) {
+#if EnStaging
+    auto& origin{ meta::GetInstRef(cntr.origin) };
+    seq_cntr::CheckContract(origin);
+#endif
+
+    size_t elem_size{ cntr.elem_size };
+
+    ZETA_Core_DebugAssert(0 < elem_size);
+
+#if EnStaging
+    ZETA_Core_DebugAssert(elem_size == seq_cntr::GetElemSize(origin));
+#endif
+
+    size_t elem_stride{ cntr.elem_stride };
+    ZETA_Core_DebugAssert(elem_size <= elem_stride);
+
+    size_t seg_elem_slot_cnt{ cntr.seg_elem_slot_cnt };
+    ZETA_Core_DebugAssert(0 < seg_elem_slot_cnt);
+    ZETA_Core_DebugAssert(seg_elem_slot_cnt <= max_seg_elem_slot_cnt);
+}
+
+template <CntrTplParamList>
+void CheckCursor_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList> const& cntr, Cursor* cursor) {
+    (CheckCntr_)(cntr);
+
+    ZETA_Core_DebugAssert(cursor != nullptr);
+
+    seq_cntr::ElemPtrView re_elem_ptr_view;
+    Cursor re_cursor;
+
+    (Refer)(const_cast<Cntr<CntrTplArgList>&>(cntr), cursor->idx, true,
+            &re_elem_ptr_view, &re_cursor, nullptr);
+
+    ZETA_Core_DebugAssert(cursor->cntr == re_cursor.cntr);
+    ZETA_Core_DebugAssert(cursor->idx == re_cursor.idx);
+    ZETA_Core_DebugAssert(cursor->n == re_cursor.n);
+
+    if (cursor->seg_idx != re_cursor.seg_idx ||
+        re_elem_ptr_view.ptr != re_cursor.elem_ptr) {
+        ZETA_Core_PrintVar(cntr.lb);
+        ZETA_Core_PrintVar(cntr.rb);
+        ZETA_Core_PrintVar(cursor->n);
+        ZETA_Core_PrintVar(cursor->seg_idx);
+        ZETA_Core_PrintVar(re_cursor.seg_idx);
+
+        ZETA_Core_DebugAssert(cursor->seg_idx == re_cursor.seg_idx);
+        ZETA_Core_DebugAssert(re_elem_ptr_view.ptr == re_cursor.elem_ptr);
+    }
+
+    if (re_cursor.n == cntr.lb || re_cursor.n == cntr.rb) {
+        ZETA_Core_DebugAssert(re_elem_ptr_view.ptr == nullptr);
+
+        ZETA_Core_DebugAssert(re_elem_ptr_view.aliasability ==
+                              seq_cntr::ElemPtrView::AliasabilityEnum::Null);
+    } else {
+#if EnStaging
+        if ((GetNColor_)(static_cast<Node*>(cursor->n)) == ref_color) {
+            ZETA_Core_DebugAssert(
+                re_elem_ptr_view.aliasability ==
+                    seq_cntr::ElemPtrView::AliasabilityEnum::Null ||
+                re_elem_ptr_view.aliasability ==
+                    seq_cntr::ElemPtrView::AliasabilityEnum::ReadOnly);
+
+            if (re_elem_ptr_view.aliasability ==
+                seq_cntr::ElemPtrView::AliasabilityEnum::Null) {
+                ZETA_Core_DebugAssert(re_elem_ptr_view.ptr == nullptr);
+            }
+
+            if (re_elem_ptr_view.aliasability ==
+                seq_cntr::ElemPtrView::AliasabilityEnum::ReadOnly) {
+                ZETA_Core_DebugAssert(re_elem_ptr_view.ptr != nullptr);
+            }
+        } else
+#endif
+        {
+            ZETA_Core_DebugAssert(re_elem_ptr_view.ptr != nullptr);
+
+            ZETA_Core_DebugAssert(
+                re_elem_ptr_view.aliasability ==
+                seq_cntr::ElemPtrView::AliasabilityEnum::ReadWrite);
+        }
+    }
+
+    if (cursor->elem_ptr_is_valid) {
+        if (cursor->elem_ptr != re_elem_ptr_view.ptr) {
+            ZETA_Core_PrintVar(cntr.lb);
+            ZETA_Core_PrintVar(cntr.rb);
+
+            ZETA_Core_PrintVar(cursor->idx);
+            ZETA_Core_PrintVar(re_cursor.idx);
+
+            ZETA_Core_PrintVar(cursor->n);
+            ZETA_Core_PrintVar(re_cursor.n);
+
+            ZETA_Core_PrintVar(cursor->seg_idx);
+            ZETA_Core_PrintVar(re_cursor.seg_idx);
+
+            ZETA_Core_PrintVar(cursor->elem_ptr);
+            ZETA_Core_PrintVar(re_cursor.elem_ptr);
+
+            ZETA_Core_DebugAssert(cursor->elem_ptr == re_cursor.elem_ptr);
+        }
+
+        ZETA_Core_DebugAssert(cursor->elem_ptr_is_valid ==
+                              re_cursor.elem_ptr_is_valid);
+    }
+}
+
 template <bool EnRead, CntrTplParamList, typename ReaderWriterCore>
 void ReadWrite_  // NOLINT(misc-use-internal-linkage)
     (Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor, size_t cnt,
@@ -1207,21 +1388,12 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
     auto const cntr_work{ (MakeCntrWork_)(cntr) };
 
     if (cnt == 0) {
-        if (dst_cursor != nullptr) {
-            dst_cursor->cntr = &cntr;
-            dst_cursor->idx = pos_cursor->idx;
-            dst_cursor->n = pos_cursor->n;
-            dst_cursor->seg_idx = pos_cursor->seg_idx;
-            dst_cursor->elem = pos_cursor->elem;
-        }
-
+        if (dst_cursor != nullptr) { *dst_cursor = *pos_cursor; }
         return;
     }
 
-    ZETA_Core_DebugAssert(
-        seq_cntr::IsDereferable(pos_cursor->idx, cnt, cntr_work.elem_cnt));
-
-    Node* rb{ cntr.rb };
+    ZETA_Core_DebugAssert(seq_cntr::check_operation::CanDerefer(
+        pos_cursor->idx, cnt, cntr_work.elem_cnt));
 
     size_t idx{ pos_cursor->idx };
     size_t end_idx{ idx + cnt };
@@ -1252,8 +1424,7 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
         if ((GetNColor_)(n) == dat_color)
 #endif
         {
-
-            size_t cur_cnt{ compare_utils::BasicMin(
+            size_t cur_cnt{ comparison_utils::BasicMin(
                 cnt, seg->dat.elem_cnt - seg_idx) };
 
             reader_writer_core.ReadWriteDat(seg->dat.data, seg->dat.rot,
@@ -1264,9 +1435,10 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
                 any_written = true;
                 pos_cursor->n = n;
                 pos_cursor->seg_idx = seg_idx;
-                pos_cursor->elem = circular_array::ReferElem(
+                pos_cursor->elem_ptr = circular_array::ReferElem(
                     seg->dat.data, cntr_work.elem_stride,
                     cntr_work.seg_elem_slot_cnt, seg->dat.rot, seg_idx);
+                pos_cursor->elem_ptr_is_valid = true;
             }
 #endif
 
@@ -1294,7 +1466,7 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
         size_t seg_elem_cnt{ seg->ref.elem_cnt };
 
         size_t cnt_a{ seg_idx };
-        size_t cnt_b{ compare_utils::BasicMin(cnt, seg_elem_cnt - seg_idx) };
+        size_t cnt_b{ comparison_utils::BasicMin(cnt, seg_elem_cnt - seg_idx) };
         size_t cnt_c{ seg_elem_cnt - cnt_a - cnt_b };
 
         size_t needed_seg_cnt{ integral_math::CeilDiv(
@@ -1326,9 +1498,9 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
                                        &random_seed)) {
                 case 0: goto MAT_AB;
                 case 1: goto MAT_BC;
-                default: __builtin_unreachable();
+                default: ZETA_Core_Unreachable();
                 }
-            default: __builtin_unreachable();
+            default: ZETA_Core_Unreachable();
             }
         }
 
@@ -1371,7 +1543,6 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
 
     MAT_B: {
         Seg* new_l_seg{ (AllocateRefSeg_)(cntr_work.seg_alctr) };
-
         Seg* new_r_seg{ (AllocateRefSeg_)(cntr_work.seg_alctr) };
 
         cntr.root = rbtree::InsertL(n, &new_l_seg->n);
@@ -1443,14 +1614,14 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
 
             Seg* l_seg{ (NToSeg_)(l_n) };
 
-            size_t cur_cnt{ compare_utils::BasicMin(
+            size_t cur_cnt{ comparison_utils::BasicMin(
                 cnt, new_seg_elem_cnt - seg_idx) };
 
             char* data{ static_cast<char*>(l_seg->dat.data) };
 
             if constexpr (EnRead) {
-                seq_cntr::Access(cntr_work.origin, cur_ref_beg, true,
-                                 origin_cursor, nullptr);
+                seq_cntr::Refer(cntr_work.origin, cur_ref_beg, true, nullptr,
+                                origin_cursor, nullptr);
 
                 seq_cntr::Read(cntr_work.origin, origin_cursor,
                                new_seg_elem_cnt,
@@ -1462,8 +1633,8 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
                                nullptr);
             } else {
                 if (0 < seg_idx) {
-                    seq_cntr::Access(cntr_work.origin, cur_ref_beg, true,
-                                     origin_cursor, nullptr);
+                    seq_cntr::Refer(cntr_work.origin, cur_ref_beg, true,
+                                    nullptr, origin_cursor, nullptr);
 
                     seq_cntr::Read(cntr_work.origin, origin_cursor, seg_idx,
                                    seq_cntr::MemReader{
@@ -1475,9 +1646,9 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
                 }
 
                 if (seg_idx + cur_cnt < new_seg_elem_cnt) {
-                    seq_cntr::Access(cntr_work.origin,
-                                     cur_ref_beg + seg_idx + cur_cnt, true,
-                                     origin_cursor, nullptr);
+                    seq_cntr::Refer(cntr_work.origin,
+                                    cur_ref_beg + seg_idx + cur_cnt, true,
+                                    nullptr, origin_cursor, nullptr);
 
                     seq_cntr::Read(cntr_work.origin, origin_cursor,
                                    new_seg_elem_cnt - seg_idx - cur_cnt,
@@ -1498,7 +1669,8 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
                 any_written = true;
                 pos_cursor->n = l_n;
                 pos_cursor->seg_idx = seg_idx;
-                pos_cursor->elem = data + cntr_work.elem_stride * seg_idx;
+                pos_cursor->elem_ptr = data + cntr_work.elem_stride * seg_idx;
+                pos_cursor->elem_ptr_is_valid = true;
             }
 
             cnt -= cur_cnt;
@@ -1525,29 +1697,8 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
     dst_cursor->idx = end_idx;
     dst_cursor->n = n;
     dst_cursor->seg_idx = seg_idx;
-
-    if (rb == n
-#if EnStaging
-        || (GetNColor_)(n) == ref_color
-#endif
-    ) {
-        dst_cursor->elem = nullptr;
-        return;
-    }
-
-    seg = (NToSeg_)(n);
-
-    CircularArray ca{
-        .data = seg->dat.data,
-        .elem_size = cntr_work.elem_size,
-        .elem_stride = cntr_work.elem_stride,
-        .elem_cnt = seg->dat.elem_cnt,
-        .slot_cnt = cntr_work.seg_elem_slot_cnt,
-        .rot = seg->dat.rot,
-    };
-
-    dst_cursor->elem =
-        circular_array::Access(ca, seg_idx, true, nullptr, nullptr);
+    dst_cursor->elem_ptr = nullptr;
+    dst_cursor->elem_ptr_is_valid = false;
 }
 
 template <CntrTplParamList>
@@ -1587,7 +1738,7 @@ void RefOrigin_  // NOLINT(misc-use-internal-linkage)
 #endif
 
 template <typename SegAllocator, typename DataAllocator>
-pair::Pair<Namespace::Node*, Namespace::Node*> Erase_(
+pair::Pair<Namespace::Node*, Namespace::Node*> EraseAll_(
     Node* root, SegAllocator& seg_alctr, DataAllocator& data_alctr) {
     constexpr size_t buffer_capacity{ rbtree::max_height * 4 };
 
@@ -1765,7 +1916,7 @@ Node* Copy_(size_t elem_stride, size_t seg_elem_slot_cnt, Node* lb, Node* rb,
         size_t res_cnt{ balancer.Fetch() };
 
         for (;;) {
-            size_t cur_cnt{ compare_utils::BasicMin(
+            size_t cur_cnt{ comparison_utils::BasicMin(
                 res_cnt, src_seg_work.ca.elem_cnt - src_idx) };
 
             circular_array::IdxRead(
@@ -1939,7 +2090,7 @@ template <CntrTplParamList>
 void Namespace::Deinit(Cntr<CntrTplArgList>& cntr) {
     detail::CheckCntr_(cntr);
 
-    detail::Erase_(cntr.root, cntr.seg_alctr, cntr.data_alctr);
+    detail::EraseAll_(cntr.root, cntr.seg_alctr, cntr.data_alctr);
 
     allocator::Deallocate(cntr.seg_alctr, cntr.lb);
     allocator::Deallocate(cntr.seg_alctr, cntr.rb);
@@ -1971,7 +2122,7 @@ void Namespace::Copy(Cntr<CntrTplArgList>& cntr,
                               decltype(data_alctr)>
         data_pool_alctr;
 
-    detail::Erase_(cntr.root, seg_pool_alctr, data_pool_alctr);
+    detail::EraseAll_(cntr.root, seg_pool_alctr, data_pool_alctr);
 
 #if EnStaging
     lifecycle::Deinit(cntr.origin);
@@ -2032,7 +2183,8 @@ void Namespace::GetLBCursor(Cntr<CntrTplArgList> const& cntr,
     dst_cursor->idx = static_cast<size_t>(-1);
     dst_cursor->n = cntr.lb;
     dst_cursor->seg_idx = 0;
-    dst_cursor->elem = nullptr;
+    dst_cursor->elem_ptr = nullptr;
+    dst_cursor->elem_ptr_is_valid = true;
 }
 
 template <CntrTplParamList>
@@ -2043,92 +2195,158 @@ void Namespace::GetRBCursor(Cntr<CntrTplArgList> const& cntr,
     if (dst_cursor == nullptr) { return; }
 
     dst_cursor->cntr = &cntr;
-    dst_cursor->idx = GetElemCnt(cntr);
+    dst_cursor->idx = (GetElemCnt)(cntr);
     dst_cursor->n = cntr.rb;
     dst_cursor->seg_idx = 0;
-    dst_cursor->elem = nullptr;
+    dst_cursor->elem_ptr = nullptr;
+    dst_cursor->elem_ptr_is_valid = true;
 }
 
 template <CntrTplParamList>
-void* Namespace::PeekL(Cntr<CntrTplArgList> const& cntr, bool lazy_copy_elem,
-                       Cursor* dst_cursor, void* dst_elem) {
+void Namespace::PeekL(Cntr<CntrTplArgList>& cntr, bool lazy_copy_elem,
+                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                      Cursor* dst_cursor, void* dst_elem) {
     detail::CheckCntr_(cntr);
 
     auto const cntr_work{ detail::MakeCntrWork_(cntr) };
 
+    ZETA_Core_DebugAssert(dst_elem_ptr_view != nullptr ||
+                          dst_cursor != nullptr || dst_elem != nullptr);
+
     Node* n{ bin_tree::StepR(cntr.lb) };
 
     if (cntr.rb == n) {
+        if (dst_elem_ptr_view != nullptr) {
+            dst_elem_ptr_view->ptr = nullptr;
+            dst_elem_ptr_view->aliasability =
+                seq_cntr::ElemPtrView::AliasabilityEnum::Null;
+        }
+
         if (dst_cursor != nullptr) {
             dst_cursor->cntr = &cntr;
             dst_cursor->idx = 0;
             dst_cursor->n = n;
             dst_cursor->seg_idx = 0;
-            dst_cursor->elem = nullptr;
+            dst_cursor->elem_ptr = nullptr;
+            dst_cursor->elem_ptr_is_valid = true;
         }
 
-        return nullptr;
+        return;
     }
 
     Seg* seg{ detail::NToSeg_(n) };
 
-    void* elem;
-
 #if EnStaging
     if (detail::GetNColor_(n) == ref_color) {
-        seq_cntr::Access(cntr_work.origin, seg->ref.beg, false, nullptr,
-                         dst_elem);
-        elem = nullptr;
-    } else
-#endif
-    {
-        CircularArray ca{
-            .data = seg->dat.data,
-            .elem_size = cntr_work.elem_size,
-            .elem_stride = cntr_work.elem_stride,
-            .elem_cnt = seg->dat.elem_cnt,
-            .slot_cnt = cntr_work.seg_elem_slot_cnt,
-            .rot = seg->dat.rot,
-        };
+        if (dst_elem_ptr_view == nullptr && dst_elem == nullptr) {
+            dst_cursor->cntr = &cntr;
+            dst_cursor->idx = 0;
+            dst_cursor->n = n;
+            dst_cursor->seg_idx = 0;
+            dst_cursor->elem_ptr = nullptr;
+            dst_cursor->elem_ptr_is_valid = false;
 
-        elem = circular_array::PeekL(ca, lazy_copy_elem, nullptr, dst_elem);
+            return;
+        }
+
+        seq_cntr::Refer(cntr_work.origin, seg->ref.beg, false,
+                        dst_elem_ptr_view, nullptr, dst_elem);
+
+        if (dst_cursor != nullptr) {
+            dst_cursor->cntr = &cntr;
+            dst_cursor->idx = 0;
+            dst_cursor->n = n;
+            dst_cursor->seg_idx = 0;
+
+            if (dst_elem_ptr_view == nullptr) {
+                dst_cursor->elem_ptr = nullptr;
+                dst_cursor->elem_ptr_is_valid = false;
+            } else {
+                dst_cursor->elem_ptr = dst_elem_ptr_view->ptr;
+                dst_cursor->elem_ptr_is_valid = true;
+            }
+        }
+
+        return;
     }
+#endif
+
+    seq_cntr::ElemPtrView fallback_dst_elem_ptr_view;
+
+    if (dst_elem_ptr_view == nullptr) {
+        dst_elem_ptr_view = &fallback_dst_elem_ptr_view;
+    }
+
+    CircularArray ca{
+        .data = seg->dat.data,
+        .elem_size = cntr_work.elem_size,
+        .elem_stride = cntr_work.elem_stride,
+        .elem_cnt = seg->dat.elem_cnt,
+        .slot_cnt = cntr_work.seg_elem_slot_cnt,
+        .rot = seg->dat.rot,
+    };
+
+    circular_array::PeekL(ca, lazy_copy_elem, dst_elem_ptr_view, nullptr,
+                          dst_elem);
 
     if (dst_cursor != nullptr) {
         dst_cursor->cntr = &cntr;
         dst_cursor->idx = 0;
         dst_cursor->n = n;
         dst_cursor->seg_idx = 0;
-        dst_cursor->elem = elem;
+        dst_cursor->elem_ptr = dst_elem_ptr_view->ptr;
+        dst_cursor->elem_ptr_is_valid = true;
     }
-
-    return elem;
 }
 
 template <CntrTplParamList>
-void* Namespace::PeekR(Cntr<CntrTplArgList> const& cntr, bool lazy_copy_elem,
-                       Cursor* dst_cursor, void* dst_elem) {
+void Namespace::PeekL(Cntr<CntrTplArgList> const& cntr, bool lazy_copy_elem,
+                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                      Cursor* dst_cursor, void* dst_elem) {
+    (PeekL)(const_cast<Cntr<CntrTplArgList>&>(cntr), lazy_copy_elem,
+            dst_elem_ptr_view, dst_cursor, dst_elem);
+
+    if (dst_elem_ptr_view != nullptr &&
+        dst_elem_ptr_view->aliasability ==
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadWrite) {
+        dst_elem_ptr_view->aliasability =
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadOnly;
+    }
+}
+
+template <CntrTplParamList>
+void Namespace::PeekR(Cntr<CntrTplArgList>& cntr, bool lazy_copy_elem,
+                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                      Cursor* dst_cursor, void* dst_elem) {
     detail::CheckCntr_(cntr);
 
     auto const cntr_work{ detail::MakeCntrWork_(cntr) };
 
+    ZETA_Core_DebugAssert(dst_elem_ptr_view != nullptr ||
+                          dst_cursor != nullptr || dst_elem != nullptr);
+
     Node* n{ bin_tree::StepL(cntr.rb) };
 
     if (cntr.lb == n) {
+        if (dst_elem_ptr_view != nullptr) {
+            dst_elem_ptr_view->ptr = nullptr;
+            dst_elem_ptr_view->aliasability =
+                seq_cntr::ElemPtrView::AliasabilityEnum::Null;
+        }
+
         if (dst_cursor != nullptr) {
             dst_cursor->cntr = &cntr;
             dst_cursor->idx = static_cast<size_t>(-1);
             dst_cursor->n = n;
             dst_cursor->seg_idx = 0;
-            dst_cursor->elem = nullptr;
+            dst_cursor->elem_ptr = nullptr;
+            dst_cursor->elem_ptr_is_valid = true;
         }
 
-        return nullptr;
+        return;
     }
 
     Seg* seg{ detail::NToSeg_(n) };
-
-    void* elem;
 
     size_t seg_elem_cnt;
 
@@ -2136,115 +2354,262 @@ void* Namespace::PeekR(Cntr<CntrTplArgList> const& cntr, bool lazy_copy_elem,
     if (detail::GetNColor_(n) == ref_color) {
         seg_elem_cnt = seg->ref.elem_cnt;
 
-        seq_cntr::Access(cntr_work.origin, seg->ref.beg + seg_elem_cnt - 1,
-                         false, nullptr, dst_elem);
+        if (dst_elem_ptr_view == nullptr && dst_elem == nullptr) {
+            dst_cursor->cntr = &cntr;
+            dst_cursor->idx = cntr_work.elem_cnt - 1;
+            dst_cursor->n = n;
+            dst_cursor->seg_idx = seg_elem_cnt - 1;
+            dst_cursor->elem_ptr = nullptr;
+            dst_cursor->elem_ptr_is_valid = false;
 
-        elem = nullptr;
-    } else
-#endif
-    {
-        seg_elem_cnt = seg->dat.elem_cnt;
+            return;
+        }
 
-        CircularArray ca{
-            .data = seg->dat.data,
-            .elem_size = cntr_work.elem_size,
-            .elem_stride = cntr_work.elem_stride,
-            .elem_cnt = seg_elem_cnt,
-            .slot_cnt = cntr_work.seg_elem_slot_cnt,
-            .rot = seg->dat.rot,
-        };
+        seq_cntr::Refer(cntr_work.origin, seg->ref.beg + seg_elem_cnt - 1,
+                        false, dst_elem_ptr_view, nullptr, dst_elem);
 
-        elem = circular_array::PeekR(ca, lazy_copy_elem, nullptr, dst_elem);
+        if (dst_cursor != nullptr) {
+            dst_cursor->cntr = &cntr;
+            dst_cursor->idx = cntr_work.elem_cnt - 1;
+            dst_cursor->n = n;
+            dst_cursor->seg_idx = seg_elem_cnt - 1;
+
+            if (dst_elem_ptr_view == nullptr) {
+                dst_cursor->elem_ptr = nullptr;
+                dst_cursor->elem_ptr_is_valid = false;
+            } else {
+                dst_cursor->elem_ptr = dst_elem_ptr_view->ptr;
+                dst_cursor->elem_ptr_is_valid = true;
+            }
+        }
+
+        return;
     }
+#endif
+
+    seg_elem_cnt = seg->dat.elem_cnt;
+
+    seq_cntr::ElemPtrView fallback_dst_elem_ptr_view;
+
+    if (dst_elem_ptr_view == nullptr) {
+        dst_elem_ptr_view = &fallback_dst_elem_ptr_view;
+    }
+
+    CircularArray ca{
+        .data = seg->dat.data,
+        .elem_size = cntr_work.elem_size,
+        .elem_stride = cntr_work.elem_stride,
+        .elem_cnt = seg_elem_cnt,
+        .slot_cnt = cntr_work.seg_elem_slot_cnt,
+        .rot = seg->dat.rot,
+    };
+
+    circular_array::PeekR(ca, lazy_copy_elem, dst_elem_ptr_view, nullptr,
+                          dst_elem);
 
     if (dst_cursor != nullptr) {
         dst_cursor->cntr = &cntr;
         dst_cursor->idx = cntr_work.elem_cnt - 1;
         dst_cursor->n = n;
         dst_cursor->seg_idx = seg_elem_cnt - 1;
-        dst_cursor->elem = elem;
+        dst_cursor->elem_ptr = dst_elem_ptr_view->ptr;
+        dst_cursor->elem_ptr_is_valid = true;
     }
-
-    return elem;
 }
 
 template <CntrTplParamList>
-void* Namespace::Access(Cntr<CntrTplArgList> const& cntr, size_t idx,
-                        bool lazy_copy_elem, Cursor* dst_cursor,
-                        void* dst_elem) {
+void Namespace::PeekR(Cntr<CntrTplArgList> const& cntr, bool lazy_copy_elem,
+                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                      Cursor* dst_cursor, void* dst_elem) {
+    (PeekR)(const_cast<Cntr<CntrTplArgList>&>(cntr), lazy_copy_elem,
+            dst_elem_ptr_view, dst_cursor, dst_elem);
+
+    if (dst_elem_ptr_view != nullptr &&
+        dst_elem_ptr_view->aliasability ==
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadWrite) {
+        dst_elem_ptr_view->aliasability =
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadOnly;
+    }
+}
+
+template <CntrTplParamList>
+void Namespace::Refer(Cntr<CntrTplArgList>& cntr, size_t idx,
+                      bool lazy_copy_elem,
+                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                      Cursor* dst_cursor, void* dst_elem) {
     detail::CheckCntr_(cntr);
 
     auto const cntr_work{ detail::MakeCntrWork_(cntr) };
 
-    ZETA_Core_DebugAssert(seq_cntr::IsReferable(idx, 1, cntr_work.elem_cnt));
+    ZETA_Core_DebugAssert(dst_elem_ptr_view != nullptr ||
+                          dst_cursor != nullptr || dst_elem != nullptr);
+
+    ZETA_Core_DebugAssert(
+        seq_cntr::check_operation::CanRefer(idx, 1, cntr_work.elem_cnt));
 
     auto [n, seg_idx]{ bin_tree::AccessL(cntr.root, idx + 1) };
 
-    void* elem{ nullptr };
+    if (cntr_work.elem_cnt <= idx) {
+        if (dst_elem_ptr_view != nullptr) {
+            dst_elem_ptr_view->ptr = nullptr;
+            dst_elem_ptr_view->aliasability =
+                seq_cntr::ElemPtrView::AliasabilityEnum::Null;
+        }
 
-    if (idx < cntr_work.elem_cnt) {
-        Seg* seg{ detail::NToSeg_(n) };
+        if (dst_cursor != nullptr) {
+            dst_cursor->cntr = &cntr;
+            dst_cursor->idx = idx;
+            dst_cursor->n = n;
+            dst_cursor->seg_idx = seg_idx;
+            dst_cursor->elem_ptr = nullptr;
+            dst_cursor->elem_ptr_is_valid = true;
+        }
+
+        return;
+    }
+
+    Seg* seg{ detail::NToSeg_(n) };
 
 #if EnStaging
-        if (detail::GetNColor_(n) == ref_color) {
-            if (dst_elem != nullptr) {
-                seq_cntr::Access(cntr_work.origin, seg->ref.beg + seg_idx,
-                                 false, nullptr, dst_elem);
-            }
-        } else
-#endif
-        {
-            CircularArray ca{
-                .data = seg->dat.data,
-                .elem_size = cntr_work.elem_size,
-                .elem_stride = cntr_work.elem_stride,
-                .elem_cnt = seg->dat.elem_cnt,
-                .slot_cnt = cntr_work.seg_elem_slot_cnt,
-                .rot = seg->dat.rot,
-            };
+    if (detail::GetNColor_(n) == ref_color) {
+        if (dst_elem_ptr_view == nullptr && dst_elem == nullptr) {
+            dst_cursor->cntr = &cntr;
+            dst_cursor->idx = idx;
+            dst_cursor->n = n;
+            dst_cursor->seg_idx = seg_idx;
+            dst_cursor->elem_ptr = nullptr;
+            dst_cursor->elem_ptr_is_valid = false;
 
-            elem = circular_array::Access(ca, seg_idx, lazy_copy_elem, nullptr,
-                                          dst_elem);
+            return;
         }
+
+        seq_cntr::Refer(cntr_work.origin, seg->ref.beg + seg_idx, false,
+                        dst_elem_ptr_view, nullptr, dst_elem);
+
+        if (dst_cursor != nullptr) {
+            dst_cursor->cntr = &cntr;
+            dst_cursor->idx = idx;
+            dst_cursor->n = n;
+            dst_cursor->seg_idx = seg_idx;
+
+            if (dst_elem_ptr_view == nullptr) {
+                dst_cursor->elem_ptr = nullptr;
+                dst_cursor->elem_ptr_is_valid = false;
+            } else {
+                dst_cursor->elem_ptr = dst_elem_ptr_view->ptr;
+                dst_cursor->elem_ptr_is_valid = true;
+            }
+        }
+
+        return;
     }
+#endif
+
+    seq_cntr::ElemPtrView fallback_dst_elem_ptr_view;
+
+    if (dst_elem_ptr_view == nullptr) {
+        dst_elem_ptr_view = &fallback_dst_elem_ptr_view;
+    }
+
+    CircularArray ca{
+        .data = seg->dat.data,
+        .elem_size = cntr_work.elem_size,
+        .elem_stride = cntr_work.elem_stride,
+        .elem_cnt = seg->dat.elem_cnt,
+        .slot_cnt = cntr_work.seg_elem_slot_cnt,
+        .rot = seg->dat.rot,
+    };
+
+    circular_array::Refer(ca, seg_idx, lazy_copy_elem, dst_elem_ptr_view,
+                          nullptr, dst_elem);
 
     if (dst_cursor != nullptr) {
         dst_cursor->cntr = &cntr;
         dst_cursor->idx = idx;
         dst_cursor->n = n;
         dst_cursor->seg_idx = seg_idx;
-        dst_cursor->elem = elem;
+        dst_cursor->elem_ptr = dst_elem_ptr_view->ptr;
+        dst_cursor->elem_ptr_is_valid = true;
     }
-
-    return elem;
 }
 
 template <CntrTplParamList>
-void* Namespace::Derefer(Cntr<CntrTplArgList> const& cntr,
-                         Cursor const* pos_cursor, bool lazy_copy_elem,
-                         void* dst_elem) {
+void Namespace::Refer(Cntr<CntrTplArgList> const& cntr, size_t idx,
+                      bool lazy_copy_elem,
+                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                      Cursor* dst_cursor, void* dst_elem) {
+    (Refer)(const_cast<Cntr<CntrTplArgList>&>(cntr), idx, lazy_copy_elem,
+            dst_elem_ptr_view, dst_cursor, dst_elem);
+
+    if (dst_elem_ptr_view != nullptr &&
+        dst_elem_ptr_view->aliasability ==
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadWrite) {
+        dst_elem_ptr_view->aliasability =
+            seq_cntr::ElemPtrView::AliasabilityEnum::ReadOnly;
+    }
+}
+
+template <CntrTplParamList>
+void Namespace::Derefer(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
+                        bool lazy_copy_elem,
+                        seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                        void* dst_elem) {
     detail::CheckCursor_(cntr, pos_cursor);
+
+    ZETA_Core_DebugAssert(dst_elem_ptr_view != nullptr || dst_elem != nullptr);
 
     auto const cntr_work{ detail::MakeCntrWork_(cntr) };
 
     Node* n{ static_cast<Node*>(pos_cursor->n) };
     size_t seg_idx{ pos_cursor->seg_idx };
-    void* elem{ pos_cursor->elem };
 
-    if (elem == nullptr) {
-#if EnStaging
-        if (cntr.lb != n && cntr.rb != n && dst_elem != nullptr) {
-            Seg* seg{ detail::NToSeg_(static_cast<Node*>(pos_cursor->n)) };
-
-            seq_cntr::Access(cntr_work.origin, seg->ref.beg + seg_idx, false,
-                             nullptr, dst_elem);
+    if (cntr.lb == n || cntr.rb == n) {
+        if (dst_elem_ptr_view != nullptr) {
+            dst_elem_ptr_view->ptr = nullptr;
+            dst_elem_ptr_view->aliasability =
+                seq_cntr::ElemPtrView::AliasabilityEnum::Null;
         }
-#endif
 
-        return nullptr;
+        return;
     }
 
-    if (dst_elem == nullptr || lazy_copy_elem) { return elem; }
+    if (pos_cursor->elem_ptr_is_valid) {
+        if (dst_elem_ptr_view != nullptr) {
+            dst_elem_ptr_view->ptr = pos_cursor->elem_ptr;
+            dst_elem_ptr_view->aliasability = EnStagingTernary(
+                detail::GetNColor_(n) == ref_color,
+                seq_cntr::ElemPtrView::AliasabilityEnum::ReadOnly,
+                seq_cntr::ElemPtrView::AliasabilityEnum::ReadWrite);
+        }
+
+        if (dst_elem != nullptr) {
+            utils::MemCopy(dst_elem, pos_cursor->elem_ptr, cntr_work.elem_size);
+        }
+
+        return;
+    }
+
+#if EnStaging
+    if (detail::GetNColor_(n) == ref_color) {
+        Seg* seg{ detail::NToSeg_(n) };
+
+        seq_cntr::Refer(cntr_work.origin, seg->ref.beg + seg_idx,
+                        lazy_copy_elem, dst_elem_ptr_view, nullptr, dst_elem);
+
+        if (dst_elem_ptr_view != nullptr) {
+            pos_cursor->elem_ptr = dst_elem_ptr_view->ptr;
+            pos_cursor->elem_ptr_is_valid = true;
+        }
+
+        return;
+    }
+#endif
+
+    seq_cntr::ElemPtrView fallback_dst_elem_ptr_view;
+
+    if (dst_elem_ptr_view == nullptr) {
+        dst_elem_ptr_view = &fallback_dst_elem_ptr_view;
+    }
 
     Seg* seg{ detail::NToSeg_(n) };
 
@@ -2257,20 +2622,20 @@ void* Namespace::Derefer(Cntr<CntrTplArgList> const& cntr,
         .rot = seg->dat.rot,
     };
 
-    circular_array::Access(ca, seg_idx, false, nullptr, dst_elem);
+    circular_array::Refer(ca, seg_idx, lazy_copy_elem, dst_elem_ptr_view,
+                          nullptr, dst_elem);
 
-    return elem;
+    pos_cursor->elem_ptr = dst_elem_ptr_view->ptr;
+    pos_cursor->elem_ptr_is_valid = true;
 }
 
 template <CntrTplParamList, typename Reader>
-void Namespace::Read(
-    Cntr<CntrTplArgList> const& cntr, Cursor const* pos_cursor, size_t cnt,
-    Reader&& reader,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    Cursor* dst_cursor) {
+void Namespace::Read(Cntr<CntrTplArgList> const& cntr, Cursor* pos_cursor,
+                     size_t cnt, Reader&& reader, Cursor* dst_cursor) {
     detail::CheckCursor_(cntr, pos_cursor);
 
-    ZETA_Core_DebugAssert(
-        seq_cntr::IsDereferable(pos_cursor->idx, cnt, GetElemCnt(cntr)));
+    ZETA_Core_DebugAssert(seq_cntr::check_operation::CanDerefer(
+        pos_cursor->idx, cnt, GetElemCnt(cntr)));
 
     auto const cntr_work{ detail::MakeCntrWork_(cntr) };
 
@@ -2288,7 +2653,8 @@ void Namespace::Read(
         if (dst_cursor != nullptr) {
             dst_cursor->n = n;
             dst_cursor->seg_idx = seg_idx;
-            dst_cursor->elem = pos_cursor->elem;
+            dst_cursor->elem_ptr = pos_cursor->elem_ptr;
+            dst_cursor->elem_ptr_is_valid = pos_cursor->elem_ptr_is_valid;
         }
 
         return;
@@ -2316,10 +2682,10 @@ void Namespace::Read(
 #if EnStaging
         if (detail::GetNColor_(n) == ref_color) {
             seg_elem_cnt = seg->ref.elem_cnt;
-            cur_cnt = compare_utils::BasicMin(cnt, seg_elem_cnt - seg_idx);
+            cur_cnt = comparison_utils::BasicMin(cnt, seg_elem_cnt - seg_idx);
 
-            seq_cntr::Access(cntr_work.origin, seg->ref.beg + seg_idx, true,
-                             origin_cursor, nullptr);
+            seq_cntr::Refer(cntr_work.origin, seg->ref.beg + seg_idx, true,
+                            nullptr, origin_cursor, nullptr);
 
             seq_cntr::Read(cntr_work.origin, origin_cursor, cur_cnt, reader,
                            nullptr);
@@ -2327,7 +2693,7 @@ void Namespace::Read(
 #endif
         {
             seg_elem_cnt = seg->dat.elem_cnt;
-            cur_cnt = compare_utils::BasicMin(cnt, seg_elem_cnt - seg_idx);
+            cur_cnt = comparison_utils::BasicMin(cnt, seg_elem_cnt - seg_idx);
 
             ca.data = seg->dat.data;
             ca.elem_cnt = seg_elem_cnt;
@@ -2356,7 +2722,8 @@ void Namespace::Read(
         || detail::GetNColor_(n) == ref_color
 #endif
     ) {
-        dst_cursor->elem = nullptr;
+        dst_cursor->elem_ptr = nullptr;
+        dst_cursor->elem_ptr_is_valid = false;
         return;
     }
 
@@ -2366,21 +2733,24 @@ void Namespace::Read(
     ca.elem_cnt = seg->dat.elem_cnt;
     ca.rot = seg->dat.rot;
 
-    dst_cursor->elem =
-        circular_array::Access(ca, seg_idx, true, nullptr, nullptr);
+    dst_cursor->elem_ptr = ({
+        seq_cntr::ElemPtrView elem_ptr_view;
+        circular_array::Refer(ca, seg_idx, true, &elem_ptr_view, nullptr,
+                              nullptr);
+        elem_ptr_view.ptr;
+    });
+    dst_cursor->elem_ptr_is_valid = true;
 }
 
 template <CntrTplParamList, typename Writer>
-void Namespace::Write(
-    Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor, size_t cnt,
-    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    Cursor* dst_cursor) {
+void Namespace::Write(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
+                      size_t cnt, Writer&& writer, Cursor* dst_cursor) {
     size_t elem_size{ cntr.elem_size };
     size_t elem_stride{ cntr.elem_stride };
     size_t seg_elem_slot_cnt{ cntr.seg_elem_slot_cnt };
 
     struct {
-        Writer&&
+        Writer&
             writer;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
 
         CircularArray ca;
@@ -2408,17 +2778,15 @@ void Namespace::Write(
 }
 
 template <CntrTplParamList, typename ReaderWriter>
-void Namespace::ReadWrite(
-    Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor, size_t cnt,
-    ReaderWriter&&
-        reader_writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    Cursor* dst_cursor) {
+void Namespace::ReadWrite(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
+                          size_t cnt, ReaderWriter&& reader_writer,
+                          Cursor* dst_cursor) {
     size_t elem_size{ cntr.elem_size };
     size_t elem_stride{ cntr.elem_stride };
     size_t seg_elem_slot_cnt{ cntr.seg_elem_slot_cnt };
 
     struct {
-        ReaderWriter&&
+        ReaderWriter&
             reader_writer;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
 
         CircularArray ca;
@@ -2447,23 +2815,19 @@ void Namespace::ReadWrite(
 }
 
 template <CntrTplParamList, typename Writer>
-void* Namespace::PushL(
-    Cntr<CntrTplArgList>& cntr, size_t cnt,
-    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    Cursor* dst_cursor) {
+void Namespace::PushL(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
+                      Cursor* dst_cursor) {
     detail::CheckCntr_(cntr);
 
     Cursor pos_cursor;
-    (PeekL)(cntr, true, &pos_cursor, nullptr);
+    (PeekL)(cntr, true, nullptr, &pos_cursor, nullptr);
 
-    return (Insert)(cntr, &pos_cursor, cnt, writer, dst_cursor);
+    (Insert)(cntr, &pos_cursor, cnt, writer, dst_cursor);
 }
 
 template <CntrTplParamList, typename Writer>
-void* Namespace::PushR(
-    Cntr<CntrTplArgList>& cntr, size_t cnt,
-    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    Cursor* dst_cursor) {
+void Namespace::PushR(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
+                      Cursor* dst_cursor) {
     detail::CheckCntr_(cntr);
 
     Cursor pos_cursor;
@@ -2473,27 +2837,18 @@ void* Namespace::PushR(
 }
 
 template <CntrTplParamList, typename Writer>
-void* Namespace::Insert(
-    Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor, size_t cnt,
-    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    Cursor* dst_cursor) {
+void Namespace::Insert(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
+                       size_t cnt, Writer&& writer, Cursor* dst_cursor) {
     detail::CheckCursor_(cntr, pos_cursor);
 
     auto const cntr_work{ detail::MakeCntrWork_(cntr) };
 
-    ZETA_Core_DebugAssert(seq_cntr::IsInsertable(
+    ZETA_Core_DebugAssert(seq_cntr::check_operation::CanInsert(
         pos_cursor->idx, cnt, cntr_work.elem_cnt, (GetMaxElemCnt)(cntr)));
 
     if (cnt == 0) {
-        if (dst_cursor != nullptr) {
-            dst_cursor->cntr = &cntr;
-            dst_cursor->idx = pos_cursor->idx;
-            dst_cursor->n = pos_cursor->n;
-            dst_cursor->seg_idx = pos_cursor->seg_idx;
-            dst_cursor->elem = pos_cursor->elem;
-        }
-
-        return pos_cursor->elem;
+        if (dst_cursor != nullptr) { *dst_cursor = *pos_cursor; }
+        return;
     }
 
     Node* m_n{ static_cast<Node*>(pos_cursor->n) };
@@ -2548,38 +2903,50 @@ void* Namespace::Insert(
         size_t mr_elem_cnt{ m_seg_work.ca.elem_cnt - seg_idx };
 
         if (cnt <= m_seg_work.elem_vac) {
-            void* elem;
-
 #if EnStaging
             if (m_seg_work.color == ref_color) {
                 detail::AugMaterializeRefSeg_(cntr_work, m_seg_work,
                                               ml_elem_cnt, cnt, mr_elem_cnt,
-                                              writer);
-
-                elem = circular_array::Access(m_seg_work.ca, ml_elem_cnt, true,
-                                              nullptr, nullptr);
+                                              seq_cntr::empty_reader, writer);
+                pos_cursor->elem_ptr = ({
+                    seq_cntr::ElemPtrView tmp;
+                    circular_array::Refer(m_seg_work.ca, ml_elem_cnt, true,
+                                          &tmp, nullptr, nullptr);
+                    tmp.ptr;
+                });
+                pos_cursor->elem_ptr_is_valid = true;
             } else
 #endif
             {
+                circular_array::IdxInsert(m_seg_work.ca, ml_elem_cnt, cnt,
+                                          writer);
 
-                elem = circular_array::IdxInsert(m_seg_work.ca, ml_elem_cnt,
-                                                 cnt, writer);
+                pos_cursor->elem_ptr = ({
+                    seq_cntr::ElemPtrView tmp;
+                    circular_array::Refer(m_seg_work.ca, ml_elem_cnt, true,
+                                          &tmp, nullptr, nullptr);
+                    tmp.ptr;
+                });
+                pos_cursor->elem_ptr_is_valid = true;
             }
 
             m_seg_work.Store();
-
-            pos_cursor->elem = elem;
 
             if (dst_cursor != nullptr) {
                 dst_cursor->cntr = &cntr;
                 dst_cursor->idx = end_idx;
                 dst_cursor->n = m_n;
                 dst_cursor->seg_idx = ml_elem_cnt + cnt;
-                dst_cursor->elem = circular_array::Access(
-                    m_seg_work.ca, ml_elem_cnt + cnt, true, nullptr, nullptr);
+                dst_cursor->elem_ptr = ({
+                    seq_cntr::ElemPtrView tmp;
+                    circular_array::Refer(m_seg_work.ca, ml_elem_cnt + cnt,
+                                          true, &tmp, nullptr, nullptr);
+                    tmp.ptr;
+                });
+                dst_cursor->elem_ptr_is_valid = true;
             }
 
-            return elem;
+            return;
         }
 
         l_n = bin_tree::StepL(m_n);
@@ -2591,70 +2958,116 @@ void* Namespace::Insert(
             l_seg_work.Load(detail::NToSeg_(l_n));
         }
 
+        ZETA_Core_PrintCurPos;
+
         if (cntr.rb == r_n) {
+            ZETA_Core_PrintCurPos;
             r_seg_work.SetNull();
         } else {
+            ZETA_Core_PrintCurPos;
             r_seg_work.Load(detail::NToSeg_(r_n));
         }
 
-        bool l_m_is_ok{ l_seg_work.ca.elem_cnt + m_seg_work.ca.elem_cnt + cnt <=
-                        cntr_work.seg_elem_slot_cnt * 2 };
-        bool m_r_is_ok{ m_seg_work.ca.elem_cnt + r_seg_work.ca.elem_cnt + cnt <=
-                        cntr_work.seg_elem_slot_cnt * 2 };
+        ZETA_Core_PrintCurPos;
 
-        if (!l_m_is_ok && !m_r_is_ok) {
-            /*
+        struct {
+            bool is_ok;
+            size_t shove_cnt;
+        } insert_into_l_m_vars, insert_into_m_r_vars;
 
-            if neither l + m and m + r can hold all old + new data, it means it
-            is too crowded near this section, we do not try to use l + m + r to
-            hold all old + new data, instead we jump to split logic to transform
-            the insertion point to be between segments.
+#if EnStaging
+        if (m_seg_work.color == ref_color) {
+            insert_into_l_m_vars.is_ok =
+                ml_elem_cnt + cnt <= l_seg_work.elem_vac;
 
-            */
+            if (insert_into_l_m_vars.is_ok) {
+                insert_into_l_m_vars.shove_cnt = ml_elem_cnt + cnt;
+            }
 
-            goto SPLIT_M;
+            insert_into_m_r_vars.is_ok =
+                mr_elem_cnt + cnt <= r_seg_work.elem_vac;
+
+            if (insert_into_m_r_vars.is_ok) {
+                insert_into_m_r_vars.shove_cnt = cnt + mr_elem_cnt;
+            }
+        } else
+#endif
+        {
+            insert_into_l_m_vars.is_ok =
+                cnt <= l_seg_work.elem_vac + m_seg_work.elem_vac;
+
+            if (insert_into_l_m_vars.is_ok) {
+                insert_into_l_m_vars.shove_cnt =
+                    (m_seg_work.ca.elem_cnt + cnt - l_seg_work.ca.elem_cnt) / 2;
+            }
+
+            insert_into_m_r_vars.is_ok =
+                cnt <= m_seg_work.elem_vac + r_seg_work.elem_vac;
+
+            if (insert_into_m_r_vars.is_ok) {
+                insert_into_m_r_vars.shove_cnt =
+                    (m_seg_work.ca.elem_cnt + cnt - r_seg_work.ca.elem_cnt) / 2;
+            }
         }
+
+        ZETA_Core_PrintCurPos;
 
         // choose the better side to insert
 
-        switch (utils::Choose2(
-            l_m_is_ok && l_seg_work.ca.elem_cnt <= r_seg_work.ca.elem_cnt,
-            m_r_is_ok && r_seg_work.ca.elem_cnt <= l_seg_work.ca.elem_cnt,
-            &random_seed)) {
+        switch (
+            utils::Choose2(insert_into_l_m_vars.is_ok &&
+                               l_seg_work.ca.elem_cnt <= r_seg_work.ca.elem_cnt,
+                           insert_into_m_r_vars.is_ok &&
+                               r_seg_work.ca.elem_cnt <= l_seg_work.ca.elem_cnt,
+                           &random_seed)) {
+        case -1: goto SPLIT_M;
         case 0: goto INSERT_INTO_L_M;
         case 1: goto INSERT_INTO_M_R;
-        default: __builtin_unreachable();
+        default: ZETA_Core_Unreachable();
         }
 
     INSERT_INTO_L_M: {
         // use l + m to hold all old + new data
 
-        detail::SegInsertShoveL_(
-            cntr_work, l_seg_work, m_seg_work, ml_elem_cnt, cnt,
-            (m_seg_work.ca.elem_cnt + cnt - l_seg_work.ca.elem_cnt) / 2,
-            writer);
+        detail::SegInsertShoveL_(cntr_work, l_seg_work, m_seg_work, ml_elem_cnt,
+                                 cnt, insert_into_l_m_vars.shove_cnt, writer);
 
         l_seg_work.Store();
         m_seg_work.Store();
-
-        void* ret_elem;
 
         if (m_seg_work.ca.elem_cnt < cnt + mr_elem_cnt) {
             pos_cursor->n = l_n;
             pos_cursor->seg_idx = l_seg_work.ca.elem_cnt +
                                   m_seg_work.ca.elem_cnt - cnt - mr_elem_cnt;
-            pos_cursor->elem = ret_elem = circular_array::Access(
-                l_seg_work.ca, pos_cursor->seg_idx, true, nullptr, nullptr);
+            pos_cursor->elem_ptr = ({
+                seq_cntr::ElemPtrView tmp;
+                circular_array::Refer(l_seg_work.ca, pos_cursor->seg_idx, true,
+                                      &tmp, nullptr, nullptr);
+                tmp.ptr;
+            });
+            pos_cursor->elem_ptr_is_valid = true;
         } else {
             pos_cursor->n = m_n;
             pos_cursor->seg_idx = m_seg_work.ca.elem_cnt - cnt - mr_elem_cnt;
-            pos_cursor->elem = ret_elem = EnStagingTernary(
-                m_seg_work.color == ref_color, nullptr,
-                circular_array::Access(m_seg_work.ca, pos_cursor->seg_idx, true,
-                                       nullptr, nullptr));
+
+#if EnStaging
+            if (m_seg_work.color == ref_color) {
+                pos_cursor->elem_ptr = nullptr;
+                pos_cursor->elem_ptr_is_valid = false;
+            } else
+#endif
+            {
+                pos_cursor->elem_ptr = ({
+                    seq_cntr::ElemPtrView tmp;
+                    circular_array::Refer(m_seg_work.ca, pos_cursor->seg_idx,
+                                          true, &tmp, nullptr, nullptr);
+                    tmp.ptr;
+                });
+                pos_cursor->elem_ptr_is_valid = true;
+            }
         }
 
-        if (dst_cursor == nullptr) { return ret_elem; }
+        if (dst_cursor == nullptr) { return; }
 
         dst_cursor->cntr = &cntr;
         dst_cursor->idx = end_idx;
@@ -2663,51 +3076,91 @@ void* Namespace::Insert(
             dst_cursor->n = l_n;
             dst_cursor->seg_idx =
                 l_seg_work.ca.elem_cnt + m_seg_work.ca.elem_cnt - mr_elem_cnt;
-            dst_cursor->elem = circular_array::Access(
-                l_seg_work.ca, dst_cursor->seg_idx, true, nullptr, nullptr);
+            dst_cursor->elem_ptr = ({
+                seq_cntr::ElemPtrView tmp;
+                circular_array::Refer(l_seg_work.ca, dst_cursor->seg_idx, true,
+                                      &tmp, nullptr, nullptr);
+                tmp.ptr;
+            });
+            dst_cursor->elem_ptr_is_valid = true;
         } else {
             dst_cursor->n = m_n;
             dst_cursor->seg_idx = m_seg_work.ca.elem_cnt - mr_elem_cnt;
-            dst_cursor->elem = EnStagingTernary(
-                m_seg_work.color == ref_color, nullptr,
-                circular_array::Access(m_seg_work.ca, dst_cursor->seg_idx, true,
-                                       nullptr, nullptr));
+
+#if EnStaging
+            if (m_seg_work.color == ref_color) {
+                dst_cursor->elem_ptr = nullptr;
+                dst_cursor->elem_ptr_is_valid = false;
+            } else
+#endif
+            {
+                dst_cursor->elem_ptr = ({
+                    seq_cntr::ElemPtrView tmp;
+                    circular_array::Refer(m_seg_work.ca, dst_cursor->seg_idx,
+                                          true, &tmp, nullptr, nullptr);
+                    tmp.ptr;
+                });
+                dst_cursor->elem_ptr_is_valid = true;
+            }
         }
 
-        return ret_elem;
+        return;
     }
 
     INSERT_INTO_M_R: {
         // use m + r to hold all old + new data
 
-        ZETA_Core_PrintVar(m_seg_work.ca.elem_cnt);
-        ZETA_Core_PrintVar(cnt);
-        ZETA_Core_PrintVar(r_seg_work.ca.elem_cnt);
-        ZETA_Core_PrintVar(cntr_work.seg_elem_slot_cnt);
+        /*
 
-        detail::SegInsertShoveR_(
-            cntr_work, m_seg_work, r_seg_work, mr_elem_cnt, cnt,
-            (m_seg_work.ca.elem_cnt + cnt - r_seg_work.ca.elem_cnt) / 2,
-            writer);
+        m_seg_work.elem_vac = seg_elem_slot_cnt - m_seg_work.ca.elem_cnt
+        r_seg_work.elem_vac = seg_elem_slot_cnt - r_seg_work.ca.elem_cnt
+
+        cnt <= m_seg_work.elem_vac + r_seg_work.elem_vac
+
+        shove_cnt = (m_seg_work.ca.elem_cnt + cnt - r_seg_work.ca.elem_cnt) / 2
+
+        =>
+
+        shove_cnt <= r_seg_work.elem_vac ?
+
+        */
+
+        ZETA_Core_PrintVar(cntr_work.seg_elem_slot_cnt);
+        ZETA_Core_PrintVar(m_seg_work.ca.elem_cnt);
+        ZETA_Core_PrintVar(r_seg_work.ca.elem_cnt);
+        ZETA_Core_PrintVar(m_seg_work.elem_vac);
+        ZETA_Core_PrintVar(r_seg_work.elem_vac);
+        ZETA_Core_PrintVar(insert_into_m_r_vars.shove_cnt);
+
+        detail::SegInsertShoveR_(cntr_work, m_seg_work, r_seg_work, mr_elem_cnt,
+                                 cnt, insert_into_m_r_vars.shove_cnt, writer);
 
         m_seg_work.Store();
         r_seg_work.Store();
 
-        void* ret_elem;
-
         if (ml_elem_cnt < m_seg_work.ca.elem_cnt) {
             pos_cursor->n = m_n;
             pos_cursor->seg_idx = ml_elem_cnt;
-            pos_cursor->elem = circular_array::Access(
-                m_seg_work.ca, pos_cursor->seg_idx, true, nullptr, nullptr);
+            pos_cursor->elem_ptr = ({
+                seq_cntr::ElemPtrView tmp;
+                circular_array::Refer(m_seg_work.ca, pos_cursor->seg_idx, true,
+                                      &tmp, nullptr, nullptr);
+                tmp.ptr;
+            });
+            pos_cursor->elem_ptr_is_valid = true;
         } else {
             pos_cursor->n = r_n;
             pos_cursor->seg_idx = ml_elem_cnt - m_seg_work.ca.elem_cnt;
-            pos_cursor->elem = ret_elem = circular_array::Access(
-                r_seg_work.ca, pos_cursor->seg_idx, true, nullptr, nullptr);
+            pos_cursor->elem_ptr = ({
+                seq_cntr::ElemPtrView tmp;
+                circular_array::Refer(r_seg_work.ca, pos_cursor->seg_idx, true,
+                                      &tmp, nullptr, nullptr);
+                tmp.ptr;
+            });
+            pos_cursor->elem_ptr_is_valid = true;
         }
 
-        if (dst_cursor == nullptr) { return ret_elem; }
+        if (dst_cursor == nullptr) { return; }
 
         dst_cursor->cntr = &cntr;
         dst_cursor->idx = end_idx;
@@ -2715,16 +3168,26 @@ void* Namespace::Insert(
         if (ml_elem_cnt + cnt < m_seg_work.ca.elem_cnt) {
             dst_cursor->n = m_n;
             dst_cursor->seg_idx = ml_elem_cnt + cnt;
-            dst_cursor->elem = circular_array::Access(
-                m_seg_work.ca, dst_cursor->seg_idx, true, nullptr, nullptr);
+            dst_cursor->elem_ptr = ({
+                seq_cntr::ElemPtrView tmp;
+                circular_array::Refer(m_seg_work.ca, dst_cursor->seg_idx, true,
+                                      &tmp, nullptr, nullptr);
+                tmp.ptr;
+            });
+            dst_cursor->elem_ptr_is_valid = true;
         } else {
             dst_cursor->n = r_n;
             dst_cursor->seg_idx = ml_elem_cnt + cnt - m_seg_work.ca.elem_cnt;
-            dst_cursor->elem = circular_array::Access(
-                r_seg_work.ca, dst_cursor->seg_idx, true, nullptr, nullptr);
+            dst_cursor->elem_ptr = ({
+                seq_cntr::ElemPtrView tmp;
+                circular_array::Refer(r_seg_work.ca, dst_cursor->seg_idx, true,
+                                      &tmp, nullptr, nullptr);
+                tmp.ptr;
+            });
+            dst_cursor->elem_ptr_is_valid = true;
         }
 
-        return ret_elem;
+        return;
     }
 
     SPLIT_M: {
@@ -2754,7 +3217,7 @@ void* Namespace::Insert(
             })) {
             case 0: goto SPLIT_M__SHOVE_ML_TO_L;
             case 1: goto SPLIT_M__SHOVE_MR_TO_R;
-            default: __builtin_unreachable();
+            default: ZETA_Core_Unreachable();
             }
         case 0b00:
             switch (utils::Choose2(ml_elem_cnt <= mr_elem_cnt,
@@ -2762,9 +3225,9 @@ void* Namespace::Insert(
                     2) {
             case 0: goto SPLIT_M__SPLIT_ML;
             case 1: goto SPLIT_M__SPLIT_MR;
-            default: __builtin_unreachable();
+            default: ZETA_Core_Unreachable();
             }
-        default: __builtin_unreachable();
+        default: ZETA_Core_Unreachable();
         }
 
     SPLIT_M__SHOVE_ML_TO_L: {
@@ -2807,8 +3270,8 @@ void* Namespace::Insert(
             l_seg_work.ca.elem_cnt = ml_elem_cnt;
             l_seg_work.elem_vac =
                 cntr_work.seg_elem_slot_cnt -
-                compare_utils::BasicMin(l_seg_work.ca.elem_cnt,
-                                        cntr_work.seg_elem_slot_cnt);
+                comparison_utils::BasicMin(l_seg_work.ca.elem_cnt,
+                                           cntr_work.seg_elem_slot_cnt);
 
             r_n = m_n;
             r_seg_work.is_null = false;
@@ -2819,12 +3282,11 @@ void* Namespace::Insert(
             r_seg_work.ca.elem_cnt = mr_elem_cnt;
             r_seg_work.elem_vac =
                 cntr_work.seg_elem_slot_cnt -
-                compare_utils::BasicMin(r_seg_work.ca.elem_cnt,
-                                        cntr_work.seg_elem_slot_cnt);
+                comparison_utils::BasicMin(r_seg_work.ca.elem_cnt,
+                                           cntr_work.seg_elem_slot_cnt);
         } else
 #endif
         {
-
             Seg* new_l_seg{ detail::AllocateDatSeg_(cntr_work.data_size,
                                                     cntr_work.seg_alctr,
                                                     cntr_work.data_alctr) };
@@ -2859,8 +3321,8 @@ void* Namespace::Insert(
             l_seg_work.ca.elem_cnt = ml_elem_cnt;
             l_seg_work.elem_vac =
                 cntr_work.seg_elem_slot_cnt -
-                compare_utils::BasicMin(l_seg_work.ca.elem_cnt,
-                                        cntr_work.seg_elem_slot_cnt);
+                comparison_utils::BasicMin(l_seg_work.ca.elem_cnt,
+                                           cntr_work.seg_elem_slot_cnt);
 
             r_n = &new_r_seg->n;
             r_seg_work.is_null = false;
@@ -2871,12 +3333,11 @@ void* Namespace::Insert(
             r_seg_work.ca.elem_cnt = mr_elem_cnt;
             r_seg_work.elem_vac =
                 cntr_work.seg_elem_slot_cnt -
-                compare_utils::BasicMin(r_seg_work.ca.elem_cnt,
-                                        cntr_work.seg_elem_slot_cnt);
+                comparison_utils::BasicMin(r_seg_work.ca.elem_cnt,
+                                           cntr_work.seg_elem_slot_cnt);
         } else
 #endif
         {
-
             Seg* new_r_seg{ detail::AllocateDatSeg_(cntr_work.data_size,
                                                     cntr_work.seg_alctr,
                                                     cntr_work.data_alctr) };
@@ -2955,7 +3416,6 @@ INSERT_BETWEEN_L_R:;
     };
 
     bool pos_cursor_is_set{ false };
-    void* ret_elem;
 
     if (l_shove) {
         size_t new_l_elem_cnt{ balancer.Fetch() };
@@ -2970,9 +3430,18 @@ INSERT_BETWEEN_L_R:;
 
         pos_cursor->n = l_n;
         pos_cursor->seg_idx = l_seg_work.ca.elem_cnt;
-        pos_cursor->elem = ret_elem = circular_array::PushR(
-            l_seg_work.ca, new_l_elem_cnt - l_seg_work.ca.elem_cnt, writer,
-            nullptr);
+
+        circular_array::PushR(l_seg_work.ca,
+                              new_l_elem_cnt - l_seg_work.ca.elem_cnt, writer,
+                              nullptr);
+
+        pos_cursor->elem_ptr = ({
+            seq_cntr::ElemPtrView tmp;
+            circular_array::Refer(l_seg_work.ca, pos_cursor->seg_idx, true,
+                                  &tmp, nullptr, nullptr);
+            tmp.ptr;
+        });
+        pos_cursor->elem_ptr_is_valid = true;
 
         pos_cursor_is_set = true;
     }
@@ -3002,7 +3471,8 @@ INSERT_BETWEEN_L_R:;
             if (!pos_cursor_is_set) {
                 pos_cursor->n = &new_seg->n;
                 pos_cursor->seg_idx = 0;
-                pos_cursor->elem = ret_elem = new_seg->dat.data;
+                pos_cursor->elem_ptr = new_seg->dat.data;
+                pos_cursor->elem_ptr_is_valid = true;
 
                 pos_cursor_is_set = true;
             }
@@ -3022,61 +3492,85 @@ INSERT_BETWEEN_L_R:;
 
         r_seg_work.is_dirty = true;
 
-        void* tmp_elem{ circular_array::PushL(
-            r_seg_work.ca, new_r_elem_cnt - r_seg_work.ca.elem_cnt, writer,
-            nullptr) };
+        circular_array::PushL(r_seg_work.ca,
+                              new_r_elem_cnt - r_seg_work.ca.elem_cnt, writer,
+                              nullptr);
 
         if (!pos_cursor_is_set) {
             pos_cursor->n = r_n;
             pos_cursor->seg_idx = 0;
-            pos_cursor->elem = ret_elem = tmp_elem;
+            pos_cursor->elem_ptr = ({
+                seq_cntr::ElemPtrView tmp;
+                circular_array::PeekL(r_seg_work.ca, true, &tmp, nullptr,
+                                      nullptr);
+                tmp.ptr;
+            });
+            pos_cursor->elem_ptr_is_valid = true;
+
             pos_cursor_is_set = true;
         }
     }
 
     if (!r_seg_work.is_null && r_seg_work.is_dirty) { r_seg_work.Store(); }
 
-    if (dst_cursor == nullptr) { return ret_elem; }
+    if (dst_cursor == nullptr) { return; }
+
+    size_t dst_seg_idx{ r_seg_work.ca.elem_cnt - old_r_elem_cnt };
 
     dst_cursor->cntr = &cntr;
     dst_cursor->n = r_n;
     dst_cursor->idx = end_idx;
-    dst_cursor->seg_idx = r_seg_work.ca.elem_cnt - old_r_elem_cnt;
-    dst_cursor->elem =
-        r_seg_work.is_null
+    dst_cursor->seg_idx = dst_seg_idx;
+
+    if (r_seg_work.is_null) {
+        dst_cursor->elem_ptr = nullptr;
+        dst_cursor->elem_ptr_is_valid = true;
+
+        return;
+    }
+
 #if EnStaging
-                || r_seg_work.color == ref_color
+    if (r_seg_work.color == ref_color) {
+        dst_cursor->elem_ptr = nullptr;
+        dst_cursor->elem_ptr_is_valid = false;
+    } else
 #endif
-            ? nullptr
-            : circular_array::Access(r_seg_work.ca, dst_cursor->seg_idx, true,
-                                     nullptr, nullptr);
-
-    return ret_elem;
+    {
+        dst_cursor->elem_ptr = ({
+            seq_cntr::ElemPtrView tmp;
+            circular_array::Refer(r_seg_work.ca, dst_seg_idx, true, &tmp,
+                                  nullptr, nullptr);
+            tmp.ptr;
+        });
+        dst_cursor->elem_ptr_is_valid = true;
+    }
 }
 
-template <CntrTplParamList>
-void Namespace::PopL(Cntr<CntrTplArgList>& cntr, size_t cnt) {
+template <CntrTplParamList, typename Reader>
+void Namespace::PopL(Cntr<CntrTplArgList>& cntr, size_t cnt, Reader&& reader) {
     Cursor pos_cursor;
-    (PeekL)(cntr, true, &pos_cursor, nullptr);
+    (PeekL)(cntr, true, nullptr, &pos_cursor, nullptr);
 
-    (Erase)(cntr, &pos_cursor, cnt);
+    (Erase)(cntr, &pos_cursor, cnt, reader);
 }
 
-template <CntrTplParamList>
-void Namespace::PopR(Cntr<CntrTplArgList>& cntr, size_t cnt) {
+template <CntrTplParamList, typename Reader>
+void Namespace::PopR(Cntr<CntrTplArgList>& cntr, size_t cnt, Reader&& reader) {
     size_t elem_cnt{ GetElemCnt(cntr) };
 
     ZETA_Core_DebugAssert(cnt <= elem_cnt);
 
     Cursor pos_cursor;
-    (Access)(cntr, elem_cnt - cnt, true, &pos_cursor, nullptr);
+    (Refer)(cntr, elem_cnt - cnt, true, nullptr, &pos_cursor, nullptr);
 
-    (Erase)(cntr, &pos_cursor, cnt);
+    (Erase)(cntr, &pos_cursor, cnt, reader);
 }
 
-template <CntrTplParamList>
+template <CntrTplParamList, typename Reader>
 void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
-                      size_t cnt) {
+                      size_t cnt, Reader&& reader) {
+    using RawReader = meta::RemoveCVRef<Reader>;
+
     detail::CheckCursor_(cntr, pos_cursor);
 
     if (cnt == 0) { return; }
@@ -3085,17 +3579,25 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
 
     unsigned long long random_seed{ utils::GetRandom() };
 
-    ZETA_Core_DebugAssert(
-        seq_cntr::IsErasable(pos_cursor->idx, cnt, cntr_work.elem_cnt));
+    ZETA_Core_DebugAssert(seq_cntr::check_operation::CanErase(
+        pos_cursor->idx, cnt, cntr_work.elem_cnt));
 
     Node* m_n{ static_cast<Node*>(pos_cursor->n) };
     size_t seg_idx{ pos_cursor->seg_idx };
 
-    detail::SegWork_ seg_works[5];
-    // The last nullptr is used for termination.
+    detail::SegWork_ seg_works[4];
     size_t seg_work_cnt{ 0 };
 
-    for (int i{ 0 }; i < 5; ++i) { seg_works[i].SetBasics(cntr_work); }
+    for (int i{ 0 }; i < 4; ++i) { seg_works[i].SetBasics(cntr_work); }
+
+#if EnStaging
+    seq_cntr::CursorLimit origin_cursor;
+    bool origin_cursor_is_refered{ false };
+    ZETA_Core_Unused(origin_cursor_is_refered);
+    // SANITIZE
+    size_t origin_cursor_idx{ 0 };
+    ZETA_Core_Unused(origin_cursor_idx);
+#endif
 
     Node* l_n{ bin_tree::StepL(m_n) };
     Node* r_n;
@@ -3107,10 +3609,10 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
     seg_works[seg_work_cnt++].Load(detail::NToSeg_(m_n));
 
     if (seg_idx + cnt < seg_works[seg_work_cnt - 1].ca.elem_cnt) {
+        ZETA_Core_PrintCurPos;
+
         detail::SegWork_ l_seg_work;
-
         detail::SegWork_ m_seg_work{ seg_works[seg_work_cnt - 1] };
-
         detail::SegWork_ r_seg_work;
 
         if (seg_work_cnt < 2) {
@@ -3162,10 +3664,12 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
         })) {
         case 0: goto INTER_M_ERASE__L_M_ERASE_MERGE;
         case 1: goto INTER_M_ERASE__M_R_ERASE_MERGE;
-        default: __builtin_unreachable();
+        default: ZETA_Core_Unreachable();
         }
 
     INTER_M_ERASE__L_M_ERASE_MERGE: {
+        ZETA_Core_PrintCurPos;
+
         switch (({
             size_t l_based_merge_cost{ EnStagingTernary(
                                            l_seg_work.color == ref_color,
@@ -3176,7 +3680,7 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
                 l_seg_work.ca.elem_cnt +
                 EnStagingTernary(
                     m_seg_work.color == ref_color, ml_elem_cnt + mr_elem_cnt,
-                    compare_utils::BasicMin(ml_elem_cnt, mr_elem_cnt))
+                    comparison_utils::BasicMin(ml_elem_cnt, mr_elem_cnt))
             };
 
             utils::Choose2(l_based_merge_cost <= m_based_merge_cost,
@@ -3185,37 +3689,46 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
         })) {
         case 0: goto INTER_M_ERASE__L_M_ERASE_MERGE__L_BASED;
         case 1: goto INTER_M_ERASE__L_M_ERASE_MERGE__M_BASED;
-        default: __builtin_unreachable();
+        default: ZETA_Core_Unreachable();
         }
 
     INTER_M_ERASE__L_M_ERASE_MERGE__L_BASED: {
+        ZETA_Core_PrintCurPos;
+
         detail::SegEraseShoveL_(cntr_work, l_seg_work, m_seg_work, ml_elem_cnt,
-                                cnt, ml_elem_cnt + mr_elem_cnt);
+                                cnt, ml_elem_cnt + mr_elem_cnt, reader);
 
         cntr.root = rbtree::Extract(m_n);
         allocator::Deallocate(cntr_work.seg_alctr, m_seg_work.seg);
         m_seg_work.TryDeallocateData(cntr_work.data_alctr);
 
         l_seg_work.Store();
-
+        ZETA_Core_PrintCurPos;
         pos_cursor->n = l_n;
         pos_cursor->seg_idx = l_seg_work.ca.elem_cnt - mr_elem_cnt;
-
-        pos_cursor->elem = circular_array::Access(
-            l_seg_work.ca, pos_cursor->seg_idx, true, nullptr, nullptr);
+        pos_cursor->elem_ptr = ({
+            seq_cntr::ElemPtrView tmp;
+            circular_array::Refer(l_seg_work.ca, pos_cursor->seg_idx, true,
+                                  &tmp, nullptr, nullptr);
+            tmp.ptr;
+        });
+        pos_cursor->elem_ptr_is_valid = true;
 
         return;
     }
 
     INTER_M_ERASE__L_M_ERASE_MERGE__M_BASED: {
+        ZETA_Core_PrintCurPos;
+
 #if EnStaging
         if (m_seg_work.color == ref_color) {
             detail::AugMaterializeRefSeg_(cntr_work, m_seg_work, ml_elem_cnt, 0,
-                                          mr_elem_cnt, seq_cntr::EmptyWriter{});
+                                          mr_elem_cnt, reader,
+                                          seq_cntr::empty_writer);
         } else
 #endif
         {
-            circular_array::IdxErase(m_seg_work.ca, ml_elem_cnt, cnt);
+            circular_array::IdxErase(m_seg_work.ca, ml_elem_cnt, cnt, reader);
         }
 
         detail::SegShoveR_(cntr_work, l_seg_work, m_seg_work,
@@ -3228,22 +3741,27 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
         m_seg_work.Store();
 
         pos_cursor->n = m_n;
-
         pos_cursor->seg_idx = m_seg_work.ca.elem_cnt - mr_elem_cnt;
-
-        pos_cursor->elem = circular_array::Access(
-            m_seg_work.ca, pos_cursor->seg_idx, true, nullptr, nullptr);
+        pos_cursor->elem_ptr = ({
+            seq_cntr::ElemPtrView tmp;
+            circular_array::Refer(m_seg_work.ca, pos_cursor->seg_idx, true,
+                                  &tmp, nullptr, nullptr);
+            tmp.ptr;
+        });
+        pos_cursor->elem_ptr_is_valid = true;
 
         return;
     }
     }
 
     INTER_M_ERASE__M_R_ERASE_MERGE: {
+        ZETA_Core_PrintCurPos;
+
         switch (({
             size_t m_based_merge_cost{
                 EnStagingTernary(
                     m_seg_work.color == ref_color, ml_elem_cnt + mr_elem_cnt,
-                    compare_utils::BasicMin(ml_elem_cnt, mr_elem_cnt)) +
+                    comparison_utils::BasicMin(ml_elem_cnt, mr_elem_cnt)) +
                 r_seg_work.ca.elem_cnt
             };
 
@@ -3258,18 +3776,21 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
         })) {
         case 0: goto INTER_M_ERASE__M_R_ERASE_MERGE__M_BASED;
         case 1: goto INTER_M_ERASE__M_R_ERASE_MERGE__R_BASED;
-        default: __builtin_unreachable();
+        default: ZETA_Core_Unreachable();
         }
 
     INTER_M_ERASE__M_R_ERASE_MERGE__M_BASED: {
+        ZETA_Core_PrintCurPos;
+
 #if EnStaging
         if (m_seg_work.color == ref_color) {
             detail::AugMaterializeRefSeg_(cntr_work, m_seg_work, ml_elem_cnt, 0,
-                                          mr_elem_cnt, seq_cntr::EmptyWriter{});
+                                          mr_elem_cnt, reader,
+                                          seq_cntr::empty_writer);
         } else
 #endif
         {
-            circular_array::IdxErase(m_seg_work.ca, seg_idx, cnt);
+            circular_array::IdxErase(m_seg_work.ca, seg_idx, cnt, reader);
         }
 
         detail::SegShoveL_(cntr_work, m_seg_work, r_seg_work,
@@ -3280,20 +3801,25 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
         r_seg_work.TryDeallocateData(cntr_work.data_alctr);
 
         m_seg_work.Store();
-
+        ZETA_Core_PrintCurPos;
         pos_cursor->n = m_n;
-
         pos_cursor->seg_idx = ml_elem_cnt;
-
-        pos_cursor->elem = circular_array::Access(
-            m_seg_work.ca, pos_cursor->seg_idx, true, nullptr, nullptr);
+        pos_cursor->elem_ptr = ({
+            seq_cntr::ElemPtrView tmp;
+            circular_array::Refer(m_seg_work.ca, pos_cursor->seg_idx, true,
+                                  &tmp, nullptr, nullptr);
+            tmp.ptr;
+        });
+        pos_cursor->elem_ptr_is_valid = true;
 
         return;
     }
 
     INTER_M_ERASE__M_R_ERASE_MERGE__R_BASED: {
+        ZETA_Core_PrintCurPos;
+
         detail::SegEraseShoveR_(cntr_work, m_seg_work, r_seg_work, mr_elem_cnt,
-                                cnt, ml_elem_cnt + mr_elem_cnt);
+                                cnt, ml_elem_cnt + mr_elem_cnt, reader);
 
         cntr.root = rbtree::Extract(m_n);
         allocator::Deallocate(cntr_work.seg_alctr, m_seg_work.seg);
@@ -3301,12 +3827,17 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
 
         r_seg_work.Store();
 
+        ZETA_Core_PrintCurPos;
+
         pos_cursor->n = r_n;
-
         pos_cursor->seg_idx = ml_elem_cnt;
-
-        pos_cursor->elem = circular_array::Access(
-            r_seg_work.ca, pos_cursor->seg_idx, true, nullptr, nullptr);
+        pos_cursor->elem_ptr = ({
+            seq_cntr::ElemPtrView tmp;
+            circular_array::Refer(r_seg_work.ca, pos_cursor->seg_idx, true,
+                                  &tmp, nullptr, nullptr);
+            tmp.ptr;
+        });
+        pos_cursor->elem_ptr_is_valid = true;
 
         return;
     }
@@ -3314,20 +3845,43 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
 
     INTER_M_ERASE__M_ERASE: {
 #if EnStaging
-        if (m_seg_work.color != ref_color)
+        if (m_seg_work.color == dat_color)
 #endif
         {
-            circular_array::IdxErase(m_seg_work.ca, ml_elem_cnt, cnt);
+            circular_array::IdxErase(m_seg_work.ca, ml_elem_cnt, cnt, reader);
 
             m_seg_work.Store();
 
-            pos_cursor->elem = circular_array::Access(
-                m_seg_work.ca, ml_elem_cnt, true, nullptr, nullptr);
+            ZETA_Core_PrintCurPos;
+
+            pos_cursor->elem_ptr = ({
+                seq_cntr::ElemPtrView tmp;
+                circular_array::Refer(m_seg_work.ca, ml_elem_cnt, true, &tmp,
+                                      nullptr, nullptr);
+                tmp.ptr;
+            });
+            pos_cursor->elem_ptr_is_valid = true;
 
             return;
         }
 
+        pos_cursor->elem_ptr = nullptr;
+        pos_cursor->elem_ptr_is_valid = false;
+
 #if EnStaging
+        if constexpr (!meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
+            size_t target_idx{ m_seg_work.ref_beg + ml_elem_cnt };
+
+            seq_cntr::Refer(cntr_work.origin, target_idx, true, nullptr,
+                            &origin_cursor, nullptr);
+
+            origin_cursor_is_refered = true;
+            origin_cursor_idx = target_idx;
+
+            seq_cntr::Read(cntr_work.origin, &origin_cursor, cnt, reader,
+                           nullptr);
+        }
+
         switch (static_cast<int>(ml_elem_cnt == 0) * 0b10 +
                 static_cast<int>(mr_elem_cnt == 0) * 0b01) {
         case 0b11:
@@ -3336,7 +3890,6 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
 
             pos_cursor->n = r_n;
             pos_cursor->seg_idx = 0;
-            pos_cursor->elem = nullptr;
 
             return;
 
@@ -3344,21 +3897,30 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
             m_seg_work.ref_beg += cnt;
             m_seg_work.ca.elem_cnt = mr_elem_cnt;
             m_seg_work.Store();
+
+            pos_cursor->elem_ptr = nullptr;
+            pos_cursor->elem_ptr_is_valid = false;
+
             return;
 
         case 0b01:
             m_seg_work.ca.elem_cnt = ml_elem_cnt;
             m_seg_work.Store();
+
+            pos_cursor->elem_ptr = nullptr;
+            pos_cursor->elem_ptr_is_valid = false;
+
             return;
 
         case 0b00: break;
 
-        default: __builtin_unreachable();
+        default: ZETA_Core_Unreachable();
         }
 
         Seg* new_seg{ detail::AllocateRefSeg_(cntr_work.seg_alctr) };
 
-        if (utils::SimpleRandomRotate(&random_seed) % 2 == 0) {
+        switch (utils::SimpleRandomRotate(&random_seed) % 2) {
+        case 0: {
             new_seg->ref.beg = m_seg_work.ref_beg;
             new_seg->ref.elem_cnt = ml_elem_cnt;
 
@@ -3368,7 +3930,12 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
             cntr.root = rbtree::Insert(l_n, m_n, &new_seg->n);
 
             pos_cursor->seg_idx = 0;
-        } else {
+
+            ZETA_Core_PrintCurPos;
+            break;
+        }
+
+        case 1: {
             new_seg->ref.beg = m_seg_work.ref_beg + ml_elem_cnt + cnt;
             new_seg->ref.elem_cnt = mr_elem_cnt;
 
@@ -3376,8 +3943,15 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
 
             cntr.root = rbtree::Insert(m_n, r_n, &new_seg->n);
 
+            ZETA_Core_PrintCurPos;
+
             pos_cursor->n = &new_seg->n;
             pos_cursor->seg_idx = 0;
+
+            break;
+        }
+
+        default: ZETA_Core_Unreachable();
         }
 
         bin_tree::AddDiffSize(&new_seg->n, new_seg->ref.elem_cnt);
@@ -3393,6 +3967,29 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
     } else {
         detail::SegWork_& m_seg_work{ seg_works[seg_work_cnt - 1] };
 
+        if constexpr (!meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
+#if EnStaging
+            if (m_seg_work.color == ref_color) {
+                size_t target_idx{ m_seg_work.ref_beg + seg_idx };
+
+                seq_cntr::Refer(cntr_work.origin, target_idx, true, nullptr,
+                                &origin_cursor, nullptr);
+
+                origin_cursor_is_refered = true;
+                origin_cursor_idx = target_idx;
+
+                seq_cntr::Read(cntr_work.origin, &origin_cursor,
+                               m_seg_work.ca.elem_cnt - seg_idx, reader,
+                               nullptr);
+            } else
+#endif
+            {
+                circular_array::IdxRead(m_seg_work.ca, seg_idx,
+                                        m_seg_work.ca.elem_cnt - seg_idx,
+                                        reader);
+            }
+        }
+
         cnt -= m_seg_work.ca.elem_cnt - seg_idx;
 
         m_seg_work.is_dirty = true;
@@ -3407,6 +4004,21 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
 
 #if EnStaging
         if (detail::GetNColor_(m_n) == ref_color) {
+            if constexpr (!meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
+                size_t target_idx{ m_seg->ref.beg };
+
+                seq_cntr::Refer(cntr_work.origin, target_idx, true, nullptr,
+                                &origin_cursor, nullptr);
+
+                origin_cursor_is_refered = true;
+                origin_cursor_idx = target_idx;
+
+                seq_cntr::Read(
+                    cntr_work.origin, &origin_cursor,
+                    comparison_utils::BasicMin(m_seg->ref.elem_cnt, cnt),
+                    reader, nullptr);
+            }
+
             if (m_seg->ref.elem_cnt <= cnt) {
                 cnt -= m_seg->ref.elem_cnt;
 
@@ -3431,27 +4043,34 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
         }
 #endif
 
-        if (m_seg->dat.elem_cnt <= cnt) {
-            cnt -= m_seg->dat.elem_cnt;
+        detail::SegWork_& m_seg_work{ seg_works[seg_work_cnt] };
+        m_seg_work.Load(m_seg);
 
-            Node* nxt_m_n{ bin_tree::StepR(m_n) };
+        if (cnt < m_seg_work.ca.elem_cnt) {
+            ++seg_work_cnt;
 
-            cntr.root = rbtree::Extract(m_n);
-            detail::DeallocateDatSeg_(m_seg, cntr_work.seg_alctr,
-                                      cntr_work.data_alctr);
+            m_seg_work.is_dirty = true;
+            circular_array::IdxErase(m_seg_work.ca, 0, cnt, reader);
 
-            m_n = nxt_m_n;
-
-            continue;
+            break;
         }
 
-        detail::SegWork_& seg_work{ seg_works[seg_work_cnt++] };
-        seg_work.Load(m_seg);
+        if constexpr (!meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
+            circular_array::IdxRead(
+                m_seg_work.ca, 0,
+                comparison_utils::BasicMin(m_seg_work.ca.elem_cnt, cnt),
+                reader);
+        }
 
-        seg_work.is_dirty = true;
-        circular_array::IdxErase(seg_work.ca, 0, cnt);
+        cnt -= m_seg->dat.elem_cnt;
 
-        break;
+        Node* nxt_m_n{ bin_tree::StepR(m_n) };
+
+        cntr.root = rbtree::Extract(m_n);
+        detail::DeallocateDatSeg_(m_seg, cntr_work.seg_alctr,
+                                  cntr_work.data_alctr);
+
+        m_n = nxt_m_n;
     }
 
     if (0 < seg_work_cnt && &seg_works[seg_work_cnt - 1].seg->n == m_n) {
@@ -3469,6 +4088,9 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
             seg_works[seg_work_cnt - 1].ref_beg +
                     seg_works[seg_work_cnt - 1].ca.elem_cnt ==
                 m_seg->ref.beg) {
+            // SANITIZE
+            ZETA_Core_DebugAssert(seg_work_cnt == 1);
+
             size_t old_l_elem_cnt{ seg_works[0].ca.elem_cnt };
 
             Seg* dst_seg;
@@ -3483,75 +4105,113 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
                 dst_seg = m_seg;
                 other_seg = seg_works[0].seg;
                 break;
-            default: __builtin_unreachable();
+            default: ZETA_Core_Unreachable();
             }
 
             seg_works[0].is_dirty = true;
             seg_works[0].seg = dst_seg;
-            seg_works[0].ca.elem_cnt += m_seg->ref.beg;
+            seg_works[0].ca.elem_cnt += m_seg->ref.elem_cnt;
 
             cntr.root = rbtree::Extract(&other_seg->n);
             detail::DeallocateRefSeg_(other_seg, cntr_work.seg_alctr);
 
+            seg_works[0].Store();
+
             pos_cursor->n = &seg_works[0].seg->n;
             pos_cursor->seg_idx = old_l_elem_cnt;
-            pos_cursor->elem = nullptr;
+            pos_cursor->elem_ptr = nullptr;
+            pos_cursor->elem_ptr_is_valid = false;
+
+            ZETA_Core_PrintCurPos;
 
             return;
         }
 #endif
 
-        if (cntr.rb != m_n) {
-            detail::SegWork_& seg_work{ seg_works[seg_work_cnt++] };
-            seg_work.Load(m_seg);
-        }
+        detail::SegWork_& seg_work{ seg_works[seg_work_cnt++] };
+        seg_work.Load(m_seg);
     }
-
-    seg_works[seg_work_cnt].seg = nullptr;  // for termination
 
     Node* ret_n{ m_n };
     size_t ret_seg_idx{ 0 };
 
     auto merge_then_update_ret{ [&](int i, int j) {
-        size_t old_seg_elem_cnt{ seg_works[i].ca.elem_cnt };
+        size_t old_i_seg_elem_cnt{ seg_works[i].ca.elem_cnt };
 
         size_t old_total_elem_cnt{ seg_works[i].ca.elem_cnt +
                                    seg_works[j].ca.elem_cnt };
 
         switch (detail::Merge2_(cntr_work, seg_works[i], seg_works[j])) {
         case 0:
-            if (ret_n == &seg_works[i].seg->n) { ret_n = &seg_works[j].seg->n; }
-            break;
-        case 1:
+            // SANITIZE
+            ZETA_Core_DebugAssert(seg_works[j].ca.elem_cnt == 0);
+
             if (ret_n == &seg_works[j].seg->n) {
                 ret_n = &seg_works[i].seg->n;
-                ret_seg_idx += old_seg_elem_cnt;
+                ret_seg_idx += old_i_seg_elem_cnt;
             }
+
             break;
-        default: __builtin_unreachable();
+        case 1:
+            // SANITIZE
+            ZETA_Core_DebugAssert(seg_works[i].ca.elem_cnt == 0);
+
+            if (ret_n == &seg_works[i].seg->n) {
+                ret_n = &seg_works[j].seg->n;
+            } else if (ret_n == &seg_works[j].seg->n) {
+                ret_seg_idx += old_i_seg_elem_cnt;
+            }
+
+            break;
+        default: ZETA_Core_Unreachable();
+        }
+
+        {
+            size_t hit{ 0 };
+
+            for (size_t k{ 0 }; k < seg_work_cnt; ++k) {
+                if (&seg_works[k].seg->n != ret_n) { continue; }
+                ++hit;
+                ZETA_Core_DebugAssert(seg_works[k].ca.elem_cnt != 0);
+            }
+
+            // SANITIZE
+            ZETA_Core_DebugAssert(hit <= 1);
+
+            if (hit == 0) {
+                // SANITIZE
+                ZETA_Core_DebugAssert(cntr.rb == m_n);
+                ZETA_Core_DebugAssert(cntr.rb == ret_n);
+            }
         }
 
         size_t new_total_elem_cnt{ seg_works[i].ca.elem_cnt +
                                    seg_works[j].ca.elem_cnt };
 
+        // SANITIZE
         ZETA_Core_DebugAssert(new_total_elem_cnt == old_total_elem_cnt);
-        ZETA_Core_DebugAssert(seg_works[i].ca.elem_cnt == 0 ||
-                              seg_works[j].ca.elem_cnt == 0);
     } };
 
-    if (seg_work_cnt <= 1) {
-    } else if (seg_work_cnt == 2) {
+    switch (seg_work_cnt) {
+    case 0:
+    case 1: break;
+
+    case 2: {
         size_t elem_vac_01{ seg_works[0].elem_vac + seg_works[1].elem_vac };
 
         if (cntr_work.seg_elem_slot_cnt <= elem_vac_01) {
             merge_then_update_ret(0, 1);
         }
-    } else if (seg_work_cnt == 3) {
+
+        break;
+    }
+
+    case 3: {
         size_t elem_vac_01{ seg_works[0].elem_vac + seg_works[1].elem_vac };
         size_t elem_vac_12{ seg_works[1].elem_vac + seg_works[2].elem_vac };
 
-        size_t max_elem_vac{ compare_utils::BasicMax(elem_vac_01,
-                                                     elem_vac_12) };
+        size_t max_elem_vac{ comparison_utils::BasicMax(elem_vac_01,
+                                                        elem_vac_12) };
 
         if (cntr_work.seg_elem_slot_cnt <= max_elem_vac) {
             int k{ utils::Choose2(elem_vac_01 == max_elem_vac,
@@ -3559,7 +4219,11 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
 
             merge_then_update_ret(k, k + 1);
         }
-    } else if (seg_work_cnt == 4) {
+
+        break;
+    }
+
+    case 4: {
         size_t elem_vac_01{ seg_works[0].elem_vac + seg_works[1].elem_vac };
         size_t elem_vac_12{ seg_works[1].elem_vac + seg_works[2].elem_vac };
         size_t elem_vac_23{ seg_works[2].elem_vac + seg_works[3].elem_vac };
@@ -3569,7 +4233,7 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
             merge_then_update_ret(0, 1);
             merge_then_update_ret(2, 3);
         } else {
-            size_t max_elem_vac{ compare_utils::BasicMax(
+            size_t max_elem_vac{ comparison_utils::BasicMax(
                 elem_vac_01, elem_vac_12, elem_vac_23) };
 
             if (cntr_work.seg_elem_slot_cnt <= max_elem_vac) {
@@ -3577,12 +4241,21 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
                     elem_vac_01 == max_elem_vac, elem_vac_12 == max_elem_vac,
                     elem_vac_23 == max_elem_vac, &random_seed) };
 
+                ZETA_Core_PrintVar(k);
+                ZETA_Core_PrintVar(seg_works[k].is_null);
+                ZETA_Core_PrintVar(seg_works[k + 1].is_null);
+
                 merge_then_update_ret(k, k + 1);
             }
         }
+
+        break;
     }
 
-    for (int i{ 0 }; seg_works[i].seg != nullptr; ++i) {
+    default: ZETA_Core_Unreachable();
+    }
+
+    for (size_t i{ 0 }; i < seg_work_cnt; ++i) {
         if (seg_works[i].ca.elem_cnt == 0) {
             cntr.root = rbtree::Extract(&seg_works[i].seg->n);
             allocator::Deallocate(cntr_work.seg_alctr, seg_works[i].seg);
@@ -3590,7 +4263,7 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
         }
     }
 
-    for (int i{ 0 }; seg_works[i].seg != nullptr; ++i) {
+    for (size_t i{ 0 }; i < seg_work_cnt; ++i) {
         if (0 < seg_works[i].ca.elem_cnt && seg_works[i].is_dirty) {
             seg_works[i].Store();
         }
@@ -3600,18 +4273,31 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
     pos_cursor->seg_idx = ret_seg_idx;
 
     if (cntr.rb == ret_n) {
-        pos_cursor->elem = nullptr;
-    } else {
-        for (int i{ 0 }; seg_works[i].seg != nullptr; ++i) {
-            if (&seg_works[i].seg->n == pos_cursor->n) {
-                pos_cursor->elem = EnStagingTernary(
-                    seg_works[i].color == ref_color, nullptr,
-                    circular_array::Access(seg_works[i].ca, ret_seg_idx, true,
-                                           nullptr, nullptr));
+        pos_cursor->elem_ptr = nullptr;
+        pos_cursor->elem_ptr_is_valid = false;
+        return;
+    }
 
-                break;
-            }
+    for (size_t i{ 0 }; i < seg_work_cnt; ++i) {
+        if (&seg_works[i].seg->n != pos_cursor->n) { continue; }
+
+#if EnStaging
+        if (seg_works[i].color == ref_color) {
+            pos_cursor->elem_ptr = nullptr;
+            pos_cursor->elem_ptr_is_valid = false;
+        } else
+#endif
+        {
+            pos_cursor->elem_ptr = ({
+                seq_cntr::ElemPtrView tmp;
+                circular_array::Refer(seg_works[i].ca, ret_seg_idx, true, &tmp,
+                                      nullptr, nullptr);
+                tmp.ptr;
+            });
+            pos_cursor->elem_ptr_is_valid = true;
         }
+
+        break;
     }
 }
 
@@ -3619,7 +4305,7 @@ template <CntrTplParamList>
 void Namespace::EraseAll(Cntr<CntrTplArgList>& cntr) {
     detail::CheckCntr_(cntr);
 
-    detail::Erase_(cntr.root, cntr.seg_alctr, cntr.data_alctr);
+    detail::EraseAll_(cntr.root, cntr.seg_alctr, cntr.data_alctr);
 
     detail::InitTree_(cntr);
 }
@@ -3628,7 +4314,7 @@ template <CntrTplParamList>
 void Namespace::Reset(Cntr<CntrTplArgList>& cntr) {
     detail::CheckCntr_(cntr);
 
-    detail::Erase_(cntr.root, cntr.seg_alctr, cntr.data_alctr);
+    detail::EraseAll_(cntr.root, cntr.seg_alctr, cntr.data_alctr);
 
     detail::InitTree_(cntr);
 
@@ -3653,17 +4339,10 @@ void Namespace::Collapse(Cntr<CntrTplArgList>& cntr,
     ZETA_Core_DebugAssert(seq_cntr::GetReferedInstPtr(origin) ==
                           seq_cntr::GetReferedInstPtr(origin_cntr));
 
-    ZETA_Core_PrintVar(seq_cntr::GetReferedInstPtr(origin));
-    ZETA_Core_PrintVar(seq_cntr::GetReferedInstPtr(origin_cntr));
-
     lifecycle::Deinit(origin);
 
     lifecycle::Init(
         origin, meta::Forward<NewOriginLikeInitArg>(new_origin_like_init_arg));
-
-    ZETA_Core_PrintVar(seq_cntr::GetReferedInstPtr(origin));
-    ZETA_Core_PrintVar(
-        seq_cntr::GetReferedInstPtr(meta::GetInstRef(origin_cntr.origin)));
 
     ZETA_Core_DebugAssert(
         seq_cntr::GetReferedInstPtr(origin) ==
@@ -3674,7 +4353,7 @@ void Namespace::Collapse(Cntr<CntrTplArgList>& cntr,
     Node* n{ bin_tree::StepR(cntr.lb) };
 
     Cursor origin_cursor;
-    (PeekL)(origin_cntr, true, &origin_cursor, nullptr);
+    (PeekL)(origin_cntr, true, nullptr, &origin_cursor, nullptr);
 
     CircularArray origin_ca{
         .data = {},
@@ -3741,7 +4420,7 @@ void Namespace::Collapse(Cntr<CntrTplArgList>& cntr,
         bool cur_seg_will_exhausted{ seg->ref.elem_cnt <= origin_res_size };
 
         detail::ElemCntBalancer_ balancer{
-            compare_utils::BasicMin(seg->ref.elem_cnt, origin_res_size),
+            comparison_utils::BasicMin(seg->ref.elem_cnt, origin_res_size),
             cntr_work.seg_elem_slot_cnt
         };
 
@@ -3837,7 +4516,7 @@ struct OffsetCntNodeHash_ {
 struct OffsetCntNodeCompare_ {
     int operator()(generic_hash_table::Node const* a_ghtn,
                    generic_hash_table::Node const* b_ghtn) const {
-        return compare::BasicCompare(
+        return comparison::BasicCompare(
             ZETA_Core_MemberToStruct(OffsetCntNode_, ghtn, a_ghtn)->offset,
             ZETA_Core_MemberToStruct(OffsetCntNode_, ghtn, b_ghtn)->offset);
     }
@@ -3852,7 +4531,7 @@ unsigned long long OffsetHash_  // NOLINT(misc-use-internal-linkage)
 template <CntrTplParamList>
 int OffsetOffsetCntNodeCompare_  // NOLINT(misc-use-internal-linkage)
     (size_t offset, generic_hash_table::Node const* ghtn) {
-    return compare::BasicCompare(
+    return comparison::BasicCompare(
         offset, ZETA_Core_MemberToStruct(OffsetCntNode_, ghtn, ghtn)->offset);
 }
 
@@ -4363,7 +5042,7 @@ void WriteBack_Random_  // NOLINT(misc-use-internal-linkage)
                                               : cost_coeff_insert * -sum_arr) +
                                          acc_brr[i - 1] - acc_brr[j] };
 
-            ans_cost = compare_utils::BasicMin(ans_cost, cur_cost);
+            ans_cost = comparison_utils::BasicMin(ans_cost, cur_cost);
         }
 
         dp_best_cost[i] = ans_cost;
@@ -4374,8 +5053,8 @@ void WriteBack_Random_  // NOLINT(misc-use-internal-linkage)
         unsigned long long ans_cost{ ZETA_Core_ullong_max };
         unsigned long long ans_prv{ 0 };
 
-        for (size_t j{ i }, j_end{ compare_utils::BasicMax(8ULL, i) - 8 }; j_end
-< j--;) { size_t sum_arr{ acc_arr[i] - acc_arr[j] };
+        for (size_t j{ i }, j_end{ comparison_utils::BasicMax(8ULL, i) - 8 };
+j_end < j--;) { size_t sum_arr{ acc_arr[i] - acc_arr[j] };
 
             unsigned long long cur_cost{ dp_cost[j] +
                                          (sum_arr <= ZETA_Core_size_max / 2
@@ -4528,8 +5207,8 @@ void WriteBack(Cntr<CntrTplArgList>& cntr, int write_back_strategy,
 #endif
 
 template <CntrTplParamList>
-void Namespace::CopyCursor(Cntr<CntrTplArgList> const& cntr,
-                           Cursor const* src_cursor, Cursor* dst_cursor) {
+void Namespace::CopyCursor(Cntr<CntrTplArgList> const& cntr, Cursor* src_cursor,
+                           Cursor* dst_cursor) {
     detail::CheckCursor_(cntr, src_cursor);
     detail::CheckCursor_(cntr, dst_cursor);
 
@@ -4538,28 +5217,27 @@ void Namespace::CopyCursor(Cntr<CntrTplArgList> const& cntr,
 
 template <CntrTplParamList>
 bool Namespace::AreEqualCursor(Cntr<CntrTplArgList> const& cntr,
-                               Cursor const* cursor_a, Cursor const* cursor_b) {
+                               Cursor* cursor_a, Cursor* cursor_b) {
     return (GetCursorIdx)(cntr, cursor_a) == (GetCursorIdx)(cntr, cursor_b);
 }
 
 template <CntrTplParamList>
-int Namespace::CompareCursor(Cntr<CntrTplArgList> const& cntr,
-                             Cursor const* cursor_a, Cursor const* cursor_b) {
-    return compare::BasicCompare(compare::compare_type::ThreeWay{},
-                                 (GetCursorIdx)(cntr, cursor_a) + 1,
-                                 (GetCursorIdx)(cntr, cursor_b) + 1);
+int Namespace::CompareCursor(Cntr<CntrTplArgList> const& cntr, Cursor* cursor_a,
+                             Cursor* cursor_b) {
+    return comparison::BasicCompare(comparison::ComparisonTypeEnum::ThreeWay{},
+                                    (GetCursorIdx)(cntr, cursor_a) + 1,
+                                    (GetCursorIdx)(cntr, cursor_b) + 1);
 }
 
 template <CntrTplParamList>
 size_t Namespace::GetCursorDist(Cntr<CntrTplArgList> const& cntr,
-                                Cursor const* cursor_a,
-                                Cursor const* cursor_b) {
+                                Cursor* cursor_a, Cursor* cursor_b) {
     return GetCursorIdx(cntr, cursor_b) - GetCursorIdx(cntr, cursor_a);
 }
 
 template <CntrTplParamList>
 size_t Namespace::GetCursorIdx(Cntr<CntrTplArgList> const& cntr,
-                               Cursor const* cursor) {
+                               Cursor* cursor) {
     detail::CheckCursor_(cntr, cursor);
 
     return cursor->idx;
@@ -4606,7 +5284,8 @@ void Namespace::CursorAdvanceL(Cntr<CntrTplArgList> const& cntr, Cursor* cursor,
 
     if (cntr.lb == dst_n) {
         cursor->seg_idx = 0;
-        cursor->elem = nullptr;
+        cursor->elem_ptr = nullptr;
+        cursor->elem_ptr_is_valid = true;
         return;
     }
 
@@ -4619,7 +5298,8 @@ void Namespace::CursorAdvanceL(Cntr<CntrTplArgList> const& cntr, Cursor* cursor,
 
 #if EnStaging
     if (detail::GetNColor_(dst_n) == ref_color) {
-        cursor->elem = nullptr;
+        cursor->elem_ptr = nullptr;
+        cursor->elem_ptr_is_valid = false;
         return;
     }
 #endif
@@ -4633,8 +5313,14 @@ void Namespace::CursorAdvanceL(Cntr<CntrTplArgList> const& cntr, Cursor* cursor,
         .rot = dst_seg->dat.rot,
     };
 
-    cursor->elem =
-        circular_array::Access(ca, cursor->seg_idx, true, nullptr, nullptr);
+    cursor->elem_ptr = ({
+        seq_cntr::ElemPtrView tmp;
+        circular_array::Refer(ca, cursor->seg_idx, true, &tmp, nullptr,
+                              nullptr);
+        tmp.ptr;
+    });
+
+    cursor->elem_ptr_is_valid = true;
 }
 
 template <CntrTplParamList>
@@ -4661,13 +5347,15 @@ void Namespace::CursorAdvanceR(Cntr<CntrTplArgList> const& cntr, Cursor* cursor,
     cursor->seg_idx = dst_seg_idx;
 
     if (rb == dst_n) {
-        cursor->elem = nullptr;
+        cursor->elem_ptr = nullptr;
+        cursor->elem_ptr_is_valid = true;
         return;
     }
 
 #if EnStaging
     if (detail::GetNColor_(dst_n) == ref_color) {
-        cursor->elem = nullptr;
+        cursor->elem_ptr = nullptr;
+        cursor->elem_ptr_is_valid = false;
         return;
     }
 #endif
@@ -4683,8 +5371,14 @@ void Namespace::CursorAdvanceR(Cntr<CntrTplArgList> const& cntr, Cursor* cursor,
         .rot = dst_seg->dat.rot,
     };
 
-    cursor->elem =
-        circular_array::Access(ca, cursor->seg_idx, true, nullptr, nullptr);
+    cursor->elem_ptr = ({
+        seq_cntr::ElemPtrView tmp;
+        circular_array::Refer(ca, cursor->seg_idx, true, &tmp, nullptr,
+                              nullptr);
+        tmp.ptr;
+    });
+
+    cursor->elem_ptr_is_valid = true;
 }
 
 namespace Namespace::detail {
@@ -4926,8 +5620,8 @@ SanitizeRet_ Sanitize_  // NOLINT(misc-use-internal-linkage)
             l_vac =
                 seg_elem_slot_cnt -
                 EnStagingTernary(GetNColor_(l_n) == ref_color,
-                                 compare_utils::BasicMin(l_seg->ref.elem_cnt,
-                                                         seg_elem_slot_cnt),
+                                 comparison_utils::BasicMin(l_seg->ref.elem_cnt,
+                                                            seg_elem_slot_cnt),
                                  l_seg->dat.elem_cnt);
         }
 
@@ -4939,8 +5633,8 @@ SanitizeRet_ Sanitize_  // NOLINT(misc-use-internal-linkage)
             r_vac =
                 seg_elem_slot_cnt -
                 EnStagingTernary(GetNColor_(r_n) == ref_color,
-                                 compare_utils::BasicMin(r_seg->ref.elem_cnt,
-                                                         seg_elem_slot_cnt),
+                                 comparison_utils::BasicMin(r_seg->ref.elem_cnt,
+                                                            seg_elem_slot_cnt),
                                  r_seg->dat.elem_cnt);
         }
 
@@ -4993,8 +5687,8 @@ SanitizeRet_ Sanitize_  // NOLINT(misc-use-internal-linkage)
         }
 
         if (ret.b) {
-            ret.ref_beg = compare_utils::BasicMin(ret.ref_beg, cur_ref_beg);
-            ret.ref_end = compare_utils::BasicMax(ret.ref_end, cur_ref_end);
+            ret.ref_beg = comparison_utils::BasicMin(ret.ref_beg, cur_ref_beg);
+            ret.ref_end = comparison_utils::BasicMax(ret.ref_end, cur_ref_end);
         } else {
             ret.b = true;
             ret.ref_beg = cur_ref_beg;
@@ -5062,9 +5756,9 @@ void* seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::AbilityFlag seq_cntr::CntrTraits<
-    Namespace::Cntr<CntrTplArgList>>::GetStaticEnabledAbilityFlag() {
-    return seq_cntr::AbilityFlagBuilder{
+constexpr seq_cntr::CapabilityFlag seq_cntr::CntrTraits<
+    Namespace::Cntr<CntrTplArgList>>::GetStaticEnabledCapabilityFlag() {
+    return seq_cntr::CapabilityFlagBuilder{
         .GetCursorSize = true,
 
         .GetElemSize = true,
@@ -5077,7 +5771,7 @@ constexpr seq_cntr::AbilityFlag seq_cntr::CntrTraits<
         .PeekL = true,
         .PeekR = true,
 
-        .Access = true,
+        .Refer = true,
         .Derefer = true,
 
         .Read = true,
@@ -5109,37 +5803,37 @@ constexpr seq_cntr::AbilityFlag seq_cntr::CntrTraits<
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::AbilityFlag seq_cntr::CntrTraits<
-    Namespace::Cntr<CntrTplArgList> const>::GetStaticEnabledAbilityFlag() {
-    return seq_cntr::CntrTraits<
-               Namespace::Cntr<CntrTplArgList>>::GetStaticEnabledAbilityFlag() &
-           seq_cntr::const_ability_flag;
+constexpr seq_cntr::CapabilityFlag seq_cntr::CntrTraits<
+    Namespace::Cntr<CntrTplArgList> const>::GetStaticEnabledCapabilityFlag() {
+    return seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::
+               GetStaticEnabledCapabilityFlag() &
+           seq_cntr::const_capability_flag;
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::AbilityFlag seq_cntr::CntrTraits<
-    Namespace::Cntr<CntrTplArgList>>::GetStaticDisabledAbilityFlag() {
-    return seq_cntr::empty_ability_flag;
+constexpr seq_cntr::CapabilityFlag seq_cntr::CntrTraits<
+    Namespace::Cntr<CntrTplArgList>>::GetStaticDisabledCapabilityFlag() {
+    return seq_cntr::empty_capability_flag;
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::AbilityFlag seq_cntr::CntrTraits<
-    Namespace::Cntr<CntrTplArgList> const>::GetStaticDisabledAbilityFlag() {
-    return seq_cntr::non_const_ability_flag;
+constexpr seq_cntr::CapabilityFlag seq_cntr::CntrTraits<
+    Namespace::Cntr<CntrTplArgList> const>::GetStaticDisabledCapabilityFlag() {
+    return seq_cntr::non_const_capability_flag;
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::AbilityFlag
+constexpr seq_cntr::CapabilityFlag
 seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::
-    GetDynamicEnabledAbilityFlag(Namespace::Cntr<CntrTplArgList> const&) {
-    return seq_cntr::empty_ability_flag;
+    GetDynamicEnabledCapabilityFlag(Namespace::Cntr<CntrTplArgList> const&) {
+    return seq_cntr::empty_capability_flag;
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::AbilityFlag
+constexpr seq_cntr::CapabilityFlag
 seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::
-    GetDynamicDisabledAbilityFlag(Namespace::Cntr<CntrTplArgList> const&) {
-    return seq_cntr::empty_ability_flag;
+    GetDynamicDisabledCapabilityFlag(Namespace::Cntr<CntrTplArgList> const&) {
+    return seq_cntr::empty_capability_flag;
 }
 
 template <CntrTplParamList>
@@ -5181,58 +5875,97 @@ void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::GetRBCursor(
 }
 
 template <CntrTplParamList>
-void* seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::PeekL(
-    Namespace::Cntr<CntrTplArgList> const& cntr, bool lazy_copy_elem,
-    void* dst_cursor, void* dst_elem) {
-    return Namespace::PeekL(cntr, lazy_copy_elem,
+void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::PeekL(
+    Namespace::Cntr<CntrTplArgList>& cntr, bool lazy_copy_elem,
+    seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+    void* dst_elem) {
+    return Namespace::PeekL(cntr, lazy_copy_elem, dst_elem_ptr_view,
                             static_cast<Namespace::Cursor*>(dst_cursor),
                             dst_elem);
 }
 
 template <CntrTplParamList>
-void* seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::PeekR(
+void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::PeekL(
     Namespace::Cntr<CntrTplArgList> const& cntr, bool lazy_copy_elem,
-    void* dst_cursor, void* dst_elem) {
-    return Namespace::PeekR(cntr, lazy_copy_elem,
+    seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+    void* dst_elem) {
+    return Namespace::PeekL(cntr, lazy_copy_elem, dst_elem_ptr_view,
                             static_cast<Namespace::Cursor*>(dst_cursor),
                             dst_elem);
 }
 
 template <CntrTplParamList>
-void* seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::Access(
+void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::PeekR(
+    Namespace::Cntr<CntrTplArgList>& cntr, bool lazy_copy_elem,
+    seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+    void* dst_elem) {
+    return Namespace::PeekR(cntr, lazy_copy_elem, dst_elem_ptr_view,
+                            static_cast<Namespace::Cursor*>(dst_cursor),
+                            dst_elem);
+}
+
+template <CntrTplParamList>
+void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::PeekR(
+    Namespace::Cntr<CntrTplArgList> const& cntr, bool lazy_copy_elem,
+    seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+    void* dst_elem) {
+    return Namespace::PeekR(cntr, lazy_copy_elem, dst_elem_ptr_view,
+                            static_cast<Namespace::Cursor*>(dst_cursor),
+                            dst_elem);
+}
+
+template <CntrTplParamList>
+void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::Refer(
+    Namespace::Cntr<CntrTplArgList>& cntr, size_t idx, bool lazy_copy_elem,
+    seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+    void* dst_elem) {
+    return Namespace::Refer(cntr, idx, lazy_copy_elem, dst_elem_ptr_view,
+                            static_cast<Namespace::Cursor*>(dst_cursor),
+                            dst_elem);
+}
+
+template <CntrTplParamList>
+void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::Refer(
     Namespace::Cntr<CntrTplArgList> const& cntr, size_t idx,
-    bool lazy_copy_elem, void* dst_cursor, void* dst_elem) {
-    return Namespace::Access(cntr, idx, lazy_copy_elem,
-                             static_cast<Namespace::Cursor*>(dst_cursor),
-                             dst_elem);
+    bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
+    void* dst_cursor, void* dst_elem) {
+    return Namespace::Refer(cntr, idx, lazy_copy_elem, dst_elem_ptr_view,
+                            static_cast<Namespace::Cursor*>(dst_cursor),
+                            dst_elem);
 }
 
 template <CntrTplParamList>
-void* seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::Derefer(
-    Namespace::Cntr<CntrTplArgList> const& cntr, void const* pos_cursor,
-    bool lazy_copy_elem, void* dst_elem) {
-    return Namespace::Derefer(cntr,
-                              static_cast<Namespace::Cursor const*>(pos_cursor),
-                              lazy_copy_elem, dst_elem);
+void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::Derefer(
+    Namespace::Cntr<CntrTplArgList>& cntr, void* pos_cursor,
+    bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
+    void* dst_elem) {
+    return Namespace::Derefer(cntr, static_cast<Namespace::Cursor*>(pos_cursor),
+                              lazy_copy_elem, dst_elem_ptr_view, dst_elem);
+}
+
+template <CntrTplParamList>
+void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::Derefer(
+    Namespace::Cntr<CntrTplArgList> const& cntr, void* pos_cursor,
+    bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
+    void* dst_elem) {
+    return Namespace::Derefer(cntr, static_cast<Namespace::Cursor*>(pos_cursor),
+                              lazy_copy_elem, dst_elem_ptr_view, dst_elem);
 }
 
 template <CntrTplParamList>
 template <typename Reader>
 void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::Read(
-    Namespace::Cntr<CntrTplArgList> const& cntr, void const* pos_cursor,
-    size_t cnt,
-    Reader&& reader,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    void* dst_cursor) {
-    Namespace::Read(cntr, static_cast<Namespace::Cursor const*>(pos_cursor),
-                    cnt, reader, static_cast<Namespace::Cursor*>(dst_cursor));
+    Namespace::Cntr<CntrTplArgList> const& cntr, void* pos_cursor, size_t cnt,
+    Reader&& reader, void* dst_cursor) {
+    Namespace::Read(cntr, static_cast<Namespace::Cursor*>(pos_cursor), cnt,
+                    reader, static_cast<Namespace::Cursor*>(dst_cursor));
 }
 
 template <CntrTplParamList>
 template <typename Writer>
 void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::Write(
     Namespace::Cntr<CntrTplArgList>& cntr, void* pos_cursor, size_t cnt,
-    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    void* dst_cursor) {
+    Writer&& writer, void* dst_cursor) {
     Namespace::Write(cntr, static_cast<Namespace::Cursor*>(pos_cursor), cnt,
                      writer, static_cast<Namespace::Cursor*>(dst_cursor));
 }
@@ -5241,9 +5974,7 @@ template <CntrTplParamList>
 template <typename ReaderWriter>
 void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::ReadWrite(
     Namespace::Cntr<CntrTplArgList>& cntr, void* pos_cursor, size_t cnt,
-    ReaderWriter&&
-        reader_writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    void* dst_cursor) {
+    ReaderWriter&& reader_writer, void* dst_cursor) {
     Namespace::ReadWrite(cntr, static_cast<Namespace::Cursor*>(pos_cursor), cnt,
                          reader_writer,
                          static_cast<Namespace::Cursor*>(dst_cursor));
@@ -5251,9 +5982,8 @@ void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::ReadWrite(
 
 template <CntrTplParamList>
 template <typename Writer>
-void* seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::PushL(
-    Namespace::Cntr<CntrTplArgList>& cntr, size_t cnt,
-    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::PushL(
+    Namespace::Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
     void* dst_cursor) {
     return Namespace::PushL(cntr, cnt, writer,
                             static_cast<Namespace::Cursor*>(dst_cursor));
@@ -5261,9 +5991,8 @@ void* seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::PushL(
 
 template <CntrTplParamList>
 template <typename Writer>
-void* seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::PushR(
-    Namespace::Cntr<CntrTplArgList>& cntr, size_t cnt,
-    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::PushR(
+    Namespace::Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
     void* dst_cursor) {
     return Namespace::PushR(cntr, cnt, writer,
                             static_cast<Namespace::Cursor*>(dst_cursor));
@@ -5271,31 +6000,35 @@ void* seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::PushR(
 
 template <CntrTplParamList>
 template <typename Writer>
-void* seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::Insert(
+void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::Insert(
     Namespace::Cntr<CntrTplArgList>& cntr, void* pos_cursor, size_t cnt,
-    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    void* dst_cursor) {
+    Writer&& writer, void* dst_cursor) {
     return Namespace::Insert(cntr, static_cast<Namespace::Cursor*>(pos_cursor),
                              cnt, writer,
                              static_cast<Namespace::Cursor*>(dst_cursor));
 }
 
 template <CntrTplParamList>
+template <typename Reader>
 void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::PopL(
-    Namespace::Cntr<CntrTplArgList>& cntr, size_t cnt) {
-    Namespace::PopL(cntr, cnt);
+    Namespace::Cntr<CntrTplArgList>& cntr, size_t cnt, Reader&& reader) {
+    Namespace::PopL(cntr, cnt, reader);
 }
 
 template <CntrTplParamList>
+template <typename Reader>
 void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::PopR(
-    Namespace::Cntr<CntrTplArgList>& cntr, size_t cnt) {
-    Namespace::PopR(cntr, cnt);
+    Namespace::Cntr<CntrTplArgList>& cntr, size_t cnt, Reader&& reader) {
+    Namespace::PopR(cntr, cnt, reader);
 }
 
 template <CntrTplParamList>
+template <typename Reader>
 void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::Erase(
-    Namespace::Cntr<CntrTplArgList>& cntr, void* pos_cursor, size_t cnt) {
-    Namespace::Erase(cntr, static_cast<Namespace::Cursor*>(pos_cursor), cnt);
+    Namespace::Cntr<CntrTplArgList>& cntr, void* pos_cursor, size_t cnt,
+    Reader&& reader) {
+    Namespace::Erase(cntr, static_cast<Namespace::Cursor*>(pos_cursor), cnt,
+                     reader);
 }
 
 template <CntrTplParamList>
@@ -5306,47 +6039,46 @@ void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>::EraseAll(
 
 template <CntrTplParamList>
 void seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::CopyCursor(
-    Namespace::Cntr<CntrTplArgList> const& cntr, void const* src_cursor,
+    Namespace::Cntr<CntrTplArgList> const& cntr, void* src_cursor,
     void* dst_cursor) {
-    Namespace::CopyCursor(cntr,
-                          static_cast<Namespace::Cursor const*>(src_cursor),
+    Namespace::CopyCursor(cntr, static_cast<Namespace::Cursor*>(src_cursor),
                           static_cast<Namespace::Cursor*>(dst_cursor));
 }
 
 template <CntrTplParamList>
 bool seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::
-    AreEqualCursor(Namespace::Cntr<CntrTplArgList> const& cntr,
-                   void const* cursor_a, void const* cursor_b) {
-    return Namespace::AreEqualCursor(
-        cntr, static_cast<Namespace::Cursor const*>(cursor_a),
-        static_cast<Namespace::Cursor const*>(cursor_b));
+    AreEqualCursor(Namespace::Cntr<CntrTplArgList> const& cntr, void* cursor_a,
+                   void* cursor_b) {
+    return Namespace::AreEqualCursor(cntr,
+                                     static_cast<Namespace::Cursor*>(cursor_a),
+                                     static_cast<Namespace::Cursor*>(cursor_b));
 }
 
 template <CntrTplParamList>
 int seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::CompareCursor(
-    Namespace::Cntr<CntrTplArgList> const& cntr, void const* cursor_a,
-    void const* cursor_b) {
-    return Namespace::CompareCursor(
-        cntr, static_cast<Namespace::Cursor const*>(cursor_a),
-        static_cast<Namespace::Cursor const*>(cursor_b));
+    Namespace::Cntr<CntrTplArgList> const& cntr, void* cursor_a,
+    void* cursor_b) {
+    return Namespace::CompareCursor(cntr,
+                                    static_cast<Namespace::Cursor*>(cursor_a),
+                                    static_cast<Namespace::Cursor*>(cursor_b));
 }
 
 template <CntrTplParamList>
 size_t
 seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::GetCursorDist(
-    Namespace::Cntr<CntrTplArgList> const& cntr, void const* cursor_a,
-    void const* cursor_b) {
-    return Namespace::GetCursorDist(
-        cntr, static_cast<Namespace::Cursor const*>(cursor_a),
-        static_cast<Namespace::Cursor const*>(cursor_b));
+    Namespace::Cntr<CntrTplArgList> const& cntr, void* cursor_a,
+    void* cursor_b) {
+    return Namespace::GetCursorDist(cntr,
+                                    static_cast<Namespace::Cursor*>(cursor_a),
+                                    static_cast<Namespace::Cursor*>(cursor_b));
 }
 
 template <CntrTplParamList>
 size_t
 seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>::GetCursorIdx(
-    Namespace::Cntr<CntrTplArgList> const& cntr, void const* cursor) {
-    return Namespace::GetCursorIdx(
-        cntr, static_cast<Namespace::Cursor const*>(cursor));
+    Namespace::Cntr<CntrTplArgList> const& cntr, void* cursor) {
+    return Namespace::GetCursorIdx(cntr,
+                                   static_cast<Namespace::Cursor*>(cursor));
 }
 
 template <CntrTplParamList>

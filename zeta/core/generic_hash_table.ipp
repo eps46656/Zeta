@@ -109,7 +109,7 @@ inline size_t BranchIdxesToBucketIdx_  // NOLINT(misc-use-internal-linkage)
 
 inline size_t FindPrvBucketSize_  // NOLINT(misc-use-internal-linkage)
     (size_t bucket_size) {
-    bucket_size = compare_utils::BasicMax(bucket_size, min_bucket_size);
+    bucket_size = comparison_utils::BasicMax(bucket_size, min_bucket_size);
 
     size_t len{ percent_prime_table::table_length };
 
@@ -128,13 +128,13 @@ inline size_t FindPrvBucketSize_  // NOLINT(misc-use-internal-linkage)
         }
     }
 
-    return compare_utils::BasicMax(min_bucket_size,
-                                   percent_prime_table::table[lb]);
+    return comparison_utils::BasicMax(min_bucket_size,
+                                      percent_prime_table::table[lb]);
 }
 
 inline size_t FindNxtBucketSize_  // NOLINT(misc-use-internal-linkage)
     (size_t bucket_size) {
-    bucket_size = compare_utils::BasicMin(bucket_size, max_bucket_size);
+    bucket_size = comparison_utils::BasicMin(bucket_size, max_bucket_size);
 
     size_t len{ percent_prime_table::table_length };
 
@@ -155,8 +155,8 @@ inline size_t FindNxtBucketSize_  // NOLINT(misc-use-internal-linkage)
         }
     }
 
-    return compare_utils::BasicMin(percent_prime_table::table[lb],
-                                   max_bucket_size);
+    return comparison_utils::BasicMin(percent_prime_table::table[lb],
+                                      max_bucket_size);
 }
 
 template <typename TableNodeAllocatorLike, typename KeyHash,
@@ -215,8 +215,8 @@ void InsertToTable_  // NOLINT(misc-use-internal-linkage)
     TreeNode* gt_tn{ nullptr };
 
     while (tn != nullptr) {
-        int cmp{ compare::Compare(node_cmptr, n,
-                                  ZETA_Core_MemberToStruct(Node, tn, tn)) };
+        int cmp{ comparison::Compare(node_cmptr, n,
+                                     ZETA_Core_MemberToStruct(Node, tn, tn)) };
 
         if (cmp < 0) {
             gt_tn = tn;
@@ -632,7 +632,7 @@ bool generic_hash_table::RunPending(Cntr<CntrTplArgList>& ght, size_t quata) {
     BuildNxtMLPTTable;
 
     detail::TryRunPending_(ght, cur_table, nxt_table,
-                           compare_utils::BasicMax(4ULL, quata));
+                           comparison_utils::BasicMax(4ULL, quata));
 
     return 0 < nxt_bucket_size;
 }
@@ -784,7 +784,7 @@ SanitizeTreeRet_ SanitizeTree_  // NOLINT(misc-use-internal-linkage)
     };
 
     if (tnl != nullptr) {
-        int cmp{ compare::Compare(
+        int cmp{ comparison::Compare(
             meta::GetInstRef(ght.node_cmptr),
             ZETA_Core_MemberToStruct(Node, tn, l_ret.most_r_tn), n) };
 
@@ -794,7 +794,7 @@ SanitizeTreeRet_ SanitizeTree_  // NOLINT(misc-use-internal-linkage)
     }
 
     if (tnr != nullptr) {
-        int cmp{ compare::Compare(
+        int cmp{ comparison::Compare(
             meta::GetInstRef(ght.node_cmptr), n,
             ZETA_Core_MemberToStruct(Node, tn, r_ret.most_l_tn)) };
 

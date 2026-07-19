@@ -51,7 +51,7 @@ inline void main1() {
     std::vector<AssocCntrRef*> assoc_cntrs{ &assoc_cntr_a, &assoc_cntr_b };
 
     std::unordered_set<Elem, core::hash::CppStdBasicHash<Elem>,
-                       core::compare::CppStdBasicEqualTo<Elem, Elem>>
+                       core::comparison::CppStdBasicEqualTo<Elem, Elem>>
         elems_s;
     std::vector<Elem> elems_v;
 

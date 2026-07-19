@@ -47,6 +47,23 @@ RetInt GetRandomInt(LBInt lb, RBInt rb) {
     return static_cast<RetInt>(generator(GetRandomEngine()));
 }
 
+inline void GetRandomMem(void* data_, size_t size) {
+    unsigned char* data{ static_cast<unsigned char*>(data_) };
+
+    for (size_t i{ 0 }; i < size; ++i) {
+        data[i] = GetRandomInt<unsigned char, unsigned char>(0, 255);
+    }
+}
+
+inline void GetRandomMemSeq(void* data_, size_t elem_size, size_t elem_stride,
+                            size_t cnt) {
+    unsigned char* data{ static_cast<unsigned char*>(data_) };
+
+    for (size_t i{ 0 }; i < cnt; ++i) {
+        GetRandomMem(data + elem_stride * i, elem_size);
+    }
+}
+
 template <typename Value, typename = void>
 struct RandomCore;
 

@@ -64,7 +64,7 @@ zeta_core_debug_config = zeta_core.Config(
     enable_debug=True,
     enable_asan=True,
 
-    opt_type="0",
+    opt_type="2",
     link_time_opt=False,
 )
 
@@ -86,7 +86,7 @@ zeta_core_test_debug_config = zeta_core_test.Config(
     enable_debug=True,
     enable_asan=True,
 
-    opt_type="0",
+    opt_type="2",
     link_time_opt=False,
 )
 
@@ -152,7 +152,7 @@ zeta_core_raw_config = zeta_core.Config(
     enable_debug=True,
     enable_asan=False,
 
-    opt_type="0",
+    opt_type="2",
     link_time_opt=False,
 )
 
@@ -174,7 +174,7 @@ zeta_core_test_raw_config = zeta_core_test.Config(
     enable_debug=True,
     enable_asan=False,
 
-    opt_type="0",
+    opt_type="2",
     link_time_opt=False,
 )
 

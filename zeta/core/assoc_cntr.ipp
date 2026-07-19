@@ -7,83 +7,87 @@
 
 namespace zeta::core {
 
-#pragma push_macro("TestAbility")
+#pragma push_macro("TestCapability")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define TestAbility(ability_flag, ability)                                     \
-    (((ability_flag) & (static_cast<::zeta::core::assoc_cntr::AbilityFlag>(1)  \
-                        << ::zeta::core::assoc_cntr::AbilityEnum::ability)) != \
-     0)
+#define TestCapability(capability_flag, capability)             \
+    (((capability_flag) &                                       \
+      (static_cast<::zeta::core::assoc_cntr::CapabilityFlag>(1) \
+       << ::zeta::core::assoc_cntr::CapabilityEnum::capability)) != 0)
 
-constexpr bool assoc_cntr::CheckAbilityFlags(
-    assoc_cntr::AbilityFlag static_enabled_ability_flag,
-    assoc_cntr::AbilityFlag static_disabled_ability_flag) {
-    assoc_cntr::AbilityFlag ability_flags[]{ static_enabled_ability_flag,
-                                             static_disabled_ability_flag };
+constexpr bool assoc_cntr::CheckCapabilityFlags(
+    assoc_cntr::CapabilityFlag static_enabled_capability_flag,
+    assoc_cntr::CapabilityFlag static_disabled_capability_flag) {
+    assoc_cntr::CapabilityFlag capability_flags[]{
+        static_enabled_capability_flag, static_disabled_capability_flag
+    };
 
-    for (AbilityFlag ability_flag : ability_flags) {
-        if ((ability_flag & empty_ability_flag) != empty_ability_flag) {
+    for (CapabilityFlag capability_flag : capability_flags) {
+        if ((capability_flag & empty_capability_flag) !=
+            empty_capability_flag) {
             return false;
         }
 
-        if ((ability_flag | full_ability_flag) != full_ability_flag) {
+        if ((capability_flag | full_capability_flag) != full_capability_flag) {
             return false;
         }
     }
 
-    return (static_enabled_ability_flag & static_disabled_ability_flag) ==
-           empty_ability_flag;
+    return (static_enabled_capability_flag & static_disabled_capability_flag) ==
+           empty_capability_flag;
 }
 
-inline bool assoc_cntr::CheckAbilityFlags(
-    AbilityFlag static_enabled_ability_flag,
-    AbilityFlag static_disabled_ability_flag,
-    AbilityFlag dynamic_enabled_ability_flag,
-    AbilityFlag dynamic_disabled_ability_flag) {
-    AbilityFlag ability_flags[]{ static_enabled_ability_flag,
-                                 static_disabled_ability_flag,
-                                 dynamic_enabled_ability_flag,
-                                 dynamic_disabled_ability_flag };
+inline bool assoc_cntr::CheckCapabilityFlags(
+    CapabilityFlag static_enabled_capability_flag,
+    CapabilityFlag static_disabled_capability_flag,
+    CapabilityFlag dynamic_enabled_capability_flag,
+    CapabilityFlag dynamic_disabled_capability_flag) {
+    CapabilityFlag capability_flags[]{ static_enabled_capability_flag,
+                                       static_disabled_capability_flag,
+                                       dynamic_enabled_capability_flag,
+                                       dynamic_disabled_capability_flag };
 
-    for (AbilityFlag ability_flag : ability_flags) {
-        if ((ability_flag & empty_ability_flag) != empty_ability_flag) {
+    for (CapabilityFlag capability_flag : capability_flags) {
+        if ((capability_flag & empty_capability_flag) !=
+            empty_capability_flag) {
             return false;
         }
-        if ((ability_flag | full_ability_flag) != full_ability_flag) {
+        if ((capability_flag | full_capability_flag) != full_capability_flag) {
             return false;
         }
     }
 
     for (int i{ 0 }; i < 4; ++i) {
         for (int j{ i + 1 }; j < 4; ++j) {
-            if ((ability_flags[i] & ability_flags[j]) != empty_ability_flag) {
+            if ((capability_flags[i] & capability_flags[j]) !=
+                empty_capability_flag) {
                 return false;
             }
         }
     }
 
-    return (static_enabled_ability_flag | static_disabled_ability_flag |
-            dynamic_enabled_ability_flag | dynamic_disabled_ability_flag) ==
-           full_ability_flag;
+    return (static_enabled_capability_flag | static_disabled_capability_flag |
+            dynamic_enabled_capability_flag |
+            dynamic_disabled_capability_flag) == full_capability_flag;
 }
 
 #pragma push_macro("CallMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CallMethod(ret, ability_name, method_name, ...)                       \
-    if constexpr (!TestAbility((GetStaticEnabledAbilityFlag<Cntr>)(),         \
-                               ability_name)) {                               \
-        ZETA_Core_StaticAssert(!TestAbility(                                  \
-            (GetStaticDisabledAbilityFlag<Cntr>)(), ability_name));           \
-                                                                              \
-        ZETA_Core_DebugAssert(                                                \
-            TestAbility((GetDynamicEnabledAbilityFlag)(cntr), ability_name)); \
-    }                                                                         \
-                                                                              \
-    if constexpr (ret) {                                                      \
-        return CntrTraits<Cntr>::method_name(__VA_ARGS__);                    \
-    } else {                                                                  \
-        CntrTraits<Cntr>::method_name(__VA_ARGS__);                           \
-    };                                                                        \
-                                                                              \
+#define CallMethod(ret, capability_name, method_name, ...)                  \
+    if constexpr (!TestCapability((GetStaticEnabledCapabilityFlag<Cntr>)(), \
+                                  capability_name)) {                       \
+        ZETA_Core_StaticAssert(!TestCapability(                             \
+            (GetStaticDisabledCapabilityFlag<Cntr>)(), capability_name));   \
+                                                                            \
+        ZETA_Core_DebugAssert(TestCapability(                               \
+            (GetDynamicEnabledCapabilityFlag)(cntr), capability_name));     \
+    }                                                                       \
+                                                                            \
+    if constexpr (ret) {                                                    \
+        return CntrTraits<Cntr>::method_name(__VA_ARGS__);                  \
+    } else {                                                                \
+        CntrTraits<Cntr>::method_name(__VA_ARGS__);                         \
+    };                                                                      \
+                                                                            \
     ZETA_Core_StaticAssert(true)
 
 template <typename Cntr>
@@ -92,91 +96,95 @@ auto* assoc_cntr::GetReferedInstPtr(Cntr& cntr) {
 }
 
 template <typename Cntr>
-constexpr assoc_cntr::AbilityFlag assoc_cntr::GetStaticEnabledAbilityFlag() {
-    constexpr AbilityFlag static_enabled_ability_flag{
-        CntrTraits<Cntr>::GetStaticEnabledAbilityFlag()
+constexpr assoc_cntr::CapabilityFlag
+assoc_cntr::GetStaticEnabledCapabilityFlag() {
+    constexpr CapabilityFlag static_enabled_capability_flag{
+        CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag()
     };
 
-    constexpr AbilityFlag static_disabled_ability_flag{
-        CntrTraits<Cntr>::GetStaticDisabledAbilityFlag()
+    constexpr CapabilityFlag static_disabled_capability_flag{
+        CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag()
     };
 
-    (CheckAbilityFlags)(static_enabled_ability_flag,
-                        static_disabled_ability_flag);
+    (CheckCapabilityFlags)(static_enabled_capability_flag,
+                           static_disabled_capability_flag);
 
-    return static_enabled_ability_flag;
+    return static_enabled_capability_flag;
 }
 
 template <typename Cntr>
-constexpr assoc_cntr::AbilityFlag assoc_cntr::GetStaticDisabledAbilityFlag() {
-    constexpr AbilityFlag static_enabled_ability_flag{
-        CntrTraits<Cntr>::GetStaticEnabledAbilityFlag()
+constexpr assoc_cntr::CapabilityFlag
+assoc_cntr::GetStaticDisabledCapabilityFlag() {
+    constexpr CapabilityFlag static_enabled_capability_flag{
+        CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag()
     };
 
-    constexpr AbilityFlag static_disabled_ability_flag{
-        CntrTraits<Cntr>::GetStaticDisabledAbilityFlag()
+    constexpr CapabilityFlag static_disabled_capability_flag{
+        CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag()
     };
 
-    (CheckAbilityFlags)(static_enabled_ability_flag,
-                        static_disabled_ability_flag);
+    (CheckCapabilityFlags)(static_enabled_capability_flag,
+                           static_disabled_capability_flag);
 
-    return static_disabled_ability_flag;
+    return static_disabled_capability_flag;
 }
 
 template <typename Cntr>
-assoc_cntr::AbilityFlag assoc_cntr::GetDynamicEnabledAbilityFlag(Cntr& cntr) {
-    constexpr AbilityFlag static_enabled_ability_flag{
-        CntrTraits<Cntr>::GetStaticEnabledAbilityFlag()
+assoc_cntr::CapabilityFlag assoc_cntr::GetDynamicEnabledCapabilityFlag(
+    Cntr& cntr) {
+    constexpr CapabilityFlag static_enabled_capability_flag{
+        CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag()
     };
 
-    constexpr AbilityFlag static_disabled_ability_flag{
-        CntrTraits<Cntr>::GetStaticDisabledAbilityFlag()
+    constexpr CapabilityFlag static_disabled_capability_flag{
+        CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag()
     };
 
-    (CheckAbilityFlags)(static_enabled_ability_flag,
-                        static_disabled_ability_flag);
+    (CheckCapabilityFlags)(static_enabled_capability_flag,
+                           static_disabled_capability_flag);
 
-    AbilityFlag dynamic_enabled_ability_flag{
-        CntrTraits<Cntr>::GetDynamicEnabledAbilityFlag(cntr)
+    CapabilityFlag dynamic_enabled_capability_flag{
+        CntrTraits<Cntr>::GetDynamicEnabledCapabilityFlag(cntr)
     };
 
-    AbilityFlag dynamic_disabled_ability_flag{
-        CntrTraits<Cntr>::GetDynamicDisabledAbilityFlag(cntr)
+    CapabilityFlag dynamic_disabled_capability_flag{
+        CntrTraits<Cntr>::GetDynamicDisabledCapabilityFlag(cntr)
     };
 
-    (CheckAbilityFlags)(
-        static_enabled_ability_flag, static_disabled_ability_flag,
-        dynamic_enabled_ability_flag, dynamic_disabled_ability_flag);
+    (CheckCapabilityFlags)(
+        static_enabled_capability_flag, static_disabled_capability_flag,
+        dynamic_enabled_capability_flag, dynamic_disabled_capability_flag);
 
-    return dynamic_enabled_ability_flag;
+    return dynamic_enabled_capability_flag;
 }
 
 template <typename Cntr>
-assoc_cntr::AbilityFlag assoc_cntr::GetDynamicDisabledAbilityFlag(Cntr& cntr) {
-    constexpr AbilityFlag static_enabled_ability_flag{
-        CntrTraits<Cntr>::GetStaticEnabledAbilityFlag()
+assoc_cntr::CapabilityFlag assoc_cntr::GetDynamicDisabledCapabilityFlag(
+    Cntr& cntr) {
+    constexpr CapabilityFlag static_enabled_capability_flag{
+        CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag()
     };
 
-    constexpr AbilityFlag static_disabled_ability_flag{
-        CntrTraits<Cntr>::GetStaticDisabledAbilityFlag()
+    constexpr CapabilityFlag static_disabled_capability_flag{
+        CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag()
     };
 
-    (CheckAbilityFlags)(static_enabled_ability_flag,
-                        static_disabled_ability_flag);
+    (CheckCapabilityFlags)(static_enabled_capability_flag,
+                           static_disabled_capability_flag);
 
-    AbilityFlag dynamic_enabled_ability_flag{
-        CntrTraits<Cntr>::GetDynamicEnabledAbilityFlag(cntr)
+    CapabilityFlag dynamic_enabled_capability_flag{
+        CntrTraits<Cntr>::GetDynamicEnabledCapabilityFlag(cntr)
     };
 
-    AbilityFlag dynamic_disabled_ability_flag{
-        CntrTraits<Cntr>::GetDynamicDisabledAbilityFlag(cntr)
+    CapabilityFlag dynamic_disabled_capability_flag{
+        CntrTraits<Cntr>::GetDynamicDisabledCapabilityFlag(cntr)
     };
 
-    (CheckAbilityFlags)(
-        static_enabled_ability_flag, static_disabled_ability_flag,
-        dynamic_enabled_ability_flag, dynamic_disabled_ability_flag);
+    (CheckCapabilityFlags)(
+        static_enabled_capability_flag, static_disabled_capability_flag,
+        dynamic_enabled_capability_flag, dynamic_disabled_capability_flag);
 
-    return dynamic_enabled_ability_flag;
+    return dynamic_enabled_capability_flag;
 }
 
 template <typename Cntr>
@@ -222,8 +230,8 @@ void* assoc_cntr::PeekR(Cntr& cntr, bool lazy_copy_elem, void* dst_cursor,
 }
 
 template <typename Cntr>
-void* assoc_cntr::Derefer(Cntr& cntr, void const* pos_cursor,
-                          bool lazy_copy_elem, void* dst_elem) {
+void* assoc_cntr::Derefer(Cntr& cntr, void* pos_cursor, bool lazy_copy_elem,
+                          void* dst_elem) {
     CallMethod(true, Derefer, Derefer, cntr, pos_cursor, lazy_copy_elem,
                dst_elem);
 }
@@ -263,8 +271,7 @@ void assoc_cntr::EraseAll(Cntr& cntr) {
 }
 
 template <typename Cntr>
-void assoc_cntr::CopyCursor(Cntr& cntr, void const* src_cursor,
-                            void* dst_cursor) {
+void assoc_cntr::CopyCursor(Cntr& cntr, void* src_cursor, void* dst_cursor) {
     CallMethod(false, CopyCursor, CopyCursor, cntr, src_cursor, dst_cursor);
 }
 
@@ -342,67 +349,68 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
 
 #pragma push_macro("CheckMethodOp")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CheckMethodOp(ability, method, ...)                              \
-    if constexpr (!TestAbility(static_disabled_ability_flag, ability)) { \
-        CheckMethod(method, __VA_ARGS__);                                \
-    }                                                                    \
-                                                                         \
+#define CheckMethodOp(capability, method, ...)                     \
+    if constexpr (!TestCapability(static_disabled_capability_flag, \
+                                  capability)) {                   \
+        CheckMethod(method, __VA_ARGS__);                          \
+    }                                                              \
+                                                                   \
     ZETA_Core_StaticAssert(true);
 
-    CheckMethod(                            //
-        GetStaticEnabledAbilityFlag<Cntr>,  // method
+    CheckMethod(                               //
+        GetStaticEnabledCapabilityFlag<Cntr>,  // method
     );
 
-    CheckMethod(                             //
-        GetStaticDisabledAbilityFlag<Cntr>,  // method
+    CheckMethod(                                //
+        GetStaticDisabledCapabilityFlag<Cntr>,  // method
     );
 
-    CheckMethod(                       //
-        GetDynamicEnabledAbilityFlag,  // method
-                                       //
-        cntr                           // inst
+    CheckMethod(                          //
+        GetDynamicEnabledCapabilityFlag,  // method
+                                          //
+        cntr                              // inst
     );
 
-    CheckMethod(                        //
-        GetDynamicDisabledAbilityFlag,  // method
-                                        //
-        cntr                            // inst
+    CheckMethod(                           //
+        GetDynamicDisabledCapabilityFlag,  // method
+                                           //
+        cntr                               // inst
     );
 
-    constexpr AbilityFlag static_disabled_ability_flag{
-        GetStaticDisabledAbilityFlag<Cntr>()
+    constexpr CapabilityFlag static_disabled_capability_flag{
+        GetStaticDisabledCapabilityFlag<Cntr>()
     };
 
     CheckMethodOp(      //
-        GetCursorSize,  // ability
+        GetCursorSize,  // capability
         GetCursorSize,  // method
                         //
         cntr            // inst
     );
 
     CheckMethodOp(    //
-        GetElemSize,  // ability
+        GetElemSize,  // capability
         GetElemSize,  // method
                       //
         cntr          // inst
     );
 
     CheckMethodOp(   //
-        GetElemCnt,  // ability
+        GetElemCnt,  // capability
         GetElemCnt,  // method
                      //
         cntr         // inst
     );
 
     CheckMethodOp(      //
-        GetMaxElemCnt,  // ability
+        GetMaxElemCnt,  // capability
         GetMaxElemCnt,  // method
                         //
         cntr            // inst
     );
 
     CheckMethodOp(    //
-        GetLBCursor,  // ability
+        GetLBCursor,  // capability
         GetLBCursor,  // method
                       //
         cntr,         // inst
@@ -410,7 +418,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(    //
-        GetRBCursor,  // ability
+        GetRBCursor,  // capability
         GetRBCursor,  // method
                       //
         cntr,         // inst
@@ -418,7 +426,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(  //
-        PeekL,      // ability
+        PeekL,      // capability
         PeekL,      // method
                     //
         cntr,       // inst
@@ -428,7 +436,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(  //
-        PeekR,      // ability
+        PeekR,      // capability
         PeekR,      // method
                     //
         cntr,       // inst
@@ -438,7 +446,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(       //
-        Derefer,         // ability
+        Derefer,         // capability
         Derefer,         // method
                          //
         cntr,            // inst
@@ -448,7 +456,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(         //
-        Find,              // ability
+        Find,              // capability
         Find,              // method
                            //
         cntr,              // inst
@@ -461,7 +469,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(       //
-        Insert,          // ability
+        Insert,          // capability
         Insert,          // method
                          //
         cntr,            // inst
@@ -470,7 +478,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(  //
-        PopL,       // ability
+        PopL,       // capability
         PopL,       // method
                     //
         cntr,       // inst
@@ -478,7 +486,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(  //
-        PopR,       // ability
+        PopR,       // capability
         PopR,       // method
                     //
         cntr,       // inst
@@ -486,7 +494,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(  //
-        Erase,      // ability
+        Erase,      // capability
         Erase,      // method
                     //
         cntr,       // inst
@@ -494,14 +502,14 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(  //
-        EraseAll,   // ability
+        EraseAll,   // capability
         EraseAll,   // method
                     //
         cntr        // inst
     );
 
     CheckMethodOp(       //
-        CopyCursor,      // ability
+        CopyCursor,      // capability
         CopyCursor,      // method
                          //
         cntr,            // inst
@@ -510,7 +518,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(       //
-        AreEqualCursor,  // ability
+        AreEqualCursor,  // capability
         AreEqualCursor,  // method
                          //
         cntr,            // inst
@@ -519,7 +527,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(       //
-        CompareCursor,   // ability
+        CompareCursor,   // capability
         CompareCursor,   // method
                          //
         cntr,            // inst
@@ -528,7 +536,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(       //
-        GetCursorDist,   // ability
+        GetCursorDist,   // capability
         GetCursorDist,   // method
                          //
         cntr,            // inst
@@ -537,7 +545,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(      //
-        GetCursorIdx,   // ability
+        GetCursorIdx,   // capability
         GetCursorIdx,   // method
                         //
         cntr,           // inst
@@ -545,7 +553,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(    //
-        CursorStepL,  // ability
+        CursorStepL,  // capability
         CursorStepL,  // method
                       //
         cntr,         // inst
@@ -553,7 +561,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(    //
-        CursorStepR,  // ability
+        CursorStepR,  // capability
         CursorStepR,  // method
                       //
         cntr,         // inst
@@ -561,7 +569,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(       //
-        CursorAdvanceL,  // ability
+        CursorAdvanceL,  // capability
         CursorAdvanceL,  // method
                          //
         cntr,            // inst
@@ -570,7 +578,7 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
     );
 
     CheckMethodOp(       //
-        CursorAdvanceR,  // ability
+        CursorAdvanceR,  // capability
         CursorAdvanceR,  // method
                          //
         cntr,            // inst
@@ -584,19 +592,20 @@ void assoc_cntr::CheckContract(Cntr& cntr) {
 
 template <typename Cntr>
 constexpr assoc_cntr::VTable assoc_cntr::BuildVTableBasic() {
-    constexpr AbilityFlag static_disabled_ability_flag{
-        GetStaticDisabledAbilityFlag<Cntr>()
+    constexpr CapabilityFlag static_disabled_capability_flag{
+        GetStaticDisabledCapabilityFlag<Cntr>()
     };
 
 #pragma push_macro("F")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define F(ability, method)                                                  \
-    []() constexpr {                                                        \
-        if constexpr (TestAbility(static_disabled_ability_flag, ability)) { \
-            return nullptr;                                                 \
-        } else {                                                            \
-            return method;                                                  \
-        }                                                                   \
+#define F(capability, method)                                         \
+    []() constexpr {                                                  \
+        if constexpr (TestCapability(static_disabled_capability_flag, \
+                                     capability)) {                   \
+            return nullptr;                                           \
+        } else {                                                      \
+            return method;                                            \
+        }                                                             \
     }()
 
     constexpr VTable table{
@@ -634,7 +643,7 @@ constexpr assoc_cntr::VTable assoc_cntr::BuildVTableBasic() {
                    }),
 
         .Derefer = F(Derefer,
-                     [](void* cntr, void const* pos_cursor, bool lazy_copy_elem,
+                     [](void* cntr, void* pos_cursor, bool lazy_copy_elem,
                         void* dst_elem) {
                          return Derefer(*static_cast<Cntr*>(cntr), pos_cursor,
                                         lazy_copy_elem, dst_elem);
@@ -671,11 +680,11 @@ constexpr assoc_cntr::VTable assoc_cntr::BuildVTableBasic() {
         .EraseAll = F(EraseAll,
                       [](void* cntr) { EraseAll(*static_cast<Cntr*>(cntr)); }),
 
-        .CopyCursor =
-            F(CopyCursor,
-              [](void* cntr, void const* src_cursor, void* dst_cursor) {
-                  CopyCursor(*static_cast<Cntr*>(cntr), src_cursor, dst_cursor);
-              }),
+        .CopyCursor = F(CopyCursor,
+                        [](void* cntr, void* src_cursor, void* dst_cursor) {
+                            CopyCursor(*static_cast<Cntr*>(cntr), src_cursor,
+                                       dst_cursor);
+                        }),
 
         .AreEqualCursor =
             F(AreEqualCursor,
@@ -725,7 +734,6 @@ constexpr assoc_cntr::VTable assoc_cntr::BuildVTableBasic() {
                                 CursorAdvanceR(*static_cast<Cntr*>(cntr),
                                                cursor, step);
                             }),
-
     };
 
 #pragma pop_macro("F")
@@ -757,6 +765,6 @@ constexpr assoc_cntr::VTable const& assoc_cntr::GetVTable() {
     return detail::VTableHolder_<Cntr>::vtable;
 }
 
-#pragma pop_macro("TestAbility")
+#pragma pop_macro("TestCapability")
 
 }  // namespace zeta::core

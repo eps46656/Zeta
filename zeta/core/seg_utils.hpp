@@ -14,24 +14,27 @@ void SegShoveR(circular_array::Cntr& l_ca, circular_array::Cntr& r_ca,
 template <typename Writer>
 void SegInsertShoveL(circular_array::Cntr& l_ca, circular_array::Cntr& r_ca,
                      size_t rl_cnt, size_t ins_cnt, size_t shove_cnt,
-                     Writer&& writer);
+                     Writer& writer);
 
 template <typename Writer>
 void SegInsertShoveR(circular_array::Cntr& l_ca, circular_array::Cntr& r_ca,
                      size_t lr_cnt, size_t ins_cnt, size_t shove_cnt,
-                     Writer&& writer);
+                     Writer& writer);
 
+template <typename Reader>
 void SegEraseShoveL(circular_array::Cntr& l_ca, circular_array::Cntr& r_ca,
-                    size_t rl_cnt, size_t ers_cnt, size_t shove_cnt);
+                    size_t rl_cnt, size_t ers_cnt, size_t shove_cnt,
+                    Reader& reader);
 
+template <typename Reader>
 void SegEraseShoveR(circular_array::Cntr& l_ca, circular_array::Cntr& r_ca,
-                    size_t lr_cnt, size_t ers_cnt, size_t shove_cnt);
+                    size_t lr_cnt, size_t ers_cnt, size_t shove_cnt,
+                    Reader& reader);
 
 template <typename Writer, typename RLCntValueWrapper,
           typename RRCntValueWrapper, typename InsCntValueWrapper>
 void AugSegShoveL(circular_array::Cntr& l_ca, circular_array::Cntr& r_ca,
                   RLCntValueWrapper rl_cnt, RRCntValueWrapper rr_cnt,
-                  InsCntValueWrapper ins_cnt, size_t shove_cnt,
-                  Writer&& writer);
+                  InsCntValueWrapper ins_cnt, size_t shove_cnt, Writer& writer);
 
 }  // namespace zeta::core::seg_utils

@@ -112,7 +112,7 @@ pair::Pair<bool, unsigned long long> lin_space_mapper::LookUp(
         seg = detail::NToSeg_(nr);
     }
 
-    __builtin_unreachable();
+    ZETA_Core_Unreachable();
 }
 
 template <MapperTplParamList>

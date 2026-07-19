@@ -74,7 +74,7 @@ template <FixedPointTplParamList(Src)>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>&
 fixed_point::FixedPoint<FixedPointTplArgList()>::operator=(
     FixedPoint<FixedPointTplArgList(Src)> const& src) {
-    constexpr size_t op_total_width{ compare_utils::BasicMax(
+    constexpr size_t op_total_width{ comparison_utils::BasicMax(
         IntegralWidth::value + FractionWidth::value,
         SrcIntegralWidth::value + SrcFractionWidth::value) };
 
@@ -105,7 +105,7 @@ fixed_point::FixedPoint<FixedPointTplArgList()>::operator=(
     op_src_value =
         !SignedTag::value && is_neg
             ? 0
-            : compare_utils::BasicMin(
+            : comparison_utils::BasicMin(
                   op_src_value,
                   static_cast<OpIntegral>(integral::RangeMaxOf<Value>));
 
@@ -205,12 +205,12 @@ constexpr auto fixed_point::operator+(
 
     using RIntegralWidth = value_wrapper::StaticValueWrapper<
         size_t,
-        compare_utils::BasicMax(XIntegralWidth::value + XSignedTag::value,
-                                YIntegralWidth::value + YSignedTag::value) -
+        comparison_utils::BasicMax(XIntegralWidth::value + XSignedTag::value,
+                                   YIntegralWidth::value + YSignedTag::value) -
             (XSignedTag::value && YSignedTag::value) + 1>;
 
     using RFractionWidth =
-        value_wrapper::StaticValueWrapper<size_t, compare_utils::BasicMax(
+        value_wrapper::StaticValueWrapper<size_t, comparison_utils::BasicMax(
                                                       XFractionWidth::value,
                                                       YFractionWidth::value)>;
 
@@ -280,12 +280,12 @@ constexpr auto fixed_point::operator-(
 
     using RIntegralWidth = value_wrapper::StaticValueWrapper<
         size_t,
-        compare_utils::BasicMax(XIntegralWidth::value + XSignedTag::value,
-                                YIntegralWidth::value + YSignedTag::value) -
+        comparison_utils::BasicMax(XIntegralWidth::value + XSignedTag::value,
+                                   YIntegralWidth::value + YSignedTag::value) -
             (XSignedTag::value && YSignedTag::value) + 1>;
 
     using RFractionWidth =
-        value_wrapper::StaticValueWrapper<size_t, compare_utils::BasicMax(
+        value_wrapper::StaticValueWrapper<size_t, comparison_utils::BasicMax(
                                                       XFractionWidth::value,
                                                       YFractionWidth::value)>;
 
@@ -363,11 +363,10 @@ template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
 constexpr auto fixed_point::operator/(
     FixedPoint<FixedPointTplArgList(X)> const& x,
     FixedPoint<FixedPointTplArgList(Y)> const& y) {
-    return (
-        FromFraction<value_wrapper::StaticValueWrapper<
-            size_t, compare_utils::BasicMax(XFractionWidth::value,
-                                            YFractionWidth::value)>>)(x.value,
-                                                                      y.value);
+    return (FromFraction<value_wrapper::StaticValueWrapper<
+                size_t, comparison_utils::BasicMax(
+                            XFractionWidth::value,
+                            YFractionWidth::value)>>)(x.value, y.value);
 }
 
 template <typename FractionWidth, typename Num, typename Denom>
@@ -479,10 +478,10 @@ constexpr int fixed_point::MathCompare(
         if (y.value < 0) { return 1; }
     }
 
-    constexpr size_t op_fraction_width{ compare_utils::BasicMax(
+    constexpr size_t op_fraction_width{ comparison_utils::BasicMax(
         XFractionWidth::value, YFractionWidth::value) };
 
-    constexpr size_t op_integral_width{ 1 + compare_utils::BasicMax(
+    constexpr size_t op_integral_width{ 1 + comparison_utils::BasicMax(
                                                 XIntegralWidth::value,
                                                 YIntegralWidth::value) };
 

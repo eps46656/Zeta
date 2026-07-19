@@ -278,48 +278,48 @@ void bin_tree::NodeTraits<
 }
 
 #pragma push_macro("NodeTraitsCond")
-#define NodeTraitsCond                                                        \
-    meta::EnableIf<meta::IsAnyOf<PrimaryColorTag,                             \
-                                 basic_bin_tree_node::PrimaryColorTagEnum::P, \
-                                 basic_bin_tree_node::PrimaryColorTagEnum::L, \
-                                 basic_bin_tree_node::PrimaryColorTagEnum::R>>
+#define NodeTraitsCond                                                \
+    meta::EnableIf<meta::IsAnySame<                                   \
+        PrimaryColorTag, basic_bin_tree_node::PrimaryColorTagEnum::P, \
+        basic_bin_tree_node::PrimaryColorTagEnum::L,                  \
+        basic_bin_tree_node::PrimaryColorTagEnum::R>>
 
 template <NodeTplParamList>
 unsigned rbtree::NodeTraits<basic_bin_tree_node::Node<NodeTplArgList> const,
                             NodeTraitsCond>::GetColor(Node const* n) {
-    if constexpr (meta::IsAnyOf<PrimaryColorTag,
-                                basic_bin_tree_node::PrimaryColorTagEnum::P>) {
+    if constexpr (meta::IsSame<PrimaryColorTag,
+                               basic_bin_tree_node::PrimaryColorTagEnum::P>) {
         return n->GetPColor();
     }
 
-    if constexpr (meta::IsAnyOf<PrimaryColorTag,
-                                basic_bin_tree_node::PrimaryColorTagEnum::L>) {
+    if constexpr (meta::IsSame<PrimaryColorTag,
+                               basic_bin_tree_node::PrimaryColorTagEnum::L>) {
         return n->GetLColor();
     }
 
-    if constexpr (meta::IsAnyOf<PrimaryColorTag,
-                                basic_bin_tree_node::PrimaryColorTagEnum::R>) {
+    if constexpr (meta::IsSame<PrimaryColorTag,
+                               basic_bin_tree_node::PrimaryColorTagEnum::R>) {
         return n->GetRColor();
     }
 
-    __builtin_unreachable();
+    ZETA_Core_Unreachable();
 }
 
 template <NodeTplParamList>
 void rbtree::NodeTraits<basic_bin_tree_node::Node<NodeTplArgList>,
                         NodeTraitsCond>::SetColor(Node* n, unsigned color) {
-    if constexpr (meta::IsAnyOf<PrimaryColorTag,
-                                basic_bin_tree_node::PrimaryColorTagEnum::P>) {
+    if constexpr (meta::IsSame<PrimaryColorTag,
+                               basic_bin_tree_node::PrimaryColorTagEnum::P>) {
         n->SetPColor(color);
     }
 
-    if constexpr (meta::IsAnyOf<PrimaryColorTag,
-                                basic_bin_tree_node::PrimaryColorTagEnum::L>) {
+    if constexpr (meta::IsSame<PrimaryColorTag,
+                               basic_bin_tree_node::PrimaryColorTagEnum::L>) {
         n->SetLColor(color);
     }
 
-    if constexpr (meta::IsAnyOf<PrimaryColorTag,
-                                basic_bin_tree_node::PrimaryColorTagEnum::R>) {
+    if constexpr (meta::IsSame<PrimaryColorTag,
+                               basic_bin_tree_node::PrimaryColorTagEnum::R>) {
         n->SetRColor(color);
     }
 }

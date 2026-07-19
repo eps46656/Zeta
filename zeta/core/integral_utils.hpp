@@ -1,9 +1,10 @@
 #pragma once
 
-#include <zeta/core/compare_utils.ipp>
+#include <zeta/core/comparison_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
+#include <zeta/core/tuple.ipp>
 
 namespace zeta::core::integral_utils {
 
@@ -24,7 +25,7 @@ auto SelectIntegralCands_(auto... cands) {
         constexpr Score scores[]{ [](auto cand) {
             using Cand = decltype(cand)::Type;
 
-            constexpr bool is_void{ meta::IsAnyOf<Cand, void> };
+            constexpr bool is_void{ meta::IsSame<Cand, void> };
 
             if constexpr (is_void) {
                 return Score{ is_void, 0ULL };
@@ -52,7 +53,9 @@ auto SelectIntegralCands_(auto... cands) {
         return best_i;
     }(cands...) };
 
-    return meta::GetNthArg<best_i>(cands...);
+    tuple::Tuple<decltype(cands)...> t{ cands... };
+
+    return t.template Access<best_i>();
 }
 
 template <unsigned long long N>
@@ -121,8 +124,8 @@ auto UnsignedFastIntegral_() {
         };
 
         constexpr unsigned long long max_k{
-            compare_utils::BasicMin(integral::RangeMaxOf<unsigned long long>,
-                                    ZETA_Core_bitint_max_width) /
+            comparison_utils::BasicMin(integral::RangeMaxOf<unsigned long long>,
+                                       ZETA_Core_bitint_max_width) /
             natural_width
         };
 
@@ -203,8 +206,8 @@ auto SignedFastIntegral_() {
         };
 
         constexpr unsigned long long max_k{
-            compare_utils::BasicMin(integral::RangeMaxOf<unsigned long long>,
-                                    ZETA_Core_bitint_max_width) /
+            comparison_utils::BasicMin(integral::RangeMaxOf<unsigned long long>,
+                                       ZETA_Core_bitint_max_width) /
             natural_width
         };
 

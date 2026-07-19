@@ -21,7 +21,7 @@ namespace pool_allocator::detail {
 template <AllocatorTplParamList>
 void Check_  // NOLINT(misc-use-internal-linkage)
     (Allocator<AllocatorTplArgList>& pa) {
-    if (!meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Never>) {
+    if (!meta::IsSame<ReleaseStrategyTag, ReleaseStrategy::Never>) {
         ZETA_Core_DebugAssert(0 < pa.capacity);
         ZETA_Core_DebugAssert(pa.cnt <= pa.capacity);
     }
@@ -29,7 +29,7 @@ void Check_  // NOLINT(misc-use-internal-linkage)
     if (pa.head == nullptr) {
         ZETA_Core_DebugAssert(pa.tail == nullptr);
 
-        if (!meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Never>) {
+        if (!meta::IsSame<ReleaseStrategyTag, ReleaseStrategy::Never>) {
             ZETA_Core_DebugAssert(pa.cnt == 0);
         }
     } else if (pa.head == pa.tail) {
@@ -44,7 +44,7 @@ template <typename ReuseStrategyTag, typename ReleaseStrategyTag,
 void pool_allocator::Init(
     Allocator<ReuseStrategyTag, ReleaseStrategyTag, SrcAllocatorLike>& pa,
     SrcAllocatorLikeInitArg&& src_allocator_like_init_arg) {
-    if constexpr (!meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Never>) {
+    if constexpr (!meta::IsSame<ReleaseStrategyTag, ReleaseStrategy::Never>) {
         pa.cnt = 0;
     }
 
@@ -59,7 +59,7 @@ void pool_allocator::Init(
 template <typename ReuseStrategyTag, typename ReleaseStrategyTag>
 void pool_allocator::Init(
     Allocator<ReuseStrategyTag, ReleaseStrategyTag, void>& pa) {
-    if constexpr (!meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Never>) {
+    if constexpr (!meta::IsSame<ReleaseStrategyTag, ReleaseStrategy::Never>) {
         pa.cnt = 0;
     }
 
@@ -71,7 +71,7 @@ template <AllocatorTplParamList>
 void pool_allocator::Deinit(Allocator<AllocatorTplArgList>& pa) {
     detail::Check_(pa);
 
-    if constexpr (meta::IsAnyOf<SrcAllocatorLike, void>) {
+    if constexpr (meta::IsSame<SrcAllocatorLike, void>) {
         ZETA_Core_DebugAssert(pa.head == nullptr);
     } else {
         if (pa.head != nullptr) { Release(pa, integral::RangeMaxOf<size_t>); }
@@ -152,14 +152,14 @@ void* pool_allocator::Allocate(Allocator<AllocatorTplArgList>& pa,
     void* tail{ pa.tail };
 
     if (head == nullptr) {
-        if constexpr (!meta::IsAnyOf<SrcAllocatorLike, void>) {
+        if constexpr (!meta::IsSame<SrcAllocatorLike, void>) {
             return allocator::Allocate(pa.src_alctr, size);
         }
 
         return nullptr;
     }
 
-    if constexpr (!meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Never>) {
+    if constexpr (!meta::IsSame<ReleaseStrategyTag, ReleaseStrategy::Never>) {
         --pa.cnt;
     }
 
@@ -171,12 +171,12 @@ void* pool_allocator::Allocate(Allocator<AllocatorTplArgList>& pa,
 
     void* ret;
 
-    if constexpr (meta::IsAnyOf<ReuseStrategyTag, ReuseStrategy::Oldest>) {
+    if constexpr (meta::IsSame<ReuseStrategyTag, ReuseStrategy::Oldest>) {
         ret = head;
         detail::PopHead_(head, tail);
         pa.head = head;
-    } else if constexpr (meta::IsAnyOf<ReuseStrategyTag,
-                                       ReuseStrategy::Latest>) {
+    } else if constexpr (meta::IsSame<ReuseStrategyTag,
+                                      ReuseStrategy::Latest>) {
         ret = tail;
         detail::PopTail_(head, tail);
         pa.tail = tail;
@@ -203,7 +203,7 @@ void pool_allocator::Deallocate(Allocator<AllocatorTplArgList>& pa, void* ptr) {
         pa.head = ptr;
         pa.tail = ptr;
 
-        if (!meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Never>) {
+        if (!meta::IsSame<ReleaseStrategyTag, ReleaseStrategy::Never>) {
             pa.cnt = 1;
         }
 
@@ -211,7 +211,7 @@ void pool_allocator::Deallocate(Allocator<AllocatorTplArgList>& pa, void* ptr) {
         return;
     }
 
-    if constexpr (meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Latest>) {
+    if constexpr (meta::IsSame<ReleaseStrategyTag, ReleaseStrategy::Latest>) {
         if (pa.cnt == capacity) {
             allocator::Deallocate(pa.src_alctr, ptr);
             return;
@@ -222,7 +222,7 @@ void pool_allocator::Deallocate(Allocator<AllocatorTplArgList>& pa, void* ptr) {
 
     detail::PushTail_(head, tail, ptr);
 
-    if constexpr (meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Oldest>) {
+    if constexpr (meta::IsSame<ReleaseStrategyTag, ReleaseStrategy::Oldest>) {
         if (pa.cnt == capacity) {
             void* n{ head };
             detail::PopHead_(head, tail);
@@ -243,7 +243,7 @@ void pool_allocator::Release(Allocator<AllocatorTplArgList>& pa, size_t cnt) {
     void* head{ pa.head };
     void* tail{ pa.tail };
 
-    if constexpr (!meta::IsAnyOf<ReleaseStrategyTag, ReleaseStrategy::Never>) {
+    if constexpr (!meta::IsSame<ReleaseStrategyTag, ReleaseStrategy::Never>) {
         pa.cnt -= Min(cnt, pa.cnt);
     }
 
@@ -256,12 +256,12 @@ void pool_allocator::Release(Allocator<AllocatorTplArgList>& pa, size_t cnt) {
 
         void* n;
 
-        if constexpr (meta::IsAnyOf<ReleaseStrategyTag,
-                                    ReleaseStrategy::Oldest>) {
+        if constexpr (meta::IsSame<ReleaseStrategyTag,
+                                   ReleaseStrategy::Oldest>) {
             n = head;
             detail::PopHead_(head, tail);
-        } else if constexpr (meta::IsAnyOf<ReleaseStrategyTag,
-                                           ReleaseStrategy::Latest>) {
+        } else if constexpr (meta::IsSame<ReleaseStrategyTag,
+                                          ReleaseStrategy::Latest>) {
             n = tail;
             detail::PopTail_(head, tail);
         } else {

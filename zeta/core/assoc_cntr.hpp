@@ -21,7 +21,7 @@ using FnCompare = function_ref::Ref<int(void const*, void const*)>;
 
 // clang-format off
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define ZETA_Core_KKKCntr_Ability_XMacro(func, sep)                            \
+#define ZETA_Core_KKKCntr_Capability_XMacro(func, sep)                            \
     func(GetCursorSize) sep                                                    \
                                                                                \
     func(GetElemSize) sep                                                      \
@@ -59,7 +59,7 @@ using FnCompare = function_ref::Ref<int(void const*, void const*)>;
     func(CursorAdvanceR)
 // clang-format on
 
-struct AbilityEnum {
+struct CapabilityEnum {
     static constexpr size_t NumBase{ __COUNTER__ + 1 };
 
     static constexpr size_t Never{ __COUNTER__ - NumBase };
@@ -70,65 +70,67 @@ struct AbilityEnum {
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define F(name) static constexpr size_t name{ __COUNTER__ - NumBase };
 
-    ZETA_Core_KKKCntr_Ability_XMacro(F, );
+    ZETA_Core_KKKCntr_Capability_XMacro(F, );
 
 #pragma pop_macro("F")
 
     static constexpr size_t Total{ __COUNTER__ - NumBase };
 };
 
-using AbilityFlag = unsigned;
+using CapabilityFlag = unsigned;
 
-ZETA_Core_StaticAssert(AbilityEnum::Total <= integral::WidthOf<AbilityFlag>);
+ZETA_Core_StaticAssert(CapabilityEnum::Total <=
+                       integral::WidthOf<CapabilityFlag>);
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
-struct AbilityFlagBuilder {
+struct CapabilityFlagBuilder {
 #pragma push_macro("F")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define F(name) bool const name;
 
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
-    ZETA_Core_KKKCntr_Ability_XMacro(F, );
+    ZETA_Core_KKKCntr_Capability_XMacro(F, );
 
 #pragma pop_macro("F")
 
-    constexpr AbilityFlag operator()() const {
+    constexpr CapabilityFlag operator()() const {
 #pragma push_macro("F")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define F(name) (static_cast<AbilityFlag>(this->name) << AbilityEnum::name)
+#define F(name) \
+    (static_cast<CapabilityFlag>(this->name) << CapabilityEnum::name)
 
-        return (static_cast<AbilityFlag>(1) << AbilityEnum::Always) |
-               ZETA_Core_KKKCntr_Ability_XMacro(F, |);
+        return (static_cast<CapabilityFlag>(1) << CapabilityEnum::Always) |
+               ZETA_Core_KKKCntr_Capability_XMacro(F, |);
 
 #pragma pop_macro("F")
     }
 };
 
-constexpr AbilityFlag empty_ability_flag{ AbilityFlagBuilder{
+constexpr CapabilityFlag empty_capability_flag{ CapabilityFlagBuilder{
 #pragma push_macro("F")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define F(name) .name = false,
 
-    ZETA_Core_KKKCntr_Ability_XMacro(F, )
+    ZETA_Core_KKKCntr_Capability_XMacro(F, )
 
 #pragma pop_macro("F")
 }() };
 
-constexpr AbilityFlag full_ability_flag{ AbilityFlagBuilder{
+constexpr CapabilityFlag full_capability_flag{ CapabilityFlagBuilder{
 #pragma push_macro("F")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define F(name) .name = true,
 
-    ZETA_Core_KKKCntr_Ability_XMacro(F, )
+    ZETA_Core_KKKCntr_Capability_XMacro(F, )
 
 #pragma pop_macro("F")
 }() };
 
-constexpr AbilityFlag non_const_ability_flag{ AbilityFlagBuilder{
+constexpr CapabilityFlag non_const_capability_flag{ CapabilityFlagBuilder{
     .GetCursorSize = false,
     .GetElemSize = false,
     .GetElemCnt = false,
@@ -155,7 +157,7 @@ constexpr AbilityFlag non_const_ability_flag{ AbilityFlagBuilder{
     .CursorAdvanceR = false,
 }() };
 
-constexpr AbilityFlag const_ability_flag{ AbilityFlagBuilder{
+constexpr CapabilityFlag const_capability_flag{ CapabilityFlagBuilder{
     .GetCursorSize = true,
     .GetElemSize = true,
     .GetElemCnt = true,
@@ -182,37 +184,38 @@ constexpr AbilityFlag const_ability_flag{ AbilityFlagBuilder{
     .CursorAdvanceR = true,
 }() };
 
-ZETA_Core_StaticAssert((non_const_ability_flag & const_ability_flag) ==
-                       empty_ability_flag);
+ZETA_Core_StaticAssert((non_const_capability_flag & const_capability_flag) ==
+                       empty_capability_flag);
 
-ZETA_Core_StaticAssert((non_const_ability_flag | const_ability_flag) ==
-                       full_ability_flag);
+ZETA_Core_StaticAssert((non_const_capability_flag | const_capability_flag) ==
+                       full_capability_flag);
 
 template <typename Cntr, typename = void>
 struct CntrTraits;  // IWYU pragma: export
 
-constexpr bool CheckAbilityFlags(AbilityFlag static_enabled_ability_flag,
-                                 AbilityFlag static_disabled_ability_flag);
+constexpr bool CheckCapabilityFlags(
+    CapabilityFlag static_enabled_capability_flag,
+    CapabilityFlag static_disabled_capability_flag);
 
-bool CheckAbilityFlags(AbilityFlag static_enabled_ability_flag,
-                       AbilityFlag static_disabled_ability_flag,
-                       AbilityFlag dynamic_enabled_ability_flag,
-                       AbilityFlag dynamic_disabled_ability_flag);
+bool CheckCapabilityFlags(CapabilityFlag static_enabled_capability_flag,
+                          CapabilityFlag static_disabled_capability_flag,
+                          CapabilityFlag dynamic_enabled_capability_flag,
+                          CapabilityFlag dynamic_disabled_capability_flag);
 
 template <typename Cntr>
 auto* GetReferedInstPtr(Cntr& cntr);
 
 template <typename Cntr>
-constexpr AbilityFlag GetStaticEnabledAbilityFlag();
+constexpr CapabilityFlag GetStaticEnabledCapabilityFlag();
 
 template <typename Cntr>
-constexpr AbilityFlag GetStaticDisabledAbilityFlag();
+constexpr CapabilityFlag GetStaticDisabledCapabilityFlag();
 
 template <typename Cntr>
-AbilityFlag GetDynamicEnabledAbilityFlag(Cntr& cntr);
+CapabilityFlag GetDynamicEnabledCapabilityFlag(Cntr& cntr);
 
 template <typename Cntr>
-AbilityFlag GetDynamicDisabledAbilityFlag(Cntr& cntr);
+CapabilityFlag GetDynamicDisabledCapabilityFlag(Cntr& cntr);
 
 template <typename Cntr>
 size_t GetCursorSize(Cntr& cntr);
@@ -239,7 +242,7 @@ template <typename Cntr>
 void* PeekR(Cntr& cntr, bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
 
 template <typename Cntr>
-void* Derefer(Cntr& cntr, void const* pos_cursor, bool lazy_copy_elem,
+void* Derefer(Cntr& cntr, void* pos_cursor, bool lazy_copy_elem,
               void* dst_elem);
 
 template <typename Cntr, typename KeyHash, typename KeyElemCompare>
@@ -263,7 +266,7 @@ template <typename Cntr>
 void EraseAll(Cntr& cntr);
 
 template <typename Cntr>
-void CopyCursor(Cntr& cntr, void const* src_cursor, void* dst_cursor);
+void CopyCursor(Cntr& cntr, void* src_cursor, void* dst_cursor);
 
 template <typename Cntr>
 bool AreEqualCursor(Cntr& cntr, void const* cursor_a, void const* cursor_b);
@@ -307,7 +310,7 @@ struct VTable {
     void* (*PeekR)(void* cntr, bool lazy_copy_elem, void* dst_cursor,
                    void* dst_elem);
 
-    void* (*Derefer)(void* cntr, void const* pos_cursor, bool lazy_copy_elem,
+    void* (*Derefer)(void* cntr, void* pos_cursor, bool lazy_copy_elem,
                      void* dst_elem);
 
     void* (*FnFind)(void* cntr, void const* key, FnHash const& key_hash,
@@ -324,7 +327,7 @@ struct VTable {
 
     void (*EraseAll)(void* cntr);
 
-    void (*CopyCursor)(void* cntr, void const* src_cursor, void* dst_cursor);
+    void (*CopyCursor)(void* cntr, void* src_cursor, void* dst_cursor);
 
     bool (*AreEqualCursor)(void* cntr, void const* cursor_a,
                            void const* cursor_b);

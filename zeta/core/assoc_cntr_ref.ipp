@@ -9,48 +9,48 @@
 
 namespace zeta::core {
 
-#pragma push_macro("TestAbility")
+#pragma push_macro("TestCapability")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define TestAbility(ability_flag, ability)                                     \
-    (((ability_flag) & (static_cast<::zeta::core::assoc_cntr::AbilityFlag>(1)  \
-                        << ::zeta::core::assoc_cntr::AbilityEnum::ability)) != \
-     0)
+#define TestCapability(capability_flag, capability)             \
+    (((capability_flag) &                                       \
+      (static_cast<::zeta::core::assoc_cntr::CapabilityFlag>(1) \
+       << ::zeta::core::assoc_cntr::CapabilityEnum::capability)) != 0)
 
 #pragma push_macro("CallMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CallMethod(ability, method, ...)                             \
-    {                                                                \
-        ZETA_Core_DebugAssert(                                       \
-            TestAbility(ref.dynamic_enabled_ability_flag, ability)); \
-                                                                     \
-        auto method_ptr{ ref.vtable->method };                       \
-        ZETA_Core_DebugAssert(method_ptr != nullptr);                \
-                                                                     \
-        return method_ptr(ref.cntr, __VA_ARGS__);                    \
-    }                                                                \
+#define CallMethod(capability, method, ...)                                   \
+    {                                                                         \
+        ZETA_Core_DebugAssert(                                                \
+            TestCapability(ref.dynamic_enabled_capability_flag, capability)); \
+                                                                              \
+        auto method_ptr{ ref.vtable->method };                                \
+        ZETA_Core_DebugAssert(method_ptr != nullptr);                         \
+                                                                              \
+        return method_ptr(ref.cntr, __VA_ARGS__);                             \
+    }                                                                         \
     ZETA_Core_StaticAssert(true);
 
-inline assoc_cntr::AbilityFlag assoc_cntr_ref::GetDynamicEnabledAbilityFlag(
-    Ref& ref) {
-    return ref.dynamic_enabled_ability_flag;
+inline assoc_cntr::CapabilityFlag
+assoc_cntr_ref::GetDynamicEnabledCapabilityFlag(Ref& ref) {
+    return ref.dynamic_enabled_capability_flag;
 }
 
-inline assoc_cntr::AbilityFlag assoc_cntr_ref::GetDynamicEnabledAbilityFlag(
-    Ref const& ref) {
-    return GetDynamicEnabledAbilityFlag(const_cast<Ref&>(ref)) &
-           assoc_cntr::const_ability_flag;
+inline assoc_cntr::CapabilityFlag
+assoc_cntr_ref::GetDynamicEnabledCapabilityFlag(Ref const& ref) {
+    return GetDynamicEnabledCapabilityFlag(const_cast<Ref&>(ref)) &
+           assoc_cntr::const_capability_flag;
 }
 
-inline assoc_cntr::AbilityFlag assoc_cntr_ref::GetDynamicDisabledAbilityFlag(
-    Ref& ref) {
-    return ref.dynamic_disabled_ability_flag;
+inline assoc_cntr::CapabilityFlag
+assoc_cntr_ref::GetDynamicDisabledCapabilityFlag(Ref& ref) {
+    return ref.dynamic_disabled_capability_flag;
 }
 
-inline assoc_cntr::AbilityFlag assoc_cntr_ref::GetDynamicDisabledAbilityFlag(
-    Ref const& ref) {
-    return GetDynamicDisabledAbilityFlag(const_cast<Ref&>(ref)) &
-           assoc_cntr::const_ability_flag;
+inline assoc_cntr::CapabilityFlag
+assoc_cntr_ref::GetDynamicDisabledCapabilityFlag(Ref const& ref) {
+    return GetDynamicDisabledCapabilityFlag(const_cast<Ref&>(ref)) &
+           assoc_cntr::const_capability_flag;
 }
 
 inline size_t assoc_cntr_ref::GetCursorSize(Ref const& ref) {
@@ -85,7 +85,7 @@ inline void* assoc_cntr_ref::PeekR(Ref const& ref, bool lazy_copy_elem,
     CallMethod(PeekR, PeekR, lazy_copy_elem, dst_cursor, dst_elem);
 }
 
-inline void* assoc_cntr_ref::Derefer(Ref const& ref, void const* pos_cursor,
+inline void* assoc_cntr_ref::Derefer(Ref const& ref, void* pos_cursor,
                                      bool lazy_copy_elem, void* dst_elem) {
     CallMethod(Derefer, Derefer, pos_cursor, lazy_copy_elem, dst_elem);
 }
@@ -121,7 +121,7 @@ inline void assoc_cntr_ref::EraseAll(Ref& ref) {
     CallMethod(EraseAll, EraseAll);
 }
 
-inline void assoc_cntr_ref::CopyCursor(Ref const& ref, void const* src_cursor,
+inline void assoc_cntr_ref::CopyCursor(Ref const& ref, void* src_cursor,
                                        void* dst_cursor) {
     CallMethod(CopyCursor, CopyCursor, src_cursor, dst_cursor);
 }
@@ -171,16 +171,17 @@ inline void assoc_cntr_ref::CheckRef(Ref& ref) {
     ZETA_Core_DebugAssert(ref.vtable != nullptr);
     ZETA_Core_DebugAssert(ref.cntr != nullptr);
 
-    assoc_cntr::AbilityFlag enabled_ability_flag{
-        ref.dynamic_enabled_ability_flag
+    assoc_cntr::CapabilityFlag enabled_capability_flag{
+        ref.dynamic_enabled_capability_flag
     };
 
 #pragma push_macro("CheckMethod")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CheckMethod(ability, method)                                     \
-    ZETA_Core_DebugAssert(!TestAbility(enabled_ability_flag, ability) || \
-                          ref.vtable->method != nullptr);
+#define CheckMethod(capability, method)                         \
+    ZETA_Core_DebugAssert(                                      \
+        !TestCapability(enabled_capability_flag, capability) || \
+        ref.vtable->method != nullptr);
 
     CheckMethod(GetElemCnt, GetElemCnt);
     CheckMethod(GetMaxElemCnt, GetMaxElemCnt);
@@ -225,12 +226,12 @@ assoc_cntr_ref::Ref
         .width = assoc_cntr::GetElemSize(cntr),
         .capacity = assoc_cntr::GetMaxElemCnt(cntr),
 
-        .dynamic_enabled_ability_flag =
-            assoc_cntr::GetStaticEnabledAbilityFlag<AssocCntr>() |
-            assoc_cntr::GetDynamicEnabledAbilityFlag(cntr),
-        .dynamic_disabled_ability_flag =
-            assoc_cntr::GetStaticDisabledAbilityFlag<AssocCntr>() |
-            assoc_cntr::GetDynamicDisabledAbilityFlag(cntr),
+        .dynamic_enabled_capability_flag =
+            assoc_cntr::GetStaticEnabledCapabilityFlag<AssocCntr>() |
+            assoc_cntr::GetDynamicEnabledCapabilityFlag(cntr),
+        .dynamic_disabled_capability_flag =
+            assoc_cntr::GetStaticDisabledCapabilityFlag<AssocCntr>() |
+            assoc_cntr::GetDynamicDisabledCapabilityFlag(cntr),
 
         .vtable = &assoc_cntr::GetVTable<AssocCntr>(),
 
@@ -244,9 +245,9 @@ assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const>::GetReferedInstPtr(
     return ref.cntr;
 }
 
-constexpr assoc_cntr::AbilityFlag
-assoc_cntr::CntrTraits<assoc_cntr_ref::Ref>::GetStaticEnabledAbilityFlag() {
-    return assoc_cntr::AbilityFlagBuilder{
+constexpr assoc_cntr::CapabilityFlag
+assoc_cntr::CntrTraits<assoc_cntr_ref::Ref>::GetStaticEnabledCapabilityFlag() {
+    return assoc_cntr::CapabilityFlagBuilder{
         .GetCursorSize = true,
 
         .GetElemSize = true,
@@ -284,33 +285,33 @@ assoc_cntr::CntrTraits<assoc_cntr_ref::Ref>::GetStaticEnabledAbilityFlag() {
     }();
 }
 
-constexpr assoc_cntr::AbilityFlag assoc_cntr::CntrTraits<
-    assoc_cntr_ref::Ref const>::GetStaticEnabledAbilityFlag() {
+constexpr assoc_cntr::CapabilityFlag assoc_cntr::CntrTraits<
+    assoc_cntr_ref::Ref const>::GetStaticEnabledCapabilityFlag() {
     return assoc_cntr::CntrTraits<
-               assoc_cntr_ref::Ref>::GetStaticEnabledAbilityFlag() &
-           assoc_cntr::const_ability_flag;
+               assoc_cntr_ref::Ref>::GetStaticEnabledCapabilityFlag() &
+           assoc_cntr::const_capability_flag;
 }
 
-constexpr assoc_cntr::AbilityFlag
-assoc_cntr::CntrTraits<assoc_cntr_ref::Ref>::GetStaticDisabledAbilityFlag() {
-    return assoc_cntr::empty_ability_flag;
+constexpr assoc_cntr::CapabilityFlag
+assoc_cntr::CntrTraits<assoc_cntr_ref::Ref>::GetStaticDisabledCapabilityFlag() {
+    return assoc_cntr::empty_capability_flag;
 }
 
-constexpr assoc_cntr::AbilityFlag assoc_cntr::CntrTraits<
-    assoc_cntr_ref::Ref const>::GetStaticDisabledAbilityFlag() {
-    return assoc_cntr::non_const_ability_flag;
+constexpr assoc_cntr::CapabilityFlag assoc_cntr::CntrTraits<
+    assoc_cntr_ref::Ref const>::GetStaticDisabledCapabilityFlag() {
+    return assoc_cntr::non_const_capability_flag;
 }
 
-constexpr assoc_cntr::AbilityFlag
-assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const>::GetDynamicEnabledAbilityFlag(
-    assoc_cntr_ref::Ref const&) {
-    return assoc_cntr::empty_ability_flag;
-}
-
-constexpr assoc_cntr::AbilityFlag assoc_cntr::
-    CntrTraits<assoc_cntr_ref::Ref const>::GetDynamicDisabledAbilityFlag(
+constexpr assoc_cntr::CapabilityFlag assoc_cntr::
+    CntrTraits<assoc_cntr_ref::Ref const>::GetDynamicEnabledCapabilityFlag(
         assoc_cntr_ref::Ref const&) {
-    return assoc_cntr::empty_ability_flag;
+    return assoc_cntr::empty_capability_flag;
+}
+
+constexpr assoc_cntr::CapabilityFlag assoc_cntr::
+    CntrTraits<assoc_cntr_ref::Ref const>::GetDynamicDisabledCapabilityFlag(
+        assoc_cntr_ref::Ref const&) {
+    return assoc_cntr::empty_capability_flag;
 }
 
 inline size_t assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const>::GetCursorSize(
@@ -356,7 +357,7 @@ inline void* assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const>::PeekR(
 }
 
 inline void* assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const>::Derefer(
-    assoc_cntr_ref::Ref const& ref, void const* pos_cursor, bool lazy_copy_elem,
+    assoc_cntr_ref::Ref const& ref, void* pos_cursor, bool lazy_copy_elem,
     void* dst_elem) {
     return assoc_cntr_ref::Derefer(ref, pos_cursor, lazy_copy_elem, dst_elem);
 }
@@ -397,7 +398,7 @@ inline void assoc_cntr::CntrTraits<assoc_cntr_ref::Ref>::EraseAll(
 }
 
 inline void assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const>::CopyCursor(
-    assoc_cntr_ref::Ref const& ref, void const* src_cursor, void* dst_cursor) {
+    assoc_cntr_ref::Ref const& ref, void* src_cursor, void* dst_cursor) {
     assoc_cntr_ref::CopyCursor(ref, src_cursor, dst_cursor);
 }
 
@@ -444,6 +445,6 @@ inline void assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const>::CursorAdvanceR(
     assoc_cntr_ref::CursorAdvanceR(ref, cursor, step);
 }
 
-#pragma pop_macro("TestAbility")
+#pragma pop_macro("TestCapability")
 
 }  // namespace zeta::core

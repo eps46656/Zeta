@@ -21,7 +21,7 @@
 
 namespace zeta::core::fixed_point {
 
-constexpr size_t max_total_width{ compare_utils::BasicMin(
+constexpr size_t max_total_width{ comparison_utils::BasicMin(
     ZETA_Core_bitint_max_width,
     static_cast<size_t>(integral::RangeMaxOf<long long> / 256)) };
 
@@ -35,8 +35,8 @@ struct FixedPoint {
     using IntegralWidth = IntegralWidth_;
     using FractionWidth = FractionWidth_;
 
-    ZETA_Core_StaticAssert(meta::IsAnyOf<SignedTag, value_wrapper::FalseType,
-                                         value_wrapper::TrueType>);
+    ZETA_Core_StaticAssert(meta::IsAnySame<SignedTag, value_wrapper::FalseType,
+                                           value_wrapper::TrueType>);
 
     ZETA_Core_StaticAssert(
         value_wrapper::IsStaticValueWrapper<IntegralWidth, size_t>);
