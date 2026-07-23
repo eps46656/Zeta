@@ -173,14 +173,14 @@ inline void test_IOI(int special_value) {
     bool no_lossy_oi;
 
     {
-        auto mem_reader{ zeta::core::seq_cntr::MemReader{
+        auto mem_reader{ zeta::core::lin_seq_elem_stream::Acceptor{
             .data = buffer, .elem_size = 1, .elem_stride = 1 } };
 
         no_lossy_io = zeta::core::serde_utils::SerializeIntegral(
             mem_reader, io_val,
             zeta::core::value_wrapper::DynamicValueWrapper<unsigned long long>{
                 OctetCnt },
-            zeta::core::serde_utils::EndiannessEnum::Little{});
+            zeta::core::serde_utils::EndiannessEnum::Little{}, false, nullptr);
 
         ZETA_Core_DebugAssert(static_cast<unsigned char*>(mem_reader.data) -
                                   buffer ==
@@ -203,14 +203,14 @@ inline void test_IOI(int special_value) {
     ZETA_Core_Debug_PrintVar(buffer[7]);
 
     {
-        auto mem_writer{ zeta::core::seq_cntr::MemWriter{
+        auto mem_writer{ zeta::core::lin_seq_elem_stream::Provider{
             .data = buffer, .elem_size = 1, .elem_stride = 1 } };
 
         no_lossy_oi = zeta::core::serde_utils::DeserializeIntegral(
             mem_writer, oi_val,
             zeta::core::value_wrapper::DynamicValueWrapper<unsigned long long>{
                 OctetCnt },
-            zeta::core::serde_utils::EndiannessEnum::Little{});
+            zeta::core::serde_utils::EndiannessEnum::Little{}, false, nullptr);
 
         ZETA_Core_DebugAssert(
             static_cast<unsigned char const*>(mem_writer.data) - buffer ==

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <zeta/core/compare_utils.ipp>
+#include <zeta/core/comparison_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
@@ -39,11 +39,11 @@ struct FixedPoint {
                                            value_wrapper::TrueType>);
 
     ZETA_Core_StaticAssert(
-        value_wrapper::IsStaticValueWrapper<IntegralWidth, size_t>);
+        value_wrapper::IsStaticValueWrapperWith<IntegralWidth, size_t>);
     ZETA_Core_StaticAssert(IntegralWidth::value <= max_integral_width);
 
     ZETA_Core_StaticAssert(
-        value_wrapper::IsStaticValueWrapper<FractionWidth, size_t>);
+        value_wrapper::IsStaticValueWrapperWith<FractionWidth, size_t>);
     ZETA_Core_StaticAssert(FractionWidth::value <= max_fraction_width);
 
     ZETA_Core_StaticAssert(2 <= IntegralWidth::value + FractionWidth::value);

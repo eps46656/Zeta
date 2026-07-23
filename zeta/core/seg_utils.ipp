@@ -24,12 +24,11 @@ inline void seg_utils::SegShoveL(circular_array::Cntr& l_ca,
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    seq_cntr::PushR(l_ca, shove_cnt, seq_cntr::empty_writer, nullptr);
+    seq_cntr::PushR(l_ca, shove_cnt, elem_stream::EmptyProvider{}, nullptr);
 
-    circular_array::AssignFromCircularArray(l_ca, l_elem_cnt, r_ca, 0,
-                                            shove_cnt);
+    l_ca.AssignFromCircularArray(l_elem_cnt, r_ca, 0, shove_cnt);
 
-    seq_cntr::PopL(r_ca, shove_cnt, seq_cntr::empty_reader);
+    seq_cntr::PopL(r_ca, shove_cnt, elem_stream::EmptyAcceptor{});
 }
 
 inline void seg_utils::SegShoveR(circular_array::Cntr& l_ca,
@@ -45,12 +44,12 @@ inline void seg_utils::SegShoveR(circular_array::Cntr& l_ca,
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    seq_cntr::PushL(r_ca, shove_cnt, seq_cntr::empty_writer, nullptr);
+    seq_cntr::PushL(r_ca, shove_cnt, elem_stream::EmptyProvider{}, nullptr);
 
     circular_array::AssignFromCircularArray(r_ca, 0, l_ca,
                                             l_elem_cnt - shove_cnt, shove_cnt);
 
-    seq_cntr::PopR(l_ca, shove_cnt, seq_cntr::empty_reader);
+    seq_cntr::PopR(l_ca, shove_cnt, elem_stream::EmptyAcceptor{});
 }
 
 template <typename Writer>
@@ -77,7 +76,8 @@ void seg_utils::SegInsertShoveL(circular_array::Cntr& l_ca,
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    circular_array::PushR(l_ca, shove_cnt, seq_cntr::empty_writer, nullptr);
+    circular_array::PushR(l_ca, shove_cnt, elem_stream::EmptyProvider{},
+                          nullptr);
 
     if (0 < cnt_a) {
         circular_array::AssignFromCircularArray(l_ca, l_elem_cnt, r_ca, 0,
@@ -93,7 +93,7 @@ void seg_utils::SegInsertShoveL(circular_array::Cntr& l_ca,
             l_ca, l_elem_cnt + cnt_a + cnt_b, r_ca, cnt_a, cnt_c);
     }
 
-    circular_array::PopL(r_ca, cnt_a + cnt_c, seq_cntr::empty_reader);
+    circular_array::PopL(r_ca, cnt_a + cnt_c, elem_stream::EmptyAcceptor{});
 
     if (0 < ins_cnt - cnt_b) {
         circular_array::IdxInsert(r_ca, rl_cnt - cnt_a, ins_cnt - cnt_b,
@@ -125,7 +125,8 @@ void seg_utils::SegInsertShoveR(circular_array::Cntr& l_ca,
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    circular_array::PushL(r_ca, shove_cnt, seq_cntr::empty_writer, nullptr);
+    circular_array::PushL(r_ca, shove_cnt, elem_stream::EmptyProvider{},
+                          nullptr);
 
     if (0 < cnt_c) {
         circular_array::AssignFromCircularArray(
@@ -139,7 +140,7 @@ void seg_utils::SegInsertShoveR(circular_array::Cntr& l_ca,
                                                 l_elem_cnt - cnt_a, cnt_a);
     }
 
-    circular_array::PopR(l_ca, cnt_c + cnt_a, seq_cntr::empty_reader);
+    circular_array::PopR(l_ca, cnt_c + cnt_a, elem_stream::EmptyAcceptor{});
 
     if (0 < ins_cnt - cnt_b) {
         circular_array::IdxInsert(l_ca, l_elem_cnt - lr_cnt, ins_cnt - cnt_b,
@@ -169,7 +170,7 @@ void seg_utils::SegEraseShoveL(circular_array::Cntr& l_ca,
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    seq_cntr::PushR(l_ca, shove_cnt, seq_cntr::empty_writer, nullptr);
+    seq_cntr::PushR(l_ca, shove_cnt, elem_stream::EmptyProvider{}, nullptr);
 
     if (0 < cnt_a) {
         circular_array::AssignFromCircularArray(l_ca, l_elem_cnt, r_ca, 0,
@@ -182,11 +183,11 @@ void seg_utils::SegEraseShoveL(circular_array::Cntr& l_ca,
     }
 
     if constexpr (!meta::IsSame<meta::RemoveCVRef<Reader>,
-                                seq_cntr::EmptyReader>) {
+                                elem_stream::EmptyAcceptor>) {
         circular_array::IdxRead(r_ca, rl_cnt, ers_cnt, reader);
     }
 
-    seq_cntr::PopL(r_ca, cnt_a + cnt_b + cnt_c, seq_cntr::empty_reader);
+    seq_cntr::PopL(r_ca, cnt_a + cnt_b + cnt_c, elem_stream::EmptyAcceptor{});
 }
 
 template <typename Reader>
@@ -209,7 +210,7 @@ void seg_utils::SegEraseShoveR(circular_array::Cntr& l_ca,
     size_t cnt_b{ ers_cnt };
     size_t cnt_c{ shove_cnt - cnt_a };
 
-    seq_cntr::PushL(r_ca, shove_cnt, seq_cntr::empty_writer, nullptr);
+    seq_cntr::PushL(r_ca, shove_cnt, elem_stream::EmptyProvider{}, nullptr);
 
     if (0 < cnt_c) {
         circular_array::AssignFromCircularArray(
@@ -222,12 +223,12 @@ void seg_utils::SegEraseShoveR(circular_array::Cntr& l_ca,
     }
 
     if constexpr (!meta::IsSame<meta::RemoveCVRef<Reader>,
-                                seq_cntr::EmptyReader>) {
+                                elem_stream::EmptyAcceptor>) {
         circular_array::IdxRead(l_ca, l_ca.elem_cnt - lr_cnt - ers_cnt, ers_cnt,
                                 reader);
     }
 
-    seq_cntr::PopR(l_ca, cnt_a + cnt_b + cnt_c, seq_cntr::empty_reader);
+    seq_cntr::PopR(l_ca, cnt_a + cnt_b + cnt_c, elem_stream::EmptyAcceptor{});
 }
 
 }  // namespace zeta::core

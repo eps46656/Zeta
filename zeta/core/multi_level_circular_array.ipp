@@ -1,7 +1,7 @@
 #pragma once
 
 #include <zeta/core/basic_llist_node.ipp>
-#include <zeta/core/compare_utils.ipp>
+#include <zeta/core/comparison_utils.ipp>
 #include <zeta/core/lifecycle.ipp>
 #include <zeta/core/llist.ipp>
 #include <zeta/core/multi_level_circular_array.hpp>
@@ -1318,7 +1318,7 @@ void multi_level_circular_array::Insert(Cntr<CntrTplArgList>& cntr,
         Node* old_l_n{ llist::GetR(head_n) };
         size_t old_l_seg_elem_slot_idx{ tree_elem_offset % seg_elem_slot_cnt };
 
-        detail::Push_<0>(cntr, cnt, seq_cntr::empty_writer, dst_cursor);
+        detail::Push_<0>(cntr, cnt, elem_stream::EmptyProvider{}, dst_cursor);
 
         if (cnt < seg_elem_slot_cnt) {
             auto p{ detail::Assign_<1, 1>(elem_size, elem_stride, elem_stride,
@@ -1351,7 +1351,7 @@ void multi_level_circular_array::Insert(Cntr<CntrTplArgList>& cntr,
         break;
     }
     case 1: {
-        detail::Push_<1>(cntr, cnt, seq_cntr::empty_writer, dst_cursor);
+        detail::Push_<1>(cntr, cnt, elem_stream::EmptyProvider{}, dst_cursor);
 
         (Sanitize)(cntr, nullptr, nullptr);
 

@@ -36,7 +36,11 @@ SeqCntrRef Create(size_t stride, size_t slot_cnt) {
     ca->slot_cnt = slot_cnt;
     ca->rot = 0;
 
-    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(*ca) };
+    core::seq_cntr::CntrTraits<CircularArray>::Read(
+        *ca, nullptr, 0, core::elem_stream::EmptyAcceptor{});
+
+    // SeqCntrRef seq_cntr_ref{ *ca };
+    SeqCntrRef seq_cntr_ref;
 
     seq_cntr_utils::AddSanitizeFunc(ca, Sanitize);
 
@@ -50,7 +54,7 @@ inline void Destroy(void* ca_) {
 
     if (ca == nullptr) { return; }
 
-    CircularArrayNS::Deinit(*ca);
+    // CircularArrayNS::Deinit(*ca);
 
     delete ca;
 }

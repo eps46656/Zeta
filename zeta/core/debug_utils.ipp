@@ -13,13 +13,17 @@
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
 
-#define ZETA_Core_ForcePrintCurPos                                   \
-    zeta::core::debug_utils::PrintPos(std::cout, __FILE__, __LINE__, \
-                                      __PRETTY_FUNCTION__)           \
-        << "\n\n";                                                   \
+#define ZETA_Core_ForcePrintCurPosToPipe(pipe)                    \
+    zeta::core::debug_utils::PrintPos((pipe), __FILE__, __LINE__, \
+                                      __PRETTY_FUNCTION__)        \
+        << "\n\n";                                                \
     ZETA_Core_StaticAssert(true)
 
-#define ZETA_Core_PrintCurPos ZETA_Core_WhenEnPrint(ZETA_Core_ForcePrintCurPos)
+#define ZETA_Core_PrintCurPos \
+    ZETA_Core_WhenEnPrint(ZETA_Core_ForcePrintCurPosToPipe(std::cout))
+
+#define ZETA_Core_Debug_PrintCurPos \
+    ZETA_Core_ForcePrintCurPosToPipe(zeta::core::debug_utils::debug_str_stream)
 
 #define ZETA_Core_ForcePrintVarToPipe_(tmp_var, dst_pipe, var)           \
     ({                                                                   \

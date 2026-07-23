@@ -35,7 +35,7 @@ SeqCntrRef Create() {
 
     DebugDequeNS::Init(*dd);
 
-    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(*dd) };
+    SeqCntrRef seq_cntr_ref{ *dd };
 
     seq_cntr_utils::AddSanitizeFunc(dd, Sanitize);
 

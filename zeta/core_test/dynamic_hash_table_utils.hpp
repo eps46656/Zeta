@@ -7,7 +7,7 @@
 #include <vector>
 #include <zeta/core/assoc_cntr.hpp>
 #include <zeta/core/assoc_cntr_ref.hpp>
-#include <zeta/core/compare.ipp>
+#include <zeta/core/comparison.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/dynamic_hash_table.hpp>
 #include <zeta/core/dynamic_hash_table.ipp>

@@ -4,8 +4,8 @@
 #include <zeta/core/array.hpp>
 #include <zeta/core/basic_bin_tree_node.ipp>
 #include <zeta/core/bin_tree.ipp>
-#include <zeta/core/compare.ipp>
-#include <zeta/core/compare_utils.ipp>
+#include <zeta/core/comparison.ipp>
+#include <zeta/core/comparison_utils.ipp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/fixed_point.ipp>

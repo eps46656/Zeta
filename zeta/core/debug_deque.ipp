@@ -1,7 +1,7 @@
 #pragma once
 
 #include <deque>
-#include <zeta/core/compare.hpp>
+#include <zeta/core/comparison.hpp>
 #include <zeta/core/debug_deque.hpp>
 #include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils.ipp>

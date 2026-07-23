@@ -17,8 +17,7 @@
 
 #define ZETA_Core_size_width (__SIZE_WIDTH__)
 
-#define ZETA_Core_bitint_max_width \
-    static_cast<unsigned long long>(__BITINT_MAXWIDTH__)
+#define ZETA_Core_bitint_max_width static_cast<size_t>(__BITINT_MAXWIDTH__)
 
 #define ZETA_Core_max_capacity (::zeta::core::integral::RangeMaxOf<size_t> / 4)
 
@@ -51,40 +50,23 @@ struct IncompleteTraitsBase_ {};
 }  // namespace detail
 
 template <typename Integral, typename = void>
-struct IntegralTraits : public detail::IncompleteTraitsBase_ {};
+struct IntegralTraits;
 
 template <typename Integral>
-constexpr bool IsIntegral{
-    !meta::IsBaseOf<detail::IncompleteTraitsBase_, IntegralTraits<Integral>>
-};
+concept IsIntegral = requires { typename IntegralTraits<Integral>; };
 
 template <typename Integral>
-constexpr bool IsSignedIntegral{ []() {
-    if constexpr (integral::IsIntegral<Integral>) {
-        constexpr bool is_signed{ IntegralTraits<Integral>::is_signed };
-        return is_signed;
-    } else {
-        return false;
-    }
-}() };
+concept IsSignedIntegral =
+    requires { requires IntegralTraits<Integral>::is_signed; };
 
 template <typename Integral>
-constexpr bool IsUnsignedIntegral{ []() {
-    if constexpr (integral::IsIntegral<Integral>) {
-        constexpr bool is_signed{ IntegralTraits<Integral>::is_signed };
-        return !is_signed;
-    } else {
-        return false;
-    }
-}() };
+constexpr bool IsUnsignedIntegral =
+    requires { requires !IntegralTraits<Integral>::is_signed; };
 
 template <typename Integral>
-constexpr unsigned long long WidthOf{ []() {
+constexpr size_t WidthOf{ []() {
     ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
-
-    constexpr unsigned long long width{ IntegralTraits<Integral>::width };
-
-    return width;
+    return IntegralTraits<Integral>::width;
 }() };
 
 template <typename Integral>
@@ -94,7 +76,7 @@ using TryMakeUnsignedOf = decltype([]() {
     using UnsignedIntegral = IntegralTraits<Integral>::UnsignedType;
 
     ZETA_Core_StaticAssert(
-        meta::IsSame<UnsignedIntegral, meta::NeverMatchTag> ||
+        meta::IsSame<UnsignedIntegral, meta::NeverMatchedTag> ||
         integral::IsIntegral<UnsignedIntegral>);
 
     return meta::TypeWrapper<UnsignedIntegral>{};
@@ -106,8 +88,9 @@ using TryMakeSignedOf = decltype([]() {
 
     using SignedIntegral = IntegralTraits<Integral>::SignedType;
 
-    ZETA_Core_StaticAssert(meta::IsSame<SignedIntegral, meta::NeverMatchTag> ||
-                           integral::IsIntegral<SignedIntegral>);
+    ZETA_Core_StaticAssert(
+        meta::IsSame<SignedIntegral, meta::NeverMatchedTag> ||
+        integral::IsIntegral<SignedIntegral>);
 
     return meta::TypeWrapper<SignedIntegral>{};
 }())::Type;
@@ -135,9 +118,8 @@ struct IntegralTraits<char> {
     static constexpr bool is_signed{ static_cast<char>(-1) <
                                      static_cast<char>(0) };
 
-    static constexpr unsigned long long width{ is_signed
-                                                   ? ZETA_Core_schar_width
-                                                   : ZETA_Core_uchar_width };
+    static constexpr size_t width{ is_signed ? ZETA_Core_schar_width
+                                             : ZETA_Core_uchar_width };
 
     using UnsignedType = meta::Conditional<is_signed, unsigned char, char>;
 
@@ -146,25 +128,25 @@ struct IntegralTraits<char> {
 
 #pragma push_macro("F")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define F(utype, stype, width_)                              \
-    template <>                                              \
-    struct IntegralTraits<utype> {                           \
-        static constexpr bool is_signed{ false };            \
-        static constexpr unsigned long long width{ width_ }; \
-                                                             \
-        using UnsignedType = utype;                          \
-        using SignedType = stype;                            \
-    };                                                       \
-                                                             \
-    template <>                                              \
-    struct IntegralTraits<stype> {                           \
-        static constexpr bool is_signed{ true };             \
-        static constexpr unsigned long long width{ width_ }; \
-                                                             \
-        using UnsignedType = utype;                          \
-        using SignedType = stype;                            \
-    };                                                       \
-                                                             \
+#define F(utype, stype, width_)                   \
+    template <>                                   \
+    struct IntegralTraits<utype> {                \
+        static constexpr bool is_signed{ false }; \
+        static constexpr size_t width{ width_ };  \
+                                                  \
+        using UnsignedType = utype;               \
+        using SignedType = stype;                 \
+    };                                            \
+                                                  \
+    template <>                                   \
+    struct IntegralTraits<stype> {                \
+        static constexpr bool is_signed{ true };  \
+        static constexpr size_t width{ width_ };  \
+                                                  \
+        using UnsignedType = utype;               \
+        using SignedType = stype;                 \
+    };                                            \
+                                                  \
     ZETA_Core_StaticAssert(true)
 
 F(unsigned char, signed char, ZETA_Core_uchar_width);
@@ -178,7 +160,7 @@ F(unsigned long long, signed long long, ZETA_Core_ullong_width);
 template <unsigned long long N>
 struct IntegralTraits<unsigned _BitInt(N)> {
     static constexpr bool is_signed{ false };
-    static constexpr unsigned long long width{ N };
+    static constexpr size_t width{ N };
 
     using UnsignedType = unsigned _BitInt(N);
     using SignedType = signed _BitInt(N);
@@ -187,7 +169,7 @@ struct IntegralTraits<unsigned _BitInt(N)> {
 template <unsigned long long N>
 struct IntegralTraits<signed _BitInt(N)> {
     static constexpr bool is_signed{ true };
-    static constexpr unsigned long long width{ N };
+    static constexpr size_t width{ N };
 
     using UnsignedType = unsigned _BitInt(N);
     using SignedType = signed _BitInt(N);

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include <zeta/core/compare_utils.ipp>
+#include <zeta/core/comparison_utils.ipp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/fixed_point.hpp>

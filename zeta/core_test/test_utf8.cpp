@@ -32,15 +32,17 @@ inline void test_utf8(zeta::core::unicode::unichar_t cp_beg,
             zeta::core::utf8::Encoder encoder;
 
             encoder.EncodeAndPush(
-                zeta::core::seq_cntr::MemWriter{
+                zeta::core::lin_seq_elem_stream::Provider{
                     .data = cp_buffer,
                     .elem_size = sizeof(zeta::core::unicode::unichar_t),
                     .elem_stride = sizeof(zeta::core::unicode::unichar_t),
+                    .elem_cnt = cur_cp_cnt,
                 },
-                zeta::core::seq_cntr::MemReader{
+                zeta::core::lin_seq_elem_stream::Acceptor{
                     .data = octet_buffer,
                     .elem_size = 1,
                     .elem_stride = 1,
+                    .elem_cnt = cur_cp_cnt,
                 },
                 cur_cp_cnt, sizeof(octet_buffer) / sizeof(octet_buffer[0]));
 
@@ -62,15 +64,17 @@ inline void test_utf8(zeta::core::unicode::unichar_t cp_beg,
             zeta::core::utf8::Decoder decoder;
 
             decoder.DecodeAndPush(
-                zeta::core::seq_cntr::MemWriter{
+                zeta::core::lin_seq_elem_stream::Provider{
                     .data = octet_buffer,
                     .elem_size = 1,
                     .elem_stride = 1,
+                    .elem_cnt = cur_octet_cnt,
                 },
-                zeta::core::seq_cntr::MemReader{
+                zeta::core::lin_seq_elem_stream::Acceptor{
                     .data = re_cp_buffer,
                     .elem_size = sizeof(zeta::core::unicode::unichar_t),
                     .elem_stride = sizeof(zeta::core::unicode::unichar_t),
+                    .elem_cnt = cur_cp_cnt,
                 },
                 cur_octet_cnt, cur_cp_cnt);
 

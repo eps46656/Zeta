@@ -1,6 +1,6 @@
 #pragma once
 
-#include <zeta/core/compare.hpp>
+#include <zeta/core/comparison.hpp>
 
 namespace zeta::core::reversed_comparator {
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <zeta/core/compare.hpp>
+#include <zeta/core/comparison.hpp>
 #include <zeta/core/hash.hpp>
 
 namespace zeta::core::triple {

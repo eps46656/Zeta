@@ -1,8 +1,8 @@
 #pragma once
 
 #include <iostream>
-#include <zeta/core/compare.ipp>
-#include <zeta/core/compare_utils.ipp>
+#include <zeta/core/comparison.ipp>
+#include <zeta/core/comparison_utils.ipp>
 #include <zeta/core/hash.hpp>
 #include <zeta/core/hash_utils.ipp>
 #include <zeta/core/utils.ipp>

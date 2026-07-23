@@ -3,7 +3,7 @@
 #include <zeta/core/assoc_cntr.hpp>
 #include <zeta/core/assoc_cntr_ref.hpp>
 #include <zeta/core/assoc_cntr_ref.ipp>
-#include <zeta/core/compare.ipp>
+#include <zeta/core/comparison.ipp>
 #include <zeta/core/debug_hash_table.hpp>
 #include <zeta/core/debug_hash_table.ipp>
 #include <zeta/core/function_ref.hpp>

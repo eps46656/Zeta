@@ -36,13 +36,13 @@ constexpr unsigned max_region_attr_size{ comparison_utils::BasicMin(
     8U, (integral::WidthOf<unsigned long long> + 7) / 8) };
 ZETA_Core_StaticAssert(min_region_attr_size <= max_region_attr_size);
 
-constexpr unsigned min_integral_descriptor_size{ 2 };
+constexpr unsigned min_integral_descriptor_size{ 1 };
 constexpr unsigned max_integral_descriptor_size{ comparison_utils::BasicMin(
     8U, integral::RangeMaxOf<unsigned long long>) };
 ZETA_Core_StaticAssert(min_integral_descriptor_size <=
                        max_integral_descriptor_size);
 
-constexpr unsigned min_list_elem_cnt_size{ 4 };
+constexpr unsigned min_list_elem_cnt_size{ 2 };
 constexpr unsigned max_list_elem_cnt_size{ comparison_utils::BasicMin(
     8U, integral::RangeMaxOf<size_t>) };
 ZETA_Core_StaticAssert(min_list_elem_cnt_size <= max_list_elem_cnt_size);
@@ -95,14 +95,14 @@ struct Config {
 
 struct NodeTag {
     NodeTypeEnum::Value node_type;
+    bool has_name;
     bool has_obj_type;
     bool has_region;
-    bool has_name;
 
     static constexpr unsigned char NodeTypeMask{ 0b0000'1111U };
+    static constexpr unsigned char HasName{ 0b0001'0000U };
     static constexpr unsigned char HasObjType{ 0b0010'0000U };
     static constexpr unsigned char HasRegion{ 0b0100'0000U };
-    static constexpr unsigned char HasName{ 0b1000'0000U };
 
     constexpr bool Check() const;
 
@@ -127,10 +127,10 @@ struct IntegralDescriptor {
 };
 
 template <typename Acceptor>
-void SerializeHeaderToOctets(Acceptor&& acceptor, Header const& src_header);
+bool SerializeHeaderToOctets(Acceptor&& acceptor, Header const& src_header);
 
 template <typename Provider>
-void DeserializeHeaderFromOctets(Provider&& provider, Header& dst_header);
+bool DeserializeHeaderFromOctets(Provider&& provider, Header& dst_header);
 
 namespace state_machine {
 
@@ -146,11 +146,11 @@ struct SerializationStateMachineBase {
             static constexpr Value value{ 1 };
         };
 
-        struct ReceivingObjTypeString {
+        struct ReceivingNameString {
             static constexpr Value value{ 2 };
         };
 
-        struct ReceivingNameString {
+        struct ReceivingObjTypeString {
             static constexpr Value value{ 3 };
         };
 
@@ -176,6 +176,10 @@ struct SerializationStateMachineBase {
 
         struct ReceivingTermination {
             static constexpr Value value{ 9 };
+        };
+
+        struct Completed {
+            static constexpr Value value{ 10 };
         };
 
         struct Corrupted {
@@ -240,32 +244,36 @@ struct DeserializationStateMachineBase {
             static constexpr Value value{ 0 };
         };
 
-        struct SendingObjTypeString {
-            static constexpr Value value{ 1 };
-        };
-
         struct SendingNameString {
             static constexpr Value value{ 2 };
         };
 
-        struct SendingRegionAttr {
+        struct SendingObjTypeString {
             static constexpr Value value{ 3 };
         };
 
-        struct SendingIntegralDescriptor {
+        struct SendingRegionAttr {
             static constexpr Value value{ 4 };
         };
 
-        struct SendingListElemCnt {
+        struct SendingIntegralDescriptor {
             static constexpr Value value{ 5 };
         };
 
-        struct SendingIntegral {
+        struct SendingListElemCnt {
             static constexpr Value value{ 6 };
         };
 
-        struct SendingTermination {
+        struct SendingIntegral {
             static constexpr Value value{ 7 };
+        };
+
+        struct SendingTermination {
+            static constexpr Value value{ 9 };
+        };
+
+        struct Completed {
+            static constexpr Value value{ 10 };
         };
 
         struct Corrupted {

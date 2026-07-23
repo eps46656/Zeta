@@ -281,10 +281,11 @@ class LLVMCompiler:
 
             "-Wall",
             "-Wextra",
+
             "-Wimplicit-fallthrough",
-            "-Werror",
             "-Wmissing-prototypes",
 
+            "-Werror",
             f"-O{self.opt_type}",
         ]
 

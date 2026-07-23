@@ -106,10 +106,11 @@ void Read_(SeqCntr* sc, size_t idx, size_t cnt, void* dst, size_t dst_stride) {
                                                  ? &pos_cursor
                                                  : &fallback_dst_cursor };
 
-    core::seq_cntr::MemReader mem_reader{ .data = dst,
-                                          .elem_size =
-                                              core::seq_cntr::GetElemSize(*sc),
-                                          .elem_stride = dst_stride };
+    core::lin_seq_elem_stream::Acceptor mem_reader{
+        .data = dst,
+        .elem_size = core::seq_cntr::GetElemSize(*sc),
+        .elem_stride = dst_stride
+    };
 
     core::seq_cntr::Read(*sc, &pos_cursor, cnt, mem_reader, dst_cursor);
 
@@ -175,8 +176,10 @@ void Write_(SeqCntr* sc, size_t idx, size_t cnt, void const* src,
 
     core::seq_cntr::Write(
         *sc, &pos_cursor, cnt,
-        core::seq_cntr::MemWriter{
-            .data = src, .elem_size = elem_size, .elem_stride = src_stride },
+        core::lin_seq_elem_stream::Provider{ .data = src,
+                                             .elem_size = elem_size,
+                                             .elem_stride = src_stride,
+                                             .elem_cnt = cnt },
         dst_cursor);
 
     (Sanitize)(sc);
@@ -230,7 +233,7 @@ void Write(SeqCntr* sc, size_t idx, size_t cnt, void const* src,
 template <typename SeqCntr>
 void PushL(SeqCntr* sc, size_t cnt, void const* src, size_t src_stride) {
     core::seq_cntr::PushL(*sc, cnt,
-                          core::seq_cntr::MemWriter{
+                          core::lin_seq_elem_stream::Provider{
                               .data = src,
                               .elem_size = core::seq_cntr::GetElemSize(*sc),
                               .elem_stride = src_stride },
@@ -242,7 +245,7 @@ void PushL(SeqCntr* sc, size_t cnt, void const* src, size_t src_stride) {
 template <typename SeqCntr>
 void PushR(SeqCntr* sc, size_t cnt, void const* src, size_t src_stride) {
     core::seq_cntr::PushR(*sc, cnt,
-                          core::seq_cntr::MemWriter{
+                          core::lin_seq_elem_stream::Provider{
                               .data = src,
                               .elem_size = core::seq_cntr::GetElemSize(*sc),
                               .elem_stride = src_stride },
@@ -255,7 +258,7 @@ template <typename SeqCntr>
 void PopL(SeqCntr* sc, size_t cnt) {
     ZETA_Core_DebugAssert(cnt <= core::seq_cntr::GetElemCnt(*sc));
 
-    core::seq_cntr::PopL(*sc, cnt, core::seq_cntr::empty_reader);
+    core::seq_cntr::PopL(*sc, cnt, core::elem_stream::EmptyAcceptor{});
 
     (Sanitize)(sc);
 }
@@ -266,7 +269,7 @@ void PopR(SeqCntr* sc, size_t cnt) {
 
     (Sanitize)(sc);
 
-    core::seq_cntr::PopR(*sc, cnt, core::seq_cntr::empty_reader);
+    core::seq_cntr::PopR(*sc, cnt, core::elem_stream::EmptyAcceptor{});
 
     (Sanitize)(sc);
 }
@@ -350,13 +353,15 @@ void Erase(SeqCntr* sc, size_t idx, size_t cnt) {
 
     size_t origin_cnt{ cnt };
 
-    core::seq_cntr::MemReader reader_a{ .data = buffer_a,
-                                        .elem_size = elem_size,
-                                        .elem_stride = stride_a };
+    core::lin_seq_elem_stream::Acceptor reader_a{ .data = buffer_a,
+                                                  .elem_size = elem_size,
+                                                  .elem_stride = stride_a,
+                                                  .elem_cnt = origin_cnt };
 
-    core::seq_cntr::MemReader reader_b{ .data = buffer_b,
-                                        .elem_size = elem_size,
-                                        .elem_stride = stride_b };
+    core::lin_seq_elem_stream::Acceptor reader_b{ .data = buffer_b,
+                                                  .elem_size = elem_size,
+                                                  .elem_stride = stride_b,
+                                                  .elem_cnt = origin_cnt };
 
     size_t cur_cnt{ std::min(elem_cnt - idx, cnt) };
 
@@ -376,7 +381,7 @@ void Erase(SeqCntr* sc, size_t idx, size_t cnt) {
             core::seq_cntr::Erase(*sc, &pos_cursor, cur_cnt, reader_b);
         } else {
             core::seq_cntr::Erase(*sc, &pos_cursor, cur_cnt,
-                                  core::seq_cntr::empty_reader);
+                                  core::elem_stream::EmptyAcceptor{});
         }
 
         (Sanitize)(sc);
@@ -421,7 +426,7 @@ void Erase(SeqCntr* sc, size_t idx, size_t cnt) {
             core::seq_cntr::Erase(*sc, &pos_cursor, cur_cnt, reader_b);
         } else {
             core::seq_cntr::Erase(*sc, &pos_cursor, cur_cnt,
-                                  core::seq_cntr::empty_reader);
+                                  core::elem_stream::EmptyAcceptor{});
         }
 
         (Sanitize)(sc);
@@ -728,7 +733,7 @@ void SyncRandomInsert(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
 
     for (auto& sc : scs) {
         (Insert)(sc, idx, cnt,
-                 core::seq_cntr::MemWriter{
+                 core::lin_seq_elem_stream::Provider{
                      .data = buffer_b,
                      .elem_size = core::seq_cntr::GetElemSize(*sc),
                      .elem_stride = stride });
@@ -818,18 +823,20 @@ void SyncCompare2_(SeqCntrA* sc_a, SeqCntrB* sc_b) {
                               i);
 
         core::seq_cntr::Read(*sc_a, &cursor_a, 1,
-                             core::seq_cntr::MemReader{
+                             core::lin_seq_elem_stream::Acceptor{
                                  .data = buffer_a,
                                  .elem_size = elem_size,
                                  .elem_stride = stride_a,
+                                 .elem_cnt = 1,
                              },
                              &cursor_a);
 
         core::seq_cntr::Read(*sc_b, &cursor_b, 1,
-                             core::seq_cntr::MemReader{
+                             core::lin_seq_elem_stream::Acceptor{
                                  .data = buffer_b,
                                  .elem_size = elem_size,
                                  .elem_stride = stride_b,
+                                 .elem_cnt = 1,
                              },
                              &cursor_b);
 
@@ -855,18 +862,20 @@ void SyncCompare2_(SeqCntrA* sc_a, SeqCntrB* sc_b) {
                               i);
 
         core::seq_cntr::Read(*sc_a, &cursor_a, 1,
-                             core::seq_cntr::MemReader{
+                             core::lin_seq_elem_stream::Acceptor{
                                  .data = buffer_a,
                                  .elem_size = elem_size,
                                  .elem_stride = stride_a,
+                                 .elem_cnt = 1,
                              },
                              nullptr);
 
         core::seq_cntr::Read(*sc_b, &cursor_b, 1,
-                             core::seq_cntr::MemReader{
+                             core::lin_seq_elem_stream::Acceptor{
                                  .data = buffer_b,
                                  .elem_size = elem_size,
                                  .elem_stride = stride_b,
+                                 .elem_cnt = 1,
                              },
                              nullptr);
 

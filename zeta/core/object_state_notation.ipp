@@ -4,7 +4,7 @@
 #include <zeta/core/integral.hpp>
 #include <zeta/core/integral_math.ipp>
 #include <zeta/core/object_state_notation.hpp>
-#include <zeta/core/serde_utils.hpp>
+#include <zeta/core/serde_utils.ipp>
 
 namespace zeta::core {
 
@@ -28,12 +28,16 @@ constexpr bool object_state_notation::IsValidListElemCntSize(
 
 constexpr size_t object_state_notation::GetMaxListElemCntWithoutVarying(
     unsigned list_elem_cnt_size) {
-    return (1ULL << (list_elem_cnt_size * 8 - 1)) - 1;
+    ZETA_Core_DebugAssert((IsValidListElemCntSize)(list_elem_cnt_size));
+
+    return (1ULL << (list_elem_cnt_size * 8 - 1)) - 2;
 }
 
 constexpr size_t object_state_notation::GetVaryingListElemCnt(
     unsigned list_elem_cnt_size) {
-    return (1ULL << (list_elem_cnt_size * 8 - 1)) - 2;
+    ZETA_Core_DebugAssert((IsValidListElemCntSize)(list_elem_cnt_size));
+
+    return (1ULL << (list_elem_cnt_size * 8 - 1)) - 1;
 }
 
 constexpr unsigned long long object_state_notation::GetMaxIntegralSize(
@@ -132,9 +136,9 @@ constexpr pair::Pair<bool, object_state_notation::NodeTag>
 object_state_notation::NodeTag::FromIntegral(unsigned char value) {
     NodeTag node_tag{
         .node_type = static_cast<unsigned char>(value & NodeTypeMask),
+        .has_name = (value & HasName) != 0,
         .has_obj_type = (value & HasObjType) != 0,
         .has_region = (value & HasRegion) != 0,
-        .has_name = (value & HasName) != 0,
     };
 
     return { node_tag.Check(), node_tag };
@@ -144,11 +148,11 @@ constexpr pair::Pair<bool, unsigned char>
 object_state_notation::NodeTag::ToIntegral() const {
     if (!this->Check()) { return { false, 0 }; }
 
-    return { true,
-             static_cast<unsigned char>(this->node_type |
-                                        (this->has_obj_type ? HasObjType : 0U) |
-                                        (this->has_name ? HasName : 0U) |
-                                        (this->has_region ? HasRegion : 0U)) };
+    return { true, static_cast<unsigned char>(
+                       this->node_type +                         //
+                       (this->has_name ? HasName : 0U) +         //
+                       (this->has_obj_type ? HasObjType : 0U) +  //
+                       (this->has_region ? HasRegion : 0U)) };
 }
 
 constexpr bool object_state_notation::IntegralDescriptor::Check() const {
@@ -198,8 +202,8 @@ object_state_notation::IntegralDescriptor::ToIntegral(
 }
 
 template <typename Acceptor>
-bool SerializeHeaderToOctets(Acceptor&& acceptor,
-                             object_state_notation::Header const& src_header) {
+bool object_state_notation::SerializeHeaderToOctets(
+    Acceptor&& acceptor, object_state_notation::Header const& src_header) {
     if (!src_header.Check()) { return false; }
 
     acceptor(src_header.magic, 1, sizeof(src_header.magic));
@@ -208,27 +212,53 @@ bool SerializeHeaderToOctets(Acceptor&& acceptor,
     acceptor(&src_header.version.minor, 1, 1);
     acceptor(&src_header.version.patch, 1, 2);
 
-    acceptor(&src_header.region_attr_size, 1, 1);
-    acceptor(&src_header.integral_descriptor_size, 1, 1);
-    acceptor(&src_header.list_elem_cnt_size, 1, 1);
+    serde_utils::SerializeIntegral(
+        acceptor, src_header.region_attr_size,
+        value_wrapper::StaticValueWrapper<unsigned long long, 1>{},
+        serde_utils::EndiannessEnum::Little{}, false, nullptr);
+
+    serde_utils::SerializeIntegral(
+        acceptor, src_header.integral_descriptor_size,
+        value_wrapper::StaticValueWrapper<unsigned long long, 1>{},
+        serde_utils::EndiannessEnum::Little{}, false, nullptr);
+
+    serde_utils::SerializeIntegral(
+        acceptor, src_header.list_elem_cnt_size,
+        value_wrapper::StaticValueWrapper<unsigned long long, 1>{},
+        serde_utils::EndiannessEnum::Little{}, false, nullptr);
 
     acceptor(src_header.reserved, 1, sizeof(src_header.reserved));
+
+    return true;
 }
 
 template <typename Provider>
-bool DeserializeHeaerFromOctets(Provider&& provider,
-                                object_state_notation::Header& dst_header) {
+bool object_state_notation::DeserializeHeaderFromOctets(
+    Provider&& provider, object_state_notation::Header& dst_header) {
     provider(dst_header.magic, 1, sizeof(dst_header.magic));
 
     provider(&dst_header.version.major, 1, 1);
     provider(&dst_header.version.minor, 1, 1);
     provider(&dst_header.version.patch, 1, 2);
 
-    provider(&dst_header.region_attr_size, 1, 1);
-    provider(&dst_header.integral_descriptor_size, 1, 1);
-    provider(&dst_header.list_elem_cnt_size, 1, 1);
+    serde_utils::DeserializeIntegral(
+        provider, dst_header.region_attr_size,
+        value_wrapper::StaticValueWrapper<unsigned long long, 1>{},
+        serde_utils::EndiannessEnum::Little{}, false, nullptr);
+
+    serde_utils::DeserializeIntegral(
+        provider, dst_header.integral_descriptor_size,
+        value_wrapper::StaticValueWrapper<unsigned long long, 1>{},
+        serde_utils::EndiannessEnum::Little{}, false, nullptr);
+
+    serde_utils::DeserializeIntegral(
+        provider, dst_header.list_elem_cnt_size,
+        value_wrapper::StaticValueWrapper<unsigned long long, 1>{},
+        serde_utils::EndiannessEnum::Little{}, false, nullptr);
 
     provider(dst_header.reserved, 1, sizeof(dst_header.reserved));
+
+    return true;
 }
 
 constexpr object_state_notation::state_machine::SerializationStateMachineBase::
@@ -239,6 +269,11 @@ constexpr object_state_notation::state_machine::SerializationStateMachineBase::
     switch (cur_state) {
     case StateEnum::ReceivingNodeTagOrTermination::value:
     case StateEnum::ReceivingNodeTag::value:
+        if (node_tag.has_name) { return StateEnum::ReceivingNameString::value; }
+
+        [[fallthrough]];
+
+    case StateEnum::ReceivingNameString::value:
         if (node_tag.has_obj_type) {
             return StateEnum::ReceivingObjTypeString::value;
         }
@@ -246,11 +281,6 @@ constexpr object_state_notation::state_machine::SerializationStateMachineBase::
         [[fallthrough]];
 
     case StateEnum::ReceivingObjTypeString::value:
-        if (node_tag.has_name) { return StateEnum::ReceivingNameString::value; }
-
-        [[fallthrough]];
-
-    case StateEnum::ReceivingNameString::value:
         if (node_tag.has_region) {
             return StateEnum::ReceivingRegionAttr::value;
         }
@@ -283,6 +313,7 @@ constexpr object_state_notation::state_machine::SerializeToOctetsStateMachine<
     Acceptor>::SerializeToOctetsStateMachine(Config const& config,
                                              Acceptor& acceptor)
     : config{ config },
+      state{ StateEnum::ReceivingNodeTag::value },
       depth{ 0 },
       integral_chunk_elem_cnt{ 0 },
       acceptor{ acceptor } {}
@@ -304,9 +335,6 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
     }
 
     if (0 < this->depth) {
-        // SANITIZE
-        ZETA_Core_DebugAssert(0 < this->res_elem_cnts[this->depth - 1]);
-
         if (this->res_elem_cnts[this->depth - 1] != static_cast<size_t>(-1)) {
             --this->res_elem_cnts[this->depth - 1];
         }
@@ -320,9 +348,6 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
             this->acceptor, node_tag_integral,
             value_wrapper::StaticValueWrapper<unsigned long long, 1>{},
             serde_utils::EndiannessEnum::Little{}, false, nullptr)) {
-        // SANITIZE
-        // should be no lossy if src_node_tag is valid
-        ZETA_Core_DebugAssert(false);
         return false;
     }
 
@@ -340,15 +365,17 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
         break;
     }
 
-    this->state = this->FindNextState_(this->state, this->node_tag_buffer, 0);
+    this->state = this->FindNextState_(this->state, this->node_tag_buffer);
+
+    return true;
 }
 
 template <typename Acceptor>
 template <typename Provider>
 bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
     Acceptor>::SerializeString(Provider&& provider, size_t size) {
-    if (!(this->state == StateEnum::ReceivingObjTypeString::value ||
-          this->state == StateEnum::ReceivingNameString::value)) {
+    if (!(this->state == StateEnum::ReceivingNameString::value ||
+          this->state == StateEnum::ReceivingObjTypeString::value)) {
         return false;
     }
 
@@ -371,8 +398,8 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
 template <typename Acceptor>
 bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
     Acceptor>::TerminateSerializeString() {
-    if (!(this->state == StateEnum::ReceivingObjTypeString::value ||
-          this->state == StateEnum::ReceivingNameString::value)) {
+    if (!(this->state == StateEnum::ReceivingNameString::value ||
+          this->state == StateEnum::ReceivingObjTypeString::value)) {
         return false;
     }
 
@@ -380,7 +407,7 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
 
     this->acceptor(&zero_octet, 1, 1);
 
-    this->state = this->FindNextState_(this->state, this->node_tag_buffer, 0);
+    this->state = this->FindNextState_(this->state, this->node_tag_buffer);
 
     return true;
 }
@@ -405,7 +432,7 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
             this->config.region_attr_size },
         serde_utils::EndiannessEnum::Little{}, true, nullptr);
 
-    this->state = this->FindNextState_(this->state, this->node_tag_buffer, 0);
+    this->state = this->FindNextState_(this->state, this->node_tag_buffer);
 
     return true;
 }
@@ -429,9 +456,6 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
             value_wrapper::DynamicValueWrapper<unsigned long long>{
                 this->config.integral_descriptor_size },
             serde_utils::EndiannessEnum::Little{}, false, nullptr)) {
-        // SANITIZE
-        // should be no lossy if src_integral_descriptor is valid
-        ZETA_Core_DebugAssert(false);
         return false;
     }
 
@@ -459,13 +483,16 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
         return false;
     }
 
-    size_t varying_list_elem_cnt{ (
-        GetVaryingListElemCnt)(this->config.list_elem_cnt_size) };
-
     size_t max_list_elem_cnt_without_varying{ (
         GetMaxListElemCntWithoutVarying)(this->config.list_elem_cnt_size) };
 
-    if (!(list_elem_cnt <= max_list_elem_cnt_without_varying)) { return false; }
+    size_t varying_list_elem_cnt{ (
+        GetVaryingListElemCnt)(this->config.list_elem_cnt_size) };
+
+    if (!(list_elem_cnt <= max_list_elem_cnt_without_varying ||
+          list_elem_cnt == static_cast<size_t>(-1))) {
+        return false;
+    }
 
     unsigned long long target_list_elem_cnt{ list_elem_cnt ==
                                                      static_cast<size_t>(-1)
@@ -513,17 +540,10 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
         return false;
     }
 
-    ZETA_Core_DebugAssert(0 < this->depth);
-
-    if (this->state == StateEnum::ReceivingIntegral::value) {
-        // SANITIZE
-        ZETA_Core_DebugAssert(0 < this->res_elem_cnts[this->depth - 1]);
-    }
-
-    if (this->state == StateEnum::ReceivingIntegralOrTermination::value) {
-        // SANITIZE
-        ZETA_Core_DebugAssert(this->res_elem_cnts[this->depth - 1] ==
-                              static_cast<size_t>(-1));
+    if (this->integral_descriptor_buffer.signedness) {
+        if (!integral::IsSignedIntegral<Integral>) { return false; }
+    } else {
+        if (!integral::IsUnsignedIntegral<Integral>) { return false; }
     }
 
     size_t integral_size{ this->integral_descriptor_buffer.size };
@@ -538,8 +558,7 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
         if (--this->res_elem_cnts[this->depth - 1] == 0) {
             this->state = StateEnum::ReceivingTermination::value;
         }
-    } else if (this->integral_chunk_elem_cnt == 254 ||
-               (255 <= integral_size * (this->integral_chunk_elem_cnt + 1))) {
+    } else if (255 <= integral_size * (this->integral_chunk_elem_cnt + 1)) {
         serde_utils::SerializeIntegral(
             this->acceptor, this->integral_chunk_elem_cnt + 1,
             value_wrapper::StaticValueWrapper<unsigned long long, 1>{},
@@ -559,9 +578,9 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
             serde_utils::EndiannessEnum::Little{}, true, nullptr);
     } else {
         serde_utils::SerializeIntegral(
-            seq_cntr::MemReader{
+            lin_seq_elem_stream::Acceptor{
                 .data = this->integral_chunk_buffer +
-                        this->integral_chunk_elem_cnt * integral_size,
+                        integral_size * this->integral_chunk_elem_cnt,
                 .elem_size = 1,
                 .elem_stride = 1,
             },
@@ -585,24 +604,13 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
         return false;
     }
 
-    ZETA_Core_DebugAssert(0 < this->depth);
-
-    if (this->state == StateEnum::ReceivingNodeTagOrTermination::value ||
-        this->state == StateEnum::ReceivingIntegralOrTermination::value) {
-        ZETA_Core_DebugAssert(this->res_elem_cnts[this->depth - 1] ==
-                              static_cast<size_t>(-1));
-    }
-
-    if (this->state == StateEnum::ReceivingTermination::value) {
-        ZETA_Core_DebugAssert(this->res_elem_cnts[this->depth - 1] == 0);
-    }
-
     switch (this->node_tag_buffer.node_type) {
     case NodeTypeEnum::Null::value: break;
 
     case NodeTypeEnum::Integral::value: break;
 
     case NodeTypeEnum::IntegralList::value:
+
         if (this->res_elem_cnts[this->depth - 1] == static_cast<size_t>(-1)) {
             if (0 < this->integral_chunk_elem_cnt) {
                 serde_utils::SerializeIntegral(
@@ -626,12 +634,13 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
         break;
 
     case NodeTypeEnum::NodeList::value:
+
         if (this->res_elem_cnts[this->depth - 1] == static_cast<size_t>(-1)) {
             unsigned char node_tag{ NodeTag{
                 .node_type = NodeTypeEnum::Terminator::value,
+                .has_name = false,
                 .has_obj_type = false,
                 .has_region = false,
-                .has_name = false,
             }
                                         .ToIntegral()
                                         .second };
@@ -647,9 +656,16 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
     --this->depth;
 
     if (this->depth == 0) {
-        this->state = StateEnum::ReceivingNodeTag::value;
+        this->state = StateEnum::Completed::value;
         return true;
     }
+
+    this->node_tag_buffer = NodeTag{
+        .node_type = NodeTypeEnum::NodeList::value,
+        .has_name = false,
+        .has_obj_type = false,
+        .has_region = false,
+    };
 
     switch (this->res_elem_cnts[this->depth - 1]) {
     case 0: this->state = StateEnum::ReceivingTermination::value; break;
@@ -670,6 +686,11 @@ constexpr object_state_notation::state_machine::
         FindNextState_(StateEnum::Value cur_state, NodeTag const& node_tag) {
     switch (cur_state) {
     case StateEnum::SendingNodeTag::value:
+        if (node_tag.has_name) { return StateEnum::SendingNameString::value; }
+
+        [[fallthrough]];
+
+    case StateEnum::SendingNameString::value:
         if (node_tag.has_obj_type) {
             return StateEnum::SendingObjTypeString::value;
         }
@@ -677,11 +698,6 @@ constexpr object_state_notation::state_machine::
         [[fallthrough]];
 
     case StateEnum::SendingObjTypeString::value:
-        if (node_tag.has_name) { return StateEnum::SendingNameString::value; }
-
-        [[fallthrough]];
-
-    case StateEnum::SendingNameString::value:
         if (node_tag.has_region) { return StateEnum::SendingRegionAttr::value; }
 
         [[fallthrough]];
@@ -726,6 +742,8 @@ bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
     if (!(this->depth < max_depth)) { return false; }
 
     if (this->node_tag_buffer_store_nxt) {
+        this->node_tag_buffer_store_nxt = false;
+    } else {
         unsigned char node_tag_integral;
 
         if (!serde_utils::DeserializeIntegral(
@@ -755,6 +773,12 @@ bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
 
     dst_node_tag = this->node_tag_buffer;
 
+    if (!(this->node_tag_buffer.Check() &&
+          this->node_tag_buffer.node_type != NodeTypeEnum::Terminator::value)) {
+        this->state = StateEnum::Corrupted::value;
+        return false;
+    }
+
     switch (this->node_tag_buffer.node_type) {
     case NodeTypeEnum::Null::value:
         this->res_elem_cnts[this->depth - 1] = 0;
@@ -765,7 +789,7 @@ bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
         break;
     }
 
-    this->state = this->FindNextState_(this->node_tag_buffer, this->state);
+    this->state = this->FindNextState_(this->state, this->node_tag_buffer);
 
     return true;
 }
@@ -809,7 +833,7 @@ size_t object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
     }
 
     if (string_is_terminated) {
-        this->state = this->FindNextState_(this->node_tag_buffer, this->state);
+        this->state = this->FindNextState_(this->state, this->node_tag_buffer);
     }
 
     return acc_str_size;
@@ -833,7 +857,7 @@ bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
             this->config.region_attr_size },
         serde_utils::EndiannessEnum::Little{}, true, nullptr);
 
-    this->state = this->FindNextState_(this->node_tag_buffer, this->state);
+    this->state = this->FindNextState_(this->state, this->node_tag_buffer);
 
     return true;
 }
@@ -846,7 +870,7 @@ bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
         return false;
     }
 
-    unsigned char integral_descriptor_integral;
+    unsigned long long integral_descriptor_integral;
 
     if (!serde_utils::DeserializeIntegral(
             this->provider, integral_descriptor_integral,
@@ -872,9 +896,11 @@ bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
     switch (this->node_tag_buffer.node_type) {
     case NodeTypeEnum::Integral::value:
         this->state = StateEnum::SendingIntegral::value;
+        break;
 
     case NodeTypeEnum::IntegralList::value:
         this->state = StateEnum::SendingListElemCnt::value;
+        break;
 
     default: ZETA_Core_Unreachable();
     }
@@ -900,11 +926,11 @@ bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
         return false;
     }
 
-    size_t varying_list_elem_cnt{ (
-        GetVaryingListElemCnt)(this->config.list_elem_cnt_size) };
-
     size_t max_list_elem_cnt_without_varying{ (
         GetMaxListElemCntWithoutVarying)(this->config.list_elem_cnt_size) };
+
+    size_t varying_list_elem_cnt{ (
+        GetVaryingListElemCnt)(this->config.list_elem_cnt_size) };
 
     if (!(list_elem_cnt_integral <= max_list_elem_cnt_without_varying ||
           list_elem_cnt_integral == varying_list_elem_cnt)) {
@@ -942,16 +968,35 @@ bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
         return true;
     }
 
-    switch (this->node_tag_buffer.node_type) {
-    case NodeTypeEnum::IntegralList::value:
+    if (this->node_tag_buffer.node_type == NodeTypeEnum::IntegralList::value) {
         this->state = StateEnum::SendingIntegral::value;
-        break;
+        return true;
+    }
 
-    case NodeTypeEnum::NodeList::value:
+    unsigned char node_tag_integral;
+
+    if (!serde_utils::DeserializeIntegral(
+            this->provider, node_tag_integral,
+            value_wrapper::StaticValueWrapper<unsigned long long, 1>{},
+            serde_utils::EndiannessEnum::Little{}, false, nullptr)) {
+        this->state = StateEnum::Corrupted::value;
+        return false;
+    }
+
+    auto [is_valid, node_tag]{ NodeTag::FromIntegral(node_tag_integral) };
+
+    if (!is_valid) {
+        this->state = StateEnum::Corrupted::value;
+        return false;
+    }
+
+    if (node_tag.node_type == NodeTypeEnum::Terminator::value) {
+        this->state = StateEnum::SendingTermination::value;
+    } else {
+        this->node_tag_buffer_store_nxt = true;
+        this->node_tag_buffer = node_tag;
+
         this->state = StateEnum::SendingNodeTag::value;
-        break;
-
-    default: ZETA_Core_Unreachable();
     }
 
     return true;
@@ -963,7 +1008,11 @@ bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
     Provider>::DeserializeIntegral(Integral& dst_integral) {
     if (!(this->state == StateEnum::SendingIntegral::value)) { return false; }
 
-    ZETA_Core_DebugAssert(0 < this->depth);
+    if (this->integral_descriptor_buffer.signedness) {
+        if (!integral::IsSignedIntegral<Integral>) { return false; }
+    } else {
+        if (!integral::IsUnsignedIntegral<Integral>) { return false; }
+    }
 
     serde_utils::DeserializeIntegral(
         this->provider, dst_integral,
@@ -973,14 +1022,11 @@ bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
 
     if (this->res_elem_cnts[this->depth - 1] != static_cast<size_t>(-1)) {
         --this->res_elem_cnts[this->depth - 1];
-    }
 
-    if (this->res_elem_cnts[this->depth - 1] == 0) {
-        this->state = StateEnum::SendingTermination::value;
-        return true;
-    }
+        if (this->res_elem_cnts[this->depth - 1] == 0) {
+            this->state = StateEnum::SendingTermination::value;
+        }
 
-    if (this->res_elem_cnts[this->depth - 1] != static_cast<size_t>(-1)) {
         return true;
     }
 
@@ -1008,12 +1054,10 @@ bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
         return false;
     }
 
-    ZETA_Core_DebugAssert(0 < this->depth);
-
     --this->depth;
 
     if (this->depth == 0) {
-        this->state = StateEnum::SendingNodeTag::value;
+        this->state = StateEnum::Completed::value;
         return true;
     }
 
@@ -1031,6 +1075,7 @@ bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
             this->provider, node_tag_integral,
             value_wrapper::StaticValueWrapper<unsigned long long, 1>{},
             serde_utils::EndiannessEnum::Little{}, false, nullptr)) {
+        this->state = StateEnum::Corrupted::value;
         return false;
     }
 
@@ -1041,11 +1086,7 @@ bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
         return false;
     }
 
-    if (node_tag.node_type == NodeTypeEnum::Terminator::value) {
-        this->node_tag_buffer_store_nxt = false;
-
-        this->state = StateEnum::SendingTermination::value;
-    } else {
+    if (node_tag.node_type != NodeTypeEnum::Terminator::value) {
         this->node_tag_buffer_store_nxt = true;
         this->node_tag_buffer = node_tag;
 

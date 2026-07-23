@@ -56,6 +56,9 @@ def add_deps(builder: building_utils.Builder, config: Config):
         enable_debug=config.enable_debug,
         enable_asan=config.enable_asan,
 
+        c_defines={},
+        cpp_defines={},
+
         opt_type=config.opt_type,
         link_time_opt=config.link_time_opt,
     ))

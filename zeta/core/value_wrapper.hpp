@@ -40,9 +40,7 @@ struct IsStaticValueWrapperImpl_<StaticValueWrapper<ValueType, Value>> {
 }  // namespace detail
 
 template <typename T>
-constexpr bool IsStaticValueWrapper{
-    detail::IsStaticValueWrapperImpl_<T>::value
-};
+concept IsStaticValueWrapper = detail::IsStaticValueWrapperImpl_<T>::value;
 
 namespace detail {
 
@@ -60,9 +58,8 @@ struct IsStaticValueWrapperWithImpl_<StaticValueWrapper<ValueType, Value>,
 }  // namespace detail
 
 template <typename T, typename TargetValueType>
-constexpr bool IsStaticValueWrapperWith{
-    detail::IsStaticValueWrapperWithImpl_<T, TargetValueType>::value
-};
+concept IsStaticValueWrapperWith =
+    detail::IsStaticValueWrapperWithImpl_<T, TargetValueType>::value;
 
 namespace detail {
 
@@ -79,9 +76,7 @@ struct IsDynamicValueWrapper_<DynamicValueWrapper<ValueType>> {
 }  // namespace detail
 
 template <typename T>
-constexpr bool IsDynamicValueWrapper{
-    detail::IsDynamicValueWrapper_<T>::value
-};
+concept IsDynamicValueWrapper = detail::IsDynamicValueWrapper_<T>::value;
 
 namespace detail {
 
@@ -99,17 +94,15 @@ struct IsDynamicValueWrapperWithImpl_<DynamicValueWrapper<ValueType>,
 }  // namespace detail
 
 template <typename T, typename TargetValueType>
-constexpr bool IsDynamicValueWrapperWith{
-    detail::IsDynamicValueWrapperWithImpl_<T, TargetValueType>::value
-};
+concept IsDynamicValueWrapperWith =
+    detail::IsDynamicValueWrapperWithImpl_<T, TargetValueType>::value;
 
 template <typename T>
-constexpr bool IsValueWrapper{ IsStaticValueWrapper<T> ||
-                               IsDynamicValueWrapper<T> };
+concept IsValueWrapper = IsStaticValueWrapper<T> || IsDynamicValueWrapper<T>;
 
 template <typename T, typename ValueType>
-constexpr bool IsValueWrapperWith{ IsStaticValueWrapperWith<T, ValueType> ||
-                                   IsDynamicValueWrapperWith<T, ValueType> };
+concept IsValueWrapperWith = IsStaticValueWrapperWith<T, ValueType> ||
+                             IsDynamicValueWrapperWith<T, ValueType>;
 
 template <bool Cond, typename TX, typename TY>
 constexpr decltype(auto) Conditional(StaticValueWrapper<bool, Cond> const& cond,

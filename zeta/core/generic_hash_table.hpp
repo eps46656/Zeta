@@ -3,7 +3,7 @@
 #include <zeta/core/array.hpp>
 #include <zeta/core/array.ipp>
 #include <zeta/core/basic_bin_tree_node.hpp>
-#include <zeta/core/compare_utils.ipp>
+#include <zeta/core/comparison_utils.ipp>
 #include <zeta/core/debug_utils.hpp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/fixed_point.hpp>

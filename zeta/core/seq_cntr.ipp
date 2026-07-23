@@ -10,12 +10,224 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/function_ref.ipp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/lin_seq_elem_stream.ipp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/seq_cntr.hpp>
 #include <zeta/core/utils.ipp>
-#include <zeta/core/value_wrapper.hpp>
 
 namespace zeta::core {
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::GetReferedInstPtr(
+    Cntr& cntr) {
+    return cntr.GetReferedInstPtr();
+}
+
+template <typename Cntr>
+constexpr decltype(auto)
+seq_cntr::DefaultCntrTraits<Cntr>::GetStaticEnabledCapabilityFlag() {
+    return Cntr::GetStaticEnabledCapabilityFlag();
+}
+
+template <typename Cntr>
+constexpr decltype(auto)
+seq_cntr::DefaultCntrTraits<Cntr>::GetStaticDisabledCapabilityFlag() {
+    return Cntr::GetStaticDisabledCapabilityFlag();
+}
+
+template <typename Cntr>
+constexpr decltype(auto)
+seq_cntr::DefaultCntrTraits<Cntr>::GetDynamicEnabledCapabilityFlag(Cntr& cntr) {
+    return cntr.GetDynamicEnabledCapabilityFlag();
+}
+
+template <typename Cntr>
+constexpr decltype(auto)
+seq_cntr::DefaultCntrTraits<Cntr>::GetDynamicDisabledCapabilityFlag(
+    Cntr& cntr) {
+    return cntr.GetDynamicDisabledCapabilityFlag();
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::GetCursorSize(
+    Cntr& cntr) {
+    return cntr.GetCursorSize();
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::GetElemSize(
+    Cntr& cntr) {
+    return cntr.GetElemSize();
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::GetElemCnt(
+    Cntr& cntr) {
+    return cntr.GetElemCnt();
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::GetMaxElemCnt(
+    Cntr& cntr) {
+    return cntr.GetMaxElemCnt();
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::GetLBCursor(
+    Cntr& cntr, void* dst_cursor) {
+    return cntr.GetLBCursor(dst_cursor);
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::GetRBCursor(
+    Cntr& cntr, void* dst_cursor) {
+    return cntr.GetRBCursor(dst_cursor);
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::PeekL(
+    Cntr& cntr, bool lazy_copy_elem, ElemPtrView* dst_elem_ptr_view,
+    void* dst_cursor, void* dst_elem) {
+    return cntr.PeekL(lazy_copy_elem, dst_elem_ptr_view, dst_cursor, dst_elem);
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::PeekR(
+    Cntr& cntr, bool lazy_copy_elem, ElemPtrView* dst_elem_ptr_view,
+    void* dst_cursor, void* dst_elem) {
+    return cntr.PeekR(lazy_copy_elem, dst_elem_ptr_view, dst_cursor, dst_elem);
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::Refer(
+    Cntr& cntr, size_t idx, bool lazy_copy_elem, ElemPtrView* dst_elem_ptr_view,
+    void* dst_cursor, void* dst_elem) {
+    return cntr.Refer(idx, lazy_copy_elem, dst_elem_ptr_view, dst_cursor,
+                      dst_elem);
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::Derefer(
+    Cntr& cntr, void* pos_cursor, bool lazy_copy_elem,
+    ElemPtrView* dst_elem_ptr_view, void* dst_elem) {
+    return cntr.Derefer(pos_cursor, lazy_copy_elem, dst_elem_ptr_view,
+                        dst_elem);
+}
+
+template <typename Cntr>
+template <seq_cntr::IsReader Reader>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::Read(
+    Cntr& cntr, void* pos_cursor, size_t cnt, Reader&& reader,
+    void* dst_cursor) {
+    return cntr.Read(pos_cursor, cnt, reader, dst_cursor);
+}
+
+template <typename Cntr>
+template <seq_cntr::IsWriter Writer>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::Write(
+    Cntr& cntr, void* pos_cursor, size_t cnt, Writer&& writer,
+    void* dst_cursor) {
+    return cntr.Write(pos_cursor, cnt, writer, dst_cursor);
+}
+
+template <typename Cntr>
+template <seq_cntr::IsReaderWriter ReaderWriter>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::ReadWrite(
+    Cntr& cntr, void* pos_cursor, size_t cnt, ReaderWriter&& reader_writer,
+    void* dst_cursor) {
+    return cntr.ReadWrite(pos_cursor, cnt, reader_writer, dst_cursor);
+}
+
+template <typename Cntr>
+template <seq_cntr::IsWriter Writer>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::PushL(
+    Cntr& cntr, size_t cnt, Writer&& writer, void* dst_cursor) {
+    return cntr.PushL(cnt, writer, dst_cursor);
+}
+
+template <typename Cntr>
+template <seq_cntr::IsWriter Writer>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::PushR(
+    Cntr& cntr, size_t cnt, Writer&& writer, void* dst_cursor) {
+    return cntr.PushR(cnt, writer, dst_cursor);
+}
+
+template <typename Cntr>
+template <seq_cntr::IsWriter Writer>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::Insert(
+    Cntr& cntr, void* pos_cursor, size_t cnt, Writer&& writer,
+    void* dst_cursor) {
+    return cntr.Insert(pos_cursor, cnt, writer, dst_cursor);
+}
+
+template <typename Cntr>
+template <seq_cntr::IsReader Reader>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::PopL(
+    Cntr& cntr, size_t cnt, Reader&& reader) {
+    return cntr.PopL(cnt, reader);
+}
+
+template <typename Cntr>
+template <seq_cntr::IsReader Reader>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::PopR(
+    Cntr& cntr, size_t cnt, Reader&& reader) {
+    return cntr.PopR(cnt, reader);
+}
+
+template <typename Cntr>
+template <seq_cntr::IsReader Reader>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::Erase(
+    Cntr& cntr, void* pos_cursor, size_t cnt, Reader&& reader) {
+    return cntr.Erase(pos_cursor, cnt, reader);
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::EraseAll(
+    Cntr& cntr) {
+    return cntr.EraseAll();
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::CopyCursor(
+    Cntr& cntr, void* src_cursor, void* dst_cursor) {
+    return cntr.CopyCursor(src_cursor, dst_cursor);
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::GetCursorDist(
+    Cntr& cntr, void* cursor_a, void* cursor_b) {
+    return cntr.GetCursorDist(cursor_a, cursor_b);
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::GetCursorIdx(
+    Cntr& cntr, void* cursor) {
+    return cntr.GetCursorIdx(cursor);
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::CursorStepL(
+    Cntr& cntr, void* cursor) {
+    return cntr.CursorStepL(cursor);
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::CursorStepR(
+    Cntr& cntr, void* cursor) {
+    return cntr.CursorStepR(cursor);
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::CursorAdvanceL(
+    Cntr& cntr, void* cursor, size_t step) {
+    return cntr.CursorAdvanceL(cursor, step);
+}
+
+template <typename Cntr>
+constexpr decltype(auto) seq_cntr::DefaultCntrTraits<Cntr>::CursorAdvanceR(
+    Cntr& cntr, void* cursor, size_t step) {
+    return cntr.CursorAdvanceR(cursor, step);
+}
 
 #pragma push_macro("TestCapability")
 
@@ -24,26 +236,6 @@ namespace zeta::core {
     (((capability_flag) &                                     \
       (static_cast<::zeta::core::seq_cntr::CapabilityFlag>(1) \
        << ::zeta::core::seq_cntr::CapabilityEnum::capability::value)) != 0)
-
-constexpr void seq_cntr::EmptyReader::operator()(void const*, size_t,
-                                                 size_t) const {}
-
-constexpr void seq_cntr::EmptyWriter::operator()(void*, size_t, size_t) const {}
-
-inline void seq_cntr::MemReader::operator()(void const* src,
-                                            size_t src_elem_stride,
-                                            size_t cnt) {
-    utils::ElemCopy(this->data, src, this->elem_size, this->elem_stride,
-                    src_elem_stride, cnt);
-    this->data = static_cast<char*>(this->data) + this->elem_stride * cnt;
-}
-
-inline void seq_cntr::MemWriter::operator()(void* dst, size_t dst_elem_stride,
-                                            size_t cnt) {
-    utils::ElemCopy(dst, this->data, this->elem_size, dst_elem_stride,
-                    this->elem_stride, cnt);
-    this->data = static_cast<char const*>(this->data) + this->elem_stride * cnt;
-}
 
 constexpr bool seq_cntr::CheckCapabilityFlags(
     seq_cntr::CapabilityFlag static_enabled_capability_flag,
@@ -121,12 +313,12 @@ inline bool seq_cntr::CheckCapabilityFlags(
                                                                             \
     ZETA_Core_StaticAssert(true)
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 void* seq_cntr::GetReferedInstPtr(Cntr& cntr) {
     return CntrTraits<Cntr>::GetReferedInstPtr(cntr);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 constexpr seq_cntr::CapabilityFlag seq_cntr::GetStaticEnabledCapabilityFlag() {
     constexpr CapabilityFlag static_enabled_capability_flag{
         CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag()
@@ -142,7 +334,7 @@ constexpr seq_cntr::CapabilityFlag seq_cntr::GetStaticEnabledCapabilityFlag() {
     return static_enabled_capability_flag;
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 constexpr seq_cntr::CapabilityFlag seq_cntr::GetStaticDisabledCapabilityFlag() {
     constexpr CapabilityFlag static_enabled_capability_flag{
         CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag()
@@ -158,7 +350,7 @@ constexpr seq_cntr::CapabilityFlag seq_cntr::GetStaticDisabledCapabilityFlag() {
     return static_disabled_capability_flag;
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 seq_cntr::CapabilityFlag seq_cntr::GetDynamicEnabledCapabilityFlag(Cntr& cntr) {
     constexpr CapabilityFlag static_enabled_capability_flag{
         CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag()
@@ -186,7 +378,7 @@ seq_cntr::CapabilityFlag seq_cntr::GetDynamicEnabledCapabilityFlag(Cntr& cntr) {
     return dynamic_enabled_capability_flag;
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 seq_cntr::CapabilityFlag seq_cntr::GetDynamicDisabledCapabilityFlag(
     Cntr& cntr) {
     constexpr CapabilityFlag static_enabled_capability_flag{
@@ -215,37 +407,37 @@ seq_cntr::CapabilityFlag seq_cntr::GetDynamicDisabledCapabilityFlag(
     return dynamic_enabled_capability_flag;
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 size_t seq_cntr::GetCursorSize(Cntr& cntr) {
     CallMethod(true, GetCursorSize, GetCursorSize, cntr);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 size_t seq_cntr::GetElemSize(Cntr& cntr) {
     CallMethod(true, GetElemSize, GetElemSize, cntr);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 size_t seq_cntr::GetElemCnt(Cntr& cntr) {
     CallMethod(true, GetElemCnt, GetElemCnt, cntr);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 size_t seq_cntr::GetMaxElemCnt(Cntr& cntr) {
     CallMethod(true, GetMaxElemCnt, GetMaxElemCnt, cntr);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 void seq_cntr::GetLBCursor(Cntr& cntr, void* dst_cursor) {
     CallMethod(false, GetLBCursor, GetLBCursor, cntr, dst_cursor);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 void seq_cntr::GetRBCursor(Cntr& cntr, void* dst_cursor) {
     CallMethod(false, GetRBCursor, GetRBCursor, cntr, dst_cursor);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 void seq_cntr::PeekL(Cntr& cntr, bool lazy_copy_elem,
                      ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
                      void* dst_elem) {
@@ -253,7 +445,7 @@ void seq_cntr::PeekL(Cntr& cntr, bool lazy_copy_elem,
                dst_cursor, dst_elem);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 void seq_cntr::PeekR(Cntr& cntr, bool lazy_copy_elem,
                      ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
                      void* dst_elem) {
@@ -261,7 +453,7 @@ void seq_cntr::PeekR(Cntr& cntr, bool lazy_copy_elem,
                dst_cursor, dst_elem);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 void seq_cntr::Refer(Cntr& cntr, size_t idx, bool lazy_copy_elem,
                      ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
                      void* dst_elem) {
@@ -269,14 +461,14 @@ void seq_cntr::Refer(Cntr& cntr, size_t idx, bool lazy_copy_elem,
                dst_cursor, dst_elem);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 void seq_cntr::Derefer(Cntr& cntr, void* pos_cursor, bool lazy_copy_elem,
                        ElemPtrView* dst_elem_ptr_view, void* dst_elem) {
     CallMethod(true, Derefer, Derefer, cntr, pos_cursor, lazy_copy_elem,
                dst_elem_ptr_view, dst_elem);
 }
 
-template <typename Cntr, typename Reader>
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsReader Reader>
 void seq_cntr::Read(
     Cntr& cntr, void* pos_cursor, size_t cnt,
     Reader&& reader,  // NOLINT(cppcoreguidelines-missing-std-forward)
@@ -284,7 +476,7 @@ void seq_cntr::Read(
     CallMethod(false, Read, Read, cntr, pos_cursor, cnt, reader, dst_cursor);
 }
 
-template <typename Cntr, typename Writer>
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsWriter Writer>
 void seq_cntr::Write(
     Cntr& cntr, void* pos_cursor, size_t cnt,
     Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
@@ -292,7 +484,7 @@ void seq_cntr::Write(
     CallMethod(false, Write, Write, cntr, pos_cursor, cnt, writer, dst_cursor);
 }
 
-template <typename Cntr, typename ReaderWriter>
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsReaderWriter ReaderWriter>
 void seq_cntr::ReadWrite(
     Cntr& cntr, void* pos_cursor, size_t cnt,
     ReaderWriter&&
@@ -302,7 +494,7 @@ void seq_cntr::ReadWrite(
                reader_writer, dst_cursor);
 }
 
-template <typename Cntr, typename Writer>
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsWriter Writer>
 void seq_cntr::PushL(
     Cntr& cntr, size_t cnt,
     Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
@@ -310,7 +502,7 @@ void seq_cntr::PushL(
     CallMethod(false, PushL, PushL, cntr, cnt, writer, dst_cursor);
 }
 
-template <typename Cntr, typename Writer>
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsWriter Writer>
 void seq_cntr::PushR(
     Cntr& cntr, size_t cnt,
     Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
@@ -318,7 +510,7 @@ void seq_cntr::PushR(
     CallMethod(false, PushR, PushR, cntr, cnt, writer, dst_cursor);
 }
 
-template <typename Cntr, typename Writer>
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsWriter Writer>
 void seq_cntr::Insert(
     Cntr& cntr, void* pos_cursor, size_t cnt,
     Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
@@ -327,7 +519,7 @@ void seq_cntr::Insert(
                dst_cursor);
 }
 
-template <typename Cntr, typename Reader>
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsReader Reader>
 void seq_cntr::PopL(
     Cntr& cntr, size_t cnt,
     Reader&& reader  // NOLINT(cppcoreguidelines-missing-std-forward)
@@ -335,7 +527,7 @@ void seq_cntr::PopL(
     CallMethod(false, PopL, PopL, cntr, cnt, reader);
 }
 
-template <typename Cntr, typename Reader>
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsReader Reader>
 void seq_cntr::PopR(
     Cntr& cntr, size_t cnt,
     Reader&& reader  // NOLINT(cppcoreguidelines-missing-std-forward)
@@ -343,7 +535,7 @@ void seq_cntr::PopR(
     CallMethod(false, PopR, PopR, cntr, cnt, reader);
 }
 
-template <typename Cntr, typename Reader>
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsReader Reader>
 void seq_cntr::Erase(
     Cntr& cntr, void* pos_cursor, size_t cnt,
     Reader&& reader  // NOLINT(cppcoreguidelines-missing-std-forward)
@@ -351,388 +543,59 @@ void seq_cntr::Erase(
     CallMethod(false, Erase, Erase, cntr, pos_cursor, cnt, reader);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 void seq_cntr::EraseAll(Cntr& cntr) {
     CallMethod(false, EraseAll, EraseAll, cntr);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 void seq_cntr::CopyCursor(Cntr& cntr, void* src_cursor, void* dst_cursor) {
     CallMethod(false, CopyCursor, CopyCursor, cntr, src_cursor, dst_cursor);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 bool seq_cntr::AreEqualCursor(Cntr& cntr, void* cursor_a, void* cursor_b) {
     CallMethod(true, AreEqualCursor, AreEqualCursor, cntr, cursor_a, cursor_b);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 int seq_cntr::CompareCursor(Cntr& cntr, void* cursor_a, void* cursor_b) {
     CallMethod(true, CompareCursor, CompareCursor, cntr, cursor_a, cursor_b);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 size_t seq_cntr::GetCursorDist(Cntr& cntr, void* cursor_a, void* cursor_b) {
     CallMethod(true, GetCursorDist, GetCursorDist, cntr, cursor_a, cursor_b);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 size_t seq_cntr::GetCursorIdx(Cntr& cntr, void* cursor) {
     CallMethod(true, GetCursorIdx, GetCursorIdx, cntr, cursor);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 void seq_cntr::CursorStepL(Cntr& cntr, void* cursor) {
     CallMethod(false, CursorStepL, CursorStepL, cntr, cursor);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 void seq_cntr::CursorStepR(Cntr& cntr, void* cursor) {
     CallMethod(false, CursorStepR, CursorStepR, cntr, cursor);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 void seq_cntr::CursorAdvanceL(Cntr& cntr, void* cursor, size_t step) {
     CallMethod(false, CursorAdvanceL, CursorAdvanceL, cntr, cursor, step);
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 void seq_cntr::CursorAdvanceR(Cntr& cntr, void* cursor, size_t step) {
     CallMethod(false, CursorAdvanceR, CursorAdvanceR, cntr, cursor, step);
 }
 
 #pragma pop_macro("CallMethod")
 
-template <typename Cntr>
-void seq_cntr::CheckContract(Cntr& cntr) {
-    struct Reader {
-        void operator()(void const*, size_t, size_t) const {}
-    };
-
-    struct Writer {
-        void operator()(void*, size_t, size_t) const {}
-    };
-
-    struct ReaderWriter {
-        void operator()(void*, size_t, size_t) const {}
-    };
-
-#pragma push_macro("CheckMethod")
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CheckMethod(method, ...)                                        \
-    ZETA_Core_Unused(                                                   \
-        [&](bool bool_val, void* void_ptr, void const* const_void_ptr,  \
-            size_t size_val, seq_cntr::ElemPtrView* elem_ptr_view_ptr,  \
-            Reader reader, Writer writer, ReaderWriter reader_writer) { \
-            ZETA_Core_Unused(bool_val);                                 \
-            ZETA_Core_Unused(void_ptr);                                 \
-            ZETA_Core_Unused(const_void_ptr);                           \
-            ZETA_Core_Unused(elem_ptr_view_ptr);                        \
-            ZETA_Core_Unused(size_val);                                 \
-            ZETA_Core_Unused(reader);                                   \
-            ZETA_Core_Unused(writer);                                   \
-            ZETA_Core_Unused(reader_writer);                            \
-            (method)(__VA_ARGS__);                                      \
-        })
-
-#pragma push_macro("CheckMethodOp")
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CheckMethodOp(capability, method, ...)                     \
-    if constexpr (!TestCapability(static_disabled_capability_flag, \
-                                  capability)) {                   \
-        CheckMethod(method, __VA_ARGS__);                          \
-    }                                                              \
-                                                                   \
-    ZETA_Core_StaticAssert(true);
-
-    CheckMethod(                               //
-        GetStaticEnabledCapabilityFlag<Cntr>,  // method
-    );
-
-    CheckMethod(                                //
-        GetStaticDisabledCapabilityFlag<Cntr>,  // method
-    );
-
-    CheckMethod(                          //
-        GetDynamicEnabledCapabilityFlag,  // method
-
-        cntr  //
-    );
-
-    CheckMethod(                           //
-        GetDynamicDisabledCapabilityFlag,  // method
-
-        cntr  //
-    );
-
-    constexpr CapabilityFlag static_disabled_capability_flag{ (
-        GetStaticDisabledCapabilityFlag<Cntr>)() };
-
-    CheckMethodOp(      //
-        GetCursorSize,  // capability
-        GetCursorSize,  // method
-                        //
-        cntr            //
-    );
-
-    CheckMethodOp(   //
-        GetElemCnt,  // capability
-        GetElemCnt,  // method
-                     //
-        cntr         //
-    );
-
-    CheckMethodOp(      //
-        GetMaxElemCnt,  // capability
-        GetMaxElemCnt,  // method
-                        //
-        cntr            //
-    );
-
-    CheckMethodOp(    //
-        GetLBCursor,  // capability
-        GetLBCursor,  // method
-                      //
-        cntr,         //
-        void_ptr      // cursor
-    );
-
-    CheckMethodOp(    //
-        GetRBCursor,  // capability
-        GetRBCursor,  // method
-                      //
-        cntr,         //
-        void_ptr      // cursor
-    );
-
-    CheckMethodOp(          //
-        PeekL,              // capability
-        PeekL,              // method
-                            //
-        cntr,               //
-        bool_val,           // lazy_copy_elem
-        elem_ptr_view_ptr,  // dst_elem_ptr_view
-        void_ptr,           // dst_cursor(optional)
-        void_ptr            // mem(optional)
-    );
-
-    CheckMethodOp(          //
-        PeekR,              // capability
-        PeekR,              // method
-                            //
-        cntr,               //
-        bool_val,           // lazy_copy_elem
-        elem_ptr_view_ptr,  // dst_elem_ptr_view
-        void_ptr,           // dst_cursor, optional
-        void_ptr            // mem, optional
-    );
-
-    CheckMethodOp(          //
-        Refer,              // capability
-        Refer,              // method
-                            //
-        cntr,               //
-        size_val,           // idx
-        bool_val,           // lazy_copy_elem
-        elem_ptr_view_ptr,  // dst_elem_ptr_view
-        void_ptr,           // dst_cursor, optional
-        void_ptr            // mem, optional
-    );
-
-    CheckMethodOp(          //
-        Derefer,            // capability
-        Derefer,            // method
-                            //
-        cntr,               //
-        void_ptr,           // pos_cursor
-        bool_val,           // lazy_copy_elem
-        elem_ptr_view_ptr,  // dst_elem_ptr_view
-        void_ptr            // mem, optional
-    );
-
-    CheckMethodOp(  //
-        Read,       // capability
-        Read,       // method
-                    //
-        cntr,       //
-        void_ptr,   // pos_cursor
-        size_val,   // cnt
-        reader,     // reader
-        void_ptr    // dst_cursor
-    );
-
-    CheckMethodOp(  //
-        Write,      // capability
-        Write,      // method
-                    //
-        cntr,       //
-        void_ptr,   // pos_cursor, point to original position
-        size_val,   // cnt
-        writer,     // writer
-        void_ptr    // dst_cursor, optional, point to final position
-                    // after write
-    );
-
-    CheckMethodOp(      //
-        ReadWrite,      // capability
-        ReadWrite,      // method
-                        //
-        cntr,           //
-        void_ptr,       // pos_cursor
-        size_val,       // cnt
-        reader_writer,  // reader_writer
-        void_ptr        // dst_cursor
-    );
-
-    CheckMethodOp(  //
-        PushL,      // capability
-        PushL,      // method
-                    //
-        cntr,       //
-        size_val,   // cnt
-        writer,     // writer
-        void_ptr    // dst_cursor
-    );
-
-    CheckMethodOp(  //
-        PushR,      // capability
-        PushR,      // method
-                    //
-        cntr,       //
-        size_val,   // cnt
-        writer,     //
-        void_ptr    // dst_cursor
-    );
-
-    CheckMethodOp(  //
-        Insert,     // capability
-        Insert,     // method
-                    //
-        cntr,       //
-        void_ptr,   // pos_cursor
-        size_val,   // cnt
-        writer,     // writer
-        void_ptr    // dst_cursor
-    );
-
-    CheckMethodOp(  //
-        PopL,       // capability
-        PopL,       // method
-                    //
-        cntr,       //
-        size_val,   // cnt
-        reader      // reader
-    );
-
-    CheckMethodOp(  //
-        PopR,       // capability
-        PopR,       // method
-                    //
-        cntr,       //
-        size_val,   // cnt
-        reader      // reader
-    );
-
-    CheckMethodOp(  //
-        Erase,      // capability
-        Erase,      // method
-                    //
-        cntr,       //
-        void_ptr,   // pos_cursor
-        size_val,   // cnt
-        reader      // reader
-    );
-
-    CheckMethodOp(  //
-        EraseAll,   // capability
-        EraseAll,   // method
-                    //
-        cntr        //
-    );
-
-    CheckMethodOp(   //
-        CopyCursor,  // capability
-        CopyCursor,  // method
-                     //
-        cntr,        //
-        void_ptr,    // src_cursor
-        void_ptr     // dst_cursor
-    );
-
-    CheckMethodOp(       //
-        AreEqualCursor,  // capability
-        AreEqualCursor,  // method
-                         //
-        cntr,            //
-        void_ptr,        // cursor_a
-        void_ptr         // cursor_b
-    );
-
-    CheckMethodOp(      //
-        CompareCursor,  // capability
-        CompareCursor,  // method
-                        //
-        cntr,           //
-        void_ptr,       // cursor_a
-        void_ptr        // cursor_b
-    );
-
-    CheckMethodOp(      //
-        GetCursorDist,  // capability
-        GetCursorDist,  // method
-                        //
-        cntr,           //
-        void_ptr,       // cursor_a
-        void_ptr        // cursor_b
-    );
-
-    CheckMethodOp(     //
-        GetCursorIdx,  // capability
-        GetCursorIdx,  // method
-                       //
-        cntr,          //
-        void_ptr       // cursor
-    );
-
-    CheckMethodOp(    //
-        CursorStepL,  // capability
-        CursorStepL,  // method
-                      //
-        cntr,         //
-        void_ptr      // cursor
-    );
-
-    CheckMethodOp(    //
-        CursorStepR,  // capability
-        CursorStepR,  // method
-                      //
-        cntr,         //
-        void_ptr      // cursor
-    );
-
-    CheckMethodOp(       //
-        CursorAdvanceL,  // capability
-        CursorAdvanceL,  // method
-                         //
-        cntr,            //
-        void_ptr,        // cursor
-        size_val         // step
-    );
-
-    CheckMethodOp(       //
-        CursorAdvanceR,  // capability
-        CursorAdvanceR,  // method
-                         //
-        cntr,            //
-        void_ptr,        // cursor
-        size_val         // step
-    );
-
-#pragma pop_macro("CheckMethod")
-#pragma pop_macro("CheckMethodOp")
-}
-
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
     constexpr CapabilityFlag static_disabled_capability_flag{ (
         GetStaticDisabledCapabilityFlag<Cntr>)() };
@@ -807,171 +670,191 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
                                           dst_elem);
                      }),
 
-        .EmptyRead = F(Read,
-                       [](void* cntr, void* pos_cursor, size_t cnt,
-                          EmptyReader reader, void* dst_cursor) {
-                           return (Read)(*static_cast<Cntr*>(cntr), pos_cursor,
-                                         cnt, reader, dst_cursor);
-                       }),
+        .Read_EmptyAcceptor =
+            F(Read,
+              [](void* cntr, void* pos_cursor, size_t cnt,
+                 elem_stream::EmptyAcceptor reader, void* dst_cursor) {
+                  return (Read)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                reader, dst_cursor);
+              }),
 
-        .MemRead = F(Read,
-                     [](void* cntr, void* pos_cursor, size_t cnt,
-                        MemReader& reader, void* dst_cursor) {
-                         return (Read)(*static_cast<Cntr*>(cntr), pos_cursor,
-                                       cnt, reader, dst_cursor);
-                     }),
+        .Read_LinSeqElemAcceptor =
+            F(Read,
+              [](void* cntr, void* pos_cursor, size_t cnt,
+                 lin_seq_elem_stream::Acceptor& reader, void* dst_cursor) {
+                  return (Read)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                reader, dst_cursor);
+              }),
 
-        .FnRead = F(Read,
-                    [](void* cntr, void* pos_cursor, size_t cnt,
-                       FnReader reader, void* dst_cursor) {
-                        return (Read)(*static_cast<Cntr*>(cntr), pos_cursor,
-                                      cnt, reader, dst_cursor);
-                    }),
+        .Read_FnAcceptor =
+            F(Read,
+              [](void* cntr, void* pos_cursor, size_t cnt,
+                 fn_elem_stream::Acceptor reader, void* dst_cursor) {
+                  return (Read)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                reader, dst_cursor);
+              }),
 
-        .EmptyWrite = F(Write,
-                        [](void* cntr, void* pos_cursor, size_t cnt,
-                           EmptyWriter writer, void* dst_cursor) {
-                            return (Write)(*static_cast<Cntr*>(cntr),
-                                           pos_cursor, cnt, writer, dst_cursor);
-                        }),
+        .Write_EmptyProvider =
+            F(Write,
+              [](void* cntr, void* pos_cursor, size_t cnt,
+                 elem_stream::EmptyProvider writer, void* dst_cursor) {
+                  return (Write)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                 writer, dst_cursor);
+              }),
 
-        .MemWrite = F(Write,
-                      [](void* cntr, void* pos_cursor, size_t cnt,
-                         MemWriter& writer, void* dst_cursor) {
-                          return (Write)(*static_cast<Cntr*>(cntr), pos_cursor,
-                                         cnt, writer, dst_cursor);
-                      }),
+        .Write_LinSeqElemAcceptor =
+            F(Write,
+              [](void* cntr, void* pos_cursor, size_t cnt,
+                 lin_seq_elem_stream::Provider& writer, void* dst_cursor) {
+                  return (Write)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                 writer, dst_cursor);
+              }),
 
-        .FnWrite = F(Write,
-                     [](void* cntr, void* pos_cursor, size_t cnt,
-                        FnWriter writer, void* dst_cursor) {
-                         return (Write)(*static_cast<Cntr*>(cntr), pos_cursor,
-                                        cnt, writer, dst_cursor);
-                     }),
+        .Write_FnProvider =
+            F(Write,
+              [](void* cntr, void* pos_cursor, size_t cnt,
+                 fn_elem_stream::Provider writer, void* dst_cursor) {
+                  return (Write)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                 writer, dst_cursor);
+              }),
 
-        .FnReadWrite = F(ReadWrite,
-                         [](void* cntr, void* pos_cursor, size_t cnt,
-                            FnReaderWriter reader_writer, void* dst_cursor) {
-                             return (ReadWrite)(*static_cast<Cntr*>(cntr),
-                                                pos_cursor, cnt, reader_writer,
-                                                dst_cursor);
-                         }),
+        .Read_FnAcceptorWrite =
+            F(ReadWrite,
+              [](void* cntr, void* pos_cursor, size_t cnt,
+                 fn_elem_stream::Provider reader_writer, void* dst_cursor) {
+                  return (ReadWrite)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                     reader_writer, dst_cursor);
+              }),
 
-        .EmptyPushL =
+        .PushL_EmptyProvider =
             F(PushL,
-              [](void* cntr, size_t cnt, EmptyWriter writer, void* dst_cursor) {
+              [](void* cntr, size_t cnt, elem_stream::EmptyProvider writer,
+                 void* dst_cursor) {
                   return (PushL)(*static_cast<Cntr*>(cntr), cnt, writer,
                                  dst_cursor);
               }),
 
-        .MemPushL =
+        .PushL_LinSeqElemAcceptor =
             F(PushL,
-              [](void* cntr, size_t cnt, MemWriter& writer, void* dst_cursor) {
+              [](void* cntr, size_t cnt, lin_seq_elem_stream::Provider& writer,
+                 void* dst_cursor) {
                   return (PushL)(*static_cast<Cntr*>(cntr), cnt, writer,
                                  dst_cursor);
               }),
 
-        .FnPushL =
+        .PushL_FnProvider =
             F(PushL,
-              [](void* cntr, size_t cnt, FnWriter writer, void* dst_cursor) {
+              [](void* cntr, size_t cnt, fn_elem_stream::Provider writer,
+                 void* dst_cursor) {
                   return (PushL)(*static_cast<Cntr*>(cntr), cnt, writer,
                                  dst_cursor);
               }),
 
-        .EmptyPushR =
+        .PushR_EmptyProvider =
             F(PushR,
-              [](void* cntr, size_t cnt, EmptyWriter writer, void* dst_cursor) {
+              [](void* cntr, size_t cnt, elem_stream::EmptyProvider writer,
+                 void* dst_cursor) {
                   return (PushR)(*static_cast<Cntr*>(cntr), cnt, writer,
                                  dst_cursor);
               }),
 
-        .MemPushR =
+        .PushR_LinSeqElemAcceptor =
             F(PushR,
-              [](void* cntr, size_t cnt, MemWriter& writer, void* dst_cursor) {
+              [](void* cntr, size_t cnt, lin_seq_elem_stream::Provider& writer,
+                 void* dst_cursor) {
                   return (PushR)(*static_cast<Cntr*>(cntr), cnt, writer,
                                  dst_cursor);
               }),
 
-        .FnPushR =
+        .PushR_FnProvider =
             F(PushR,
-              [](void* cntr, size_t cnt, FnWriter writer, void* dst_cursor) {
+              [](void* cntr, size_t cnt, fn_elem_stream::Provider writer,
+                 void* dst_cursor) {
                   return (PushR)(*static_cast<Cntr*>(cntr), cnt, writer,
                                  dst_cursor);
               }),
 
-        .EmptyInsert = F(Insert,
-                         [](void* cntr, void* pos_cursor, size_t cnt,
-                            EmptyWriter writer, void* dst_cursor) {
-                             return (Insert)(*static_cast<Cntr*>(cntr),
-                                             pos_cursor, cnt, writer,
-                                             dst_cursor);
-                         }),
+        .Insert_EmptyProvider =
+            F(Insert,
+              [](void* cntr, void* pos_cursor, size_t cnt,
+                 elem_stream::EmptyProvider writer, void* dst_cursor) {
+                  return (Insert)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                  writer, dst_cursor);
+              }),
 
-        .MemInsert = F(Insert,
-                       [](void* cntr, void* pos_cursor, size_t cnt,
-                          MemWriter& writer, void* dst_cursor) {
-                           return (Insert)(*static_cast<Cntr*>(cntr),
-                                           pos_cursor, cnt, writer, dst_cursor);
-                       }),
+        .Insert_LinSeqElemAcceptor =
+            F(Insert,
+              [](void* cntr, void* pos_cursor, size_t cnt,
+                 lin_seq_elem_stream::Provider& writer, void* dst_cursor) {
+                  return (Insert)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                  writer, dst_cursor);
+              }),
 
-        .FnInsert = F(Insert,
-                      [](void* cntr, void* pos_cursor, size_t cnt,
-                         FnWriter writer, void* dst_cursor) {
-                          return (Insert)(*static_cast<Cntr*>(cntr), pos_cursor,
-                                          cnt, writer, dst_cursor);
-                      }),
+        .Insert_FnProvider =
+            F(Insert,
+              [](void* cntr, void* pos_cursor, size_t cnt,
+                 fn_elem_stream::Provider writer, void* dst_cursor) {
+                  return (Insert)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                  writer, dst_cursor);
+              }),
 
-        .EmptyPopL = F(PopL,
-                       [](void* cntr, size_t cnt, EmptyReader reader) {
-                           return (PopL)(*static_cast<Cntr*>(cntr), cnt,
-                                         reader);
-                       }),
+        .PopL_EmptyAcceptor =
+            F(PopL,
+              [](void* cntr, size_t cnt, elem_stream::EmptyAcceptor reader) {
+                  return (PopL)(*static_cast<Cntr*>(cntr), cnt, reader);
+              }),
 
-        .MemPopL = F(PopL,
-                     [](void* cntr, size_t cnt, MemReader& reader) {
-                         return (PopL)(*static_cast<Cntr*>(cntr), cnt, reader);
-                     }),
+        .PopL_LinSeqElemAcceptor = F(
+            PopL,
+            [](void* cntr, size_t cnt, lin_seq_elem_stream::Acceptor& reader) {
+                return (PopL)(*static_cast<Cntr*>(cntr), cnt, reader);
+            }),
 
-        .FnPopL = F(PopL,
-                    [](void* cntr, size_t cnt, FnReader reader) {
-                        return (PopL)(*static_cast<Cntr*>(cntr), cnt, reader);
-                    }),
+        .PopL_FnAcceptor =
+            F(PopL,
+              [](void* cntr, size_t cnt, fn_elem_stream::Acceptor reader) {
+                  return (PopL)(*static_cast<Cntr*>(cntr), cnt, reader);
+              }),
 
-        .EmptyPopR = F(PopR,
-                       [](void* cntr, size_t cnt, EmptyReader reader) {
-                           return (PopR)(*static_cast<Cntr*>(cntr), cnt,
-                                         reader);
-                       }),
+        .PopR_EmptyAcceptor =
+            F(PopR,
+              [](void* cntr, size_t cnt, elem_stream::EmptyAcceptor reader) {
+                  return (PopR)(*static_cast<Cntr*>(cntr), cnt, reader);
+              }),
 
-        .MemPopR = F(PopR,
-                     [](void* cntr, size_t cnt, MemReader& reader) {
-                         return (PopR)(*static_cast<Cntr*>(cntr), cnt, reader);
-                     }),
+        .PopR_LinSeqElemAcceptor = F(
+            PopR,
+            [](void* cntr, size_t cnt, lin_seq_elem_stream::Acceptor& reader) {
+                return (PopR)(*static_cast<Cntr*>(cntr), cnt, reader);
+            }),
 
-        .FnPopR = F(PopR,
-                    [](void* cntr, size_t cnt, FnReader reader) {
-                        return (PopR)(*static_cast<Cntr*>(cntr), cnt, reader);
-                    }),
-        .EmptyErase =
+        .PopR_FnAcceptor =
+            F(PopR,
+              [](void* cntr, size_t cnt, fn_elem_stream::Acceptor reader) {
+                  return (PopR)(*static_cast<Cntr*>(cntr), cnt, reader);
+              }),
+        .Erase_EmptyAcceptor =
             F(Erase,
-              [](void* cntr, void* pos_cursor, size_t cnt, EmptyReader reader) {
+              [](void* cntr, void* pos_cursor, size_t cnt,
+                 elem_stream::EmptyAcceptor reader) {
                   return (Erase)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
                                  reader);
               }),
 
-        .MemErase =
+        .Erase_LinSeqElemAcceptor =
             F(Erase,
-              [](void* cntr, void* pos_cursor, size_t cnt, MemReader& reader) {
+              [](void* cntr, void* pos_cursor, size_t cnt,
+                 lin_seq_elem_stream::Acceptor& reader) {
                   return (Erase)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
                                  reader);
               }),
 
-        .FnErase =
-            F(Erase,
-              [](void* cntr, void* pos_cursor, size_t cnt, FnReader reader) {
-                  return (Erase)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
-                                 reader);
-              }),
+        .Erase_FnAcceptor = F(Erase,
+                              [](void* cntr, void* pos_cursor, size_t cnt,
+                                 fn_elem_stream::Acceptor reader) {
+                                  return (Erase)(*static_cast<Cntr*>(cntr),
+                                                 pos_cursor, cnt, reader);
+                              }),
 
         .EraseAll =
             F(EraseAll,
@@ -1042,26 +925,26 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
     return table;
 }
 
-template <typename Cntr, typename En>
+template <seq_cntr::IsSeqCntr Cntr, typename En>
 constexpr seq_cntr::VTable seq_cntr::BuildVTableImpl<Cntr, En>::Call() {
     return (BuildVTableBasic<Cntr>)();
 }
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 constexpr seq_cntr::VTable seq_cntr::BuildVTable() {
     return BuildVTableImpl<Cntr>::Call();
 };
 
 namespace seq_cntr::detail {
 
-template <typename Cntr>
+template <IsSeqCntr Cntr>
 struct VTableHolder_ {
     static constexpr seq_cntr::VTable vtable{ (BuildVTable<Cntr>)() };
 };
 
 }  // namespace seq_cntr::detail
 
-template <typename Cntr>
+template <seq_cntr::IsSeqCntr Cntr>
 constexpr seq_cntr::VTable const& seq_cntr::GetVTable() {
     return detail::VTableHolder_<Cntr>::vtable;
 }
@@ -1135,12 +1018,9 @@ constexpr bool seq_cntr::check_operation::CanAdvancableR(size_t idx,
            step <= elem_cnt - idx;
 }
 
-template <typename DstCntr, typename SrcCntr>
+template <seq_cntr::IsSeqCntr DstCntr, seq_cntr::IsSeqCntr SrcCntr>
 void seq_cntr::RangeAssign(DstCntr& dst_cntr, SrcCntr& src_cntr, size_t dst_beg,
                            size_t src_beg, size_t cnt) {
-    (CheckContract)(dst_cntr);
-    (CheckContract)(src_cntr);
-
     ZETA_Core_DebugAssert((GetElemSize)(dst_cntr) == (GetElemSize)(src_cntr));
 
     size_t elem_size{ (GetElemSize)(dst_cntr) };
@@ -1179,17 +1059,19 @@ void seq_cntr::RangeAssign(DstCntr& dst_cntr, SrcCntr& src_cntr, size_t dst_beg,
             size_t cur_cnt{ comparison_utils::BasicMin(buffer_capacity, cnt) };
 
             (Read)(src_cntr, src_cursor, cur_cnt,
-                   MemReader{
+                   lin_seq_elem_stream::Acceptor{
                        .data = buffer,
                        .elem_size = elem_size,
                        .elem_stride = elem_size,
+                       .elem_cnt = cur_cnt,
                    },
                    src_cursor);
             (Write)(dst_cntr, dst_cursor, cur_cnt,
-                    MemWriter{
+                    lin_seq_elem_stream::Provider{
                         .data = buffer,
                         .elem_size = elem_size,
                         .elem_stride = elem_size,
+                        .elem_cnt = cur_cnt,
                     },
                     dst_cursor);
 
@@ -1209,18 +1091,20 @@ void seq_cntr::RangeAssign(DstCntr& dst_cntr, SrcCntr& src_cntr, size_t dst_beg,
         (CursorAdvanceL)(dst_cntr, dst_cursor, cur_cnt);
 
         (Read)(src_cntr, src_cursor, cur_cnt,
-               MemReader{
+               lin_seq_elem_stream::Acceptor{
                    .data = buffer,
                    .elem_size = elem_size,
                    .elem_stride = elem_size,
+                   .elem_cnt = cur_cnt,
                },
                nullptr);
 
         (Write)(dst_cntr, dst_cursor, cur_cnt,
-                MemWriter{
+                lin_seq_elem_stream::Provider{
                     .data = buffer,
                     .elem_size = elem_size,
                     .elem_stride = elem_size,
+                    .elem_cnt = cur_cnt,
                 },
                 nullptr);
 
@@ -1228,11 +1112,8 @@ void seq_cntr::RangeAssign(DstCntr& dst_cntr, SrcCntr& src_cntr, size_t dst_beg,
     }
 }
 
-template <typename DstCntr, typename SrcCntr>
+template <seq_cntr::IsSeqCntr DstCntr, seq_cntr::IsSeqCntr SrcCntr>
 void seq_cntr::Assign(DstCntr& dst_cntr, SrcCntr& src_cntr) {
-    (CheckContract)(dst_cntr);
-    (CheckContract)(src_cntr);
-
     size_t dst_size{ (GetElemCnt)(dst_cntr) };
     size_t src_size{ (GetElemCnt)(src_cntr) };
 
@@ -1291,16 +1172,22 @@ void seq_cntr::Assign(DstCntr& dst_cntr, SrcCntr& src_cntr) {
     */
 
 #pragma push_macro("FPushL")
-#define FPushL (PushL)(dst_cntr, src_size - dst_size, empty_writer, nullptr);
+#define FPushL                                                           \
+    (PushL)(dst_cntr, src_size - dst_size, elem_stream::EmptyProvider{}, \
+            nullptr);
 
 #pragma push_macro("FPushR")
-#define FPushR (PushR)(dst_cntr, src_size - dst_size, empty_writer, nullptr);
+#define FPushR                                                           \
+    (PushR)(dst_cntr, src_size - dst_size, elem_stream::EmptyProvider{}, \
+            nullptr);
 
 #pragma push_macro("FPopL")
-#define FPopL (PopL)(dst_cntr, dst_size - src_size, empty_reader);
+#define FPopL \
+    (PopL)(dst_cntr, dst_size - src_size, elem_stream::EmptyAcceptor{});
 
 #pragma push_macro("FPopR")
-#define FPopR (PopR)(dst_cntr, dst_size - src_size, empty_reader);
+#define FPopR \
+    (PopR)(dst_cntr, dst_size - src_size, elem_stream::EmptyAcceptor{});
 
     // NOLINTBEGIN(bugprone-branch-clone)
     if (dst_size < src_size) {

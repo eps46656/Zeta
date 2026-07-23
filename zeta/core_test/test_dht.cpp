@@ -7,8 +7,8 @@
 #include <vector>
 #include <zeta/core/assoc_cntr_ref.hpp>
 #include <zeta/core/assoc_cntr_ref.ipp>
-#include <zeta/core/compare.hpp>
-#include <zeta/core/compare.ipp>
+#include <zeta/core/comparison.hpp>
+#include <zeta/core/comparison.ipp>
 #include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/function_ref.ipp>

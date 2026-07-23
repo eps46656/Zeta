@@ -134,37 +134,37 @@ class Config:
 @dataclasses.dataclass
 class NodeTag:
     node_type: NodeTypeEnum
+    has_name: bool
     has_obj_type: bool
     has_region: bool
-    has_name: bool
 
     NodeTypeMask: typing.ClassVar[int] = 0b0000_1111
+    HasNameMask: typing.ClassVar[int] = 0b0001_0000
     HasObjectTypeMask: typing.ClassVar[int] = 0b0010_0000
     HasRegionMask: typing.ClassVar[int] = 0b0100_0000
-    HasNameMask: typing.ClassVar[int] = 0b1000_0000
 
     @staticmethod
     def from_integral(node_tag_int: int) -> NodeTag:
         assert 0 <= node_tag_int <= 0xFF
 
         node_type = NodeTypeEnum(node_tag_int & NodeTag.NodeTypeMask)
+        has_name = bool(node_tag_int & NodeTag.HasNameMask)
         has_obj_type = bool(node_tag_int & NodeTag.HasObjectTypeMask)
         has_region = bool(node_tag_int & NodeTag.HasRegionMask)
-        has_name = bool(node_tag_int & NodeTag.HasNameMask)
 
         return NodeTag(
             node_type=node_type,
+            has_name=has_name,
             has_obj_type=has_obj_type,
             has_region=has_region,
-            has_name=has_name,
         )
 
     def to_integral(self) -> int:
         return (
-            (self.node_type.value) |
-            (NodeTag.HasObjectTypeMask if self.has_obj_type else 0b0) |
-            (NodeTag.HasRegionMask if self.has_region else 0b0) |
-            (NodeTag.HasNameMask if self.has_name else 0b0)
+            (self.node_type.value) +
+            (NodeTag.HasNameMask if self.has_name else 0b0) +
+            (NodeTag.HasObjectTypeMask if self.has_obj_type else 0b0) +
+            (NodeTag.HasRegionMask if self.has_region else 0b0)
         )
 
 
@@ -203,9 +203,9 @@ class IntegralDescriptor:
 class Node:
     node_type: NodeTypeEnum
 
-    obj_type: None | str
-
     name: None | str
+
+    obj_type: None | str
 
     region_beg: None | int
     region_size: None | int
@@ -380,25 +380,25 @@ def serialize_node_to_octets(
 ) -> None:
     config.check()
 
+    has_name = node.name is not None
+
     has_obj_type = node.obj_type is not None
 
     assert (node.region_beg is None) == (node.region_size is None)
     has_region = node.region_beg is not None
 
-    has_name = node.name is not None
-
     serialize_unsigned_integral(ostream, 1, NodeTag(
         node_type=node.node_type,
+        has_name=has_name,
         has_obj_type=has_obj_type,
         has_region=has_region,
-        has_name=has_name,
     ).to_integral())
-
-    if has_obj_type:
-        serialize_string(ostream, node.obj_type)
 
     if has_name:
         serialize_string(ostream, node.name)
+
+    if has_obj_type:
+        serialize_string(ostream, node.obj_type)
 
     if has_region:
         serialize_unsigned_integral(
@@ -461,7 +461,8 @@ def serialize_node_to_octets(
             assert node.list_elem_cnt == len(content)
 
         if is_varying_list:
-            max_elem_cnt_per_chunk = min(256 // node.integral_size + 1, 255)
+            max_elem_cnt_per_chunk = (
+                255 + node.integral_size - 1) // node.integral_size
 
             i = 0
 
@@ -506,9 +507,9 @@ def serialize_node_to_octets(
         if is_varying_list:
             serialize_unsigned_integral(ostream, 1, NodeTag(
                 node_type=NodeTypeEnum.Terminator,
+                has_name=False,
                 has_obj_type=False,
                 has_region=False,
-                has_name=False
             ).to_integral())
 
 
@@ -522,15 +523,15 @@ def deserialize_node_from_octets(
     node_tag = NodeTag.from_integral(deserialize_unsigned_integral(istream, 1))
 
     node_type = node_tag.node_type
+    has_name = node_tag.has_name
     has_obj_type = node_tag.has_obj_type
     has_region = node_tag.has_region
-    has_name = node_tag.has_name
-
-    obj_type = deserialize_string(istream) \
-        if has_obj_type else None
 
     name = deserialize_string(istream) \
         if has_name else None
+
+    obj_type = deserialize_string(istream) \
+        if has_obj_type else None
 
     if has_region:
         region_beg = deserialize_unsigned_integral(
@@ -621,8 +622,8 @@ def deserialize_node_from_octets(
 
     return Node(
         node_type=node_type,
-        obj_type=obj_type,
         name=name,
+        obj_type=obj_type,
         region_beg=region_beg,
         region_size=region_size,
         integral_signedness=integral_signedness,
@@ -638,11 +639,11 @@ def serialize_node_to_json_struct(node: Node) -> dict[str, object]:
 
     ret["node_type"] = node.node_type.name
 
-    if node.obj_type is not None:
-        ret["obj_type"] = node.obj_type
-
     if node.name is not None:
         ret["name"] = node.name
+
+    if node.obj_type is not None:
+        ret["obj_type"] = node.obj_type
 
     if node.region_beg is not None:
         ret["region_beg"] = node.region_beg
@@ -711,9 +712,9 @@ def serialize_node_to_json_struct(node: Node) -> dict[str, object]:
 def deserialize_node_from_json_struct(dict_struct: dict[str, object]) -> Node:
     node_type = NodeTypeEnum[dict_struct["node_type"]]
 
-    obj_type = dict_struct.get("obj_type", None)
-
     name = dict_struct.get("name", None)
+
+    obj_type = dict_struct.get("obj_type", None)
 
     region_beg = dict_struct.get("region_beg", None)
     region_size = dict_struct.get("region_size", None)

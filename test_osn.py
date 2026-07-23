@@ -96,11 +96,11 @@ def gen_random_object_state_notation_json_struct(
         object_state_notation.NodeTypeEnum.NodeList,
     )) if energy == 1 else object_state_notation.NodeTypeEnum.NodeList
 
-    has_obj_type = random.choice((False, True))
-    obj_type = gen_random_str() if has_obj_type else None
-
     has_name = random.choice((False, True))
     name = gen_random_str() if has_name else None
+
+    has_obj_type = random.choice((False, True))
+    obj_type = gen_random_str() if has_obj_type else None
 
     has_region = random.choice((False, True))
 
@@ -113,11 +113,11 @@ def gen_random_object_state_notation_json_struct(
 
     node["node_type"] = node_type.name
 
-    if has_obj_type:
-        node["obj_type"] = obj_type
-
     if has_name:
         node["name"] = name
+
+    if has_obj_type:
+        node["obj_type"] = obj_type
 
     if has_region:
         node["region_beg"] = region_beg
@@ -218,7 +218,7 @@ def main2() -> None:
 
     os.makedirs((cur_dir / "osn").as_posix(), exist_ok=True)
 
-    for iter in range(1):
+    for iter in range(100):
         config = object_state_notation.Config(
             version=object_state_notation.Version(
                 major=random.randint(0, 255),

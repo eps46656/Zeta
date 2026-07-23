@@ -20,9 +20,9 @@ TA                  false               true                false/true
 
 */
 
-struct NeverMatchTag {};
+struct NeverMatchedTag {};
 
-struct AlwaysMatchTag {};
+struct AlwaysMatchedTag {};
 
 template <typename TA, typename TB>
 constexpr bool IsSame{ __is_same(TA, TB) };
@@ -32,20 +32,20 @@ namespace detail {
 template <typename TA, typename TB>
 struct IsMatched_ {
     ZETA_Core_StaticAssert(
-        !((IsSame<TA, NeverMatchTag> && IsSame<TB, AlwaysMatchTag>) ||
-          (IsSame<TA, AlwaysMatchTag> && IsSame<TB, NeverMatchTag>)));
+        !((IsSame<TA, NeverMatchedTag> && IsSame<TB, AlwaysMatchedTag>) ||
+          (IsSame<TA, AlwaysMatchedTag> && IsSame<TB, NeverMatchedTag>)));
 
-    static constexpr bool value{ IsSame<TA, AlwaysMatchTag> ||
-                                 IsSame<TB, AlwaysMatchTag> ||
-                                 (!IsSame<TA, NeverMatchTag> &&
-                                  !IsSame<TB, NeverMatchTag> &&
+    static constexpr bool value{ IsSame<TA, AlwaysMatchedTag> ||
+                                 IsSame<TB, AlwaysMatchedTag> ||
+                                 (!IsSame<TA, NeverMatchedTag> &&
+                                  !IsSame<TB, NeverMatchedTag> &&
                                   IsSame<TA, TB>)};
 };
 
 }  // namespace detail
 
 template <typename TA, typename TB>
-constexpr bool IsMatched{ detail::IsMatched_<TA, TB>::value };
+concept IsMatched = detail::IsMatched_<TA, TB>::value;
 
 namespace detail {
 
@@ -65,7 +65,7 @@ struct IsAnySame_<X, T0, Ts...> {
 }  // namespace detail
 
 template <typename X, typename... Ts>
-constexpr bool IsAnySame{ detail::IsAnySame_<X, Ts...>::value };
+concept IsAnySame = detail::IsAnySame_<X, Ts...>::value;
 
 namespace detail {
 
@@ -86,7 +86,7 @@ struct IsAnyMatched_<X, T0, Ts...> {
 }  // namespace detail
 
 template <typename X, typename... Ts>
-constexpr bool IsAnyMatched{ detail::IsAnyMatched_<X, Ts...>::value };
+concept IsAnyMatched = detail::IsAnyMatched_<X, Ts...>::value;
 
 namespace detail {
 
@@ -218,10 +218,10 @@ template <typename T>
 using RemoveCVRef = RemoveConst<RemoveVolatile<RemoveRef<T>>>;
 
 template <typename T>
-constexpr bool IsConst{ __is_const(T) };
+concept IsConst = __is_const(T);
 
 template <typename T>
-constexpr bool IsVolatile{ __is_volatile(T) };
+concept IsVolatile = __is_volatile(T);
 
 /*
 
@@ -250,70 +250,70 @@ type
 */
 
 template <typename T>
-constexpr bool IsVoid{ __is_void(T) };
+concept IsVoid = __is_void(T);
 
 template <typename T>
-constexpr bool IsFloatingPoint{ __is_floating_point(T) };
+concept IsFloatingPoint = __is_floating_point(T);
 
 template <typename T>
-constexpr bool IsArithmetic{ __is_arithmetic(T) };
+concept IsArithmetic = __is_arithmetic(T);
 
 template <typename T>
-constexpr bool IsPointer{ __is_pointer(T) };
+concept IsPointer = __is_pointer(T);
 
 template <typename T>
-constexpr bool IsPointerToMember{ __is_member_pointer(T) };
+concept IsPointerToMember = __is_member_pointer(T);
 
 template <typename T>
-constexpr bool IsNullPointer{ IsSame<T, decltype(nullptr)> };
+concept IsNullPointer = IsSame<T, decltype(nullptr)>;
 
 template <typename T>
-constexpr bool IsEnum{ __is_enum(T) };
+concept IsEnum = __is_enum(T);
 
 template <typename T>
-constexpr bool IsScalar{ __is_scalar(T) };
+concept IsScalar = __is_scalar(T);
 
 template <typename T>
-constexpr bool IsClass{ __is_class(T) };
+concept IsClass = __is_class(T);
 
 template <typename T>
-constexpr bool IsArray{ __is_array(T) };
+concept IsArray = __is_array(T);
 
 template <typename T>
-constexpr bool IsUnion{ __is_union(T) };
+concept IsUnion = __is_union(T);
 
 template <typename T>
-constexpr bool IsCompound{ __is_compound(T) };
+concept IsCompound = __is_compound(T);
 
 template <typename T>
-constexpr bool IsObject{ __is_object(T) };
+concept IsObject = __is_object(T);
 
 template <typename T>
-constexpr bool IsLValueRef{ __is_lvalue_reference(T) };
+concept IsLValueRef = __is_lvalue_reference(T);
 
 template <typename T>
-constexpr bool IsRValueRef{ __is_rvalue_reference(T) };
+concept IsRValueRef = __is_rvalue_reference(T);
 
 template <typename T>
-constexpr bool IsRef{ __is_reference(T) };
+concept IsRef = __is_reference(T);
 
 template <typename T>
-constexpr bool IsFunction{ __is_function(T) };
+concept IsFunction = __is_function(T);
 
 template <typename T>
-constexpr bool IsEmpty{ __is_empty(T) };
+concept IsEmpty = __is_empty(T);
 
 template <typename Base, typename Derived>
-constexpr bool IsBaseOf{ __is_base_of(Base, Derived) };
+concept IsBaseOf = __is_base_of(Base, Derived);
 
 template <typename T>
-constexpr bool IsTriviallyConstructible{ __is_trivially_constructible(T) };
+concept IsTriviallyConstructible = __is_trivially_constructible(T);
 
 template <typename T>
-constexpr bool IsTriviallyDestructible{ __is_trivially_destructible(T) };
+concept IsTriviallyDestructible = __is_trivially_destructible(T);
 
 template <typename T>
-constexpr bool IsComplete{ __is_complete_type(T) };
+concept IsComplete = __is_complete_type(T);
 
 template <typename... T>
 using VoidT = void;
@@ -357,7 +357,7 @@ template <bool Cond, typename _ = void>
 using EnableIf = typename detail::EnableIf_<Cond, _>::Type;
 
 template <typename FromT, typename ToT>
-constexpr bool IsConvertible{ __is_convertible(FromT, ToT) };
+concept IsConvertible = __is_convertible(FromT, ToT);
 
 template <typename T>
 constexpr RemoveRef<T>&& Move(

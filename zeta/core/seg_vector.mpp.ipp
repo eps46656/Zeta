@@ -12,7 +12,7 @@
 #include <zeta/core/bin_tree.ipp>
 #include <zeta/core/circular_array.hpp>
 #include <zeta/core/circular_array.ipp>
-#include <zeta/core/compare.hpp>
+#include <zeta/core/comparison.hpp>
 #include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
@@ -406,7 +406,7 @@ void MaterializeRefSeg_(CntrWorkType& cntr_work, SegWork_& seg_work) {
                     origin_cursor, nullptr);
 
     seq_cntr::Read(cntr_work.origin, origin_cursor, seg_work.ca.elem_cnt,
-                   seq_cntr::MemReader{
+                   lin_seq_elem_stream::Acceptor{
                        .data = data,
                        .elem_size = cntr_work.elem_size,
                        .elem_stride = cntr_work.elem_stride,
@@ -451,7 +451,7 @@ void AugMaterializeRefSeg_(CntrWorkType& cntr_work, SegWork_& seg_work,
         ZETA_Core_DebugAssert(origin_cursor_refer_idx == target_idx);
 
         seq_cntr::Read(cntr_work.origin, origin_cursor, l_cnt,
-                       seq_cntr::MemReader{
+                       lin_seq_elem_stream::Acceptor{
                            .data = data,
                            .elem_size = cntr_work.elem_size,
                            .elem_stride = cntr_work.elem_stride,
@@ -461,7 +461,7 @@ void AugMaterializeRefSeg_(CntrWorkType& cntr_work, SegWork_& seg_work,
         origin_cursor_refer_idx += l_cnt;
     }
 
-    if constexpr (!meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
+    if constexpr (!meta::IsSame<RawReader, elem_stream::EmptyAcceptor>) {
         size_t m_cnt{ seg_work.ca.elem_cnt - l_cnt - r_cnt };
 
         if (0 < m_cnt) {
@@ -510,7 +510,7 @@ void AugMaterializeRefSeg_(CntrWorkType& cntr_work, SegWork_& seg_work,
         origin_cursor_refer_idx = target_idx;
 
         seq_cntr::Read(cntr_work.origin, origin_cursor, r_cnt,
-                       seq_cntr::MemReader{
+                       lin_seq_elem_stream::Acceptor{
                            .data = static_cast<char*>(data) +
                                    cntr_work.elem_stride * (l_cnt + ins_cnt),
                            .elem_size = cntr_work.elem_size,
@@ -559,8 +559,8 @@ void SegShoveL_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
         seq_cntr::Refer(cntr_work.origin, r_seg_work.ref_beg, true, nullptr,
                         origin_cursor, nullptr);
 
-        circular_array::PushR(l_seg_work.ca, shove_cnt, seq_cntr::empty_writer,
-                              nullptr);
+        circular_array::PushR(l_seg_work.ca, shove_cnt,
+                              elem_stream::EmptyProvider{}, nullptr);
 
         circular_array::AssignFromSeqCntr(
             l_seg_work.ca, l_seg_work.ca.elem_cnt - shove_cnt, cntr_work.origin,
@@ -615,8 +615,8 @@ void SegShoveR_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
                         l_seg_work.ref_beg + l_seg_work.ca.elem_cnt - shove_cnt,
                         true, nullptr, origin_cursor, nullptr);
 
-        circular_array::PushL(r_seg_work.ca, shove_cnt, seq_cntr::empty_writer,
-                              nullptr);
+        circular_array::PushL(r_seg_work.ca, shove_cnt,
+                              elem_stream::EmptyProvider{}, nullptr);
 
         circular_array::AssignFromSeqCntr(r_seg_work.ca, 0, cntr_work.origin,
                                           origin_cursor, shove_cnt);
@@ -695,8 +695,8 @@ void SegInsertShoveL_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
 
     void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(cntr_work.origin) };
 
-    circular_array::PushR(l_seg_work.ca, shove_cnt, seq_cntr::empty_writer,
-                          nullptr);
+    circular_array::PushR(l_seg_work.ca, shove_cnt,
+                          elem_stream::EmptyProvider{}, nullptr);
 
     if (0 < cnt_a) {
         seq_cntr::Refer(cntr_work.origin, r_seg_work.ref_beg, true, nullptr,
@@ -745,7 +745,7 @@ void SegInsertShoveL_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
                         nullptr, origin_cursor, nullptr);
 
         seq_cntr::Read(cntr_work.origin, origin_cursor, rl_cnt - cnt_a,
-                       seq_cntr::MemReader{
+                       lin_seq_elem_stream::Acceptor{
                            .data = data_i,
                            .elem_size = cntr_work.elem_size,
                            .elem_stride = cntr_work.elem_stride,
@@ -765,7 +765,7 @@ void SegInsertShoveL_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
                         nullptr, origin_cursor, nullptr);
 
         seq_cntr::Read(cntr_work.origin, origin_cursor, rr_cnt - cnt_c,
-                       seq_cntr::MemReader{
+                       lin_seq_elem_stream::Acceptor{
                            .data = data_i,
                            .elem_size = cntr_work.elem_size,
                            .elem_stride = cntr_work.elem_stride,
@@ -835,8 +835,8 @@ void SegInsertShoveR_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
 
     void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(cntr_work.origin) };
 
-    circular_array::PushL(r_seg_work.ca, shove_cnt, seq_cntr::empty_writer,
-                          nullptr);
+    circular_array::PushL(r_seg_work.ca, shove_cnt,
+                          elem_stream::EmptyProvider{}, nullptr);
 
     if (0 < cnt_c) {
         seq_cntr::Refer(
@@ -886,7 +886,7 @@ void SegInsertShoveR_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
                         origin_cursor, nullptr);
 
         seq_cntr::Read(cntr_work.origin, origin_cursor, ll_cnt - cnt_c,
-                       seq_cntr::MemReader{
+                       lin_seq_elem_stream::Acceptor{
                            .data = data_i,
                            .elem_size = cntr_work.elem_size,
                            .elem_stride = cntr_work.elem_stride,
@@ -906,7 +906,7 @@ void SegInsertShoveR_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
                         nullptr, origin_cursor, nullptr);
 
         seq_cntr::Read(cntr_work.origin, origin_cursor, lr_cnt - cnt_a,
-                       seq_cntr::MemReader{
+                       lin_seq_elem_stream::Acceptor{
                            .data = data_i,
                            .elem_size = cntr_work.elem_size,
                            .elem_stride = cntr_work.elem_stride,
@@ -970,8 +970,8 @@ void SegEraseShoveL_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
 
     size_t l_elem_cnt{ l_seg_work.ca.elem_cnt };
 
-    circular_array::PushR(l_seg_work.ca, shove_cnt, seq_cntr::empty_writer,
-                          nullptr);
+    circular_array::PushR(l_seg_work.ca, shove_cnt,
+                          elem_stream::EmptyProvider{}, nullptr);
 
     void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(cntr_work.origin) };
 
@@ -1051,8 +1051,8 @@ void SegEraseShoveR_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
     size_t cnt_b{ ers_cnt };
     size_t cnt_c{ shove_cnt - cnt_a };
 
-    circular_array::PushL(r_seg_work.ca, shove_cnt, seq_cntr::empty_writer,
-                          nullptr);
+    circular_array::PushL(r_seg_work.ca, shove_cnt,
+                          elem_stream::EmptyProvider{}, nullptr);
 
     void* origin_cursor{ ZETA_Core_SeqCntr_AllocaCursor(cntr_work.origin) };
     bool origin_cursor_is_refered{ false };
@@ -1079,7 +1079,7 @@ void SegEraseShoveR_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
         origin_cursor_refer_idx += cnt_c;
     }
 
-    if constexpr (!meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
+    if constexpr (!meta::IsSame<RawReader, elem_stream::EmptyAcceptor>) {
         size_t target_idx{ l_seg_work.ref_beg + l_seg_work.ca.elem_cnt -
                            lr_cnt - ers_cnt };
 
@@ -1158,7 +1158,7 @@ inline int Merge2_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
                         origin_cursor, nullptr);
 
         seq_cntr::Read(cntr_work.origin, origin_cursor, l_seg_work.ca.elem_cnt,
-                       seq_cntr::MemReader{
+                       lin_seq_elem_stream::Acceptor{
                            .data = data,
                            .elem_size = cntr_work.elem_size,
                            .elem_stride = cntr_work.elem_stride,
@@ -1170,7 +1170,7 @@ inline int Merge2_(CntrWorkType& cntr_work, SegWork_& l_seg_work,
 
         seq_cntr::Read(
             cntr_work.origin, origin_cursor, r_seg_work.ca.elem_cnt,
-            seq_cntr::MemReader{
+            lin_seq_elem_stream::Acceptor{
                 .data = static_cast<char*>(data) +
                         cntr_work.elem_stride * l_seg_work.ca.elem_cnt,
                 .elem_size = cntr_work.elem_size,
@@ -1625,7 +1625,7 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
 
                 seq_cntr::Read(cntr_work.origin, origin_cursor,
                                new_seg_elem_cnt,
-                               seq_cntr::MemReader{
+                               lin_seq_elem_stream::Acceptor{
                                    .data = data,
                                    .elem_size = cntr_work.elem_size,
                                    .elem_stride = cntr_work.elem_stride,
@@ -1637,7 +1637,7 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
                                     nullptr, origin_cursor, nullptr);
 
                     seq_cntr::Read(cntr_work.origin, origin_cursor, seg_idx,
-                                   seq_cntr::MemReader{
+                                   lin_seq_elem_stream::Acceptor{
                                        .data = data,
                                        .elem_size = cntr_work.elem_size,
                                        .elem_stride = cntr_work.elem_stride,
@@ -1652,7 +1652,7 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
 
                     seq_cntr::Read(cntr_work.origin, origin_cursor,
                                    new_seg_elem_cnt - seg_idx - cur_cnt,
-                                   seq_cntr::MemReader{
+                                   lin_seq_elem_stream::Acceptor{
                                        .data = data + cntr_work.elem_stride *
                                                           (seg_idx + cur_cnt),
                                        .elem_size = cntr_work.elem_size,
@@ -1921,9 +1921,9 @@ Node* Copy_(size_t elem_stride, size_t seg_elem_slot_cnt, Node* lb, Node* rb,
 
             circular_array::IdxRead(
                 src_seg_work.ca, src_idx, cur_cnt,
-                seq_cntr::MemReader{ .data = dst_data,
-                                     .elem_size = elem_size,
-                                     .elem_stride = elem_stride });
+                lin_seq_elem_stream::Acceptor{ .data = dst_data,
+                                               .elem_size = elem_size,
+                                               .elem_stride = elem_stride });
 
             dst_data = static_cast<char*>(dst_data) + elem_stride * cur_cnt;
             dst_idx += cur_cnt;
@@ -2905,9 +2905,9 @@ void Namespace::Insert(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
         if (cnt <= m_seg_work.elem_vac) {
 #if EnStaging
             if (m_seg_work.color == ref_color) {
-                detail::AugMaterializeRefSeg_(cntr_work, m_seg_work,
-                                              ml_elem_cnt, cnt, mr_elem_cnt,
-                                              seq_cntr::empty_reader, writer);
+                detail::AugMaterializeRefSeg_(
+                    cntr_work, m_seg_work, ml_elem_cnt, cnt, mr_elem_cnt,
+                    elem_stream::EmptyAcceptor{}, writer);
                 pos_cursor->elem_ptr = ({
                     seq_cntr::ElemPtrView tmp;
                     circular_array::Refer(m_seg_work.ca, ml_elem_cnt, true,
@@ -3724,7 +3724,7 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
         if (m_seg_work.color == ref_color) {
             detail::AugMaterializeRefSeg_(cntr_work, m_seg_work, ml_elem_cnt, 0,
                                           mr_elem_cnt, reader,
-                                          seq_cntr::empty_writer);
+                                          elem_stream::EmptyProvider{});
         } else
 #endif
         {
@@ -3786,7 +3786,7 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
         if (m_seg_work.color == ref_color) {
             detail::AugMaterializeRefSeg_(cntr_work, m_seg_work, ml_elem_cnt, 0,
                                           mr_elem_cnt, reader,
-                                          seq_cntr::empty_writer);
+                                          elem_stream::EmptyProvider{});
         } else
 #endif
         {
@@ -3869,7 +3869,7 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
         pos_cursor->elem_ptr_is_valid = false;
 
 #if EnStaging
-        if constexpr (!meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
+        if constexpr (!meta::IsSame<RawReader, elem_stream::EmptyAcceptor>) {
             size_t target_idx{ m_seg_work.ref_beg + ml_elem_cnt };
 
             seq_cntr::Refer(cntr_work.origin, target_idx, true, nullptr,
@@ -3967,7 +3967,7 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
     } else {
         detail::SegWork_& m_seg_work{ seg_works[seg_work_cnt - 1] };
 
-        if constexpr (!meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
+        if constexpr (!meta::IsSame<RawReader, elem_stream::EmptyAcceptor>) {
 #if EnStaging
             if (m_seg_work.color == ref_color) {
                 size_t target_idx{ m_seg_work.ref_beg + seg_idx };
@@ -4004,7 +4004,8 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
 
 #if EnStaging
         if (detail::GetNColor_(m_n) == ref_color) {
-            if constexpr (!meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
+            if constexpr (!meta::IsSame<RawReader,
+                                        elem_stream::EmptyAcceptor>) {
                 size_t target_idx{ m_seg->ref.beg };
 
                 seq_cntr::Refer(cntr_work.origin, target_idx, true, nullptr,
@@ -4055,7 +4056,7 @@ void Namespace::Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
             break;
         }
 
-        if constexpr (!meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
+        if constexpr (!meta::IsSame<RawReader, elem_stream::EmptyAcceptor>) {
             circular_array::IdxRead(
                 m_seg_work.ca, 0,
                 comparison_utils::BasicMin(m_seg_work.ca.elem_cnt, cnt),
@@ -4468,7 +4469,7 @@ void Namespace::Collapse(Cntr<CntrTplArgList>& cntr,
             }
 
             circular_array::IdxRead(origin_ca, src_seg_idx, cur_cnt,
-                                    seq_cntr::MemReader{
+                                    lin_seq_elem_stream::Acceptor{
                                         .data = dst_data,
                                         .elem_size = cntr_work.elem_size,
                                         .elem_stride = cntr_work.elem_stride,

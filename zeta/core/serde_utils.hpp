@@ -1,9 +1,13 @@
 #pragma once
 
+#include <zeta/core/elem_stream.hpp>
 #include <zeta/core/error.hpp>
+#include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
 
 namespace zeta::core::serde_utils {
+
+struct VariableOctetCntTag {};
 
 struct EndiannessEnum {
     using Value = unsigned char;
@@ -72,6 +76,20 @@ bool DeserializeSignedIntegral(Provider&& provider, SignedIntegral& dst_value,
                                OctetCntLike octet_cnt_like,
                                EndiannessLike endianness_like, bool allow_lossy,
                                error::Error* dst_error);
+
+template <integral::IsIntegral Integral, typename OctetCntLike,
+          typename EndiannessLike, elem_stream::IsAcceptor Acceptor>
+bool SerializeIntegral2(Acceptor&& acceptor, Integral src_value,
+                        OctetCntLike octet_cnt_like,
+                        EndiannessLike endianness_like, bool allow_lossy,
+                        error::Error* dst_error);
+
+template <integral::IsIntegral Integral, typename OctetCntLike,
+          typename EndiannessLike, elem_stream::IsProvider Provider>
+bool DeserializeIntegral2(Provider&& provider, Integral& dst_value,
+                          OctetCntLike octet_cnt_like,
+                          EndiannessLike endianness_like, bool allow_lossy,
+                          error::Error* dst_error);
 
 template <typename Integral, typename OctetCntLike, typename EndiannessLike,
           typename Acceptor>
