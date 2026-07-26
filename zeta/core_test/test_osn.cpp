@@ -259,6 +259,7 @@ inline void main1(int num) {
                 .data = str_buffer,
                 .elem_size = 1,
                 .elem_stride = 1,
+                .elem_cnt = str_buffer_size,
             };
 
             size_t str_size{ deserializer.DeserializeString(str_reader,
@@ -271,6 +272,7 @@ inline void main1(int num) {
                         .data = str_buffer,
                         .elem_size = 1,
                         .elem_stride = 1,
+                        .elem_cnt = str_size,
                     },
                     str_size)) {
                 ZETA_Core_DebugAssert(false);

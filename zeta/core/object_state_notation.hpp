@@ -42,11 +42,6 @@ constexpr unsigned max_integral_descriptor_size{ comparison_utils::BasicMin(
 ZETA_Core_StaticAssert(min_integral_descriptor_size <=
                        max_integral_descriptor_size);
 
-constexpr unsigned min_list_elem_cnt_size{ 2 };
-constexpr unsigned max_list_elem_cnt_size{ comparison_utils::BasicMin(
-    8U, integral::RangeMaxOf<size_t>) };
-ZETA_Core_StaticAssert(min_list_elem_cnt_size <= max_list_elem_cnt_size);
-
 constexpr bool IsValidRegionAttrSize(unsigned size);
 
 constexpr bool IsValidIntegralDescriptorSize(unsigned size);

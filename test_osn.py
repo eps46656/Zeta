@@ -173,9 +173,13 @@ def gen_random_object_state_notation_json_struct(
 @beartype.beartype
 def main1() -> None:
     config = object_state_notation.Config(
+        version=object_state_notation.Version(
+            major=random.randint(0, 255),
+            minor=random.randint(0, 255),
+            patch0=random.randint(0, 255),
+            patch1=random.randint(0, 255),
+        ),
         region_attr_size=4,
-        integral_descriptor_size=1,
-        list_elem_cnt_size=4,
     )
 
     node_json_struct = gen_random_object_state_notation_json_struct(
@@ -193,7 +197,7 @@ def main1() -> None:
 
     f = io.BytesIO()
 
-    object_state_notation.serialize_header_to_octets(f, config.to_header())
+    # object_state_notation.serialize_header_to_octets(f, config.to_header())
     object_state_notation.serialize_node_to_octets(f, config, node)
 
     result = f.getvalue()
@@ -229,14 +233,6 @@ def main2() -> None:
             region_attr_size=random.randint(
                 object_state_notation.min_region_attr_size,
                 object_state_notation.max_region_attr_size,
-            ),
-            integral_descriptor_size=random.randint(
-                object_state_notation.min_integral_descriptor_size,
-                object_state_notation.max_integral_descriptor_size,
-            ),
-            list_elem_cnt_size=random.randint(
-                object_state_notation.min_list_elem_cnt_size,
-                object_state_notation.max_list_elem_cnt_size,
             ),
         )
 
@@ -284,4 +280,4 @@ def main2() -> None:
 
 
 if __name__ == "__main__":
-    main2()
+    main1()

@@ -5,11 +5,10 @@
 
 namespace zeta::core::elem_stream {
 
+namespace provider {
+
 template <typename Provider>
 struct ProviderTraits;
-
-template <typename Acceptor>
-struct AcceptorTraits;
 
 template <typename Provider>
 concept IsProvider = requires(Provider& provider, void* data, size_t elem_size,
@@ -30,6 +29,57 @@ concept IsProvider = requires(Provider& provider, void* data, size_t elem_size,
                 provider, data, elem_size, elem_stride, cnt))>,
         size_t>;
 };
+
+template <typename Provider>
+struct DefaultProviderTraits {
+    static constexpr bool IsEnd(Provider const& provider) {
+        return provider.IsEnd();
+    }
+
+    static constexpr size_t GetElemSize(Provider const& provider) {
+        return provider.GetElemSize();
+    }
+
+    static constexpr size_t Transfer(Provider& provider, void* dst,
+                                     size_t dst_elem_size,
+                                     size_t dst_elem_stride, size_t cnt) {
+        return provider.Transfer(dst, dst_elem_size, dst_elem_stride, cnt);
+    }
+};
+
+template <typename Provider>
+constexpr size_t GetElemSize(Provider&& provider);
+
+template <typename Provider>
+constexpr bool IsEnd(Provider&& provider);
+
+template <typename Provider>
+constexpr size_t Transfer(Provider&& provider, void* dst, size_t dst_elem_size,
+                          size_t dst_elem_stride, size_t cnt);
+
+struct EmptyProvider {
+    constexpr bool IsEnd(this EmptyProvider const&) { return true; }
+
+    constexpr size_t GetElemSize(this EmptyProvider const&) { return 0; }
+
+    constexpr size_t Transfer(this EmptyProvider&, void*, size_t, size_t,
+                              size_t) {
+        return 0;
+    }
+};
+
+template <>
+struct ProviderTraits<EmptyProvider>
+    : public DefaultProviderTraits<EmptyProvider> {};
+
+using ArchetProvider = EmptyProvider;
+
+}  // namespace provider
+
+namespace acceptor {
+
+template <typename Acceptor>
+struct AcceptorTraits;
 
 template <typename Acceptor>
 concept IsAcceptor = requires(Acceptor& acceptor, void const* data,
@@ -52,23 +102,6 @@ concept IsAcceptor = requires(Acceptor& acceptor, void const* data,
         size_t>;
 };
 
-template <typename Provider>
-struct DefaultProviderTraits {
-    static constexpr bool IsEnd(Provider const& provider) {
-        return provider.IsEnd();
-    }
-
-    static constexpr size_t GetElemSize(Provider const& provider) {
-        return provider.GetElemSize();
-    }
-
-    static constexpr size_t Transfer(Provider& provider, void* dst,
-                                     size_t dst_elem_size,
-                                     size_t dst_elem_stride, size_t cnt) {
-        return provider.Transfer(dst, dst_elem_size, dst_elem_stride, cnt);
-    }
-};
-
 template <typename Acceptor>
 struct DefaultAcceptorTraits {
     static constexpr size_t IsEnd(Acceptor const& acceptor) {
@@ -86,19 +119,16 @@ struct DefaultAcceptorTraits {
     }
 };
 
-struct EmptyProvider {
-    constexpr bool IsEnd(this EmptyProvider const&) { return true; }
+template <typename Acceptor>
+constexpr size_t GetElemSize(Acceptor&& acceptor);
 
-    constexpr size_t GetElemSize(this EmptyProvider const&) { return 0; }
+template <typename Acceptor>
+constexpr bool IsEnd(Acceptor&& acceptor);
 
-    constexpr size_t Transfer(this EmptyProvider&, void*, size_t, size_t,
-                              size_t) {
-        return 0;
-    }
-};
-
-template <>
-struct ProviderTraits<EmptyProvider> : DefaultProviderTraits<EmptyProvider> {};
+template <typename Acceptor>
+constexpr size_t Transfer(Acceptor&& acceptor, void const* src,
+                          size_t src_elem_size, size_t src_elem_stride,
+                          size_t cnt);
 
 struct EmptyAcceptor {
     constexpr bool IsEnd(this EmptyAcceptor const&) { return true; }
@@ -114,8 +144,8 @@ struct EmptyAcceptor {
 template <>
 struct AcceptorTraits<EmptyAcceptor> : DefaultAcceptorTraits<EmptyAcceptor> {};
 
-using ArchetProvider = EmptyProvider;
-
 using ArchetAcceptor = EmptyAcceptor;
+
+}  // namespace acceptor
 
 }  // namespace zeta::core::elem_stream

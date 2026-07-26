@@ -284,3 +284,4 @@ def add_deps(builder: building_utils.Builder, config: Config):
     add_c_cpp_module("utf8")
     add_c_cpp_module("utils")
     add_c_cpp_module("value_wrapper")
+    add_c_cpp_module("vlq_utils")

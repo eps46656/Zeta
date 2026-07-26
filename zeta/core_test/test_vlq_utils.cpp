@@ -1,6 +1,7 @@
 #include <zeta/core/integral_math.ipp>
 #include <zeta/core/lin_seq_elem_stream.ipp>
 #include <zeta/core/serde_utils.ipp>
+#include <zeta/core/vlq_utils.ipp>
 #include <zeta/core_test/random.hpp>
 
 #define SIGNED true
@@ -91,14 +92,12 @@ inline Integral GenIntegralMin() {
 #define SPECIAL_VALUE_RANGE_RANDOM 9
 
 template <typename RangeIntegral, char Endianness, typename IOIntegral,
-          typename OIIntegral, typename DigitIntegral, size_t DigitWidth,
-          bool VariantDigitCnt, size_t DigitCnt>
+          typename OIIntegral, typename DigitIntegral, size_t DigitWidth>
 inline void test_IOI(int special_value) {
     ZETA_Core_Debug_PrintVar(
         zeta::core::debug_utils::GetTypeStr<RangeIntegral>());
     ZETA_Core_Debug_PrintVar(zeta::core::debug_utils::GetTypeStr<IOIntegral>());
     ZETA_Core_Debug_PrintVar(zeta::core::debug_utils::GetTypeStr<OIIntegral>());
-    ZETA_Core_Debug_PrintVar(DigitCnt);
 
     constexpr size_t buffer_cnt{ 256 };
     DigitIntegral buffer[buffer_cnt];
@@ -117,10 +116,6 @@ inline void test_IOI(int special_value) {
 
     ZETA_Core_StaticAssert(zeta::core::integral::WidthOf<RangeIntegral> <=
                            zeta::core::integral::WidthOf<IOIntegral>);
-
-    constexpr bool is_signed{
-        zeta::core::integral::IsSignedIntegral<RangeIntegral>
-    };
 
     zeta::core::serde_utils::EndiannessEnum::Value endianness_value;
 
@@ -175,23 +170,12 @@ inline void test_IOI(int special_value) {
     default: ZETA_Core_Unreachable();
     }
 
-    using DigitRangeIntegral =
-        zeta::core::meta::Conditional<is_signed,
-                                      signed _BitInt(DigitWidth * DigitCnt),
-                                      unsigned _BitInt(DigitWidth * DigitCnt)>;
-
-    DigitRangeIntegral should_o_val{ static_cast<DigitRangeIntegral>(io_val) };
-    OIIntegral should_oi_val{ static_cast<OIIntegral>(should_o_val) };
+    OIIntegral should_oi_val{ static_cast<OIIntegral>(io_val) };
 
     ZETA_Core_Debug_PrintVar(io_val);
     ZETA_Core_Debug_PrintVar(
         static_cast<zeta::core::integral::MakeUnsignedOf<decltype(io_val)>>(
             io_val));
-    ZETA_Core_Debug_PrintVar(should_o_val);
-    ZETA_Core_Debug_PrintVar(
-        static_cast<
-            zeta::core::integral::MakeUnsignedOf<decltype(should_o_val)>>(
-            should_o_val));
     ZETA_Core_Debug_PrintVar(should_oi_val);
     ZETA_Core_Debug_PrintVar(
         static_cast<
@@ -206,7 +190,7 @@ inline void test_IOI(int special_value) {
             .data = buffer,
             .elem_size = sizeof(DigitIntegral),
             .elem_stride = sizeof(DigitIntegral),
-            .elem_cnt = DigitCnt,
+            .elem_cnt = buffer_cnt,
         } };
 
         /*
@@ -218,7 +202,7 @@ inline void test_IOI(int special_value) {
 
         */
 
-        no_lossy_io = zeta::core::serde_utils::SerializeIntegral(
+        no_lossy_io = zeta::core::vlq_utils::SerializeIntegral(
             io_val,
             // src_value
 
@@ -233,9 +217,6 @@ inline void test_IOI(int special_value) {
             zeta::core::value_wrapper::StaticValueWrapper<size_t, DigitWidth>{},
             // digit_width
 
-            zeta::core::value_wrapper::DynamicValueWrapper<size_t>{ DigitCnt },
-            // digit_cnt_like
-
             false,
             // allow_lossy
 
@@ -249,20 +230,7 @@ inline void test_IOI(int special_value) {
         ZETA_Core_Debug_PrintVar(
             static_cast<DigitIntegral const*>(mem_reader.data) - buffer);
 
-        ZETA_Core_Debug_PrintVar(DigitCnt);
-
-        ZETA_Core_DebugAssert(static_cast<DigitIntegral*>(mem_reader.data) -
-                                  buffer ==
-                              static_cast<long long>(DigitCnt));
-
-        ZETA_Core_Debug_PrintVar(io_val);
-        ZETA_Core_Debug_PrintVar(should_o_val);
-
-        if (io_val == should_o_val) {
-            ZETA_Core_DebugAssert(no_lossy_io);
-        } else {
-            ZETA_Core_DebugAssert(!no_lossy_io);
-        }
+        ZETA_Core_DebugAssert(no_lossy_io);
     }
 
     ZETA_Core_Debug_PrintVar(buffer[0]);
@@ -287,10 +255,10 @@ inline void test_IOI(int special_value) {
             .data = buffer,
             .elem_size = sizeof(DigitIntegral),
             .elem_stride = sizeof(DigitIntegral),
-            .elem_cnt = DigitCnt,
+            .elem_cnt = buffer_cnt,
         } };
 
-        no_lossy_oi = zeta::core::serde_utils::DeserializeIntegral(
+        no_lossy_oi = zeta::core::vlq_utils::DeserializeIntegral(
             oi_val,
             // dst_value
 
@@ -305,16 +273,6 @@ inline void test_IOI(int special_value) {
             zeta::core::value_wrapper::StaticValueWrapper<size_t, DigitWidth>{},
             // digit_width
 
-            []() {
-                if constexpr (VariantDigitCnt) {
-                    return zeta::core::serde_utils::VariableOctetCntTag{};
-                } else {
-                    return zeta::core::value_wrapper::DynamicValueWrapper<
-                        size_t>{ DigitCnt };
-                }
-            }(),
-            // digit_cnt_like
-
             false,
             // allow_lossy
 
@@ -325,17 +283,13 @@ inline void test_IOI(int special_value) {
             // dst_error
         );
 
-        ZETA_Core_DebugAssert(
-            static_cast<DigitIntegral const*>(mem_writer.data) - buffer ==
-            static_cast<long long>(DigitCnt));
-
         ZETA_Core_Debug_PrintVar(oi_val);
         ZETA_Core_Debug_PrintVar(should_oi_val);
 
         ZETA_Core_DebugAssert(ZETA_Core_Debug_PrintVar(oi_val) ==
                               ZETA_Core_Debug_PrintVar(should_oi_val));
 
-        if (should_o_val == should_oi_val) {
+        if (io_val == oi_val) {
             ZETA_Core_DebugAssert(no_lossy_oi);
         } else {
             ZETA_Core_DebugAssert(!no_lossy_oi);
@@ -346,8 +300,7 @@ inline void test_IOI(int special_value) {
 }
 
 template <bool Signedness, size_t RangeWidth, char Endianness, size_t IOWidth,
-          size_t OIWidth, size_t DigitWidth, bool VariantDigitCnt,
-          size_t DigitCnt>
+          size_t OIWidth, size_t DigitWidth>
 void F(int special_value) {
     using RangeIntegral =
         zeta::core::meta::Conditional<Signedness, signed _BitInt(RangeWidth),
@@ -366,9 +319,7 @@ void F(int special_value) {
              IOIntegral,                                    // IOIntegral
              OIIntegral,                                    // OIIntegral
              unsigned _BitInt(((DigitWidth + 7) / 8) * 8),  // DigitIntegral
-             DigitWidth,                                    // DigitWidth
-             VariantDigitCnt,                               // VariantDigitCnt
-             DigitCnt                                       // DigitCnt
+             DigitWidth                                     // DigitWidth
              >(special_value);
 }
 
@@ -400,8 +351,8 @@ inline void main1() {
 
             */
 
-            F<SIGNED, 66, LE, 101, 138, 2, FWC, 2>(special_value);
-            F<UNSIGNED, 16, LE, 101, 62, 7, VWC, 18>(special_value);
+            F<SIGNED, 66, LE, 101, 138, 8>(special_value);
+            F<UNSIGNED, 16, LE, 101, 62, 7>(special_value);
             // F<SIGNED, 33, BE, 60, 88, 2, VWC, 5>(special_value);
             // F<SIGNED, 61, BE, 153, 33, 4, FWC, 8>(special_value);
 

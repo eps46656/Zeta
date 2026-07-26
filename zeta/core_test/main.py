@@ -730,6 +730,14 @@ def add_deps(builder: building_utils.Builder, config: Config):
     )
 
     add_c_cpp_bc_exe(
+        "test_vlq_utils",
+        CPP,
+        {
+            out_dir / "timer.bc",
+        },
+    )
+
+    add_c_cpp_bc_exe(
         "test_utf8",
         CPP,
         {

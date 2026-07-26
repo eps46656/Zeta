@@ -4,6 +4,8 @@
 #include <zeta/core/error.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
+#include <zeta/core/pair.hpp>
+#include <zeta/core/value_wrapper.hpp>
 
 namespace zeta::core::serde_utils {
 
@@ -48,61 +50,51 @@ struct ErrorMessage {
         };
 };
 
-template <typename UnsignedIntegral, typename OctetCntLike,
-          typename EndiannessLike, typename Acceptor>
-bool SerializeUnsignedIntegral(Acceptor&& acceptor, UnsignedIntegral src_value,
-                               OctetCntLike octet_cnt_like,
-                               EndiannessLike endianness_like, bool allow_lossy,
-                               error::Error* dst_error);
+template <integral::IsUnsignedIntegral Integral>
+pair::Pair<Integral, bool> CanonicalizeIntegral(Integral value,
+                                                Integral range_max);
 
-template <typename UnsignedIntegral, typename OctetCntLike,
-          typename EndiannessLike, typename Provider>
-bool DeserializeUnsignedIntegral(Provider&& provider,
-                                 UnsignedIntegral& dst_value,
-                                 OctetCntLike octet_cnt_like,
-                                 EndiannessLike endianness_like,
-                                 bool allow_lossy, error::Error* dst_error);
+template <integral::IsIntegral Integral, typename EndiannessLike,
+          integral::IsUnsignedIntegral DigitIntegral, size_t DigitWidth,
+          typename DigitCntLike, elem_stream::acceptor::IsAcceptor Acceptor>
+    requires requires {
+        requires IsEndiannessEnum<EndiannessLike> ||
+                     value_wrapper::IsValueWrapperWith<EndiannessLike,
+                                                       EndiannessEnum::Value>;
 
-template <typename SignedIntegral, typename OctetCntLike,
-          typename EndiannessLike, typename Acceptor>
-bool SerializeSignedIntegral(Acceptor&& acceptor, SignedIntegral src_value,
-                             OctetCntLike octet_cnt_like,
-                             EndiannessLike endianness_like, bool allow_lossy,
-                             error::Error* dst_error);
+        requires 0 < DigitWidth;
 
-template <typename SignedIntegral, typename OctetCntLike,
-          typename EndiannessLike, typename Provider>
-bool DeserializeSignedIntegral(Provider&& provider, SignedIntegral& dst_value,
-                               OctetCntLike octet_cnt_like,
-                               EndiannessLike endianness_like, bool allow_lossy,
-                               error::Error* dst_error);
+        requires DigitWidth <= integral::WidthOf<DigitIntegral>;
 
-template <integral::IsIntegral Integral, typename OctetCntLike,
-          typename EndiannessLike, elem_stream::IsAcceptor Acceptor>
-bool SerializeIntegral2(Acceptor&& acceptor, Integral src_value,
-                        OctetCntLike octet_cnt_like,
-                        EndiannessLike endianness_like, bool allow_lossy,
-                        error::Error* dst_error);
+        requires value_wrapper::IsValueWrapperWith<DigitCntLike, size_t>;
+    }
+bool SerializeIntegral(
+    Integral src_value, EndiannessLike endianness_like,
+    meta::TypeWrapper<DigitIntegral> digit_integral,
+    value_wrapper::StaticValueWrapper<size_t, DigitWidth> digit_width,
+    DigitCntLike digit_cnt_like, bool allow_lossy, Acceptor&& acceptor,
+    error::Error* dst_error);
 
-template <integral::IsIntegral Integral, typename OctetCntLike,
-          typename EndiannessLike, elem_stream::IsProvider Provider>
-bool DeserializeIntegral2(Provider&& provider, Integral& dst_value,
-                          OctetCntLike octet_cnt_like,
-                          EndiannessLike endianness_like, bool allow_lossy,
-                          error::Error* dst_error);
+template <integral::IsIntegral Integral, typename EndiannessLike,
+          integral::IsUnsignedIntegral DigitIntegral, size_t DigitWidth,
+          typename DigitCntLike, elem_stream::provider::IsProvider Provider>
+    requires requires {
+        requires IsEndiannessEnum<EndiannessLike> ||
+                     value_wrapper::IsValueWrapperWith<EndiannessLike,
+                                                       EndiannessEnum::Value>;
 
-template <typename Integral, typename OctetCntLike, typename EndiannessLike,
-          typename Acceptor>
-bool SerializeIntegral(Acceptor&& acceptor, Integral src_value,
-                       OctetCntLike octet_cnt_like,
-                       EndiannessLike endianness_like, bool allow_lossy,
-                       error::Error* dst_error);
+        requires 0 < DigitWidth;
 
-template <typename Integral, typename OctetCntLike, typename EndiannessLike,
-          typename Provider>
-bool DeserializeIntegral(Provider&& provider, Integral& dst_value,
-                         OctetCntLike octet_cnt_like,
-                         EndiannessLike endianness_like, bool allow_lossy,
-                         error::Error* dst_error);
+        requires DigitWidth <= integral::WidthOf<DigitIntegral>;
+
+        requires meta::IsSame<DigitCntLike, VariableOctetCntTag> ||
+                     value_wrapper::IsValueWrapperWith<DigitCntLike, size_t>;
+    }
+bool DeserializeIntegral(
+    Integral& dst_value, EndiannessLike endianness_like,
+    meta::TypeWrapper<DigitIntegral> digit_integral,
+    value_wrapper::StaticValueWrapper<size_t, DigitWidth> digit_width,
+    DigitCntLike digit_cnt_like, bool allow_lossy, Provider&& provider,
+    error::Error* dst_error);
 
 }  // namespace zeta::core::serde_utils

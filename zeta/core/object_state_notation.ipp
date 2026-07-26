@@ -20,12 +20,6 @@ constexpr bool object_state_notation::IsValidIntegralDescriptorSize(
            integral_descriptor_size <= max_integral_descriptor_size;
 }
 
-constexpr bool object_state_notation::IsValidListElemCntSize(
-    unsigned list_elem_cnt_size) {
-    return min_list_elem_cnt_size <= list_elem_cnt_size &&
-           list_elem_cnt_size <= max_list_elem_cnt_size;
-}
-
 constexpr size_t object_state_notation::GetMaxListElemCntWithoutVarying(
     unsigned list_elem_cnt_size) {
     ZETA_Core_DebugAssert((IsValidListElemCntSize)(list_elem_cnt_size));
@@ -583,6 +577,7 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
                         integral_size * this->integral_chunk_elem_cnt,
                 .elem_size = 1,
                 .elem_stride = 1,
+                .elem_cnt = integral_size,
             },
             src_integral,
             value_wrapper::DynamicValueWrapper<unsigned long long>{

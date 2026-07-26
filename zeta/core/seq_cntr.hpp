@@ -19,14 +19,13 @@ namespace zeta::core::seq_cntr {
 constexpr size_t max_max_elem_cnt{ integral::RangeMaxOf<size_t> / 2 };
 
 template <typename Reader>
-concept IsReader = elem_stream::acceptor_concepts::IsAcceptor<Reader>;
+concept IsReader = elem_stream::acceptor::IsAcceptor<Reader>;
 
 template <typename Writer>
-concept IsWriter = elem_stream::provider_concepts::IsProvider<Writer>;
+concept IsWriter = elem_stream::provider::IsProvider<Writer>;
 
 template <typename ReaderWriter>
-concept IsReaderWriter =
-    elem_stream::provider_concepts::IsProvider<ReaderWriter>;
+concept IsReaderWriter = elem_stream::provider::IsProvider<ReaderWriter>;
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define ZETA_Core_SeqCntr_AllocaCursor(cntr)             \

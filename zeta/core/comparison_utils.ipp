@@ -12,17 +12,35 @@ namespace zeta::core {
 
 namespace comparison_utils::detail {
 
+template <typename Value_>
+struct Wrapper_ {
+    using Value = Value_;
+    Value value;
+};
+
+}  // namespace comparison_utils::detail
+
+namespace comparison_utils::detail {
+
 template <typename Comparator>
 struct MinOperation_ {
     Comparator const& cmptr;
 
-    template <typename A, typename B>
-    constexpr decltype(auto) operator()(A&& a, B&& b) const {
-        return comparison::Compare(this->cmptr,
-                                   comparison::ComparisonTypeEnum::LessEqual{},
-                                   a, b)
-                   ? meta::Forward<A>(a)
-                   : meta::Forward<B>(b);
+    template <typename WrapperA, typename WrapperB>
+    constexpr decltype(auto) operator()(WrapperA&& a, WrapperB&& b) const {
+        decltype(auto) ret{ comparison::Compare(
+                                this->cmptr,
+                                comparison::ComparisonTypeEnum::LessEqual{},
+                                static_cast<decltype(a.value)>(a.value),
+                                static_cast<decltype(b.value)>(b.value))
+                                ? static_cast<decltype(a.value)>(a.value)
+                                : static_cast<decltype(b.value)>(b.value) };
+
+        if constexpr (meta::IsRef<decltype(ret)>) {
+            return Wrapper_<decltype(ret)>{ ret };
+        } else {
+            return Wrapper_<decltype(ret)>{ meta::Move(ret) };
+        }
     }
 };
 
@@ -32,9 +50,17 @@ template <typename Comparator, typename Value0, typename... Values>
 constexpr decltype(auto) comparison_utils::Min(Comparator const& cmptr,
                                                Value0&& value0,
                                                Values&&... values) {
-    return reduce::TreeReduce(detail::MinOperation_{ cmptr },
-                              meta::Forward<Value0>(value0),
-                              meta::Forward<Values>(values)...);
+    auto ret{ reduce::TreeReduce(
+        detail::MinOperation_{ cmptr },
+        detail::Wrapper_<Value0&&>{ meta::Forward<Value0>(value0) },
+        detail::Wrapper_<Values&&>{ meta::Forward<Values>(values) }...) };
+
+    if constexpr (meta::IsLValueRef<typename decltype(ret)::Value>) {
+        return ret.value;
+    } else {
+        return static_cast<meta::RemoveCVRef<decltype(ret.value)>>(
+            meta::Move(ret.value));
+    }
 }
 
 template <typename Value0, typename... Values>
@@ -74,9 +100,15 @@ constexpr decltype(auto) comparison_utils::Max(Compareator const& cmptr,
 template <typename Value0, typename... Values>
 constexpr decltype(auto) comparison_utils::BasicMax(Value0&& value0,
                                                     Values&&... values) {
-    return (Max)(comparison::UniversalBasicComparator{},
-                 meta::Forward<Value0>(value0),
-                 meta::Forward<Values>(values)...);
+    auto&& ret{ (Max)(comparison::UniversalBasicComparator{},
+                      meta::Forward<Value0>(value0),
+                      meta::Forward<Values>(values)...) };
+
+    if constexpr (meta::IsLValueRef<decltype(ret)>) {
+        return ret;
+    } else {
+        return static_cast<meta::RemoveCVRef<decltype(ret)>>(meta::Move(ret));
+    }
 }
 
 inline int comparison_utils::MemLexCompare(void const* a, void const* b,

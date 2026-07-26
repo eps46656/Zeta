@@ -17,7 +17,7 @@ struct DynamicValueWrapper {
     using ValueType = ValueType_;
 
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
-    ValueType const& value;
+    ValueType value;
 
     ValueType const& operator()() const;
 };

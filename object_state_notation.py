@@ -6,6 +6,7 @@ import io
 import typing
 
 import beartype
+import leb128
 
 BytesIOLike = typing.BinaryIO | io.BytesIO
 
@@ -25,12 +26,6 @@ class NodeTypeEnum(enum.IntEnum):
 min_region_attr_size = 4
 max_region_attr_size = 8
 
-min_integral_descriptor_size = 1
-max_integral_descriptor_size = 3
-
-min_list_elem_cnt_size = 4
-max_list_elem_cnt_size = 8
-
 
 @beartype.beartype
 def is_valid_region_attr_size(region_attr_size: int) -> bool:
@@ -38,47 +33,29 @@ def is_valid_region_attr_size(region_attr_size: int) -> bool:
 
 
 @beartype.beartype
-def is_valid_integral_descriptor_size(integral_descriptor_size: int) -> bool:
-    return min_integral_descriptor_size <= integral_descriptor_size <= max_integral_descriptor_size
-
-
-@beartype.beartype
-def is_valid_list_elem_cnt_size(list_elem_cnt_size: int) -> bool:
-    return min_list_elem_cnt_size <= list_elem_cnt_size <= max_list_elem_cnt_size
-
-
-@beartype.beartype
 @dataclasses.dataclass
 class Version:
-    major: int
-    minor: int
-    patch0: int
-    patch1: int
+    major: int  # 1
+    minor: int  # 1
+    patch0: int  # 1
+    patch1: int  # 1
 
 
 @beartype.beartype
 @dataclasses.dataclass
 class Header:
-    magic: bytes
-    version: Version
-    region_attr_size: int
-    integral_descriptor_size: int
-    list_elem_cnt_size: int
-    reserved: bytes
+    magic: bytes  # 4
+    version: Version  # 4
+    region_attr_size: int  # 1
+    reserved: bytes  # 32 - 4 - 4 - 1 == 23
 
-    RESERVED_SIZE: typing.ClassVar[int] = 21
+    RESERVED_SIZE: typing.ClassVar[int] = 23
 
     def check(self) -> bool:
         if self.magic != b"OSN\0":
             return False
 
         if not is_valid_region_attr_size(self.region_attr_size):
-            return False
-
-        if not is_valid_integral_descriptor_size(self.integral_descriptor_size):
-            return False
-
-        if not is_valid_list_elem_cnt_size(self.list_elem_cnt_size):
             return False
 
         if any(b != 0 for b in self.reserved):
@@ -92,13 +69,9 @@ class Header:
 class Config:
     version: Version
     region_attr_size: int
-    integral_descriptor_size: int
-    list_elem_cnt_size: int
 
     def check(self) -> None:
         assert is_valid_region_attr_size(self.region_attr_size)
-        assert is_valid_integral_descriptor_size(self.integral_descriptor_size)
-        assert is_valid_list_elem_cnt_size(self.list_elem_cnt_size)
 
     @staticmethod
     def from_header(header: Header) -> Config:
@@ -107,8 +80,6 @@ class Config:
         config = Config(
             version=header.version,
             region_attr_size=header.region_attr_size,
-            integral_descriptor_size=header.integral_descriptor_size,
-            list_elem_cnt_size=header.list_elem_cnt_size,
         )
 
         config.check()
@@ -120,8 +91,6 @@ class Config:
             magic=b"OSN\0",
             version=self.version,
             region_attr_size=self.region_attr_size,
-            integral_descriptor_size=self.integral_descriptor_size,
-            list_elem_cnt_size=self.list_elem_cnt_size,
             reserved=b"\0" * Header.RESERVED_SIZE,
         )
 
@@ -144,13 +113,13 @@ class NodeTag:
     HasRegionMask: typing.ClassVar[int] = 0b0100_0000
 
     @staticmethod
-    def from_integral(node_tag_int: int) -> NodeTag:
-        assert 0 <= node_tag_int <= 0xFF
+    def from_encoded_value(encoded_value: int) -> NodeTag:
+        assert 0 <= encoded_value <= 0xFF
 
-        node_type = NodeTypeEnum(node_tag_int & NodeTag.NodeTypeMask)
-        has_name = bool(node_tag_int & NodeTag.HasNameMask)
-        has_obj_type = bool(node_tag_int & NodeTag.HasObjectTypeMask)
-        has_region = bool(node_tag_int & NodeTag.HasRegionMask)
+        node_type = NodeTypeEnum(encoded_value & NodeTag.NodeTypeMask)
+        has_name = bool(encoded_value & NodeTag.HasNameMask)
+        has_obj_type = bool(encoded_value & NodeTag.HasObjectTypeMask)
+        has_region = bool(encoded_value & NodeTag.HasRegionMask)
 
         return NodeTag(
             node_type=node_type,
@@ -159,7 +128,7 @@ class NodeTag:
             has_region=has_region,
         )
 
-    def to_integral(self) -> int:
+    def to_encoded_value(self) -> int:
         return (
             (self.node_type.value) +
             (NodeTag.HasNameMask if self.has_name else 0b0) +
@@ -171,31 +140,26 @@ class NodeTag:
 @beartype.beartype
 @dataclasses.dataclass
 class IntegralDescriptor:
-    signed: bool
+    is_signed: bool
     size: int
 
+    def check(self) -> None:
+        assert 0 <= self.size
+
     @staticmethod
-    def from_integral(integral_descriptor: int, integral_descriptor_size) -> IntegralDescriptor:
-        assert 0 <= integral_descriptor < 2**(integral_descriptor_size * 8)
+    def from_encoded_value(encoded_value: int) -> IntegralDescriptor:
+        assert 0 <= encoded_value
 
-        k = 2**(integral_descriptor_size * 8 - 1)
-
-        signed = bool(k <= integral_descriptor)
-        size = integral_descriptor - k if signed else integral_descriptor
+        is_signed = bool(encoded_value % 2 == 1)
+        size = encoded_value // 2
 
         return IntegralDescriptor(
-            signed=signed,
+            is_signed=is_signed,
             size=size,
         )
 
-    def to_integral(self, integral_descriptor_size) -> int:
-        assert 1 <= integral_descriptor_size
-
-        k = 2**(integral_descriptor_size * 8 - 1)
-
-        assert 0 <= self.size < k
-
-        return (k + self.size) if self.signed else self.size
+    def to_encoded_value(self) -> int:
+        return self.size * 2 + int(self.is_signed)
 
 
 @beartype.beartype
@@ -210,7 +174,7 @@ class Node:
     region_beg: None | int
     region_size: None | int
 
-    integral_signedness: None | bool
+    integral_is_signed: None | bool
     # when node_type == NodeTypeEnum.NegativeIntegral or
     #      node_type == NodeTypeEnum.ZeroOrPositiveIntegral
 
@@ -234,20 +198,6 @@ def integral_range(signed: bool, width: int) -> tuple[int, int]:
 def max_integral_size(integral_descriptor_size: int) -> int:
     assert 1 <= integral_descriptor_size
     return 2**(integral_descriptor_size * 8 - 1) - 1
-
-
-@beartype.beartype
-def varying_list_elem_cnt(list_elem_cnt_size: int) -> int:
-    assert min_list_elem_cnt_size <= list_elem_cnt_size <= max_list_elem_cnt_size
-
-    return 2**(list_elem_cnt_size * 8 - 1) - 1
-
-
-@beartype.beartype
-def max_list_elem_cnt_without_varying(list_elem_cnt_size: int) -> int:
-    assert min_list_elem_cnt_size <= list_elem_cnt_size <= max_list_elem_cnt_size
-
-    return 2**(list_elem_cnt_size * 8 - 1) - 2
 
 
 @beartype.beartype
@@ -292,6 +242,54 @@ def serialize_signed_integral(
 
 
 @beartype.beartype
+def deserialize_signed_integral(
+    istream: BytesIOLike,
+    size: int,
+) -> int:
+    k = 2**(size * 8 - 1)
+
+    value = int.from_bytes(istream.read(
+        size), byteorder="little", signed=False)
+
+    if k <= value:
+        value -= k + k
+
+    return value
+
+
+@beartype.beartype
+def serialize_unsigned_leb128(
+    ostream: BytesIOLike,
+    value: int,
+) -> None:
+    assert 0 <= value
+
+    ostream.write(leb128.u.encode(value))
+
+
+@beartype.beartype
+def deserialize_unsigned_leb128(
+    istream: BytesIOLike,
+) -> int:
+    return leb128.u.decode_reader(istream)[0]
+
+
+@beartype.beartype
+def serialize_signed_leb128(
+    ostream: BytesIOLike,
+    value: int,
+) -> None:
+    ostream.write(leb128.i.encode(value))
+
+
+@beartype.beartype
+def deserialize_signed_leb128(
+    istream: BytesIOLike,
+) -> int:
+    return leb128.i.decode_reader(istream)[0]
+
+
+@beartype.beartype
 def serialize_string(
     ostream: BytesIOLike,
     value: str,
@@ -330,8 +328,6 @@ def serialize_header_to_octets(
     serialize_unsigned_integral(ostream, 1, header.version.patch1)
 
     serialize_unsigned_integral(ostream, 1, header.region_attr_size)
-    serialize_unsigned_integral(ostream, 1, header.integral_descriptor_size)
-    serialize_unsigned_integral(ostream, 1, header.list_elem_cnt_size)
 
     ostream.write(header.reserved)
 
@@ -348,8 +344,6 @@ def deserialize_header_from_octets(
     version_patch1 = deserialize_unsigned_integral(istream, 1)
 
     region_attr_size = deserialize_unsigned_integral(istream, 1)
-    integral_descriptor_size = deserialize_unsigned_integral(istream, 1)
-    list_elem_cnt_size = deserialize_unsigned_integral(istream, 1)
 
     reserved = istream.read(Header.RESERVED_SIZE)
 
@@ -362,8 +356,6 @@ def deserialize_header_from_octets(
             patch1=version_patch1,
         ),
         region_attr_size=region_attr_size,
-        integral_descriptor_size=integral_descriptor_size,
-        list_elem_cnt_size=list_elem_cnt_size,
         reserved=reserved,
     )
 
@@ -378,6 +370,24 @@ def serialize_node_to_octets(
     config: Config,
     node: Node,
 ) -> None:
+    @beartype.beartype
+    def serialize_integral(
+        ostream: BytesIOLike,
+        is_signed: bool,
+        size: int,
+        value: int
+    ) -> None:
+        if size == 0:
+            if is_signed:
+                serialize_signed_leb128(ostream, value)
+            else:
+                serialize_unsigned_leb128(ostream, value)
+        else:
+            if is_signed:
+                serialize_signed_integral(ostream, size, value)
+            else:
+                serialize_unsigned_integral(ostream, size, value)
+
     config.check()
 
     has_name = node.name is not None
@@ -392,7 +402,7 @@ def serialize_node_to_octets(
         has_name=has_name,
         has_obj_type=has_obj_type,
         has_region=has_region,
-    ).to_integral())
+    ).to_encoded_value())
 
     if has_name:
         serialize_string(ostream, node.name)
@@ -408,109 +418,112 @@ def serialize_node_to_octets(
             ostream, config.region_attr_size, node.region_size)
 
     if node.node_type == NodeTypeEnum.Integral or node.node_type == NodeTypeEnum.IntegralList:
-        assert isinstance(node.integral_signedness, bool)
+        assert isinstance(node.integral_is_signed, bool)
         assert isinstance(node.integral_size, int)
 
-        serialize_unsigned_integral(
-            ostream, config.integral_descriptor_size,
+        serialize_unsigned_leb128(
+            ostream,
             IntegralDescriptor(
-                signed=node.integral_signedness,
+                is_signed=node.integral_is_signed,
                 size=node.integral_size,
-            ).to_integral(config.integral_descriptor_size))
+            ).to_encoded_value())
 
     if node.node_type == NodeTypeEnum.IntegralList or node.node_type == NodeTypeEnum.NodeList:
         list_elem_cnt = node.list_elem_cnt
         assert isinstance(list_elem_cnt, int)
 
-        assert -1 <= list_elem_cnt <= max_list_elem_cnt_without_varying(
-            config.list_elem_cnt_size)
+        assert -1 <= list_elem_cnt
 
-        if list_elem_cnt == -1:
-            list_elem_cnt = varying_list_elem_cnt(config.list_elem_cnt_size)
-
-        serialize_unsigned_integral(
-            ostream, config.list_elem_cnt_size, list_elem_cnt)
+        serialize_unsigned_leb128(ostream, list_elem_cnt + 1)
 
     if node.node_type == NodeTypeEnum.Integral:
         content = node.content
         assert isinstance(content, int)
 
-        range_min, range_max = integral_range(
-            node.integral_signedness, node.integral_size * 8)
+        if 0 < node.integral_size:
+            range_min, range_max = integral_range(
+                node.integral_is_signed, node.integral_size * 8)
 
-        assert range_min <= content <= range_max
+            assert range_min <= content <= range_max
 
-        if node.integral_signedness:
-            serialize_signed_integral(ostream, node.integral_size, content)
-        else:
-            serialize_unsigned_integral(ostream, node.integral_size, content)
+        serialize_integral(
+            ostream, node.integral_is_signed, node.integral_size, content)
 
     if node.node_type == NodeTypeEnum.IntegralList:
         content = node.content
         assert isinstance(content, list)
 
-        range_min, range_max = integral_range(
-            node.integral_signedness, node.integral_size * 8)
+        if node.integral_size == 0:
+            range_min, range_max = 0, 0
+        else:
+            range_min, range_max = integral_range(
+                node.integral_is_signed, node.integral_size * 8)
 
-        assert all(isinstance(elem, int) and range_min <= elem <= range_max
-                   for elem in content)
+            assert all(isinstance(elem, int) and range_min <= elem <= range_max
+                       for elem in content)
 
-        is_varying_list = node.list_elem_cnt == -1
-
-        if not is_varying_list:
+        if 0 <= node.list_elem_cnt:
             assert node.list_elem_cnt == len(content)
 
-        if is_varying_list:
-            max_elem_cnt_per_chunk = (
-                255 + node.integral_size - 1) // node.integral_size
+        if node.list_elem_cnt == -1:
+            buffer = io.BytesIO()
+            cur_buffer = io.BytesIO()
+            buffer_capacity = 255
 
-            i = 0
+            cur_chunk_elem_cnt = 0
 
-            while i < len(content):
-                cur_elem_cnt = min(max_elem_cnt_per_chunk, len(content) - i)
+            for integral in content:
+                serialize_integral(
+                    cur_buffer, node.integral_is_signed, node.integral_size, integral)
 
-                serialize_unsigned_integral(ostream, 1, cur_elem_cnt)
+                cur_chunk_elem_cnt += 1
 
-                for j in range(i, i + cur_elem_cnt):
-                    if node.integral_signedness:
-                        serialize_signed_integral(
-                            ostream, node.integral_size, content[j])
-                    else:
-                        serialize_unsigned_integral(
-                            ostream, node.integral_size, content[j])
+                if cur_chunk_elem_cnt == 255 or buffer_capacity < buffer.getbuffer().nbytes + cur_buffer.getbuffer().nbytes:
+                    serialize_unsigned_integral(ostream, 1, cur_chunk_elem_cnt)
+                    ostream.write(buffer.getbuffer())
+                    ostream.write(cur_buffer.getbuffer())
 
-                i += cur_elem_cnt
+                    buffer.seek(0)
+                    buffer.truncate(0)
+
+                    cur_buffer.seek(0)
+                    cur_buffer.truncate(0)
+
+                    cur_chunk_elem_cnt = 0
+                else:
+                    buffer.write(cur_buffer.getbuffer())
+                    cur_buffer.seek(0)
+                    cur_buffer.truncate(0)
+
+            if 0 < cur_chunk_elem_cnt:
+                serialize_unsigned_integral(ostream, 1, cur_chunk_elem_cnt)
+                ostream.write(buffer.getbuffer())
+                ostream.write(cur_buffer.getbuffer())
 
             serialize_unsigned_integral(ostream, 1, 0)
         else:
             for elem in content:
-                if node.integral_signedness:
-                    serialize_signed_integral(
-                        ostream, node.integral_size, elem)
-                else:
-                    serialize_unsigned_integral(
-                        ostream, node.integral_size, elem)
+                serialize_integral(
+                    ostream, node.integral_is_signed, node.integral_size, elem)
 
     if node.node_type == NodeTypeEnum.NodeList:
         child_nodes = node.content
         assert isinstance(child_nodes, list)
 
-        is_varying_list = node.list_elem_cnt == -1
-
-        if not is_varying_list:
+        if 0 <= node.list_elem_cnt:
             assert node.list_elem_cnt == len(child_nodes)
 
         for child_node in child_nodes:
             assert child_node.node_type != NodeTypeEnum.Terminator
             serialize_node_to_octets(ostream, config, child_node)
 
-        if is_varying_list:
+        if node.list_elem_cnt == -1:
             serialize_unsigned_integral(ostream, 1, NodeTag(
                 node_type=NodeTypeEnum.Terminator,
                 has_name=False,
                 has_obj_type=False,
                 has_region=False,
-            ).to_integral())
+            ).to_encoded_value())
 
 
 @beartype.beartype
@@ -518,9 +531,31 @@ def deserialize_node_from_octets(
     istream: BytesIOLike,
     config: Config,
 ) -> Node:
+    @beartype.beartype
+    def deserialize_integral(
+        istream: BytesIOLike,
+        integral_is_signed: bool,
+        integral_size: int,
+    ) -> int:
+        if integral_size == 0:
+            if integral_is_signed:
+                value = deserialize_signed_leb128(istream)
+            else:
+                value = deserialize_unsigned_leb128(istream)
+        else:
+            if integral_is_signed:
+                value = deserialize_signed_integral(istream, integral_size)
+            else:
+                value = deserialize_unsigned_integral(istream, integral_size)
+
+        return value
+
     config.check()
 
-    node_tag = NodeTag.from_integral(deserialize_unsigned_integral(istream, 1))
+    node_tag_encoded_value = deserialize_unsigned_integral(istream, 1)
+
+    node_tag = NodeTag.from_encoded_value(
+        node_tag_encoded_value)
 
     node_type = node_tag.node_type
     has_name = node_tag.has_name
@@ -543,47 +578,24 @@ def deserialize_node_from_octets(
         region_beg = None
         region_size = None
 
-    integral_signedness = None
+    integral_is_signed = None
     integral_size = None
     list_elem_cnt = None
     content = None
 
     if node_type == NodeTypeEnum.Integral or node_type == NodeTypeEnum.IntegralList:
-        integral_descriptor = IntegralDescriptor.from_integral(
-            deserialize_unsigned_integral(
-                istream, config.integral_descriptor_size),
-            config.integral_descriptor_size)
+        integral_descriptor = IntegralDescriptor.from_encoded_value(
+            deserialize_unsigned_leb128(istream))
 
-        integral_signedness = integral_descriptor.signed
+        integral_is_signed = integral_descriptor.is_signed
         integral_size = integral_descriptor.size
 
-        range_bound = 2**(integral_size * 8 - 1) \
-            if integral_signedness else 2**(integral_size * 8)
-
     if node_type == NodeTypeEnum.IntegralList or node_type == NodeTypeEnum.NodeList:
-        list_elem_cnt = deserialize_unsigned_integral(
-            istream, config.list_elem_cnt_size)
-
-        varying_list_elem_cnt_value = varying_list_elem_cnt(
-            config.list_elem_cnt_size)
-
-        assert 0 <= list_elem_cnt <= max_list_elem_cnt_without_varying(
-            config.list_elem_cnt_size) or list_elem_cnt == varying_list_elem_cnt_value
-
-        if list_elem_cnt == varying_list_elem_cnt_value:
-            list_elem_cnt = -1
-
-    @beartype.beartype
-    def deserialize_integral() -> int:
-        value = deserialize_unsigned_integral(istream, integral_size)
-
-        if range_bound <= value:
-            value -= range_bound + range_bound
-
-        return value
+        list_elem_cnt = deserialize_unsigned_leb128(istream) - 1
 
     if node_type == NodeTypeEnum.Integral:
-        content = deserialize_integral()
+        content = deserialize_integral(
+            istream, integral_is_signed, integral_size)
 
     if node_type == NodeTypeEnum.IntegralList:
         if list_elem_cnt == -1:
@@ -595,11 +607,14 @@ def deserialize_node_from_octets(
                 if cur_elem_cnt == 0:
                     break
 
-                content.extend((
-                    deserialize_integral() for _ in range(cur_elem_cnt)))
+                content.extend(
+                    deserialize_integral(
+                        istream, integral_is_signed, integral_size)
+                    for _ in range(cur_elem_cnt))
         else:
             content = [
-                deserialize_integral()
+                deserialize_integral(
+                    istream, integral_is_signed, integral_size)
                 for _ in range(list_elem_cnt)
             ]
 
@@ -618,6 +633,7 @@ def deserialize_node_from_octets(
             for _ in range(list_elem_cnt):
                 child_node = deserialize_node_from_octets(istream, config)
                 assert child_node.node_type != NodeTypeEnum.Terminator
+
                 content.append(child_node)
 
     return Node(
@@ -626,7 +642,7 @@ def deserialize_node_from_octets(
         obj_type=obj_type,
         region_beg=region_beg,
         region_size=region_size,
-        integral_signedness=integral_signedness,
+        integral_is_signed=integral_is_signed,
         integral_size=integral_size,
         list_elem_cnt=list_elem_cnt,
         content=content,
@@ -652,7 +668,7 @@ def serialize_node_to_json_struct(node: Node) -> dict[str, object]:
         ret["region_size"] = node.region_size
 
     if node.node_type == NodeTypeEnum.Integral or node.node_type == NodeTypeEnum.IntegralList:
-        integral_signedness = node.integral_signedness
+        integral_signedness = node.integral_is_signed
         assert isinstance(integral_signedness, bool)
 
         integral_size = node.integral_size
@@ -660,7 +676,7 @@ def serialize_node_to_json_struct(node: Node) -> dict[str, object]:
 
         assert 1 <= node.integral_size
 
-        ret["integral_signedness"] = node.integral_signedness
+        ret["integral_signedness"] = node.integral_is_signed
         ret["integral_size"] = node.integral_size
 
     if node.node_type == NodeTypeEnum.IntegralList or node.node_type == NodeTypeEnum.NodeList:
@@ -675,7 +691,7 @@ def serialize_node_to_json_struct(node: Node) -> dict[str, object]:
         assert isinstance(content, int)
 
         range_min, range_max = integral_range(
-            node.integral_signedness, node.integral_size * 8)
+            node.integral_is_signed, node.integral_size * 8)
 
         assert range_min <= content <= range_max
 
@@ -686,7 +702,7 @@ def serialize_node_to_json_struct(node: Node) -> dict[str, object]:
         assert isinstance(content, list)
 
         range_min, range_max = integral_range(
-            node.integral_signedness, node.integral_size * 8)
+            node.integral_is_signed, node.integral_size * 8)
 
         assert all(isinstance(elem, int) and range_min <= elem <= range_max
                    for elem in content)
@@ -777,7 +793,7 @@ def deserialize_node_from_json_struct(dict_struct: dict[str, object]) -> Node:
         name=name,
         region_beg=region_beg,
         region_size=region_size,
-        integral_signedness=integral_signedness,
+        integral_is_signed=integral_signedness,
         integral_size=integral_size,
         list_elem_cnt=list_elem_cnt,
         content=content,

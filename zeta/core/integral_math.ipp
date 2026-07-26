@@ -56,7 +56,7 @@ constexpr Base integral_math::PowerOf2Minus1(Exp exp) {
 
     x <<= exp - 1;  // x = 2^(exp - 1)
     --x;            // x = 2^(exp - 1) - 1
-    x <<= 1;        // x = 2^exp - 2
+    x *= 2;         // x = 2^exp - 2
     ++x;            // x = 2^exp - 1
 
     return x;

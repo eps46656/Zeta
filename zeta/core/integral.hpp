@@ -45,22 +45,24 @@ using udllong_t = unsigned _BitInt(ZETA_Core_ullong_width * 2);
 
 namespace detail {
 
-struct IncompleteTraitsBase_ {};
+struct UnspecializedIntegralTraitsTag_ {};
 
 }  // namespace detail
 
 template <typename Integral, typename = void>
-struct IntegralTraits;
+struct IntegralTraits : public detail::UnspecializedIntegralTraitsTag_ {};
 
 template <typename Integral>
-concept IsIntegral = requires { typename IntegralTraits<Integral>; };
+concept IsIntegral =
+    !meta::IsBaseOf<detail::UnspecializedIntegralTraitsTag_,
+                    IntegralTraits<meta::RemoveCVRef<Integral>>>;
 
 template <typename Integral>
 concept IsSignedIntegral =
     requires { requires IntegralTraits<Integral>::is_signed; };
 
 template <typename Integral>
-constexpr bool IsUnsignedIntegral =
+concept IsUnsignedIntegral =
     requires { requires !IntegralTraits<Integral>::is_signed; };
 
 template <typename Integral>
@@ -157,7 +159,7 @@ F(unsigned long long, signed long long, ZETA_Core_ullong_width);
 
 #pragma pop_macro("F")
 
-template <unsigned long long N>
+template <size_t N>
 struct IntegralTraits<unsigned _BitInt(N)> {
     static constexpr bool is_signed{ false };
     static constexpr size_t width{ N };
@@ -166,7 +168,7 @@ struct IntegralTraits<unsigned _BitInt(N)> {
     using SignedType = signed _BitInt(N);
 };
 
-template <unsigned long long N>
+template <size_t N>
 struct IntegralTraits<signed _BitInt(N)> {
     static constexpr bool is_signed{ true };
     static constexpr size_t width{ N };
@@ -178,14 +180,14 @@ struct IntegralTraits<signed _BitInt(N)> {
 namespace detail {
 
 template <typename Integral>
-constexpr Integral Pow2Minus1_(unsigned long long exp) {  // Returns 2^exp - 1.
+constexpr Integral Pow2Minus1_(size_t exp) {  // Returns 2^exp - 1.
     if (exp == 0) { return 0; }
 
     Integral x{ 1 };
 
     x <<= exp - 1;  // x = 2^(exp - 1)
     --x;            // x = 2^(exp - 1) - 1
-    x <<= 1;        // x = 2^exp - 2
+    x *= 2;         // x = 2^exp - 2
     ++x;            // x = 2^exp - 1
 
     return x;
