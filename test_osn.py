@@ -38,7 +38,7 @@ def gen_exp_random_unsigned_integral(zero_exclued: bool, size: None | int) -> tu
     int,  # size
     int  # value
 ]:
-    if size is None:
+    if size is None or size <= 0:
         size = random.randint(1, 16)
 
     exp = random.uniform(0, size * 8)
@@ -125,7 +125,7 @@ def gen_random_object_state_notation_json_struct(
 
     if node_type == object_state_notation.NodeTypeEnum.Integral or node_type == object_state_notation.NodeTypeEnum.IntegralList:
         integral_signedness = random.choice((False, True))
-        integral_size = random.randint(1, 16)
+        integral_size = random.randint(0, 16)
 
         node["integral_signedness"] = integral_signedness
         node["integral_size"] = integral_size
@@ -280,4 +280,4 @@ def main2() -> None:
 
 
 if __name__ == "__main__":
-    main1()
+    main2()

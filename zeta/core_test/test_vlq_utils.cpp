@@ -347,25 +347,105 @@ inline void main1() {
             /*
             FINISHED
 
-            F<SIGNED, 39, BE, 142, 65, 8, VWC, 15>(special_value);
+            F<SIGNED, 66, LE, 101, 138, 8>(special_value);
+            F<UNSIGNED, 16, LE, 101, 62, 7>(special_value);
+
+
+            F<SIGNED, 33, BE, 60, 88, 5>(special_value);
+            F<SIGNED, 61, BE, 153, 33, 8>(special_value);
+
+            F<SIGNED, 7, LE, 16, 32, 2>(special_value);
+            F<UNSIGNED, 8, BE, 24, 17, 3>(special_value);
+            F<SIGNED, 15, BE, 64, 40, 4>(special_value);
+            F<UNSIGNED, 16, LE, 19, 91, 5>(special_value);
+            F<SIGNED, 23, LE, 88, 60, 6>(special_value);
+            F<UNSIGNED, 24, BE, 127, 55, 7>(special_value);
+            F<SIGNED, 31, BE, 153, 33, 8>(special_value);
+            F<UNSIGNED, 32, LE, 72, 145, 2>(special_value);
+            F<SIGNED, 33, BE, 60, 88, 5>(special_value);
+            F<UNSIGNED, 34, LE, 101, 23, 6>(special_value);
+            F<SIGNED, 39, LE, 45, 166, 7>(special_value);
+            F<UNSIGNED, 40, BE, 180, 52, 8>(special_value);
+            F<SIGNED, 47, BE, 99, 127, 3>(special_value);
+            F<SIGNED, 55, LE, 192, 41, 5>(special_value);
+            F<UNSIGNED, 56, BE, 137, 78, 6>(special_value);
+            F<SIGNED, 61, BE, 153, 33, 8>(special_value);
+            F<UNSIGNED, 62, LE, 255, 64, 7>(special_value);
+            F<SIGNED, 63, LE, 128, 191, 4>(special_value);
+            F<UNSIGNED, 64, BE, 256, 256, 8>(special_value);
 
             */
 
-            F<SIGNED, 66, LE, 101, 138, 8>(special_value);
-            F<UNSIGNED, 16, LE, 101, 62, 7>(special_value);
-            // F<SIGNED, 33, BE, 60, 88, 2, VWC, 5>(special_value);
-            // F<SIGNED, 61, BE, 153, 33, 4, FWC, 8>(special_value);
+            F<SIGNED, 3, LE, 8, 11, 2>(special_value);
+            F<UNSIGNED, 4, BE, 13, 7, 3>(special_value);
+            F<SIGNED, 5, BE, 19, 24, 4>(special_value);
+            F<UNSIGNED, 6, LE, 27, 15, 5>(special_value);
+            F<SIGNED, 7, LE, 31, 42, 6>(special_value);
+            F<UNSIGNED, 8, BE, 47, 29, 7>(special_value);
+            F<SIGNED, 9, BE, 56, 63, 8>(special_value);
+            F<UNSIGNED, 10, LE, 73, 18, 2>(special_value);
+            F<SIGNED, 11, LE, 81, 96, 3>(special_value);
+            F<UNSIGNED, 12, BE, 94, 37, 4>(special_value);
+            F<SIGNED, 13, BE, 101, 108, 5>(special_value);
+            F<UNSIGNED, 14, LE, 117, 51, 6>(special_value);
+            F<SIGNED, 15, LE, 126, 133, 7>(special_value);
+
+            F<UNSIGNED, 16, BE, 144, 66, 8>(special_value);
+            F<SIGNED, 17, BE, 155, 149, 2>(special_value);
+            F<UNSIGNED, 18, LE, 169, 79, 3>(special_value);
+            F<SIGNED, 19, LE, 177, 188, 4>(special_value);
+            F<UNSIGNED, 20, BE, 191, 92, 5>(special_value);
+            F<SIGNED, 21, BE, 208, 201, 6>(special_value);
+            F<UNSIGNED, 22, LE, 223, 104, 7>(special_value);
+            F<SIGNED, 23, LE, 239, 217, 8>(special_value);
+            F<UNSIGNED, 24, BE, 251, 118, 2>(special_value);
+            F<SIGNED, 25, BE, 264, 233, 3>(special_value);
+
+            F<UNSIGNED, 26, LE, 278, 127, 4>(special_value);
+            F<SIGNED, 27, LE, 291, 245, 5>(special_value);
+            F<UNSIGNED, 28, BE, 307, 136, 6>(special_value);
+            F<SIGNED, 29, BE, 319, 261, 7>(special_value);
+            F<UNSIGNED, 30, LE, 333, 148, 8>(special_value);
+            F<SIGNED, 31, LE, 347, 277, 2>(special_value);
+            F<UNSIGNED, 32, BE, 361, 159, 3>(special_value);
+            F<SIGNED, 33, BE, 377, 289, 4>(special_value);
+            F<UNSIGNED, 34, LE, 389, 171, 5>(special_value);
+            F<SIGNED, 35, LE, 403, 305, 6>(special_value);
+            F<UNSIGNED, 36, BE, 419, 183, 7>(special_value);
+            F<SIGNED, 37, BE, 431, 317, 8>(special_value);
 
             /*
             WAITING
 
+            F<UNSIGNED, 38, LE, 447, 194, 2>(special_value);
+            F<SIGNED,   39, LE, 461, 333, 3>(special_value);
+            F<UNSIGNED, 40, BE, 479, 205, 4>(special_value);
+            F<SIGNED,   41, BE, 491, 349, 5>(special_value);
+            F<UNSIGNED, 42, LE, 503, 217, 6>(special_value);
+            F<SIGNED,   43, LE, 521, 365, 7>(special_value);
+            F<UNSIGNED, 44, BE, 533, 228, 8>(special_value);
+            F<SIGNED,   45, BE, 547, 381, 2>(special_value);
+            F<UNSIGNED, 46, LE, 563, 239, 3>(special_value);
+            F<SIGNED,   47, LE, 577, 397, 4>(special_value);
+            F<UNSIGNED, 48, BE, 591, 251, 5>(special_value);
+            F<SIGNED,   49, BE, 607, 413, 6>(special_value);
+            F<UNSIGNED, 50, LE, 619, 262, 7>(special_value);
+            F<SIGNED,   51, LE, 633, 429, 8>(special_value);
+            F<UNSIGNED, 52, BE, 647, 274, 2>(special_value);
+            F<SIGNED,   53, BE, 661, 445, 3>(special_value);
+            F<UNSIGNED, 54, LE, 677, 285, 4>(special_value);
+            F<SIGNED,   55, LE, 691, 461, 5>(special_value);
+            F<UNSIGNED, 56, BE, 707, 297, 6>(special_value);
+            F<SIGNED,   57, BE, 719, 477, 7>(special_value);
+            F<UNSIGNED, 58, LE, 733, 308, 8>(special_value);
+            F<SIGNED,   59, LE, 749, 493, 2>(special_value);
+            F<UNSIGNED, 60, BE, 761, 320, 3>(special_value);
+            F<SIGNED,   61, BE, 777, 509, 4>(special_value);
+            F<UNSIGNED, 62, LE, 791, 331, 5>(special_value);
+            F<SIGNED,   63, LE, 803, 525, 6>(special_value);
+            F<UNSIGNED, 64, BE, 819, 343, 7>(special_value);
 
-            F<UNSIGNED, 90, LE, 168, 92, 4, VWC, 14>(special_value);
 
-            F<SIGNED, 1, LE, 28, 54, 10, VWC, 3>(special_value);
-            F<UNSIGNED, 92, LE, 104, 34, 12, VWC, 20>(special_value);
-            F<SIGNED, 115, LE, 161, 157, 12, VWC, 15>(special_value);
-            F<UNSIGNED, 51, LE, 167, 21, 5, FWC, 3>(special_value);
 
             */
 

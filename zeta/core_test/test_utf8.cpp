@@ -22,9 +22,9 @@ inline void test_utf8(zeta::core::unicode::unichar_t cp_beg,
                 static_cast<zeta::core::unicode::unichar_t>(cp_beg + i);
         }
 
-        ZETA_Core_PrintVar(cp_beg);
-        ZETA_Core_PrintVar(cur_cp_cnt);
-        ZETA_Core_PrintVar(cp_beg + cur_cp_cnt);
+        ZETA_Core_Debug_PrintVar(cp_beg);
+        ZETA_Core_Debug_PrintVar(cur_cp_cnt);
+        ZETA_Core_Debug_PrintVar(cp_beg + cur_cp_cnt);
 
         size_t cur_octet_cnt{ 0 };
 
@@ -42,17 +42,15 @@ inline void test_utf8(zeta::core::unicode::unichar_t cp_beg,
                     .data = octet_buffer,
                     .elem_size = 1,
                     .elem_stride = 1,
-                    .elem_cnt = cur_cp_cnt,
+                    .elem_cnt = sizeof(octet_buffer) / sizeof(octet_buffer[0]),
                 },
                 cur_cp_cnt, sizeof(octet_buffer) / sizeof(octet_buffer[0]));
 
-            /*
-            ZETA_Core_PrintVar(cp_buffer[0]);
-            ZETA_Core_PrintVar(octet_buffer[0]);
-            ZETA_Core_PrintVar(octet_buffer[1]);
-            ZETA_Core_PrintVar(octet_buffer[2]);
-            ZETA_Core_PrintVar(octet_buffer[3]);
-            */
+            ZETA_Core_Debug_PrintVar(cp_buffer[0]);
+            ZETA_Core_Debug_PrintVar(octet_buffer[0]);
+            ZETA_Core_Debug_PrintVar(octet_buffer[1]);
+            ZETA_Core_Debug_PrintVar(octet_buffer[2]);
+            ZETA_Core_Debug_PrintVar(octet_buffer[3]);
 
             ZETA_Core_DebugAssert(encoder.acc_pulled_codepoint_cnt ==
                                   cur_cp_cnt);
@@ -78,13 +76,11 @@ inline void test_utf8(zeta::core::unicode::unichar_t cp_beg,
                 },
                 cur_octet_cnt, cur_cp_cnt);
 
-            /*
-            ZETA_Core_PrintVar(octet_buffer[0]);
-            ZETA_Core_PrintVar(octet_buffer[1]);
-            ZETA_Core_PrintVar(octet_buffer[2]);
-            ZETA_Core_PrintVar(octet_buffer[3]);
-            ZETA_Core_PrintVar(re_cp_buffer[0]);
-            */
+            ZETA_Core_Debug_PrintVar(octet_buffer[0]);
+            ZETA_Core_Debug_PrintVar(octet_buffer[1]);
+            ZETA_Core_Debug_PrintVar(octet_buffer[2]);
+            ZETA_Core_Debug_PrintVar(octet_buffer[3]);
+            ZETA_Core_Debug_PrintVar(re_cp_buffer[0]);
 
             ZETA_Core_DebugAssert(decoder.acc_pulled_octet_cnt ==
                                   cur_octet_cnt);
@@ -103,18 +99,22 @@ inline void test_utf8(zeta::core::unicode::unichar_t cp_beg,
 
 inline void main1() {
     zeta::core::unicode::unichar_t cp_beg{
-        zeta::core::unicode::surrogate_range_max + 1
+        zeta::core::unicode::codepoint_range_min
+        // zeta::core::unicode::surrogate_range_max + 1
     };
 
     zeta::core::unicode::unichar_t cp_end{
-        zeta::core::unicode::codepoint_range_max
+        zeta::core::unicode::surrogate_range_min - 1
+        // zeta::core::unicode::codepoint_range_max
     };
 
     zeta::core::unicode::unichar_t stride{ 0x10000 };
 
     for (; cp_beg <= cp_end; cp_beg += stride) {
-        ZETA_Core_PrintVar(cp_beg);
+        ZETA_Core_Debug_PrintVar(cp_beg);
         test_utf8(cp_beg, std::min(cp_beg + stride - 1, cp_end));
+
+        zeta::core::debug_utils::ClearDebugStrStream();
     }
 
     ZETA_Core_PrintVar("ok");

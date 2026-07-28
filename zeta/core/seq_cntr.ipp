@@ -670,13 +670,13 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
                                           dst_elem);
                      }),
 
-        .Read_EmptyAcceptor =
-            F(Read,
-              [](void* cntr, void* pos_cursor, size_t cnt,
-                 elem_stream::EmptyAcceptor reader, void* dst_cursor) {
-                  return (Read)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
-                                reader, dst_cursor);
-              }),
+        .Read_EmptyAcceptor = F(
+            Read,
+            [](void* cntr, void* pos_cursor, size_t cnt,
+               elem_stream::acceptor::EmptyAcceptor reader, void* dst_cursor) {
+                return (Read)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                              reader, dst_cursor);
+            }),
 
         .Read_LinSeqElemAcceptor =
             F(Read,
@@ -694,13 +694,13 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
                                 reader, dst_cursor);
               }),
 
-        .Write_EmptyProvider =
-            F(Write,
-              [](void* cntr, void* pos_cursor, size_t cnt,
-                 elem_stream::EmptyProvider writer, void* dst_cursor) {
-                  return (Write)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
-                                 writer, dst_cursor);
-              }),
+        .Write_EmptyProvider = F(
+            Write,
+            [](void* cntr, void* pos_cursor, size_t cnt,
+               elem_stream::provider::EmptyProvider writer, void* dst_cursor) {
+                return (Write)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                               writer, dst_cursor);
+            }),
 
         .Write_LinSeqElemAcceptor =
             F(Write,
@@ -726,13 +726,13 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
                                      reader_writer, dst_cursor);
               }),
 
-        .PushL_EmptyProvider =
-            F(PushL,
-              [](void* cntr, size_t cnt, elem_stream::EmptyProvider writer,
-                 void* dst_cursor) {
-                  return (PushL)(*static_cast<Cntr*>(cntr), cnt, writer,
-                                 dst_cursor);
-              }),
+        .PushL_EmptyProvider = F(
+            PushL,
+            [](void* cntr, size_t cnt,
+               elem_stream::provider::EmptyProvider writer, void* dst_cursor) {
+                return (PushL)(*static_cast<Cntr*>(cntr), cnt, writer,
+                               dst_cursor);
+            }),
 
         .PushL_LinSeqElemAcceptor =
             F(PushL,
@@ -750,13 +750,13 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
                                  dst_cursor);
               }),
 
-        .PushR_EmptyProvider =
-            F(PushR,
-              [](void* cntr, size_t cnt, elem_stream::EmptyProvider writer,
-                 void* dst_cursor) {
-                  return (PushR)(*static_cast<Cntr*>(cntr), cnt, writer,
-                                 dst_cursor);
-              }),
+        .PushR_EmptyProvider = F(
+            PushR,
+            [](void* cntr, size_t cnt,
+               elem_stream::provider::EmptyProvider writer, void* dst_cursor) {
+                return (PushR)(*static_cast<Cntr*>(cntr), cnt, writer,
+                               dst_cursor);
+            }),
 
         .PushR_LinSeqElemAcceptor =
             F(PushR,
@@ -774,13 +774,13 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
                                  dst_cursor);
               }),
 
-        .Insert_EmptyProvider =
-            F(Insert,
-              [](void* cntr, void* pos_cursor, size_t cnt,
-                 elem_stream::EmptyProvider writer, void* dst_cursor) {
-                  return (Insert)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
-                                  writer, dst_cursor);
-              }),
+        .Insert_EmptyProvider = F(
+            Insert,
+            [](void* cntr, void* pos_cursor, size_t cnt,
+               elem_stream::provider::EmptyProvider writer, void* dst_cursor) {
+                return (Insert)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                writer, dst_cursor);
+            }),
 
         .Insert_LinSeqElemAcceptor =
             F(Insert,
@@ -800,7 +800,8 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
 
         .PopL_EmptyAcceptor =
             F(PopL,
-              [](void* cntr, size_t cnt, elem_stream::EmptyAcceptor reader) {
+              [](void* cntr, size_t cnt,
+                 elem_stream::acceptor::EmptyAcceptor reader) {
                   return (PopL)(*static_cast<Cntr*>(cntr), cnt, reader);
               }),
 
@@ -818,7 +819,8 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
 
         .PopR_EmptyAcceptor =
             F(PopR,
-              [](void* cntr, size_t cnt, elem_stream::EmptyAcceptor reader) {
+              [](void* cntr, size_t cnt,
+                 elem_stream::acceptor::EmptyAcceptor reader) {
                   return (PopR)(*static_cast<Cntr*>(cntr), cnt, reader);
               }),
 
@@ -836,7 +838,7 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
         .Erase_EmptyAcceptor =
             F(Erase,
               [](void* cntr, void* pos_cursor, size_t cnt,
-                 elem_stream::EmptyAcceptor reader) {
+                 elem_stream::acceptor::EmptyAcceptor reader) {
                   return (Erase)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
                                  reader);
               }),
@@ -1172,22 +1174,24 @@ void seq_cntr::Assign(DstCntr& dst_cntr, SrcCntr& src_cntr) {
     */
 
 #pragma push_macro("FPushL")
-#define FPushL                                                           \
-    (PushL)(dst_cntr, src_size - dst_size, elem_stream::EmptyProvider{}, \
-            nullptr);
+#define FPushL                             \
+    (PushL)(dst_cntr, src_size - dst_size, \
+            elem_stream::provider::EmptyProvider{}, nullptr);
 
 #pragma push_macro("FPushR")
-#define FPushR                                                           \
-    (PushR)(dst_cntr, src_size - dst_size, elem_stream::EmptyProvider{}, \
-            nullptr);
+#define FPushR                             \
+    (PushR)(dst_cntr, src_size - dst_size, \
+            elem_stream::provider::EmptyProvider{}, nullptr);
 
 #pragma push_macro("FPopL")
-#define FPopL \
-    (PopL)(dst_cntr, dst_size - src_size, elem_stream::EmptyAcceptor{});
+#define FPopL                             \
+    (PopL)(dst_cntr, dst_size - src_size, \
+           elem_stream::acceptor::EmptyAcceptor{});
 
 #pragma push_macro("FPopR")
-#define FPopR \
-    (PopR)(dst_cntr, dst_size - src_size, elem_stream::EmptyAcceptor{});
+#define FPopR                             \
+    (PopR)(dst_cntr, dst_size - src_size, \
+           elem_stream::acceptor::EmptyAcceptor{});
 
     // NOLINTBEGIN(bugprone-branch-clone)
     if (dst_size < src_size) {

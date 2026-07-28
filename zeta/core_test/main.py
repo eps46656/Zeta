@@ -741,7 +741,6 @@ def add_deps(builder: building_utils.Builder, config: Config):
         "test_utf8",
         CPP,
         {
-            zeta_core_out_dir / "utils.bc",
             out_dir / "timer.bc",
         },
     )

@@ -58,12 +58,11 @@ constexpr size_t Transfer(Provider&& provider, void* dst, size_t dst_elem_size,
                           size_t dst_elem_stride, size_t cnt);
 
 struct EmptyProvider {
-    constexpr bool IsEnd(this EmptyProvider const&) { return true; }
+    static constexpr bool IsEnd() { return true; }
 
-    constexpr size_t GetElemSize(this EmptyProvider const&) { return 0; }
+    static constexpr size_t GetElemSize() { return 0; }
 
-    constexpr size_t Transfer(this EmptyProvider&, void*, size_t, size_t,
-                              size_t) {
+    static constexpr size_t Transfer(void*, size_t, size_t, size_t) {
         return 0;
     }
 };
@@ -131,12 +130,11 @@ constexpr size_t Transfer(Acceptor&& acceptor, void const* src,
                           size_t cnt);
 
 struct EmptyAcceptor {
-    constexpr bool IsEnd(this EmptyAcceptor const&) { return true; }
+    static constexpr bool IsEnd() { return true; }
 
-    constexpr size_t GetElemSize(this EmptyAcceptor const&) { return 0; }
+    static constexpr size_t GetElemSize() { return 0; }
 
-    constexpr size_t Transfer(this EmptyAcceptor&, void const*, size_t, size_t,
-                              size_t) {
+    static constexpr size_t Transfer(void const*, size_t, size_t, size_t) {
         return 0;
     }
 };

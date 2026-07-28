@@ -87,6 +87,98 @@ decltype(this->u64_integral_list){};
 
 #define ZetaDir "D:/ZetaDevelops/ZetaDevelop/Zeta"
 
+struct BinFSProvider {
+    std::ifstream& bin_fs;
+
+    static constexpr size_t GetElemSize() { return 1; }
+
+    static constexpr bool IsEnd() { return false; }
+
+    size_t Transfer(this BinFSProvider& self, void* data, size_t elem_size,
+                    size_t elem_stride, size_t elem_cnt) {
+        ZETA_Core_DebugAssert(elem_size == 1);
+        ZETA_Core_DebugAssert(elem_stride == 1);
+
+        if (elem_stride == 1) {
+            self.bin_fs.read(static_cast<char*>(data),
+                             static_cast<long long>(elem_stride * elem_cnt));
+        } else {
+            unsigned char read_buffer[1024];
+
+            self.bin_fs.read(reinterpret_cast<char*>(read_buffer),
+                             static_cast<long long>(elem_cnt));
+
+            zeta::core::utils::ElemCopy(data, read_buffer, 1, elem_stride, 1,
+                                        elem_cnt);
+        }
+
+        return elem_cnt;
+    }
+};
+
+template <>
+struct zeta::core::elem_stream::provider::ProviderTraits<BinFSProvider>
+    : public zeta::core::elem_stream::provider::DefaultProviderTraits<
+          BinFSProvider> {};
+
+struct BinFSAcceptor {
+    std::istream& re_bin_fs;
+    std::ofstream& bin_fs;
+
+    static constexpr size_t GetElemSize() { return 1; }
+
+    static constexpr bool IsEnd() { return false; }
+
+    size_t Transfer(this BinFSAcceptor& self, void const* data,
+                    size_t elem_size, size_t elem_stride, size_t elem_cnt) {
+        ZETA_Core_DebugAssert(elem_size == 1);
+
+        unsigned char cri_buffer[1024];
+        unsigned char write_buffer[1024];
+
+        zeta::core::utils::ElemCopy(write_buffer, data, 1, 1, elem_stride,
+                                    elem_cnt);
+
+        self.re_bin_fs.read(reinterpret_cast<char*>(cri_buffer),
+                            static_cast<long long>(elem_cnt));
+
+        int cmp{ std::memcmp(write_buffer, cri_buffer, elem_cnt) };
+
+        if (cmp != 0) {
+            ZETA_Core_Debug_PrintVar(cri_buffer[0]);
+            ZETA_Core_Debug_PrintVar(cri_buffer[1]);
+            ZETA_Core_Debug_PrintVar(cri_buffer[2]);
+            ZETA_Core_Debug_PrintVar(cri_buffer[3]);
+
+            ZETA_Core_Debug_PrintVar(elem_cnt);
+
+            ZETA_Core_Debug_PrintVar(
+                static_cast<unsigned char const*>(write_buffer)[0]);
+
+            ZETA_Core_Debug_PrintVar(
+                static_cast<unsigned char const*>(write_buffer)[1]);
+
+            ZETA_Core_Debug_PrintVar(
+                static_cast<unsigned char const*>(write_buffer)[2]);
+
+            ZETA_Core_Debug_PrintVar(
+                static_cast<unsigned char const*>(write_buffer)[3]);
+
+            ZETA_Core_DebugAssert(cmp == 0);
+        }
+
+        self.bin_fs.write(reinterpret_cast<char const*>(write_buffer),
+                          static_cast<long long>(elem_cnt));
+
+        return elem_cnt;
+    }
+};
+
+template <>
+struct zeta::core::elem_stream::acceptor::AcceptorTraits<BinFSAcceptor>
+    : public zeta::core::elem_stream::acceptor::DefaultAcceptorTraits<
+          BinFSAcceptor> {};
+
 inline void main1(int num) {
     constexpr size_t str_buffer_size{ 1024 };
     unsigned char str_buffer[1024];
@@ -105,71 +197,9 @@ inline void main1(int num) {
                                  num_str + ".bin",
                              std::ios::binary };
 
-    struct {
-        std::ifstream& bin_fs;
+    BinFSProvider bin_fs_provider{ bin_fs };
 
-        void operator()(void* data, size_t elem_stride, size_t elem_cnt) {
-            ZETA_Core_DebugAssert(elem_stride == 1);
-
-            if (elem_stride == 1) {
-                this->bin_fs.read(
-                    static_cast<char*>(data),
-                    static_cast<long long>(elem_stride * elem_cnt));
-            } else {
-                unsigned char read_buffer[1024];
-
-                this->bin_fs.read(reinterpret_cast<char*>(read_buffer),
-                                  static_cast<long long>(elem_cnt));
-
-                zeta::core::utils::ElemCopy(data, read_buffer, 1, elem_stride,
-                                            1, elem_cnt);
-            }
-        }
-    } bin_fs_provider{ bin_fs };
-
-    struct {
-        std::istream& re_bin_fs;
-        std::ofstream& bin_fs;
-
-        void operator()(void const* data, size_t elem_stride, size_t elem_cnt) {
-            unsigned char cri_buffer[1024];
-            unsigned char write_buffer[1024];
-
-            zeta::core::utils::ElemCopy(write_buffer, data, 1, 1, elem_stride,
-                                        elem_cnt);
-
-            this->re_bin_fs.read(reinterpret_cast<char*>(cri_buffer),
-                                 static_cast<long long>(elem_cnt));
-
-            int cmp{ std::memcmp(write_buffer, cri_buffer, elem_cnt) };
-
-            if (cmp != 0) {
-                ZETA_Core_Debug_PrintVar(cri_buffer[0]);
-                ZETA_Core_Debug_PrintVar(cri_buffer[1]);
-                ZETA_Core_Debug_PrintVar(cri_buffer[2]);
-                ZETA_Core_Debug_PrintVar(cri_buffer[3]);
-
-                ZETA_Core_Debug_PrintVar(elem_cnt);
-
-                ZETA_Core_Debug_PrintVar(
-                    static_cast<unsigned char const*>(write_buffer)[0]);
-
-                ZETA_Core_Debug_PrintVar(
-                    static_cast<unsigned char const*>(write_buffer)[1]);
-
-                ZETA_Core_Debug_PrintVar(
-                    static_cast<unsigned char const*>(write_buffer)[2]);
-
-                ZETA_Core_Debug_PrintVar(
-                    static_cast<unsigned char const*>(write_buffer)[3]);
-
-                ZETA_Core_DebugAssert(cmp == 0);
-            }
-
-            this->bin_fs.write(reinterpret_cast<char const*>(write_buffer),
-                               static_cast<long long>(elem_cnt));
-        }
-    } bin_fs_acceptor{ cri_bin_fs, re_bin_fs };
+    BinFSAcceptor bin_fs_acceptor{ cri_bin_fs, re_bin_fs };
 
     zeta::core::object_state_notation::Header header;
 
@@ -187,8 +217,6 @@ inline void main1(int num) {
             ZETA_Core_PrintVar(header.magic[2]);
             ZETA_Core_PrintVar(header.magic[3]);
             ZETA_Core_PrintVar(header.region_attr_size);
-            ZETA_Core_PrintVar(header.integral_descriptor_size);
-            ZETA_Core_PrintVar(header.list_elem_cnt_size);
 
             ZETA_Core_DebugAssert(false);
             return;
@@ -213,9 +241,15 @@ inline void main1(int num) {
         DeserializeFromOctetsStateMachine<decltype(bin_fs_provider)>
             deserializer{ config, bin_fs_provider };
 
+    unsigned char serializer_integral_chunk_buffer_data[255];
+    unsigned short serializer_integral_chunk_buffer_max_octet_cnt{ sizeof(
+        serializer_integral_chunk_buffer_data) };
+
     zeta::core::object_state_notation::state_machine::
         SerializeToOctetsStateMachine<decltype(bin_fs_acceptor)>
-            serializer{ config, bin_fs_acceptor };
+            serializer{ config, serializer_integral_chunk_buffer_data,
+                        serializer_integral_chunk_buffer_max_octet_cnt,
+                        bin_fs_acceptor };
 
     zeta::core::object_state_notation::IntegralDescriptor integral_descriptor;
     unsigned _BitInt(128) unsigned_integral;
@@ -320,7 +354,7 @@ inline void main1(int num) {
                 return;
             }
 
-            ZETA_Core_Debug_PrintVar(integral_descriptor.signedness);
+            ZETA_Core_Debug_PrintVar(integral_descriptor.is_signed);
             ZETA_Core_Debug_PrintVar(integral_descriptor.size);
 
             break;
@@ -347,7 +381,7 @@ inline void main1(int num) {
         case zeta::core::object_state_notation::state_machine::
             DeserializationStateMachineBase::StateEnum::SendingIntegral::
                 value: {
-            if (integral_descriptor.signedness) {
+            if (integral_descriptor.is_signed) {
                 if (!deserializer.DeserializeIntegral(signed_integral)) {
                     ZETA_Core_DebugAssert(false);
                     return;
@@ -418,13 +452,19 @@ inline void main1(int num) {
         zeta::core::object_state_notation::state_machine::
             DeserializationStateMachineBase::StateEnum::Completed::value);
 
-    ZETA_Core_DebugAssert(!cri_bin_fs.eof());
+    {
+        ZETA_Core_DebugAssert(!bin_fs.eof());
+        char dummy;
+        bin_fs.read(&dummy, 1);
+        ZETA_Core_DebugAssert(bin_fs.eof());
+    }
 
-    char dummy;
-
-    cri_bin_fs.read(&dummy, 1);
-
-    ZETA_Core_DebugAssert(cri_bin_fs.eof());
+    {
+        ZETA_Core_DebugAssert(!cri_bin_fs.eof());
+        char dummy;
+        cri_bin_fs.read(&dummy, 1);
+        ZETA_Core_DebugAssert(cri_bin_fs.eof());
+    }
 
     ZETA_Core_PrintVar("complete");
 

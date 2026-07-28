@@ -1,5 +1,6 @@
 #pragma once
 
+#include <zeta/core/elem_stream.hpp>
 #include <zeta/core/unicode.hpp>
 
 namespace zeta::core::utf8 {
@@ -48,15 +49,18 @@ struct Encoder {
 
     constexpr Encoder();
 
-    template <typename Provider>
-    Encoder::EncodeResultEnum::Value Encode(Provider&& provider);
+    template <elem_stream::provider::IsProvider Provider>
+    Encoder::EncodeResultEnum::Value Encode(this Encoder& self,
+                                            Provider&& provider);
 
-    template <typename Acceptor>
-    bool Push(Acceptor&& acceptor, size_t max_pushed_octet_cnt);
+    template <elem_stream::acceptor::IsAcceptor Acceptor>
+    bool Push(this Encoder& self, Acceptor&& acceptor,
+              size_t max_pushed_octet_cnt);
 
-    template <typename Provider, typename Acceptor>
-    bool EncodeAndPush(Provider&& provider, Acceptor&& acceptor,
-                       size_t max_pulled_codepoint_cnt,
+    template <elem_stream::provider::IsProvider Provider,
+              elem_stream::acceptor::IsAcceptor Acceptor>
+    bool EncodeAndPush(this Encoder& self, Provider&& provider,
+                       Acceptor&& acceptor, size_t max_pulled_codepoint_cnt,
                        size_t max_pushed_octet_cnt);
 };
 
@@ -104,16 +108,17 @@ struct Decoder {
 
     constexpr Decoder();
 
-    template <typename Provider>
-    DecodeResultEnum::Value Decode(Provider&& provider,
+    template <elem_stream::provider::IsProvider Provider>
+    DecodeResultEnum::Value Decode(this Decoder& self, Provider&& provider,
                                    size_t max_pulled_octet_cnt);
 
-    template <typename Acceptor>
-    bool Push(Acceptor&& acceptor);
+    template <elem_stream::acceptor::IsAcceptor Acceptor>
+    bool Push(this Decoder& self, Acceptor&& acceptor);
 
-    template <typename Provider, typename Acceptor>
-    bool DecodeAndPush(Provider&& provider, Acceptor&& acceptor,
-                       size_t max_pulled_octet_cnt,
+    template <elem_stream::provider::IsProvider Provider,
+              elem_stream::acceptor::IsAcceptor Acceptor>
+    bool DecodeAndPush(this Decoder& self, Provider&& provider,
+                       Acceptor&& acceptor, size_t max_pulled_octet_cnt,
                        size_t max_pushed_codepoint_cnt);
 };
 

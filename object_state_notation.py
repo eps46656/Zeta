@@ -674,7 +674,7 @@ def serialize_node_to_json_struct(node: Node) -> dict[str, object]:
         integral_size = node.integral_size
         assert isinstance(integral_size, int)
 
-        assert 1 <= node.integral_size
+        assert 0 <= node.integral_size
 
         ret["integral_signedness"] = node.integral_is_signed
         ret["integral_size"] = node.integral_size
@@ -690,10 +690,11 @@ def serialize_node_to_json_struct(node: Node) -> dict[str, object]:
         content = node.content
         assert isinstance(content, int)
 
-        range_min, range_max = integral_range(
-            node.integral_is_signed, node.integral_size * 8)
+        if 0 < node.integral_size:
+            range_min, range_max = integral_range(
+                node.integral_is_signed, node.integral_size * 8)
 
-        assert range_min <= content <= range_max
+            assert range_min <= content <= range_max
 
         ret["content"] = content
 
@@ -701,11 +702,12 @@ def serialize_node_to_json_struct(node: Node) -> dict[str, object]:
         content = node.content
         assert isinstance(content, list)
 
-        range_min, range_max = integral_range(
-            node.integral_is_signed, node.integral_size * 8)
+        if 0 < node.integral_size:
+            range_min, range_max = integral_range(
+                node.integral_is_signed, node.integral_size * 8)
 
-        assert all(isinstance(elem, int) and range_min <= elem <= range_max
-                   for elem in content)
+            assert all(isinstance(elem, int) and range_min <= elem <= range_max
+                       for elem in content)
 
         if node.list_elem_cnt != -1:
             assert node.list_elem_cnt == len(content)
@@ -746,7 +748,7 @@ def deserialize_node_from_json_struct(dict_struct: dict[str, object]) -> Node:
 
         integral_size = dict_struct["integral_size"]
         assert isinstance(integral_size, int)
-        assert 1 <= integral_size
+        assert 0 <= integral_size
 
     if node_type == NodeTypeEnum.IntegralList or node_type == NodeTypeEnum.NodeList:
         list_elem_cnt = dict_struct["list_elem_cnt"]
@@ -757,20 +759,22 @@ def deserialize_node_from_json_struct(dict_struct: dict[str, object]) -> Node:
         content = dict_struct["content"]
         assert isinstance(content, int)
 
-        range_min, range_max = integral_range(
-            integral_signedness, integral_size * 8)
+        if 0 < integral_size:
+            range_min, range_max = integral_range(
+                integral_signedness, integral_size * 8)
 
-        assert range_min <= content <= range_max
+            assert range_min <= content <= range_max
 
     if node_type == NodeTypeEnum.IntegralList:
         content = dict_struct["content"]
         assert isinstance(content, list)
 
-        range_min, range_max = integral_range(
-            integral_signedness, integral_size * 8)
+        if 0 < integral_size:
+            range_min, range_max = integral_range(
+                integral_signedness, integral_size * 8)
 
-        assert all(isinstance(elem, int) and range_min <= elem <= range_max
-                   for elem in content)
+            assert all(isinstance(elem, int) and range_min <= elem <= range_max
+                       for elem in content)
 
         if list_elem_cnt != -1:
             assert list_elem_cnt == len(content)

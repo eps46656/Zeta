@@ -346,9 +346,9 @@ concept HasCapabilitySystem_ = requires(Cntr& cntr) {
     concept Satisfies##method##Contract_ = requires(                           \
         Cntr& cntr, bool bool_val, void* void_ptr, void const* const_void_ptr, \
         int int_val, size_t size_val, ElemPtrView* elem_ptr_view_ptr,          \
-        elem_stream::ArchetAcceptor reader,                                    \
-        elem_stream::ArchetProvider writer,                                    \
-        elem_stream::ArchetProvider reader_writer,                             \
+        elem_stream::acceptor::ArchetAcceptor reader,                          \
+        elem_stream::provider::ArchetProvider writer,                          \
+        elem_stream::provider::ArchetProvider reader_writer,                   \
         meta::AlwaysMatchedTag unused) {                                       \
         requires HasCapabilitySystem_<Cntr>;                                   \
                                                                                \
@@ -985,7 +985,7 @@ struct VTable {
                     ElemPtrView* dst_elem_ptr_view, void* dst_elem);
 
     void (*Read_EmptyAcceptor)(void* cntr, void* pos_cursor, size_t cnt,
-                               elem_stream::EmptyProvider reader,
+                               elem_stream::provider::EmptyProvider reader,
                                void* dst_cursor);
 
     void (*Read_LinSeqAcceptor)(void* cntr, void* pos_cursor, size_t cnt,
@@ -996,7 +996,7 @@ struct VTable {
                             fn_elem_stream::Acceptor reader, void* dst_cursor);
 
     void (*Write_EmptyProvider)(void* cntr, void* pos_cursor, size_t cnt,
-                                elem_stream::EmptyProvider writer,
+                                elem_stream::provider::EmptyProvider writer,
                                 void* dst_cursor);
 
     void (*Write_LinSeqProvider)(void* cntr, void* pos_cursor, size_t cnt,
@@ -1011,7 +1011,7 @@ struct VTable {
                                  void* dst_cursor);
 
     void (*PushL_EmptyProvider)(void* cntr, size_t cnt,
-                                elem_stream::EmptyProvider writer,
+                                elem_stream::provider::EmptyProvider writer,
                                 void* dst_cursor);
 
     void (*PushL_LinSeqProvider)(void* cntr, size_t cnt,
@@ -1022,7 +1022,7 @@ struct VTable {
                              fn_elem_stream::Provider writer, void* dst_cursor);
 
     void (*PushR_EmptyProvider)(void* cntr, size_t cnt,
-                                elem_stream::EmptyProvider writer,
+                                elem_stream::provider::EmptyProvider writer,
                                 void* dst_cursor);
 
     void (*PushR_LinSeqProvider)(void* cntr, size_t cnt,
@@ -1033,7 +1033,7 @@ struct VTable {
                              fn_elem_stream::Provider writer, void* dst_cursor);
 
     void (*Insert_EmptyProvider)(void* cntr, void* pos_cursor, size_t cnt,
-                                 elem_stream::EmptyProvider writer,
+                                 elem_stream::provider::EmptyProvider writer,
                                  void* dst_cursor);
 
     void (*Insert_LinSeqProvider)(void* cntr, void* pos_cursor, size_t cnt,
@@ -1045,7 +1045,7 @@ struct VTable {
                               void* dst_cursor);
 
     void (*PopL_EmptyAcceptor)(void* cntr, size_t cnt,
-                               elem_stream::EmptyAcceptor reader);
+                               elem_stream::acceptor::EmptyAcceptor reader);
 
     void (*PopL_LinSeqAcceptor)(void* cntr, size_t cnt,
                                 lin_seq_elem_stream::Acceptor& reader);
@@ -1054,7 +1054,7 @@ struct VTable {
                             fn_elem_stream::Acceptor reader);
 
     void (*PopR_EmptyAcceptor)(void* cntr, size_t cnt,
-                               elem_stream::EmptyAcceptor reader);
+                               elem_stream::acceptor::EmptyAcceptor reader);
 
     void (*PopR_LinSeqAcceptor)(void* cntr, size_t cnt,
                                 lin_seq_elem_stream::Acceptor& reader);
@@ -1063,7 +1063,7 @@ struct VTable {
                             fn_elem_stream::Acceptor reader);
 
     void (*Erase_EmptyAcceptor)(void* cntr, void* pos_cursor, size_t cnt,
-                                elem_stream::EmptyAcceptor reader);
+                                elem_stream::acceptor::EmptyAcceptor reader);
 
     void (*Erase_LinSeqAcceptor)(void* cntr, void* pos_cursor, size_t cnt,
                                  lin_seq_elem_stream::Acceptor& reader);

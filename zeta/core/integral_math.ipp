@@ -66,7 +66,7 @@ template <typename Base, typename Exp>
 constexpr Base integral_math::PowerOf2(Exp exp) {
     ZETA_Core_DebugAssert(static_cast<Exp>(0) <= exp);
     ZETA_Core_DebugAssert(exp < static_cast<Exp>(integral::WidthOf<Base>));
-    return static_cast<Base>(1) << exp;
+    return static_cast<Base>(static_cast<Base>(1) << exp);
 }
 
 template <typename Base, typename Exp>

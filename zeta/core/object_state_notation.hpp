@@ -36,17 +36,13 @@ constexpr unsigned max_region_attr_size{ comparison_utils::BasicMin(
     8U, (integral::WidthOf<unsigned long long> + 7) / 8) };
 ZETA_Core_StaticAssert(min_region_attr_size <= max_region_attr_size);
 
-constexpr unsigned min_integral_descriptor_size{ 1 };
-constexpr unsigned max_integral_descriptor_size{ comparison_utils::BasicMin(
-    8U, integral::RangeMaxOf<unsigned long long>) };
-ZETA_Core_StaticAssert(min_integral_descriptor_size <=
-                       max_integral_descriptor_size);
+constexpr size_t max_integral_size{ integral::RangeMaxOf<size_t> / 2 };
 
 constexpr bool IsValidRegionAttrSize(unsigned size);
 
 constexpr bool IsValidIntegralDescriptorSize(unsigned size);
 
-constexpr bool IsValidListElemCntSize(unsigned size);
+constexpr bool IsValidIntegralSize(size_t integral_size);
 
 constexpr size_t GetMaxListElemCntWithoutVarying(unsigned list_elem_cnt_size);
 
@@ -66,26 +62,22 @@ struct Header {
 
     Version version;  // 4
 
-    unsigned region_attr_size;          // 1
-    unsigned integral_descriptor_size;  // 1
-    unsigned list_elem_cnt_size;        // 1
+    unsigned region_attr_size;  // 1
 
-    unsigned char reserved[21];  // 21
+    unsigned char reserved[23];  // 23
 
-    constexpr bool Check() const;
+    constexpr bool Check(this Header const& self);
 };
 
 struct Config {
     Version version;
 
     unsigned region_attr_size;
-    unsigned integral_descriptor_size;
-    unsigned list_elem_cnt_size;
 
-    constexpr bool Check() const;
+    constexpr bool Check(this Config const& self);
 
     static constexpr pair::Pair<bool, Config> FromHeader(Header const& header);
-    constexpr pair::Pair<bool, Header> ToHeader() const;
+    constexpr pair::Pair<bool, Header> ToHeader(this Config const& self);
 };
 
 struct NodeTag {
@@ -99,32 +91,31 @@ struct NodeTag {
     static constexpr unsigned char HasObjType{ 0b0010'0000U };
     static constexpr unsigned char HasRegion{ 0b0100'0000U };
 
-    constexpr bool Check() const;
+    constexpr bool Check(this NodeTag const& self);
 
-    static constexpr pair::Pair<bool, NodeTag> FromIntegral(
+    static constexpr pair::Pair<bool, NodeTag> FromEncodedValue(
         unsigned char value);
 
-    constexpr pair::Pair<bool, unsigned char> ToIntegral() const;
+    constexpr pair::Pair<bool, unsigned char> ToEncodedValue(
+        this NodeTag const& self);
 };
 
 struct IntegralDescriptor {
-    bool signedness;
-    unsigned long long size;
+    bool is_signed;
+    size_t size;
 
-    constexpr bool Check() const;
+    constexpr bool Check(this IntegralDescriptor const& self);
 
-    static constexpr pair::Pair<bool, IntegralDescriptor> FromIntegral(
-        unsigned long long integral_descriptor,
-        unsigned integral_descriptor_size);
+    static constexpr IntegralDescriptor FromEncodedValue(size_t encoded_value);
 
-    constexpr pair::Pair<bool, unsigned long long> ToIntegral(
-        unsigned integral_descriptor_size) const;
+    constexpr pair::Pair<bool, size_t> ToEncodedValue(
+        this IntegralDescriptor const& self);
 };
 
-template <typename Acceptor>
+template <elem_stream::acceptor::IsAcceptor Acceptor>
 bool SerializeHeaderToOctets(Acceptor&& acceptor, Header const& src_header);
 
-template <typename Provider>
+template <elem_stream::provider::IsProvider Provider>
 bool DeserializeHeaderFromOctets(Provider&& provider, Header& dst_header);
 
 namespace state_machine {
@@ -186,7 +177,7 @@ struct SerializationStateMachineBase {
                                                      NodeTag const& node_tag);
 };
 
-template <typename Acceptor>
+template <elem_stream::acceptor::IsAcceptor Acceptor>
 struct SerializeToOctetsStateMachine : public SerializationStateMachineBase {
     static constexpr unsigned max_depth{ 32 };
 
@@ -202,33 +193,44 @@ struct SerializeToOctetsStateMachine : public SerializationStateMachineBase {
 
     IntegralDescriptor integral_descriptor_buffer;
 
-    unsigned char integral_chunk_buffer[255];
-    unsigned char integral_chunk_elem_cnt;
+    struct {
+        unsigned char* data;
+        unsigned char elem_cnt;
+        unsigned char octet_cnt;
+        unsigned short max_octet_cnt;
+    } integral_chunk_buffer;
 
     Acceptor& acceptor;
 
-    constexpr SerializeToOctetsStateMachine(Config const& config,
-                                            Acceptor& acceptor);
+    constexpr SerializeToOctetsStateMachine(
+        Config const& config, unsigned char* integral_chunk_buffer_data,
+        unsigned short integral_chunk_buffer_max_octet_cnt, Acceptor& acceptor);
 
-    bool SerializeNodeTag(NodeTag const& src_node_tag);
+    bool SerializeNodeTag(this SerializeToOctetsStateMachine& self,
+                          NodeTag const& src_node_tag);
 
-    template <typename Provider>
-    bool SerializeString(Provider&& provider, size_t size);
+    template <elem_stream::provider::IsProvider Provider>
+    bool SerializeString(this SerializeToOctetsStateMachine& self,
+                         Provider&& provider, size_t size);
 
-    bool TerminateSerializeString();
+    bool TerminateSerializeString(this SerializeToOctetsStateMachine& self);
 
-    bool SerializeRegionAttr(unsigned long long region_beg,
-                             unsigned long long region_size);
+    template <integral::IsIntegral Integral>
+    bool SerializeRegionAttr(this SerializeToOctetsStateMachine& self,
+                             Integral region_beg, Integral region_size);
 
     bool SerializeIntegralDescriptor(
+        this SerializeToOctetsStateMachine& self,
         IntegralDescriptor const& src_integral_descriptor);
 
-    bool SerializeListElemCnt(size_t list_elem_cnt);
+    bool SerializeListElemCnt(this SerializeToOctetsStateMachine& self,
+                              size_t list_elem_cnt);
 
-    template <typename Integral>
-    bool SerializeIntegral(Integral src_integral);
+    template <integral::IsIntegral Integral>
+    bool SerializeIntegral(this SerializeToOctetsStateMachine& self,
+                           Integral src_integral);
 
-    bool TerminateNode();
+    bool TerminateNode(this SerializeToOctetsStateMachine& self);
 };
 
 struct DeserializationStateMachineBase {
@@ -280,7 +282,7 @@ struct DeserializationStateMachineBase {
                                                      NodeTag const& node_tag);
 };
 
-template <typename Provider>
+template <elem_stream::provider::IsProvider Provider>
 struct DeserializeFromOctetsStateMachine
     : public DeserializationStateMachineBase {
     static constexpr unsigned max_depth{ 32 };
@@ -305,23 +307,29 @@ struct DeserializeFromOctetsStateMachine
     constexpr DeserializeFromOctetsStateMachine(Config const& config,
                                                 Provider& provider);
 
-    bool DeserializeNodeTag(NodeTag& dst_node_tag);
+    bool DeserializeNodeTag(this DeserializeFromOctetsStateMachine& self,
+                            NodeTag& dst_node_tag);
 
-    template <typename Accetpr>
-    size_t DeserializeString(Accetpr&& acceptor, size_t max_str_size);
+    template <elem_stream::acceptor::IsAcceptor Accetpr>
+    size_t DeserializeString(this DeserializeFromOctetsStateMachine& self,
+                             Accetpr&& acceptor, size_t max_str_size);
 
-    bool DeserializeRegionAttr(unsigned long long& region_beg,
-                               unsigned long long& region_size);
+    template <integral::IsIntegral Integral>
+    bool DeserializeRegionAttr(this DeserializeFromOctetsStateMachine& self,
+                               Integral& region_beg, Integral& region_size);
 
     bool DeserializeIntegralDescriptor(
+        this DeserializeFromOctetsStateMachine& self,
         IntegralDescriptor& dst_integral_descriptor);
 
-    bool DeserializeListElemCnt(size_t& list_elem_cnt);
+    bool DeserializeListElemCnt(this DeserializeFromOctetsStateMachine& self,
+                                size_t& list_elem_cnt);
 
-    template <typename Integral>
-    bool DeserializeIntegral(Integral& dst_integral);
+    template <integral::IsIntegral Integral>
+    bool DeserializeIntegral(this DeserializeFromOctetsStateMachine& self,
+                             Integral& dst_integral);
 
-    bool TerminateNode();
+    bool TerminateNode(this DeserializeFromOctetsStateMachine& self);
 };
 
 }  // namespace state_machine

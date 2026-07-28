@@ -45,13 +45,13 @@ struct Provider {
 }  // namespace zeta::core::fn_elem_stream
 
 template <>
-struct zeta::core::elem_stream::ProviderTraits<
+struct zeta::core::elem_stream::provider::ProviderTraits<
     zeta::core::fn_elem_stream::Provider>
-    : zeta::core::elem_stream::DefaultProviderTraits<
+    : zeta::core::elem_stream::provider::DefaultProviderTraits<
           zeta::core::fn_elem_stream::Provider> {};
 
 template <>
-struct zeta::core::elem_stream::AcceptorTraits<
+struct zeta::core::elem_stream::acceptor::AcceptorTraits<
     zeta::core::fn_elem_stream::Acceptor>
-    : zeta::core::elem_stream::DefaultAcceptorTraits<
+    : zeta::core::elem_stream::acceptor::DefaultAcceptorTraits<
           zeta::core::fn_elem_stream::Acceptor> {};

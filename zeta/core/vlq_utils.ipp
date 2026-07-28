@@ -49,19 +49,13 @@ struct Provider_ {
                 provider.inner_provider, &buffer, sizeof(buffer),
                 sizeof(buffer), 1) };
 
-            ZETA_Core_Debug_PrintVar(transferred_cnt);
-
             if (transferred_cnt == 0) {
                 provider.is_end = true;
                 break;
             }
 
-            ZETA_Core_Debug_PrintVar(buffer);
-
             auto [canon_value, cur_no_lossy]{ serde_utils::CanonicalizeIntegral(
                 buffer, digit_range_max) };
-
-            ZETA_Core_Debug_PrintVar(canon_value);
 
             provider.no_lossy &= cur_no_lossy;
 
@@ -153,47 +147,54 @@ struct elem_stream::acceptor::AcceptorTraits<
           vlq_utils::detail::Acceptor_<UnitIntegral, UnitWidth,
                                        InnerAcceptor>> {};
 
+template <integral::IsIntegral Integral, size_t UnitWidth>
+    requires requires { requires 2 <= UnitWidth; }
+constexpr size_t vlq_utils::EstimateSerializedUnitCnt(
+    Integral value, value_wrapper::StaticValueWrapper<size_t, UnitWidth>) {
+    size_t need_bit_cnt;
+
+    if constexpr (integral::IsSignedIntegral<Integral>) {
+        need_bit_cnt = value < 0
+                           ? (value == integral::RangeMinOf<Integral>
+                                  ? integral::WidthOf<Integral>
+                                  : integral_math::CeilLog2(-value) + 1)
+                           : (value == integral::RangeMaxOf<Integral>
+                                  ? integral::WidthOf<Integral>
+                                  : integral_math::CeilLog2(value + 1) + 1);
+    } else {
+        need_bit_cnt = value == integral::RangeMaxOf<Integral>
+                           ? integral::WidthOf<Integral>
+                           : integral_math::CeilLog2(value + 1);
+
+        if (need_bit_cnt == 0) { need_bit_cnt = 1; }
+    }
+
+    return integral_math::CeilDiv(need_bit_cnt, UnitWidth - 1);
+}
+
 template <integral::IsIntegral Integral, typename EndiannessLike,
           integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
           typename Acceptor>
     requires requires {
         requires 2 <= UnitWidth;
-
         requires UnitWidth <= integral::WidthOf<UnitIntegral>;
     }
 bool vlq_utils::SerializeIntegral(
     Integral src_value, EndiannessLike endianness_like,
     meta::TypeWrapper<UnitIntegral> unit_integral,
-    value_wrapper::StaticValueWrapper<size_t, UnitWidth>, bool allow_lossy,
-    Acceptor&& acceptor, error::Error* dst_error) {
+    value_wrapper::StaticValueWrapper<size_t, UnitWidth> unit_width,
+    bool allow_lossy, Acceptor&& acceptor, error::Error* dst_error) {
     detail::Acceptor_<UnitIntegral, UnitWidth, Acceptor> vlq_acceptor{
         .inner_acceptor = acceptor,
         .buffer = {},
         .buffer_has_value = false,
     };
 
-    size_t src_value_digit_cnt;
-
-    if (0 <= src_value) {
-        src_value_digit_cnt = integral_math::CeilDiv(
-            src_value == integral::RangeMaxOf<Integral>
-                ? integral::WidthOf<Integral>
-                : integral_math::CeilLog2(src_value + 1) + 1,
-            UnitWidth - 1);
-    } else {
-        src_value_digit_cnt = integral_math::CeilDiv(
-            src_value == integral::RangeMinOf<Integral>
-                ? integral::WidthOf<Integral>
-                : integral_math::CeilLog2(-src_value) + 1,
-            UnitWidth - 1);
-    }
-
-    ZETA_Core_Debug_PrintVar(src_value_digit_cnt);
-
     bool no_lossy{ serde_utils::SerializeIntegral(
         src_value, endianness_like, unit_integral,
         value_wrapper::StaticValueWrapper<size_t, UnitWidth - 1>{},
-        value_wrapper::DynamicValueWrapper<size_t>{ src_value_digit_cnt },
+        value_wrapper::DynamicValueWrapper<size_t>{
+            (EstimateSerializedUnitCnt)(src_value, unit_width) },
         allow_lossy, vlq_acceptor, dst_error) };
 
     if (vlq_acceptor.buffer_has_value) {
@@ -212,7 +213,6 @@ template <integral::IsIntegral Integral, typename EndiannessLike,
           typename Provider>
     requires requires {
         requires 2 <= UnitWidth;
-
         requires UnitWidth <= integral::WidthOf<UnitIntegral>;
     }
 bool vlq_utils::DeserializeIntegral(

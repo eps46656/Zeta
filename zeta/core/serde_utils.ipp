@@ -110,15 +110,8 @@ bool serde_utils::SerializeIntegral(
 
         if constexpr (is_signed) {
             if (k == 0 || eff_digit_cnt < src_int_digit_cnt) {
-                ZETA_Core_Debug_PrintVar(is_neg);
-                ZETA_Core_Debug_PrintVar(digit_range_max / 2);
-                ZETA_Core_Debug_PrintVar(highest_eff_digit);
-
                 no_lossy &= is_neg == digit_range_max / 2 < highest_eff_digit;
             } else if (is_neg) {
-                ZETA_Core_Debug_PrintVar(digit_range_max -
-                                         (digit_range_max >> (DigitWidth - k)));
-
                 highest_eff_digit +=
                     digit_range_max - (digit_range_max >> (DigitWidth - k));
             }
@@ -129,24 +122,16 @@ bool serde_utils::SerializeIntegral(
 
     switch (endianness_value) {
     case EndiannessEnum::Little::value: {
-        ZETA_Core_Debug_PrintVar(eff_digit_cnt);
-
         for (size_t i{ 0 }; i < eff_digit_cnt; ++i) {
-            ZETA_Core_Debug_PrintVar(digit_range_max);
-
             buffer[i] = static_cast<DigitIntegral>(
                 op_src_value %
                 (static_cast<OpUnsignedIntegral>(digit_range_max) + 1U));
-
-            ZETA_Core_Debug_PrintVar(buffer[i]);
 
             op_src_value >>= DigitWidth;
         }
 
         buffer[eff_digit_cnt - 1] =
             proc_highest_eff_digit(buffer[eff_digit_cnt - 1]);
-
-        ZETA_Core_Debug_PrintVar(buffer[eff_digit_cnt - 1]);
 
         elem_stream::acceptor::Transfer(acceptor, buffer, sizeof(DigitIntegral),
                                         sizeof(DigitIntegral), eff_digit_cnt);
@@ -312,17 +297,10 @@ bool serde_utils::DeserializeIntegral(
              buffer < buffer_end; ++buffer) {
             DigitIntegral d{ *buffer };
 
-            if (digit_range_max < d) {
-                no_lossy = false;
-                ZETA_Core_Debug_PrintVar(no_lossy);
-            }
+            if (digit_range_max < d) { no_lossy = false; }
 
             see0 |= d != digit_range_max;
             see1 |= d != 0;
-
-            ZETA_Core_Debug_PrintVar(d);
-            ZETA_Core_Debug_PrintVar(see0);
-            ZETA_Core_Debug_PrintVar(see1);
         }
     } };
 
@@ -381,25 +359,14 @@ bool serde_utils::DeserializeIntegral(
 
                 see0 |= d != (digit_range_max >> k);
                 see1 |= d != 0;
-
-                ZETA_Core_Debug_PrintVar(d);
-                ZETA_Core_Debug_PrintVar(see0);
-                ZETA_Core_Debug_PrintVar(see1);
             }
         } else if constexpr (is_signed) {
             see0 |= d <= digit_range_max / 2;
             see1 |= digit_range_max / 2 < d;
-
-            ZETA_Core_Debug_PrintVar(digit_range_max);
-            ZETA_Core_Debug_PrintVar(d);
-            ZETA_Core_Debug_PrintVar(see0);
-            ZETA_Core_Debug_PrintVar(see1);
         }
     } };
 
     OpUnsignedIntegral op_dst_value{ 0 };
-
-    ZETA_Core_Debug_PrintVar(endianness_value);
 
     switch (endianness_value) {
     case EndiannessEnum::Little::value: {
@@ -420,8 +387,6 @@ bool serde_utils::DeserializeIntegral(
                         sizeof(DigitIntegral), op_un_int_digit_cnt) };
 
                     if (cur_act_digit_cnt == 0) { break; }
-
-                    ZETA_Core_Debug_PrintVar(cur_act_digit_cnt);
 
                     proc_digits_from_buffer(buffer_h, cur_act_digit_cnt);
                     discard_digits_from_buffer(buffer_h, cur_act_digit_cnt);
@@ -444,8 +409,6 @@ bool serde_utils::DeserializeIntegral(
         proc_highest_eff_digit(buffer_l[eff_digit_cnt - 1]);
 
         for (size_t i{ eff_digit_cnt }; 0 < i--;) {
-            ZETA_Core_Debug_PrintVar(buffer_l[i]);
-
             op_dst_value <<= DigitWidth;
             op_dst_value += buffer_l[i];
         }
@@ -516,10 +479,6 @@ bool serde_utils::DeserializeIntegral(
             */
 
             if (src_int_digit_cnt < eff_digit_cnt_h + eff_digit_cnt_l) {
-                ZETA_Core_Debug_PrintVar(src_int_digit_cnt);
-                ZETA_Core_Debug_PrintVar(eff_digit_cnt_h);
-                ZETA_Core_Debug_PrintVar(eff_digit_cnt_l);
-
                 size_t k{ eff_digit_cnt_h + eff_digit_cnt_l -
                           src_int_digit_cnt };
 
@@ -557,27 +516,16 @@ bool serde_utils::DeserializeIntegral(
 
         eff_digit_cnt = eff_digit_cnt_h + eff_digit_cnt_l;
 
-        ZETA_Core_Debug_PrintVar(src_int_digit_cnt);
-        ZETA_Core_Debug_PrintVar(eff_digit_cnt_h);
-        ZETA_Core_Debug_PrintVar(eff_digit_cnt_l);
-
         if (eff_digit_cnt == 0) { break; }
-
-        ZETA_Core_Debug_PrintVar(eff_digit_cnt_h);
-        ZETA_Core_Debug_PrintVar(eff_digit_cnt_l);
 
         proc_highest_eff_digit(0 < eff_digit_cnt_h ? buffer_h[0] : buffer_l[0]);
 
         for (size_t i{ 0 }; i < eff_digit_cnt_h; ++i) {
-            ZETA_Core_Debug_PrintVar(buffer_h[i]);
-
             op_dst_value <<= DigitWidth;
             op_dst_value += buffer_h[i];
         }
 
         for (size_t i{ 0 }; i < eff_digit_cnt_l; ++i) {
-            ZETA_Core_Debug_PrintVar(buffer_l[i]);
-
             op_dst_value <<= DigitWidth;
             op_dst_value += buffer_l[i];
         }
@@ -587,14 +535,7 @@ bool serde_utils::DeserializeIntegral(
     }
 
     if constexpr (is_signed) {
-        ZETA_Core_Debug_PrintVar(see0);
-        ZETA_Core_Debug_PrintVar(see1);
-        ZETA_Core_Debug_PrintVar(no_lossy);
-
         no_lossy &= !see0 || !see1;
-
-        ZETA_Core_Debug_PrintVar(eff_digit_cnt);
-        ZETA_Core_Debug_PrintVar(op_dst_value);
 
         if (eff_digit_cnt == 0) {
             dst_value = static_cast<Integral>(0);
@@ -614,23 +555,15 @@ bool serde_utils::DeserializeIntegral(
                 1)
         };
 
-        ZETA_Core_Debug_PrintVar(special_value);
-
         if (op_dst_value < special_value) {
-            ZETA_Core_Debug_PrintCurPos;
             dst_value = static_cast<Integral>(op_dst_value);
         } else if (special_value < op_dst_value) {
-            ZETA_Core_Debug_PrintCurPos;
             dst_value = -static_cast<Integral>(-op_dst_value % special_value);
         } else {
-            ZETA_Core_Debug_PrintCurPos;
             dst_value = -static_cast<Integral>(special_value - 1) -
                         static_cast<Integral>(1);
         }
     } else {
-        ZETA_Core_Debug_PrintVar(eff_digit_cnt);
-        ZETA_Core_Debug_PrintVar(op_dst_value);
-
         no_lossy &= !see1;
 
         dst_value = static_cast<Integral>(op_dst_value);
