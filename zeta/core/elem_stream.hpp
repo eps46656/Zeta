@@ -31,7 +31,7 @@ concept IsProvider = requires(Provider& provider, void* data, size_t elem_size,
 };
 
 template <typename Provider>
-struct DefaultProviderTraits {
+struct MemberFuncProviderTraitsAdapter {
     static constexpr bool IsEnd(Provider const& provider) {
         return provider.IsEnd();
     }
@@ -69,7 +69,7 @@ struct EmptyProvider {
 
 template <>
 struct ProviderTraits<EmptyProvider>
-    : public DefaultProviderTraits<EmptyProvider> {};
+    : public MemberFuncProviderTraitsAdapter<EmptyProvider> {};
 
 using ArchetProvider = EmptyProvider;
 
@@ -102,7 +102,7 @@ concept IsAcceptor = requires(Acceptor& acceptor, void const* data,
 };
 
 template <typename Acceptor>
-struct DefaultAcceptorTraits {
+struct MemberFuncAcceptorTraitsAdapter {
     static constexpr size_t IsEnd(Acceptor const& acceptor) {
         return acceptor.IsEnd();
     }
@@ -140,7 +140,8 @@ struct EmptyAcceptor {
 };
 
 template <>
-struct AcceptorTraits<EmptyAcceptor> : DefaultAcceptorTraits<EmptyAcceptor> {};
+struct AcceptorTraits<EmptyAcceptor>
+    : MemberFuncAcceptorTraitsAdapter<EmptyAcceptor> {};
 
 using ArchetAcceptor = EmptyAcceptor;
 

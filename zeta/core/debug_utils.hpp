@@ -4,9 +4,11 @@
 #include <sanitizer/common_interface_defs.h>  // IWYU pragma: keep
 #endif
 
+#include <deque>
 #include <sstream>
 #include <string>
 #include <zeta/core/define.hpp>
+#include <zeta/core/meta.hpp>
 
 #define ZETA_Core_DebugStructPadding char ZETA_Core_TmpName[sizeof(void*)]
 
@@ -49,6 +51,77 @@
 
 namespace zeta::core::debug_utils {
 
+enum struct PhaseEnum : unsigned char {
+    Internal = 0,
+    External = 1,
+};
+
+enum PurposeEnum : unsigned char {
+    Trace = 0,
+    Info = 2,
+    Warning = 1,
+    Assert = 3,
+};
+
+enum struct ChannelEnum : unsigned char {
+    Main = 0,
+    Debug = 1,
+    Persistance = 2,
+};
+
+struct LogEntry {
+    char const* file_name;
+    unsigned long long line_num;
+    char const* func_name;
+    unsigned long long flow_id;
+    unsigned long long time_stamp;
+
+    PhaseEnum phase;
+    PurposeEnum purpose;
+
+    void* elem;
+
+    std::string (*serialize_to_txt_func)(void* elem);
+};
+
+struct LogQueue {
+    std::deque<LogEntry> entries;
+};
+
+struct FieldFormat {
+    unsigned indent;
+    unsigned width;
+};
+
+namespace default_field_format {
+
+constexpr FieldFormat name{
+    .indent = 8,
+    .width = 12,
+};
+
+constexpr FieldFormat type{
+    .indent = 8,
+    .width = 24,
+};
+
+constexpr FieldFormat bin{
+    .indent = 8,
+    .width = 72,
+};
+
+constexpr FieldFormat dec{
+    .indent = 8,
+    .width = 48,
+};
+
+constexpr FieldFormat hex{
+    .indent = 8,
+    .width = 8,
+};
+
+}  // namespace default_field_format
+
 constexpr int file_width{ 36 };
 constexpr int line_width{ 6 };
 constexpr int func_width{ 24 };
@@ -67,6 +140,9 @@ inline std::ostringstream debug_str_stream;
 
 template <typename T>
 constexpr std::string GetTypeStr();
+
+template <meta::IsEnum Enum>
+constexpr std::string GetEnumNameStr(Enum e);
 
 template <typename T, typename = void>
 struct VarPrinter;  // IWYU pragma: export

@@ -230,4 +230,78 @@ using UnsignedFastIntegral = decltype(detail::UnsignedFastIntegral_<N>())::Type;
 template <size_t N>
 using SignedFastIntegral = decltype(detail::SignedFastIntegral_<N>())::Type;
 
+template <integral::IsIntegral IntegralA, integral::IsIntegral IntegralB>
+constexpr comparison::Ordering MathCompare(IntegralA a, IntegralB b);
+
+template <integral::IsIntegral IntegralDst, integral::IsIntegral IntegralA,
+          integral::IsIntegral IntegralB>
+constexpr IntegralDst OverflowAdd(IntegralA a, IntegralB b, bool& no_lossy);
+
+template <integral::IsIntegral IntegralDst, integral::IsIntegral IntegralA,
+          integral::IsIntegral IntegralB>
+constexpr IntegralDst OverflowSub(IntegralA a, IntegralB b, bool& no_lossy);
+
+template <integral::IsIntegral IntegralDst, integral::IsIntegral IntegralA,
+          integral::IsIntegral IntegralB>
+constexpr IntegralDst OverflowMul(IntegralA a, IntegralB b, bool& no_lossy);
+
+template <integral::IsIntegral DstIntegral, integral::IsIntegral SrcIntegral>
+constexpr DstIntegral LossyDetectingCast(SrcIntegral const& a, bool& no_lossy);
+
+template <integral::IsIntegral Integral>
+constexpr Integral LossyDetectingAdd(Integral const& a, Integral const& b,
+                                     bool& no_lossy);
+
+template <integral::IsIntegral Integral>
+constexpr Integral LossyDetectingSub(Integral const& a, Integral const& b,
+                                     bool& no_lossy);
+
+template <integral::IsIntegral Integral>
+constexpr Integral LossyDetectingMul(Integral const& a, Integral const& b,
+                                     bool& no_lossy);
+
+template <integral::IsIntegral Integral>
+struct LossyDetectingIntegral {
+    Integral value;
+    bool no_lossy;
+
+    constexpr LossyDetectingIntegral();
+
+    constexpr LossyDetectingIntegral(Integral const& value);
+
+    constexpr LossyDetectingIntegral(Integral const& value, bool no_lossy);
+
+    template <integral::IsIntegral OtherIntegral>
+    constexpr LossyDetectingIntegral(
+        LossyDetectingIntegral<OtherIntegral> const& other);
+};
+
+template <integral::IsIntegral Integral>
+constexpr LossyDetectingIntegral<Integral> operator+(
+    LossyDetectingIntegral<Integral> const& a);
+
+template <integral::IsIntegral Integral>
+constexpr LossyDetectingIntegral<Integral> operator-(
+    LossyDetectingIntegral<Integral> const& a);
+
+template <integral::IsIntegral Integral>
+constexpr LossyDetectingIntegral<Integral> operator+(
+    LossyDetectingIntegral<Integral> const& a,
+    LossyDetectingIntegral<Integral> const& b);
+
+template <integral::IsIntegral Integral>
+constexpr LossyDetectingIntegral<Integral> operator-(
+    LossyDetectingIntegral<Integral> const& a,
+    LossyDetectingIntegral<Integral> const& b);
+
+template <integral::IsIntegral Integral>
+constexpr LossyDetectingIntegral<Integral> operator*(
+    LossyDetectingIntegral<Integral> const& a,
+    LossyDetectingIntegral<Integral> const& b);
+
+template <integral::IsIntegral Integral>
+constexpr LossyDetectingIntegral<Integral> operator/(
+    LossyDetectingIntegral<Integral> const& a,
+    LossyDetectingIntegral<Integral> const& b);
+
 }  // namespace zeta::core::integral_utils

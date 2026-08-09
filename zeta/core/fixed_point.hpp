@@ -4,16 +4,12 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
-#include <zeta/core/value_wrapper.hpp>
-
-#pragma push_macro("FixedPointTplDeclParamList")
-#define FixedPointTplDeclParamList \
-    typename SignedTag_, typename IntegralWidth_, typename FractionWidth_
 
 #pragma push_macro("FixedPointTplParamList")
-#define FixedPointTplParamList(prefix)                          \
-    typename prefix##SignedTag, typename prefix##IntegralWidth, \
-        typename prefix##FractionWidth
+#define FixedPointTplParamList(prefix, suffix)                       \
+    meta::IsValueWrapperT<bool> prefix##SignedTag##suffix,           \
+        meta::IsValueWrapperT<size_t> prefix##IntegralWidth##suffix, \
+        meta::IsValueWrapperT<size_t> prefix##FractionWidth##suffix
 
 #pragma push_macro("FixedPointTplArgList")
 #define FixedPointTplArgList(prefix) \
@@ -29,21 +25,14 @@ constexpr size_t max_integral_width{ max_total_width };
 
 constexpr size_t max_fraction_width{ max_total_width };
 
-template <FixedPointTplDeclParamList>
+template <FixedPointTplParamList(, _)>
 struct FixedPoint {
     using SignedTag = SignedTag_;
     using IntegralWidth = IntegralWidth_;
     using FractionWidth = FractionWidth_;
 
-    ZETA_Core_StaticAssert(meta::IsAnySame<SignedTag, value_wrapper::FalseType,
-                                           value_wrapper::TrueType>);
-
-    ZETA_Core_StaticAssert(
-        value_wrapper::IsStaticValueWrapperWith<IntegralWidth, size_t>);
     ZETA_Core_StaticAssert(IntegralWidth::value <= max_integral_width);
 
-    ZETA_Core_StaticAssert(
-        value_wrapper::IsStaticValueWrapperWith<FractionWidth, size_t>);
     ZETA_Core_StaticAssert(FractionWidth::value <= max_fraction_width);
 
     ZETA_Core_StaticAssert(2 <= IntegralWidth::value + FractionWidth::value);
@@ -59,97 +48,100 @@ struct FixedPoint {
 
     static constexpr FixedPoint FromValue(Value value);
 
-    template <typename Integral>
+    template <integral::IsIntegral Integral>
     static constexpr FixedPoint FromIntegral(Integral integral);
 
-    template <typename Num, typename Denom>
+    template <integral::IsIntegral Num, integral::IsIntegral Denom>
     static constexpr FixedPoint FromFraction(Num num, Denom denom);
 
     constexpr FixedPoint() = default;
 
-    template <typename Integral,
-              typename = meta::EnableIf<integral::IsIntegral<Integral>>>
+    template <integral::IsIntegral Integral>
     constexpr FixedPoint(Integral const& integral);
 
     constexpr FixedPoint(FixedPoint const&) = default;
 
     constexpr FixedPoint(FixedPoint&&) = default;
 
-    template <FixedPointTplParamList(Src)>
+    template <FixedPointTplParamList(Src, )>
     explicit constexpr FixedPoint(
         FixedPoint<FixedPointTplArgList(Src)> const& src);
 
-    template <typename Integral,
-              typename = meta::EnableIf<integral::IsIntegral<Integral>>>
+    template <integral::IsIntegral Integral>
     constexpr FixedPoint& operator=(Integral const& integral);
 
     constexpr FixedPoint& operator=(FixedPoint const&) = default;
 
     constexpr FixedPoint& operator=(FixedPoint&&) = default;
 
-    template <FixedPointTplParamList(Src)>
+    template <FixedPointTplParamList(Src, )>
     constexpr FixedPoint& operator=(
         FixedPoint<FixedPointTplArgList(Src)> const& src);
+
+    constexpr auto Floor() const;
+
+    constexpr auto Ceil() const;
 };
 
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr bool operator==(FixedPoint<FixedPointTplArgList(X)> const& x,
-                          FixedPoint<FixedPointTplArgList(Y)> const& y);
+template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
+constexpr auto operator+(FixedPoint<FixedPointTplArgList(A)> const& a,
+                         FixedPoint<FixedPointTplArgList(B)> const& b);
 
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr bool operator!=(FixedPoint<FixedPointTplArgList(X)> const& x,
-                          FixedPoint<FixedPointTplArgList(Y)> const& y);
+template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
+constexpr auto operator-(FixedPoint<FixedPointTplArgList(A)> const& a,
+                         FixedPoint<FixedPointTplArgList(B)> const& b);
 
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr bool operator<(FixedPoint<FixedPointTplArgList(X)> const& x,
-                         FixedPoint<FixedPointTplArgList(Y)> const& y);
+template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
+constexpr auto operator*(FixedPoint<FixedPointTplArgList(A)> const& a,
+                         FixedPoint<FixedPointTplArgList(B)> const& b);
 
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr bool operator<=(FixedPoint<FixedPointTplArgList(X)> const& x,
-                          FixedPoint<FixedPointTplArgList(Y)> const& y);
+template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
+constexpr auto operator/(FixedPoint<FixedPointTplArgList(A)> const& a,
+                         FixedPoint<FixedPointTplArgList(B)> const& b);
 
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr bool operator>(FixedPoint<FixedPointTplArgList(X)> const& x,
-                         FixedPoint<FixedPointTplArgList(Y)> const& y);
+template <size_t FractionWidth, integral::IsIntegral Num,
+          integral::IsIntegral Denom>
+constexpr auto FromFraction(meta::ValueWrapper<size_t, FractionWidth>, Num num,
+                            Denom denom);
 
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr bool operator>=(FixedPoint<FixedPointTplArgList(X)> const& x,
-                          FixedPoint<FixedPointTplArgList(Y)> const& y);
-
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr auto operator+(FixedPoint<FixedPointTplArgList(X)> const& x,
-                         FixedPoint<FixedPointTplArgList(Y)> const& y);
-
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr auto operator-(FixedPoint<FixedPointTplArgList(X)> const& x,
-                         FixedPoint<FixedPointTplArgList(Y)> const& y);
-
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr auto operator*(FixedPoint<FixedPointTplArgList(X)> const& x,
-                         FixedPoint<FixedPointTplArgList(Y)> const& y);
-
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr auto operator/(FixedPoint<FixedPointTplArgList(X)> const& x,
-                         FixedPoint<FixedPointTplArgList(Y)> const& y);
-
-template <typename FractionWidth, typename Num, typename Denom>
-constexpr auto FromFraction(Num num, Denom denom);
-
-template <typename Integral>
+template <integral::IsIntegral Integral>
 constexpr auto FromIntegral(Integral integral);
 
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr int MathCompare(FixedPoint<FixedPointTplArgList(X)> const& x,
-                          FixedPoint<FixedPointTplArgList(Y)> const& y);
-
-template <FixedPointTplParamList()>
-constexpr auto Floor(FixedPoint<FixedPointTplArgList()> const& x);
-
-template <FixedPointTplParamList()>
-constexpr auto Ceil(FixedPoint<FixedPointTplArgList()> const& x);
+template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
+constexpr comparison::Ordering MathCompare(
+    FixedPoint<FixedPointTplArgList(A)> const& a,
+    FixedPoint<FixedPointTplArgList(B)> const& b);
 
 }  // namespace zeta::core::fixed_point
 
+namespace zeta::core {
+
+template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
+struct comparison::ComparatorTraits<comparison::BasicComparator<
+    fixed_point::FixedPoint<FixedPointTplArgList(A)>,
+    fixed_point::FixedPoint<FixedPointTplArgList(B)>>> {
+    template <IsOpType OpType>
+    static constexpr auto Compare(
+        comparison::BasicComparator<
+            fixed_point::FixedPoint<FixedPointTplArgList(A)>,
+            fixed_point::FixedPoint<FixedPointTplArgList(B)>> const&,
+        OpType, fixed_point::FixedPoint<FixedPointTplArgList(A)> const& a,
+        fixed_point::FixedPoint<FixedPointTplArgList(B)> const& b);
+};
+
+template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
+struct comparison::EnableNativeOperatorByBasicComparison<
+    fixed_point::FixedPoint<FixedPointTplArgList(A)>,
+    fixed_point::FixedPoint<FixedPointTplArgList(B)>> {
+    static constexpr bool enable_equal{ true };
+    static constexpr bool enable_not_equal{ true };
+    static constexpr bool enable_less{ true };
+    static constexpr bool enable_less_equal{ true };
+    static constexpr bool enable_greater{ true };
+    static constexpr bool enable_greater_equal{ true };
+};
+
+}  // namespace zeta::core
+
 #pragma pop_macro("FixedPointTplArgList")
 #pragma pop_macro("FixedPointTplParamList")
-#pragma pop_macro("FixedPointTplDeclParamList")

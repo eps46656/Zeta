@@ -318,6 +318,14 @@ concept IsComplete = __is_complete_type(T);
 template <typename... T>
 using VoidT = void;
 
+template <IsEnum Enum>
+using UnderlyingType = __underlying_type(Enum);
+
+template <IsEnum Enum>
+constexpr UnderlyingType<Enum> ToUnderlying(Enum e) {
+    return static_cast<UnderlyingType<Enum>>(e);
+}
+
 namespace detail {
 
 template <bool Cond, typename T1, typename T2>
@@ -412,12 +420,79 @@ struct TypeWrapper {
 
     constexpr TypeWrapper() = default;
 
-    template <typename T, typename = EnableIf<IsConvertible<T, Type>>>
+    template <typename OtherType>
+        requires IsConvertible<OtherType, Type>
     constexpr TypeWrapper  // NOLINT(
                            // google-explicit-constructor,
                            // hicpp-explicit-conversions)
-        (TypeWrapper<T> const&){};
+        (TypeWrapper<OtherType> const&){};
 };
+
+namespace detail {
+
+template <typename T>
+struct IsTypeWrapperImpl_ {
+    static constexpr bool value{ false };
+};
+
+template <typename Type>
+struct IsTypeWrapperImpl_<TypeWrapper<Type>> {
+    static constexpr bool value{ true };
+};
+
+}  // namespace detail
+
+template <typename T>
+concept IsTypeWrapper = detail::IsTypeWrapperImpl_<T>::value;
+
+template <typename T, typename TargetType>
+concept IsTypeWrapperT =
+    IsTypeWrapper<T> && meta::IsSame<typename T::Type, TargetType>;
+
+template <typename Type_, Type_ Value_>
+struct ValueWrapper {
+    using Type = Type_;
+
+    static constexpr Type value{ Value_ };
+
+    constexpr ValueWrapper() = default;
+
+    template <typename OtherType, OtherType OtherValue>
+        requires IsConvertible<OtherType, Type> &&
+                 (static_cast<Type>(OtherValue) == value)
+    constexpr ValueWrapper  // NOLINT(
+                            // google-explicit-constructor,
+                            // hicpp-explicit-conversions)
+        (ValueWrapper<OtherType, OtherValue> const&){};
+};
+
+namespace detail {
+
+template <typename T>
+struct IsValueWrapperImpl_ {
+    static constexpr bool value{ false };
+};
+
+template <typename Type, Type Value>
+struct IsValueWrapperImpl_<ValueWrapper<Type, Value>> {
+    static constexpr bool value{ true };
+};
+
+}  // namespace detail
+
+template <typename T>
+concept IsValueWrapper = detail::IsValueWrapperImpl_<T>::value;
+
+template <typename T, typename TargetType>
+concept IsValueWrapperT =
+    IsValueWrapper<T> && meta::IsSame<typename T::Type, TargetType>;
+
+template <typename T, typename TargetType, TargetType Value>
+concept IsValueWrapperTV =
+    IsValueWrapperT<T, TargetType> && (T::Value == Value);
+
+template <auto Value>
+using AutoValueWrapper = ValueWrapper<RemoveCVRef<decltype(Value)>, Value>;
 
 template <typename T>
 T& GetInstRef(T* inst) {

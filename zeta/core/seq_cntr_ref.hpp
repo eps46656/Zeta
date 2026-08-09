@@ -1,5 +1,7 @@
 #pragma once
 
+#include <zeta/core/fn_elem_stream.hpp>
+#include <zeta/core/lifecycle.hpp>
 #include <zeta/core/seq_cntr.hpp>
 
 namespace zeta::core::seq_cntr_ref {
@@ -10,107 +12,126 @@ struct Ref {
     size_t width;
     size_t capacity;
 
-    seq_cntr::CapabilityFlag dynamic_enabled_capability_flag;
-    seq_cntr::CapabilityFlag dynamic_disabled_capability_flag;
+    seq_cntr::capability::Flag dynamic_enabled_capability_flag;
+    seq_cntr::capability::Flag dynamic_disabled_capability_flag;
 
     seq_cntr::VTable const* vtable;
 
     void* cntr;
 
-    Ref() = default;
+    constexpr Ref() = default;
 
-    Ref(Ref const&) = default;
+    constexpr Ref(Ref const&) = default;
 
-    Ref(Ref&&) = default;
+    constexpr Ref(Ref&&) = default;
 
     template <seq_cntr::IsSeqCntr Cntr>
-    Ref(Cntr& cntr);
+    constexpr Ref(Cntr& cntr);
 
-    void* GetReferedInstPtr(this Ref const& ref);
+    constexpr Ref& operator=(Ref const&) = default;
 
-    size_t GetCursorSize(this Ref const&);
+    constexpr Ref& operator=(Ref&&) = default;
 
-    size_t GetElemSize(this Ref const& ref);
+    template <seq_cntr::IsSeqCntr Cntr>
+    constexpr void Init(this Ref& ref, Cntr& cntr);
 
-    size_t GetSride(this Ref const& ref);
+    constexpr void* GetReferedInstPtr(this Ref const& ref);
 
-    size_t GetOffset(this Ref const& ref);
+    constexpr size_t GetCursorSize(this Ref const&);
 
-    size_t GetElemCnt(this Ref const& ref);
+    constexpr size_t GetElemSize(this Ref const& ref);
 
-    size_t GetMaxElemCnt(this Ref const& ref);
+    constexpr size_t GetSride(this Ref const& ref);
 
-    void GetLBCursor(this Ref const& ref, void* dst_cursor);
+    constexpr size_t GetOffset(this Ref const& ref);
 
-    void GetRBCursor(this Ref const& ref, void* dst_cursor);
+    constexpr size_t GetElemCnt(this Ref const& ref);
 
-    void PeekL(this Ref const& ref, bool lazy_copy_elem,
-               seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
-               void* dst_elem);
+    constexpr size_t GetMaxElemCnt(this Ref const& ref);
 
-    void PeekR(this Ref const& ref, bool lazy_copy_elem,
-               seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
-               void* dst_elem);
+    constexpr void GetLBCursor(this Ref const& ref, void* dst_cursor);
 
-    void Refer(this Ref const& ref, size_t idx, bool lazy_copy_elem,
-               seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
-               void* dst_elem);
+    constexpr void GetRBCursor(this Ref const& ref, void* dst_cursor);
 
-    void Derefer(this Ref const& ref, void* pos_cursor, bool lazy_copy_elem,
-                 seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_elem);
+    constexpr void PeekL(this Ref const& ref, bool lazy_copy_elem,
+                         seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                         void* dst_cursor, void* dst_elem);
+
+    constexpr void PeekR(this Ref const& ref, bool lazy_copy_elem,
+                         seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                         void* dst_cursor, void* dst_elem);
+
+    constexpr void Refer(this Ref const& ref, size_t idx, bool lazy_copy_elem,
+                         seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                         void* dst_cursor, void* dst_elem);
+
+    constexpr void Derefer(this Ref const& ref, void* pos_cursor,
+                           bool lazy_copy_elem,
+                           seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                           void* dst_elem);
 
     template <typename Reader>
-    void Read(this Ref const& ref, void* pos_cursor, size_t cnt,
-              Reader&& reader, void* dst_cursor);
+    constexpr void Read(this Ref const& ref, void* pos_cursor, size_t cnt,
+                        Reader&& reader, void* dst_cursor);
 
     template <typename Writer>
-    void Write(this Ref& ref, void* pos_cursor, size_t cnt, Writer&& writer,
-               void* dst_cursor);
+    constexpr void Write(this Ref& ref, void* pos_cursor, size_t cnt,
+                         Writer&& writer, void* dst_cursor);
 
     template <typename ReaderWriter>
-    void ReadWrite(this Ref& ref, void* pos_cursor, size_t cnt,
-                   ReaderWriter&& reader_writer, void* dst_cursor);
+    constexpr void ReadWrite(this Ref& ref, void* pos_cursor, size_t cnt,
+                             ReaderWriter&& reader_writer, void* dst_cursor);
 
     template <typename Writer>
-    void PushL(this Ref& ref, size_t cnt, Writer&& writer, void* dst_cursor);
+    constexpr void PushL(this Ref& ref, size_t cnt, Writer&& writer,
+                         void* dst_cursor);
 
     template <typename Writer>
-    void PushR(this Ref& ref, size_t cnt, Writer&& writer, void* dst_cursor);
+    constexpr void PushR(this Ref& ref, size_t cnt, Writer&& writer,
+                         void* dst_cursor);
 
     template <typename Writer>
-    void Insert(this Ref& ref, void* pos_cursor, size_t cnt, Writer&& writer,
-                void* dst_cursor);
+    constexpr void Insert(this Ref& ref, void* pos_cursor, size_t cnt,
+                          Writer&& writer, void* dst_cursor);
 
     template <typename Reader>
-    void PopL(this Ref& ref, size_t cnt, Reader&& reader);
+    constexpr void PopL(this Ref& ref, size_t cnt, Reader&& reader);
 
     template <typename Reader>
-    void PopR(this Ref& ref, size_t cnt, Reader&& reader);
+    constexpr void PopR(this Ref& ref, size_t cnt, Reader&& reader);
 
     template <typename Reader>
-    void Erase(this Ref& ref, void* pos_cursor, size_t cnt, Reader&& reader);
+    constexpr void Erase(this Ref& ref, void* pos_cursor, size_t cnt,
+                         Reader&& reader);
 
-    void EraseAll(this Ref& ref);
+    constexpr void EraseAll(this Ref& ref);
 
-    void CopyCursor(this Ref const& ref, void* src_cursor, void* dst_cursor);
+    constexpr void CopyCursor(this Ref const& ref, void* src_cursor,
+                              void* dst_cursor);
 
-    bool AreEqualCursor(this Ref const& ref, void* cursor_a, void* cursor_b);
+    constexpr bool AreEqualCursor(this Ref const& ref, void* cursor_a,
+                                  void* cursor_b);
 
-    int CompareCursor(this Ref const& ref, void* cursor_a, void* cursor_b);
+    constexpr comparison::Ordering CompareCursor(this Ref const& ref,
+                                                 void* cursor_a,
+                                                 void* cursor_b);
 
-    size_t GetCursorDist(this Ref const& ref, void* cursor_a, void* cursor_b);
+    constexpr size_t GetCursorDist(this Ref const& ref, void* cursor_a,
+                                   void* cursor_b);
 
-    size_t GetCursorIdx(this Ref const& ref, void* cursor);
+    constexpr size_t GetCursorIdx(this Ref const& ref, void* cursor);
 
-    void CursorStepL(this Ref const& ref, void* cursor);
+    constexpr void CursorStepL(this Ref const& ref, void* cursor);
 
-    void CursorStepR(this Ref const& ref, void* cursor);
+    constexpr void CursorStepR(this Ref const& ref, void* cursor);
 
-    void CursorAdvanceL(this Ref const& ref, void* cursor, size_t step);
+    constexpr void CursorAdvanceL(this Ref const& ref, void* cursor,
+                                  size_t step);
 
-    void CursorAdvanceR(this Ref const& ref, void* cursor, size_t step);
+    constexpr void CursorAdvanceR(this Ref const& ref, void* cursor,
+                                  size_t step);
 
-    void Check(this Ref const& ref);
+    constexpr void Check(this Ref const& ref);
 };
 
 }  // namespace zeta::core::seq_cntr_ref
@@ -118,27 +139,40 @@ struct Ref {
 namespace zeta::core {
 
 template <>
-struct seq_cntr::CntrTraits<seq_cntr_ref::Ref const>
-    : public seq_cntr::DefaultCntrTraits<seq_cntr_ref::Ref> {
-    static constexpr seq_cntr::CapabilityFlag GetStaticEnabledCapabilityFlag();
-
-    static constexpr seq_cntr::CapabilityFlag GetStaticDisabledCapabilityFlag();
-
-    static constexpr seq_cntr::CapabilityFlag GetDynamicEnabledCapabilityFlag(
-        seq_cntr_ref::Ref const& ref);
-
-    static constexpr seq_cntr::CapabilityFlag GetDynamicDisabledCapabilityFlag(
-        seq_cntr_ref::Ref const& ref);
-};
+struct lifecycle::Traits<seq_cntr_ref::Ref>
+    : public lifecycle::MemberFuncTraitsAdapter<seq_cntr_ref::Ref> {};
 
 template <>
 struct seq_cntr::CntrTraits<seq_cntr_ref::Ref>
-    : public seq_cntr::CntrTraits<seq_cntr_ref::Ref const> {
-    static constexpr seq_cntr::CapabilityFlag GetDynamicEnabledCapabilityFlag(
+    : public seq_cntr::MemberFuncCntrTraitsAdapter<seq_cntr_ref::Ref, void> {
+    static constexpr seq_cntr::capability::Flag
+    GetStaticEnabledCapabilityFlag();
+
+    static constexpr seq_cntr::capability::Flag
+    GetStaticDisabledCapabilityFlag();
+
+    static constexpr seq_cntr::capability::Flag GetDynamicEnabledCapabilityFlag(
         seq_cntr_ref::Ref& ref);
 
-    static constexpr seq_cntr::CapabilityFlag GetDynamicDisabledCapabilityFlag(
-        seq_cntr_ref::Ref& ref);
+    static constexpr seq_cntr::capability::Flag
+    GetDynamicDisabledCapabilityFlag(seq_cntr_ref::Ref& ref);
+};
+
+template <>
+struct seq_cntr::CntrTraits<seq_cntr_ref::Ref const>
+    : public seq_cntr::MemberFuncCntrTraitsAdapter<seq_cntr_ref::Ref const,
+                                                   void> {
+    static constexpr seq_cntr::capability::Flag
+    GetStaticEnabledCapabilityFlag();
+
+    static constexpr seq_cntr::capability::Flag
+    GetStaticDisabledCapabilityFlag();
+
+    static constexpr seq_cntr::capability::Flag GetDynamicEnabledCapabilityFlag(
+        seq_cntr_ref::Ref const& ref);
+
+    static constexpr seq_cntr::capability::Flag
+    GetDynamicDisabledCapabilityFlag(seq_cntr_ref::Ref const& ref);
 };
 
 }  // namespace zeta::core

@@ -5,191 +5,149 @@
 #include <zeta/core/meta.hpp>
 #include <zeta/core/ptr_utils.hpp>
 #include <zeta/core/rbtree.hpp>
-#include <zeta/core/value_wrapper.hpp>
+
+#pragma push_macro("NodeTplParamList")
+#define NodeTplParamList(suffix)                                        \
+    ptr_utils::IsLinkType LinkType##suffix, typename PColorTag##suffix, \
+        typename LColorTag##suffix, typename RColorTag##suffix,         \
+        typename AccSizeTag##suffix,                                    \
+        basic_bin_tree_node::PrimaryColorTagEnum PrimaryColorTag##suffix
+
+#pragma push_macro("NodeTplArgList")
+#define NodeTplArgList(suffix)                                                 \
+    LinkType##suffix, PColorTag##suffix, LColorTag##suffix, RColorTag##suffix, \
+        AccSizeTag##suffix, PrimaryColorTag##suffix
 
 namespace zeta::core::basic_bin_tree_node {
 
-struct PrimaryColorTagEnum {
-    struct Null {};
-    struct P {};
-    struct L {};
-    struct R {};
+enum struct PrimaryColorTagEnum : unsigned char {
+    Null = 0b000,
+    P = 0b001,
+    L = 0b010,
+    R = 0b100,
 };
 
-template <typename LinkType, typename PColorTag, typename LColorTag,
-          typename RColorTag, typename AccSizeTag, typename PrimaryColorTag>
-struct NodeBase;
+template <NodeTplParamList(_)>
+struct Node0 {
+    ZETA_Core_StaticAssert(meta::IsValueWrapperT<PColorTag_, bool>);
+    ZETA_Core_StaticAssert(meta::IsValueWrapperT<LColorTag_, bool>);
+    ZETA_Core_StaticAssert(meta::IsValueWrapperT<RColorTag_, bool>);
+};
 
-template <typename LinkType, typename PColorTag, typename LColorTag,
-          typename RColorTag, typename PrimaryColorTag>
-struct NodeBase<LinkType, PColorTag, LColorTag, RColorTag,
-                value_wrapper::FalseType, PrimaryColorTag> {
-    ZETA_Core_StaticAssert(
-        meta::IsAnySame<PrimaryColorTag, PrimaryColorTagEnum::Null,
-                        PrimaryColorTagEnum::P, PrimaryColorTagEnum::L,
-                        PrimaryColorTagEnum::R>);
+template <NodeTplParamList(_)>
+struct Node1;
 
+template <NodeTplParamList()>
+    requires(!AccSizeTag::value)
+struct Node1<NodeTplArgList()> : public Node0<NodeTplArgList()> {
     ptr_utils::AugPtrTpl<LinkType, PColorTag> p;
     ptr_utils::AugPtrTpl<LinkType, LColorTag> l;
     ptr_utils::AugPtrTpl<LinkType, RColorTag> r;
 };
 
-template <typename LinkType, typename PColorTag, typename LColorTag,
-          typename RColorTag, typename PrimaryColorTag>
-struct NodeBase<LinkType, PColorTag, LColorTag, RColorTag,
-                value_wrapper::TrueType, PrimaryColorTag> {
-    ZETA_Core_StaticAssert(
-        meta::IsAnySame<PrimaryColorTag, PrimaryColorTagEnum::Null,
-                        PrimaryColorTagEnum::P, PrimaryColorTagEnum::L,
-                        PrimaryColorTagEnum::R>);
-
+template <NodeTplParamList()>
+    requires(AccSizeTag::value)
+struct Node1<NodeTplArgList()> : public Node0<NodeTplArgList()> {
     ptr_utils::AugPtrTpl<LinkType, PColorTag> p;
     ptr_utils::AugPtrTpl<LinkType, LColorTag> l;
     ptr_utils::AugPtrTpl<LinkType, RColorTag> r;
     size_t acc_size;
 };
 
-template <typename LinkType_, typename PColorTag_, typename LColorTag_,
-          typename RColorTag_, typename AccSizeTag_, typename PrimaryColorTag_>
-struct Node : public NodeBase<LinkType_, PColorTag_, LColorTag_, RColorTag_,
-                              AccSizeTag_, PrimaryColorTag_> {
+template <NodeTplParamList(_)>
+struct Node : public Node1<NodeTplArgList(_)> {
     using LinkType = LinkType_;
     using PColorTag = PColorTag_;
     using LColorTag = LColorTag_;
     using RColorTag = RColorTag_;
     using AccSizeTag = AccSizeTag_;
-    using PrimaryColorTag = PrimaryColorTag_;
+
+    static constexpr PrimaryColorTagEnum PrimaryColorTag{ PrimaryColorTag_ };
 
     static constexpr bool IsRelLink{
         ptr_utils::AugPtrTpl<LinkType, PColorTag>::IsRelLink
     };
 
-    template <typename _ = void,
-              typename = meta::EnableIf<!AccSizeTag::value, _>>
-    void Init();
+    template <typename _ = void>
+        requires requires {
+            requires meta::IsSame<_, void>;
+            requires !AccSizeTag::value;
+        }
+    constexpr void Init();
+
+    template <typename _ = void>
+        requires requires {
+            requires meta::IsSame<_, void>;
+            requires AccSizeTag::value;
+        }
+    constexpr void Init(size_t acc_size);
+
+    constexpr Node* GetPPtr();
+    constexpr Node* GetLPtr();
+    constexpr Node* GetRPtr();
+
+    constexpr Node const* GetPPtr() const;
+    constexpr Node const* GetLPtr() const;
+    constexpr Node const* GetRPtr() const;
+
+    constexpr unsigned GetPColor() const;
+    constexpr unsigned GetLColor() const;
+    constexpr unsigned GetRColor() const;
+
+    constexpr unsigned GetColor() const;
+
+    constexpr void SetPPtr(Node* m);
+    constexpr void SetLPtr(Node* m);
+    constexpr void SetRPtr(Node* m);
+
+    constexpr void SetPColor(unsigned color);
+    constexpr void SetLColor(unsigned color);
+    constexpr void SetRColor(unsigned color);
+
+    constexpr void SetColor(unsigned color);
 
     template <typename _ = void,
               typename = meta::EnableIf<AccSizeTag::value, _>>
-    void Init(size_t acc_size);
-
-    Node* GetPPtr();
-    Node* GetLPtr();
-    Node* GetRPtr();
-
-    Node const* GetPPtr() const;
-    Node const* GetLPtr() const;
-    Node const* GetRPtr() const;
-
-    unsigned GetPColor() const;
-    unsigned GetLColor() const;
-    unsigned GetRColor() const;
-
-    void SetPPtr(Node* m);
-    void SetLPtr(Node* m);
-    void SetRPtr(Node* m);
-
-    void SetPColor(unsigned color);
-    void SetLColor(unsigned color);
-    void SetRColor(unsigned color);
+    constexpr size_t GetAccSize() const;
 
     template <typename _ = void,
               typename = meta::EnableIf<AccSizeTag::value, _>>
-    size_t GetAccSize() const;
-
-    template <typename _ = void,
-              typename = meta::EnableIf<AccSizeTag::value, _>>
-    void SetAccSize(size_t acc_size);
+    constexpr void SetAccSize(size_t acc_size);
 };
 
 }  // namespace zeta::core::basic_bin_tree_node
 
 namespace zeta::core {
 
-template <typename LinkType, typename PColorTag, typename LColorTag,
-          typename RColorTag, typename AccSizeTag, typename PrimaryColorTag>
-struct bin_tree::NodeTraits<
-    basic_bin_tree_node::Node<LinkType, PColorTag, LColorTag, RColorTag,
-                              AccSizeTag, PrimaryColorTag> const> {
-    using Node =
-        basic_bin_tree_node::Node<LinkType, PColorTag, LColorTag, RColorTag,
-                                  AccSizeTag, PrimaryColorTag>;
-
+template <NodeTplParamList()>
+struct bin_tree::NodeTraits<basic_bin_tree_node::Node<NodeTplArgList()>>
+    : public bin_tree::MemberFuncNodeTraitsAdapter<
+          basic_bin_tree_node::Node<NodeTplArgList()>> {
     static constexpr bool IsConst();
 
     static constexpr bool HasAccSize();
-
-    static Node const* GetP(Node const* n);
-    static Node const* GetL(Node const* n);
-    static Node const* GetR(Node const* n);
-
-    template <typename _ = void,
-              typename = meta::EnableIf<AccSizeTag::value, _>>
-    static constexpr size_t GetNullAccSize();
-
-    template <typename _ = void,
-              typename = meta::EnableIf<AccSizeTag::value, _>>
-    static size_t GetAccSize(Node const* n);
 };
 
-template <typename LinkType, typename PColorTag, typename LColorTag,
-          typename RColorTag, typename AccSizeTag, typename PrimaryColorTag>
-struct bin_tree::NodeTraits<basic_bin_tree_node::Node<
-    LinkType, PColorTag, LColorTag, RColorTag, AccSizeTag, PrimaryColorTag>>
-    : public bin_tree::NodeTraits<
-          basic_bin_tree_node::Node<LinkType, PColorTag, LColorTag, RColorTag,
-                                    AccSizeTag, PrimaryColorTag> const> {
-    using Node =
-        basic_bin_tree_node::Node<LinkType, PColorTag, LColorTag, RColorTag,
-                                  AccSizeTag, PrimaryColorTag>;
-
+template <NodeTplParamList()>
+struct bin_tree::NodeTraits<basic_bin_tree_node::Node<NodeTplArgList()> const>
+    : public bin_tree::MemberFuncNodeTraitsAdapter<
+          basic_bin_tree_node::Node<NodeTplArgList()> const> {
     static constexpr bool IsConst();
 
-    static Node* GetP(Node* n);
-    static Node* GetL(Node* n);
-    static Node* GetR(Node* n);
-
-    static void SetP(Node* n, Node* m);
-    static void SetL(Node* n, Node* m);
-    static void SetR(Node* n, Node* m);
-
-    template <typename _ = void,
-              typename = meta::EnableIf<AccSizeTag::value, _>>
-    static void SetAccSize(Node* n, size_t acc_size);
+    static constexpr bool HasAccSize();
 };
 
-template <typename LinkType, typename PColorTag, typename LColorTag,
-          typename RColorTag, typename AccSizeTag, typename PrimaryColorTag>
-struct rbtree::NodeTraits<
-    basic_bin_tree_node::Node<LinkType, PColorTag, LColorTag, RColorTag,
-                              AccSizeTag, PrimaryColorTag> const,
-    meta::EnableIf<meta::IsAnySame<
-        PrimaryColorTag, basic_bin_tree_node::PrimaryColorTagEnum::P,
-        basic_bin_tree_node::PrimaryColorTagEnum::L,
-        basic_bin_tree_node::PrimaryColorTagEnum::R>>> {
-    using Node =
-        basic_bin_tree_node::Node<LinkType, PColorTag, LColorTag, RColorTag,
-                                  AccSizeTag, PrimaryColorTag>;
+template <NodeTplParamList()>
+struct rbtree::NodeTraits<basic_bin_tree_node::Node<NodeTplArgList()>>
+    : public rbtree::MemberFuncNodeTraitsAdapter<
+          basic_bin_tree_node::Node<NodeTplArgList()>> {};
 
-    static unsigned GetColor(Node const* n);
-};
-
-template <typename LinkType, typename PColorTag, typename LColorTag,
-          typename RColorTag, typename AccSizeTag, typename PrimaryColorTag>
-struct rbtree::NodeTraits<
-    basic_bin_tree_node::Node<LinkType, PColorTag, LColorTag, RColorTag,
-                              AccSizeTag, PrimaryColorTag>,
-    meta::EnableIf<meta::IsAnySame<
-        PrimaryColorTag, basic_bin_tree_node::PrimaryColorTagEnum::P,
-        basic_bin_tree_node::PrimaryColorTagEnum::L,
-        basic_bin_tree_node::PrimaryColorTagEnum::R>>>
-    : public rbtree::NodeTraits<
-          basic_bin_tree_node::Node<LinkType, PColorTag, LColorTag, RColorTag,
-                                    AccSizeTag, PrimaryColorTag> const> {
-    using Node =
-        basic_bin_tree_node::Node<LinkType, PColorTag, LColorTag, RColorTag,
-                                  AccSizeTag, PrimaryColorTag>;
-
-    static void SetColor(Node* n, unsigned color);
-};
+template <NodeTplParamList()>
+struct rbtree::NodeTraits<basic_bin_tree_node::Node<NodeTplArgList()> const>
+    : public rbtree::MemberFuncNodeTraitsAdapter<
+          basic_bin_tree_node::Node<NodeTplArgList()> const> {};
 
 }  // namespace zeta::core
+
+#pragma pop_macro("NodeTplArgList")
+#pragma pop_macro("NodeTplParamList")

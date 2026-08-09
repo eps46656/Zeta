@@ -1,11 +1,45 @@
 #pragma once
 
-#include <zeta/core/define.hpp>
+#include <zeta/core/meta.hpp>
 
 namespace zeta::core::allocator {
 
-template <typename Allocator, typename = void>
-struct AllocatorTraits;  // IWYU pragma: export
+template <typename Allocator>
+struct AllocatorTraits;
+
+template <typename Allocator>
+concept IsAllocator = requires(Allocator& alctr, size_t size, void* ptr) {
+    requires meta::IsSame<
+        meta::RemoveCVRef<
+            decltype(AllocatorTraits<Allocator>::GetReferedInstPtr(alctr))>,
+        void*>;
+
+    requires meta::IsSame<
+        meta::RemoveCVRef<decltype(AllocatorTraits<Allocator>::GetAlign(
+            alctr))>,
+        size_t>;
+
+    requires meta::IsSame<
+        meta::RemoveCVRef<decltype(AllocatorTraits<Allocator>::Allocate(alctr,
+                                                                        size))>,
+        void*>;
+
+    requires meta::IsSame<
+        meta::RemoveCVRef<decltype(AllocatorTraits<Allocator>::Deallocate(
+            alctr, ptr))>,
+        void>;
+};
+
+template <typename Allocator>
+struct MemberFuncAllocatorTraitsAdapter {
+    static constexpr decltype(auto) GetReferedInstPtr(Allocator& alctr);
+
+    static constexpr decltype(auto) GetAlign(Allocator& alctr);
+
+    static constexpr decltype(auto) Allocate(Allocator& alctr, size_t size);
+
+    static constexpr decltype(auto) Deallocate(Allocator& alctr, void* ptr);
+};
 
 template <typename Allocator>
 void* GetReferedInstPtr(Allocator& alctr);
@@ -22,9 +56,6 @@ void Deallocate(Allocator& alctr, void* ptr);
 template <typename Allocator>
 void* SafeAllocate(Allocator& alctr, size_t align, size_t size);
 
-template <typename Allocator>
-void CheckContract(Allocator& alctr);
-
 struct VTable {
     void* (*Allocate)(void* alctr, size_t size);
 
@@ -34,7 +65,7 @@ struct VTable {
 template <typename Allocator>
 constexpr VTable BuildVTableBasic();
 
-template <typename Allocator, typename = void>
+template <typename Allocator>
 struct BuildVTableImpl {
     static constexpr VTable Call();
 };

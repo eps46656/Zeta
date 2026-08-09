@@ -9,16 +9,14 @@
 #include <zeta/core/ptr_utils.ipp>
 #include <zeta/core/rbtree.ipp>
 #include <zeta/core/utils.ipp>
-#include <zeta/core/value_wrapper.hpp>
-#include <zeta/core/value_wrapper.ipp>
 #include <zeta/core_test/random.hpp>
 
 struct BinTreeNode
     : public zeta::core::basic_bin_tree_node::Node<
-          void*, zeta::core::value_wrapper::TrueType,
-          zeta::core::value_wrapper::TrueType,
-          zeta::core::value_wrapper::FalseType,
-          zeta::core::value_wrapper::TrueType,
+          void*, zeta::core::meta::AutoValueWrapper<true>,
+          zeta::core::meta::AutoValueWrapper<true>,
+          zeta::core::meta::AutoValueWrapper<false>,
+          zeta::core::meta::AutoValueWrapper<true>,
           zeta::core::basic_bin_tree_node::PrimaryColorTagEnum::Null> {};
 
 struct Node {
@@ -38,64 +36,80 @@ BinTreeNode* root;
 BinTreeNode* rb;
 
 template <>
-struct zeta::core::bin_tree::NodeTraits<BinTreeNode const> {
-    static constexpr bool IsConst() { return true; }
+struct zeta::core::bin_tree::NodeTraits<BinTreeNode> {
+    static constexpr bool IsConst() { return false; }
 
     static constexpr bool HasAccSize() { return true; }
 
-    static constexpr size_t GetNullAccSize() { return 0; }
-
-    static BinTreeNode const* GetP(BinTreeNode const* n) {
-        return static_cast<BinTreeNode const*>(n->GetPPtr());
-    }
-
-    static BinTreeNode const* GetL(BinTreeNode const* n) {
-        return static_cast<BinTreeNode const*>(n->GetLPtr());
-    }
-
-    static BinTreeNode const* GetR(BinTreeNode const* n) {
-        return static_cast<BinTreeNode const*>(n->GetRPtr());
-    }
-
-    static size_t GetAccSize(BinTreeNode const* n) { return n->GetAccSize(); }
-};
-
-template <>
-struct zeta::core::bin_tree::NodeTraits<BinTreeNode>
-    : public zeta::core::bin_tree::NodeTraits<BinTreeNode const> {
-    static constexpr bool IsConst() { return false; }
-
-    static BinTreeNode* GetP(BinTreeNode* n) {
+    static constexpr BinTreeNode* GetP(BinTreeNode* n) {
         return static_cast<BinTreeNode*>(n->GetPPtr());
     }
 
-    static BinTreeNode* GetL(BinTreeNode* n) {
+    static constexpr BinTreeNode* GetL(BinTreeNode* n) {
         return static_cast<BinTreeNode*>(n->GetLPtr());
     }
 
-    static BinTreeNode* GetR(BinTreeNode* n) {
+    static constexpr BinTreeNode* GetR(BinTreeNode* n) {
         return static_cast<BinTreeNode*>(n->GetRPtr());
     }
 
-    static void SetP(BinTreeNode* n, BinTreeNode* m) { n->SetPPtr(m); }
+    static constexpr void SetP(BinTreeNode* n, BinTreeNode* m) {
+        n->SetPPtr(m);
+    }
 
-    static void SetL(BinTreeNode* n, BinTreeNode* m) { n->SetLPtr(m); }
+    static constexpr void SetL(BinTreeNode* n, BinTreeNode* m) {
+        n->SetLPtr(m);
+    }
 
-    static void SetR(BinTreeNode* n, BinTreeNode* m) { n->SetRPtr(m); }
+    static constexpr void SetR(BinTreeNode* n, BinTreeNode* m) {
+        n->SetRPtr(m);
+    }
 
-    static void SetAccSize(BinTreeNode* n, size_t acc_size) {
+    static constexpr size_t GetNullAccSize() { return 0; }
+
+    static constexpr size_t GetAccSize(BinTreeNode const* n) {
+        return n->GetAccSize();
+    }
+
+    static constexpr void SetAccSize(BinTreeNode* n, size_t acc_size) {
         n->SetAccSize(acc_size);
     }
 };
 
 template <>
-struct zeta::core::rbtree::NodeTraits<BinTreeNode const, void> {
+struct zeta::core::bin_tree::NodeTraits<BinTreeNode const> {
+    static constexpr bool IsConst() { return true; }
+
+    static constexpr bool HasAccSize() { return true; }
+
+    static constexpr BinTreeNode const* GetP(BinTreeNode const* n) {
+        return static_cast<BinTreeNode const*>(n->GetPPtr());
+    }
+
+    static constexpr BinTreeNode const* GetL(BinTreeNode const* n) {
+        return static_cast<BinTreeNode const*>(n->GetLPtr());
+    }
+
+    static constexpr BinTreeNode const* GetR(BinTreeNode const* n) {
+        return static_cast<BinTreeNode const*>(n->GetRPtr());
+    }
+
+    static constexpr size_t GetNullAccSize() { return 0; }
+
+    static constexpr size_t GetAccSize(BinTreeNode const* n) {
+        return n->GetAccSize();
+    }
+};
+
+template <>
+struct zeta::core::rbtree::NodeTraits<BinTreeNode const> {
     static unsigned GetColor(BinTreeNode const* n) { return n->GetPColor(); }
 };
 
 template <>
-struct zeta::core::rbtree::NodeTraits<BinTreeNode, void>
-    : public zeta::core::rbtree::NodeTraits<BinTreeNode const, void> {
+struct zeta::core::rbtree::NodeTraits<BinTreeNode> {
+    static unsigned GetColor(BinTreeNode const* n) { return n->GetPColor(); }
+
     static void SetColor(BinTreeNode* n, unsigned color) {
         n->SetPColor(color);
     }

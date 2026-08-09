@@ -8,12 +8,12 @@
 #include <zeta/core/fixed_point.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
-#include <zeta/core/value_wrapper.hpp>
 
 #pragma push_macro("FixedPointTplParamList")
-#define FixedPointTplParamList(prefix)                          \
-    typename prefix##SignedTag, typename prefix##IntegralWidth, \
-        typename prefix##FractionWidth
+#define FixedPointTplParamList(prefix, suffix)                       \
+    meta::IsValueWrapperT<bool> prefix##SignedTag##suffix,           \
+        meta::IsValueWrapperT<size_t> prefix##IntegralWidth##suffix, \
+        meta::IsValueWrapperT<size_t> prefix##FractionWidth##suffix
 
 #pragma push_macro("FixedPointTplArgList")
 #define FixedPointTplArgList(prefix) \
@@ -21,7 +21,7 @@
 
 namespace zeta::core {
 
-template <FixedPointTplParamList()>
+template <FixedPointTplParamList(, )>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>
 fixed_point::FixedPoint<FixedPointTplArgList()>::FromValue(Value value) {
     FixedPoint ret;
@@ -29,8 +29,8 @@ fixed_point::FixedPoint<FixedPointTplArgList()>::FromValue(Value value) {
     return ret;
 }
 
-template <FixedPointTplParamList()>
-template <typename Integral>
+template <FixedPointTplParamList(, )>
+template <integral::IsIntegral Integral>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>
 fixed_point::FixedPoint<FixedPointTplArgList()>::FromIntegral(
     Integral integral) {
@@ -38,39 +38,39 @@ fixed_point::FixedPoint<FixedPointTplArgList()>::FromIntegral(
         fixed_point::FromIntegral(integral));
 }
 
-template <FixedPointTplParamList()>
-template <typename Num, typename Denom>
+template <FixedPointTplParamList(, )>
+template <integral::IsIntegral Num, integral::IsIntegral Denom>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>
 fixed_point::FixedPoint<FixedPointTplArgList()>::FromFraction(Num num,
                                                               Denom denom) {
     return static_cast<fixed_point::FixedPoint<FixedPointTplArgList()>>(
-        fixed_point::FromFraction<FractionWidth>(num, denom));
+        fixed_point::FromFraction(FractionWidth{}, num, denom));
 }
 
-template <FixedPointTplParamList()>
-template <typename Integral, typename>
+template <FixedPointTplParamList(, )>
+template <integral::IsIntegral Integral>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>::FixedPoint(
     Integral const& integral) {
     *this = (FromIntegral)(integral);
 }
 
-template <FixedPointTplParamList()>
-template <FixedPointTplParamList(Src)>
+template <FixedPointTplParamList(, )>
+template <FixedPointTplParamList(Src, )>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>::FixedPoint(
     FixedPoint<FixedPointTplArgList(Src)> const& src) {
     *this = src;
 }
 
-template <FixedPointTplParamList()>
-template <typename Integral, typename>
+template <FixedPointTplParamList(, )>
+template <integral::IsIntegral Integral>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>&
 fixed_point::FixedPoint<FixedPointTplArgList()>::operator=(
     Integral const& integral) {
     return *this = (FromIntegral)(integral);
 }
 
-template <FixedPointTplParamList()>
-template <FixedPointTplParamList(Src)>
+template <FixedPointTplParamList(, )>
+template <FixedPointTplParamList(Src, )>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>&
 fixed_point::FixedPoint<FixedPointTplArgList()>::operator=(
     FixedPoint<FixedPointTplArgList(Src)> const& src) {
@@ -115,319 +115,307 @@ fixed_point::FixedPoint<FixedPointTplArgList()>::operator=(
     return *this;
 }
 
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr bool fixed_point::operator==(
-    FixedPoint<FixedPointTplArgList(X)> const& x,
-    FixedPoint<FixedPointTplArgList(Y)> const& y) {
-    return (MathCompare)(x, y) == 0;
+template <FixedPointTplParamList(, )>
+constexpr auto fixed_point::FixedPoint<FixedPointTplArgList()>::Floor() const {
+    using Value = FixedPoint<FixedPointTplArgList()>::Value;
+
+    using RIntegral =
+        meta::Conditional<SignedTag::value,
+                          signed _BitInt(IntegralWidth::value + 1),
+                          unsigned _BitInt(IntegralWidth::value)>;
+
+    constexpr Value mod{ static_cast<Value>(1) << FractionWidth::value };
+
+    RIntegral k{ static_cast<RIntegral>(static_cast<Value>(this->value) /
+                                        mod) };
+
+    if constexpr (SignedTag::value) {
+        if (this->value < 0 && static_cast<Value>(this->value) % mod != 0) {
+            --k;
+        }
+    }
+
+    return k;
 }
 
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr bool fixed_point::operator!=(
-    FixedPoint<FixedPointTplArgList(X)> const& x,
-    FixedPoint<FixedPointTplArgList(Y)> const& y) {
-    return (MathCompare)(x, y) != 0;
+template <FixedPointTplParamList(, )>
+constexpr auto fixed_point::FixedPoint<FixedPointTplArgList()>::Ceil() const {
+    using Value = FixedPoint<FixedPointTplArgList()>::Value;
+
+    using RIntegral =
+        meta::Conditional<SignedTag::value,
+                          signed _BitInt(IntegralWidth::value + 1),
+                          unsigned _BitInt(IntegralWidth::value + 1)>;
+
+    Value mod{ static_cast<Value>(1) << FractionWidth::value };
+
+    RIntegral k{ static_cast<RIntegral>(static_cast<Value>(this->value) /
+                                        mod) };
+
+    if (0 < this->value && static_cast<Value>(this->value) % mod != 0) { ++k; }
+
+    return k;
 }
 
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr bool fixed_point::operator<(
-    FixedPoint<FixedPointTplArgList(X)> const& x,
-    FixedPoint<FixedPointTplArgList(Y)> const& y) {
-    return (MathCompare)(x, y) < 0;
-}
-
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr bool fixed_point::operator<=(
-    FixedPoint<FixedPointTplArgList(X)> const& x,
-    FixedPoint<FixedPointTplArgList(Y)> const& y) {
-    return (MathCompare)(x, y) <= 0;
-}
-
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr bool fixed_point::operator>(
-    FixedPoint<FixedPointTplArgList(X)> const& x,
-    FixedPoint<FixedPointTplArgList(Y)> const& y) {
-    return (MathCompare)(x, y) > 0;
-}
-
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr bool fixed_point::operator>=(
-    FixedPoint<FixedPointTplArgList(X)> const& x,
-    FixedPoint<FixedPointTplArgList(Y)> const& y) {
-    return (MathCompare)(x, y) >= 0;
-}
-
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
+template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
 constexpr auto fixed_point::operator+(
-    FixedPoint<FixedPointTplArgList(X)> const& x,
-    FixedPoint<FixedPointTplArgList(Y)> const& y) {
+    FixedPoint<FixedPointTplArgList(A)> const& a,
+    FixedPoint<FixedPointTplArgList(B)> const& b) {
     /*
 
-    unsigned x + unsigned y
-    [0, 2^x) + [0, 2^y)
+    unsigned a + unsigned b
+    [0, 2^a) + [0, 2^b)
     <=
-    [0, 2^x + 2^y)
+    [0, 2^a + 2^b)
     <=
-    [0, 2^{max(x, y) + 1})
+    [0, 2^{max(a, b) + 1})
     <=
-    [0, 2^w)        w >= max(x + 1, y + 1)
+    [0, 2^w)        w >= max(a + 1, b + 1)
 
-    unsigned x + signed y
-    [0, 2^x) + (-2^{y - 1}, 2^{y - 1})
+    unsigned a + signed b
+    [0, 2^a) + (-2^{b - 1}, 2^{b - 1})
     <=
-    [-2^{y - 1}, 2^{max(x, y - 1) + 1})
+    [-2^{b - 1}, 2^{max(a, b - 1) + 1})
     <=
     (-2^{w - 1}, 2^{w - 1})
 
-    w - 1 >= y - 1      w - 1 >= max(x, y - 1) + 1
-    w >= y              w >= max(x + 2, y + 1)
+    w - 1 >= b - 1      w - 1 >= max(a, b - 1) + 1
+    w >= b              w >= max(a + 2, b + 1)
 
-    signed x + unsigned y
-    (-2^{x - 1}, 2^{x - 1}) + [0, 2^y)
+    signed a + unsigned b
+    (-2^{a - 1}, 2^{a - 1}) + [0, 2^b)
 
-    w >= max(x + 1, y + 2)
+    w >= max(a + 1, b + 2)
 
-    signed x + signed y
-    (-2^{x - 1}, 2^{x - 1}) + (-2^{y - 1}, 2^{y - 1})
+    signed a + signed b
+    (-2^{a - 1}, 2^{a - 1}) + (-2^{b - 1}, 2^{b - 1})
     <=
-    (-2^{max(x - 1, y - 1) + 1}, 2^{max(x - 1, y - 1) + 1})
+    (-2^{max(a - 1, b - 1) + 1}, 2^{max(a - 1, b - 1) + 1})
     <=
     (-2^{w - 1}, 2^{w - 1})
 
-    w - 1 >= max(x - 1, y - 1) + 1
-    w >= max(x + 1, y + 1)
+    w - 1 >= max(a - 1, b - 1) + 1
+    w >= max(a + 1, b + 1)
 
     */
 
     using RSignedTag =
-        value_wrapper::StaticValueWrapper<bool, XSignedTag::value ||
-                                                    YSignedTag::value>;
+        meta::AutoValueWrapper<ASignedTag::value || BSignedTag::value>;
 
-    using RIntegralWidth = value_wrapper::StaticValueWrapper<
-        size_t,
-        comparison_utils::BasicMax(XIntegralWidth::value + XSignedTag::value,
-                                   YIntegralWidth::value + YSignedTag::value) -
-            (XSignedTag::value && YSignedTag::value) + 1>;
+    using RIntegralWidth =
+        meta::AutoValueWrapper<comparison_utils::BasicMax(
+                                   AIntegralWidth::value + ASignedTag::value,
+                                   BIntegralWidth::value + BSignedTag::value) -
+                               (ASignedTag::value && BSignedTag::value) + 1>;
 
-    using RFractionWidth =
-        value_wrapper::StaticValueWrapper<size_t, comparison_utils::BasicMax(
-                                                      XFractionWidth::value,
-                                                      YFractionWidth::value)>;
+    using RFractionWidth = meta::AutoValueWrapper<comparison_utils::BasicMax(
+        AFractionWidth::value, BFractionWidth::value)>;
 
     using RFixedPoint = FixedPoint<RSignedTag, RIntegralWidth, RFractionWidth>;
 
     return RFixedPoint::FromValue(
-        static_cast<RFixedPoint::Value>(x.value) *
+        static_cast<RFixedPoint::Value>(a.value) *
             (static_cast<RFixedPoint::Value>(1)
-             << (RFixedPoint::FractionWidth::value - XFractionWidth::value)) +
-        static_cast<RFixedPoint::Value>(y.value) *
+             << (RFixedPoint::FractionWidth::value - AFractionWidth::value)) +
+        static_cast<RFixedPoint::Value>(b.value) *
             (static_cast<RFixedPoint::Value>(1)
-             << (RFixedPoint::FractionWidth::value - YFractionWidth::value)));
+             << (RFixedPoint::FractionWidth::value - BFractionWidth::value)));
 }
 
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
+template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
 constexpr auto fixed_point::operator-(
-    FixedPoint<FixedPointTplArgList(X)> const& x,
-    FixedPoint<FixedPointTplArgList(Y)> const& y) {
+    FixedPoint<FixedPointTplArgList(A)> const& a,
+    FixedPoint<FixedPointTplArgList(B)> const& b) {
     /*
 
-    unsigned x - unsigned y
-    [0, 2^x) - [0, 2^y)
+    unsigned a - unsigned b
+    [0, 2^a) - [0, 2^b)
     <=
-    (-2^y, 2^x)
+    (-2^b, 2^a)
     <=
-    (-2^{w - 1}, 2^{w - 1})         w >= max(x + 1, y + 1)
+    (-2^{w - 1}, 2^{w - 1})         w >= max(a + 1, b + 1)
 
-    unsigned x - signed y
-    [0, 2^x) - (-2^{y - 1}, 2^{y - 1})
+    unsigned a - signed b
+    [0, 2^a) - (-2^{b - 1}, 2^{b - 1})
     <=
-    (-2^{y - 1}, 2^x + 2^{y - 1})
+    (-2^{b - 1}, 2^a + 2^{b - 1})
     <=
-    (-2^{y - 1}, 2^{max(x, y - 1) + 1})
+    (-2^{b - 1}, 2^{max(a, b - 1) + 1})
     <=
     (-2^{w - 1}, 2^{w - 1})
 
-    w - 1 >= y - 1      w - 1 >= max(x, y - 1) + 1
-    w >= y              w >= max(x + 2, y + 1)
+    w - 1 >= b - 1      w - 1 >= max(a, b - 1) + 1
+    w >= b              w >= max(a + 2, b + 1)
 
-    signed x - unsigned y
-    (-2^{x - 1}, 2^{x - 1}) - [0, 2^y)
+    signed a - unsigned b
+    (-2^{a - 1}, 2^{a - 1}) - [0, 2^b)
     <=
-    (-2^{x - 1} - 2^y, 2^{x - 1})
+    (-2^{a - 1} - 2^b, 2^{a - 1})
     <=
-    (-2^{max(x - 1, y) + 1}, 2^{x - 1})
+    (-2^{max(a - 1, b) + 1}, 2^{a - 1})
     <=
     (-2^{w - 1}, 2^{w - 1})
 
-    w - 1 >= max(x - 1, y) + 1      w - 1 >= x - 1
-    w >= max(x + 1, y + 2)          w >= x
+    w - 1 >= max(a - 1, b) + 1      w - 1 >= a - 1
+    w >= max(a + 1, b + 2)          w >= a
 
-    signed x - signed y
-    (-2^{x - 1}, 2^{x - 1}) - (-2^{y - 1}, 2^{y - 1})
+    signed a - signed b
+    (-2^{a - 1}, 2^{a - 1}) - (-2^{b - 1}, 2^{b - 1})
     <=
-    (-2^{x - 1} - 2^{y - 1}, 2^{x - 1} + 2^{y - 1})
+    (-2^{a - 1} - 2^{b - 1}, 2^{a - 1} + 2^{b - 1})
     <=
-    (-2^{max(x - 1, y - 1) + 1}, 2^{max(x - 1, y - 1) + 1})
+    (-2^{max(a - 1, b - 1) + 1}, 2^{max(a - 1, b - 1) + 1})
     <=
     (-2^{w - 1}, 2^{w - 1})
 
-    w - 1 >= max(x - 1, y - 1) + 1
-    w >= max(x + 1, y + 1)
+    w - 1 >= max(a - 1, b - 1) + 1
+    w >= max(a + 1, b + 1)
 
     */
 
-    using RSignedTag = value_wrapper::TrueType;
+    using RSignedTag = meta::AutoValueWrapper<true>;
 
-    using RIntegralWidth = value_wrapper::StaticValueWrapper<
-        size_t,
-        comparison_utils::BasicMax(XIntegralWidth::value + XSignedTag::value,
-                                   YIntegralWidth::value + YSignedTag::value) -
-            (XSignedTag::value && YSignedTag::value) + 1>;
+    using RIntegralWidth =
+        meta::AutoValueWrapper<comparison_utils::BasicMax(
+                                   AIntegralWidth::value + ASignedTag::value,
+                                   BIntegralWidth::value + BSignedTag::value) -
+                               (ASignedTag::value && BSignedTag::value) + 1>;
 
-    using RFractionWidth =
-        value_wrapper::StaticValueWrapper<size_t, comparison_utils::BasicMax(
-                                                      XFractionWidth::value,
-                                                      YFractionWidth::value)>;
+    using RFractionWidth = meta::AutoValueWrapper<comparison_utils::BasicMax(
+        AFractionWidth::value, BFractionWidth::value)>;
 
     using RFixedPoint = FixedPoint<RSignedTag, RIntegralWidth, RFractionWidth>;
 
     return RFixedPoint::FromValue(
-        static_cast<RFixedPoint::Value>(x.value) *
+        static_cast<RFixedPoint::Value>(a.value) *
             (static_cast<RFixedPoint::Value>(1)
-             << (RFixedPoint::FractionWidth::value - XFractionWidth::value)) -
-        static_cast<RFixedPoint::Value>(y.value) *
+             << (RFixedPoint::FractionWidth::value - AFractionWidth::value)) -
+        static_cast<RFixedPoint::Value>(b.value) *
             (static_cast<RFixedPoint::Value>(1)
-             << (RFixedPoint::FractionWidth::value - YFractionWidth::value)));
+             << (RFixedPoint::FractionWidth::value - BFractionWidth::value)));
 }
 
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
+template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
 constexpr auto fixed_point::operator*(
-    FixedPoint<FixedPointTplArgList(X)> const& x,
-    FixedPoint<FixedPointTplArgList(Y)> const& y) {
+    FixedPoint<FixedPointTplArgList(A)> const& a,
+    FixedPoint<FixedPointTplArgList(B)> const& b) {
     /*
 
-    unsigned x * unsigned y
-    [0, 2^x) * [0, 2^y)
+    unsigned a * unsigned b
+    [0, 2^a) * [0, 2^b)
     <=
-    [0, 2^{x + y})
+    [0, 2^{a + b})
     <=
-    [0, 2^{w})         w >= x + y
+    [0, 2^{w})         w >= a + b
 
-    unsigned x * signed y
-    [0, 2^x) * (-2^{y - 1}, 2^{y - 1})
+    unsigned a * signed b
+    [0, 2^a) * (-2^{b - 1}, 2^{b - 1})
     <=
-    (-2^{x + y - 1}, 2^{x + y - 1})
-    <=
-    (-2^{w - 1}, 2^{w - 1})
-
-    w - 1 >= x + y - 1
-    w >= x + y
-
-    signed x * unsigned y
-    (-2^{x - 1}, 2^{x - 1}) * [0, 2^y)
-
-    w >= x + y
-
-    signed x * signed y
-    (-2^{x - 1}, 2^{x - 1}) * (-2^{y - 1}, 2^{y - 1})
-    <=
-    (-2^{x - 1 + y - 1}, 2^{x - 1 + y - 1})
+    (-2^{a + b - 1}, 2^{a + b - 1})
     <=
     (-2^{w - 1}, 2^{w - 1})
 
-    w - 1 >= x - 1 + y - 1
-    w >= x + y - 1
+    w - 1 >= a + b - 1
+    w >= a + b
+
+    signed a * unsigned b
+    (-2^{a - 1}, 2^{a - 1}) * [0, 2^b)
+
+    w >= a + b
+
+    signed a * signed b
+    (-2^{a - 1}, 2^{a - 1}) * (-2^{b - 1}, 2^{b - 1})
+    <=
+    (-2^{a - 1 + b - 1}, 2^{a - 1 + b - 1})
+    <=
+    (-2^{w - 1}, 2^{w - 1})
+
+    w - 1 >= a - 1 + b - 1
+    w >= a + b - 1
 
     */
 
     using RSignedTag =
-        value_wrapper::StaticValueWrapper<bool, XSignedTag::value ||
-                                                    YSignedTag::value>;
+        meta::AutoValueWrapper<ASignedTag::value || BSignedTag::value>;
 
-    using RIntegralWidth = value_wrapper::StaticValueWrapper<
-        size_t, XIntegralWidth::value + YIntegralWidth::value -
-                    (XSignedTag::value && YSignedTag::value)>;
+    using RIntegralWidth =
+        meta::AutoValueWrapper<AIntegralWidth::value + BIntegralWidth::value -
+                               (ASignedTag::value && BSignedTag::value)>;
 
     using RFractionWidth =
-        value_wrapper::StaticValueWrapper<size_t, XFractionWidth::value +
-                                                      YFractionWidth::value>;
+        meta::AutoValueWrapper<AFractionWidth::value + BFractionWidth::value>;
 
     using FixedPointRet =
         FixedPoint<RSignedTag, RIntegralWidth, RFractionWidth>;
 
-    return FixedPointRet::FromValue(static_cast<FixedPointRet::Value>(x.value) *
-                                    static_cast<FixedPointRet::Value>(y.value));
+    return FixedPointRet::FromValue(static_cast<FixedPointRet::Value>(a.value) *
+                                    static_cast<FixedPointRet::Value>(b.value));
 }
 
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
+template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
 constexpr auto fixed_point::operator/(
-    FixedPoint<FixedPointTplArgList(X)> const& x,
-    FixedPoint<FixedPointTplArgList(Y)> const& y) {
-    return (FromFraction<value_wrapper::StaticValueWrapper<
-                size_t, comparison_utils::BasicMax(
-                            XFractionWidth::value,
-                            YFractionWidth::value)>>)(x.value, y.value);
+    FixedPoint<FixedPointTplArgList(A)> const& a,
+    FixedPoint<FixedPointTplArgList(B)> const& b) {
+    return (FromFraction)(meta::AutoValueWrapper<comparison_utils::BasicMax(
+                              AFractionWidth::value, BFractionWidth::value)>{},
+                          a.value, b.value);
 }
 
-template <typename FractionWidth, typename Num, typename Denom>
-constexpr auto fixed_point::FromFraction(Num num, Denom denom) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Num>);
-
+template <size_t FractionWidth, integral::IsIntegral Num,
+          integral::IsIntegral Denom>
+constexpr auto fixed_point::FromFraction(
+    meta::ValueWrapper<size_t, FractionWidth>, Num num, Denom denom) {
     /*
 
     unsigned num / unsigned denom
-    [0, 2^x) / [1, 2^y)
+    [0, 2^a) / [1, 2^b)
     <=
-    [0, 2^x)
+    [0, 2^a)
     <=
     [0, 2^w)
 
-    w >= x
+    w >= a
 
     unsigned num / signed denom
-    [0, 2^x) / (-2^{y - 1}, 2^{y - 1})
+    [0, 2^a) / (-2^{b - 1}, 2^{b - 1})
     <=
-    (-2^x, 2^x)
+    (-2^a, 2^a)
     <=
     (-2^{w - 1}, 2^{w - 1})
 
-    w >= x + 1
+    w >= a + 1
 
     signed num / unsigned denom
-    (-2^{x - 1}, 2^{x - 1}) / [1, 2^y)
+    (-2^{a - 1}, 2^{a - 1}) / [1, 2^b)
     <=
-    (-2^{x - 1}, 2^{x - 1})
+    (-2^{a - 1}, 2^{a - 1})
     <=
     (-2^{w - 1}, 2^{w - 1})
 
-    w >= x + 1
+    w >= a + 1
 
     signed num / signed denom
-    (-2^{x - 1}, 2^{x - 1}) / (-2^{y - 1}, 2^{y - 1})
+    (-2^{a - 1}, 2^{a - 1}) / (-2^{b - 1}, 2^{b - 1})
     <=
-    (-2^{x - 1}, 2^{x - 1})
+    (-2^{a - 1}, 2^{a - 1})
     <=
     (-2^{w - 1}, 2^{w - 1})
 
-    w >= x + 1
+    w >= a + 1
 
     */
-
-    ZETA_Core_StaticAssert(integral::IsIntegral<Num>);
-    ZETA_Core_StaticAssert(integral::IsIntegral<Denom>);
 
     ZETA_Core_DebugAssert(denom != 0);
 
     constexpr bool any_signed{ integral::IsSignedIntegral<Num> ||
                                integral::IsSignedIntegral<Denom> };
 
-    using RSignedTag = value_wrapper::StaticValueWrapper<bool, any_signed>;
+    using RSignedTag = meta::AutoValueWrapper<any_signed>;
 
     using RIntegralWidth =
-        value_wrapper::StaticValueWrapper<size_t,
-                                          integral::WidthOf<Num> + any_signed>;
+        meta::AutoValueWrapper<integral::WidthOf<Num> + any_signed>;
 
-    using RFractionWidth = FractionWidth;
+    using RFractionWidth = meta::ValueWrapper<size_t, FractionWidth>;
 
     using RFixedPoint = FixedPoint<RSignedTag, RIntegralWidth, RFractionWidth>;
 
@@ -441,7 +429,7 @@ constexpr auto fixed_point::FromFraction(Num num, Denom denom) {
     bool is_neg{ num_is_neg != denom_is_neg };
 
     OpIntegral a{ static_cast<OpIntegral>(num_is_neg ? -num : num)
-                  << FractionWidth::value };
+                  << FractionWidth };
 
     OpIntegral b{ static_cast<OpIntegral>(denom_is_neg ? -denom : denom) };
 
@@ -460,83 +448,64 @@ constexpr auto fixed_point::FromFraction(Num num, Denom denom) {
                                          : static_cast<RFixedPoint::Value>(q));
 }
 
-template <typename Integral>
+template <integral::IsIntegral Integral>
 constexpr auto fixed_point::FromIntegral(Integral integral) {
-    return (FromFraction<value_wrapper::StaticValueWrapper<
-                size_t, 0>>)(integral, static_cast<Integral>(1));
+    return (FromFraction)(meta::ValueWrapper<size_t, 0>{}, integral,
+                          static_cast<Integral>(1));
 }
 
-template <FixedPointTplParamList(X), FixedPointTplParamList(Y)>
-constexpr int fixed_point::MathCompare(
-    FixedPoint<FixedPointTplArgList(X)> const& x,
-    FixedPoint<FixedPointTplArgList(Y)> const& y) {
-    if constexpr (XSignedTag::value && !YSignedTag::value) {
-        if (x.value < 0) { return -1; }
+template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
+constexpr comparison::Ordering fixed_point::MathCompare(
+    FixedPoint<FixedPointTplArgList(A)> const& a,
+    FixedPoint<FixedPointTplArgList(B)> const& b) {
+    if constexpr (ASignedTag::value && !BSignedTag::value) {
+        if (a.value < 0) { return comparison::Ordering::Less; }
     }
 
-    if constexpr (!XSignedTag::value && YSignedTag::value) {
-        if (y.value < 0) { return 1; }
+    if constexpr (!ASignedTag::value && BSignedTag::value) {
+        if (b.value < 0) { return comparison::Ordering::Greater; }
     }
 
     constexpr size_t op_fraction_width{ comparison_utils::BasicMax(
-        XFractionWidth::value, YFractionWidth::value) };
+        AFractionWidth::value, BFractionWidth::value) };
 
     constexpr size_t op_integral_width{ 1 + comparison_utils::BasicMax(
-                                                XIntegralWidth::value,
-                                                YIntegralWidth::value) };
+                                                AIntegralWidth::value,
+                                                BIntegralWidth::value) };
 
     constexpr size_t op_total_width{ op_integral_width + op_fraction_width };
 
     using SOpIntegral = signed _BitInt(op_total_width);
 
-    SOpIntegral a{ static_cast<SOpIntegral>(x.value)
-                   << (op_fraction_width - XFractionWidth::value) };
+    SOpIntegral x{ static_cast<SOpIntegral>(a.value)
+                   << (op_fraction_width - AFractionWidth::value) };
 
-    SOpIntegral b{ static_cast<SOpIntegral>(y.value)
-                   << (op_fraction_width - YFractionWidth::value) };
+    SOpIntegral y{ static_cast<SOpIntegral>(b.value)
+                   << (op_fraction_width - BFractionWidth::value) };
 
-    return (b < a) - (a < b);
+    return comparison::BasicCompare(
+        meta::AutoValueWrapper<comparison::Op::Order>{}, x, y);
 }
 
-template <FixedPointTplParamList()>
-constexpr auto fixed_point::Floor(FixedPoint<FixedPointTplArgList()> const& x) {
-    ZETA_Core_StaticAssert(IntegralWidth::value + FractionWidth::value <=
-                           ZETA_Core_bitint_max_width);
+template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
+template <comparison::IsOpType OpType>
+constexpr auto comparison::ComparatorTraits<comparison::BasicComparator<
+    fixed_point::FixedPoint<FixedPointTplArgList(A)>,
+    fixed_point::FixedPoint<FixedPointTplArgList(B)>>>::
+    Compare(comparison::BasicComparator<
+                fixed_point::FixedPoint<FixedPointTplArgList(A)>,
+                fixed_point::FixedPoint<FixedPointTplArgList(B)>> const&,
+            OpType, fixed_point::FixedPoint<FixedPointTplArgList(A)> const& a,
+            fixed_point::FixedPoint<FixedPointTplArgList(B)> const& b) {
+    comparison::Ordering ord{ fixed_point::MathCompare(a, b) };
 
-    using Value = FixedPoint<FixedPointTplArgList()>::Value;
-
-    using RIntegral =
-        meta::Conditional<SignedTag::value,
-                          signed _BitInt(IntegralWidth::value + 1),
-                          unsigned _BitInt(IntegralWidth::value)>;
-
-    constexpr Value mod{ static_cast<Value>(1) << FractionWidth::value };
-
-    RIntegral k{ static_cast<RIntegral>(static_cast<Value>(x.value) / mod) };
-
-    if constexpr (SignedTag::value) {
-        if (x.value < 0 && static_cast<Value>(x.value) % mod != 0) { --k; }
+    if constexpr (meta::IsSame<OpType,
+                               meta::AutoValueWrapper<comparison::Op::Order>>) {
+        return ord;
+    } else {
+        return (meta::ToUnderlying(ord) & meta::ToUnderlying(OpType::value)) !=
+               0;
     }
-
-    return k;
-}
-
-template <FixedPointTplParamList()>
-constexpr auto fixed_point::Ceil(FixedPoint<FixedPointTplArgList()> const& x) {
-    using Value = FixedPoint<FixedPointTplArgList()>::Value;
-
-    using RIntegral =
-        meta::Conditional<SignedTag::value,
-                          signed _BitInt(IntegralWidth::value + 1),
-                          unsigned _BitInt(IntegralWidth::value + 1)>;
-
-    Value mod{ static_cast<Value>(1) << FractionWidth::value };
-
-    RIntegral k{ static_cast<RIntegral>(static_cast<Value>(x.value) / mod) };
-
-    if (0 < x.value && static_cast<Value>(x.value) % mod != 0) { ++k; }
-
-    return k;
 }
 
 }  // namespace zeta::core

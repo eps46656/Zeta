@@ -1,5 +1,7 @@
 #pragma once
 
+#include <zeta/core/comparison.hpp>
+
 namespace zeta::core::comparison_utils {
 
 template <typename Comparator, typename Value0, typename... Values>
@@ -23,7 +25,12 @@ int MemSeqLexCompare(void const* a, void const* b, size_t a_elem_size,
                      size_t b_elem_stride, size_t a_elem_cnt, size_t b_cnt);
 
 template <typename... Args>
-constexpr int PairWiseLexCompare(Args&&... args);
+    requires requires { requires sizeof...(Args) % 3 == 0; }
+constexpr comparison::Ordering PairWiseLexCompare(Args&&... args);
+
+template <comparison::IsOpType OpType, typename... Args>
+    requires requires { requires sizeof...(Args) % 2 == 0; }
+constexpr auto BasicPairWiseLexCompare(OpType, Args&&... args);
 
 template <typename Comparator, typename SeqA, typename SeqB>
 int SeqWiseLexCompare(Comparator const& cmptr, SeqA&& a, SeqB&& b);

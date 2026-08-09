@@ -50,11 +50,11 @@ SeqCntrRef Create(SeqCntrRef origin_seq_cntr_ref, size_t stride,
 
     sv->data_alctr = zeta::core::allocator_ref::MakeRef(pack->data_alctr);
 
-    StagingSegVectorNS::Init(*sv, stride, seg_capacity, origin_seq_cntr_ref,
-                             zeta::core::lifecycle::SkipInitTag{},
-                             zeta::core::lifecycle::SkipInitTag{});
+    sv->Init(stride, seg_capacity, origin_seq_cntr_ref,
+             zeta::core::lifecycle::SkipInitTag{},
+             zeta::core::lifecycle::SkipInitTag{});
 
-    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(*sv) };
+    SeqCntrRef seq_cntr_ref{ *sv };
 
     seq_cntr_utils::AddSanitizeFunc(sv, Sanitize);
 
@@ -76,11 +76,11 @@ SeqCntrRef Create(SeqCntrRef origin_seq_cntr_ref, size_t stride,
 
     sv->data_alctr = zeta::core::allocator_ref::MakeRef(pack->data_alctr);
 
-    StagingSegVectorNS::Init(*sv, stride, seg_capacity, origin_seq_cntr_ref,
-                             zeta::core::lifecycle::SkipInitTag{},
-                             zeta::core::lifecycle::SkipInitTag{}, src_sv);
+    sv->Init(stride, seg_capacity, origin_seq_cntr_ref,
+             zeta::core::lifecycle::SkipInitTag{},
+             zeta::core::lifecycle::SkipInitTag{}, src_sv);
 
-    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(*sv) };
+    SeqCntrRef seq_cntr_ref{ *sv };
 
     seq_cntr_utils::AddSanitizeFunc(sv, Sanitize);
 
@@ -92,7 +92,7 @@ SeqCntrRef Create(SeqCntrRef origin_seq_cntr_ref, size_t stride,
 inline void Destroy(void* sv) {
     Pack* pack{ ZETA_Core_MemberToStruct(Pack, sv, sv) };
 
-    StagingSegVectorNS::Deinit(pack->sv);
+    pack->sv.Deinit();
 
     delete pack;
 }
@@ -103,7 +103,7 @@ inline void Sanitize(void const* sv) {
     core::mem_recorder::MemRecorder seg;
     core::mem_recorder::MemRecorder data;
 
-    StagingSegVectorNS::Sanitize(pack->sv, &seg, &data);
+    pack->sv.Sanitize(&seg, &data);
 
     core::mem_recorder::MatchRecords(pack->seg_alctr.mem_recorder, seg);
     core::mem_recorder::MatchRecords(pack->data_alctr.mem_recorder, data);

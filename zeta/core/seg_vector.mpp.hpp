@@ -42,7 +42,6 @@
 #include <zeta/core/pool_allocator.hpp>
 #include <zeta/core/seq_cntr.hpp>
 #include <zeta/core/utils.hpp>
-#include <zeta/core/value_wrapper.hpp>
 
 #if EnStaging
 
@@ -58,26 +57,19 @@
 
 #if EnStaging
 
-#pragma push_macro("CntrTplDeclParamList")
-#define CntrTplDeclParamList                          \
-    typename OriginLike_, typename SegAllocatorLike_, \
-        typename DataAllocatorLike_
-
 #pragma push_macro("CntrTplParamList")
-#define CntrTplParamList \
-    typename OriginLike, typename SegAllocatorLike, typename DataAllocatorLike
+#define CntrTplParamList(suffix)                                    \
+    typename OriginLike##suffix, typename SegAllocatorLike##suffix, \
+        typename DataAllocatorLike##suffix
 
 #pragma push_macro("CntrTplArgList")
 #define CntrTplArgList OriginLike, SegAllocatorLike, DataAllocatorLike
 
 #else
 
-#pragma push_macro("CntrTplDeclParamList")
-#define CntrTplDeclParamList \
-    typename SegAllocatorLike_, typename DataAllocatorLike_
-
 #pragma push_macro("CntrTplParamList")
-#define CntrTplParamList typename SegAllocatorLike, typename DataAllocatorLike
+#define CntrTplParamList(suffix) \
+    typename SegAllocatorLike##suffix, typename DataAllocatorLike##suffix
 
 #pragma push_macro("CntrTplArgList")
 #define CntrTplArgList SegAllocatorLike, DataAllocatorLike
@@ -100,19 +92,19 @@ using Node =
 #if EnStaging
     basic_bin_tree_node::Node<
         void*,
-        value_wrapper::TrueType,                     // PColor
-        value_wrapper::TrueType,                     // LColor
-        value_wrapper::FalseType,                    // RColor
-        value_wrapper::TrueType,                     // AccSize
+        meta::AutoValueWrapper<true>,                // PColor
+        meta::AutoValueWrapper<true>,                // LColor
+        meta::AutoValueWrapper<false>,               // RColor
+        meta::AutoValueWrapper<true>,                // AccSize
         basic_bin_tree_node::PrimaryColorTagEnum::P  // PrimaryColor
         >;
 #else
     basic_bin_tree_node::Node<
         void*,
-        value_wrapper::TrueType,                     // PColor
-        value_wrapper::TrueType,                     // LColor
-        value_wrapper::FalseType,                    // RColor
-        value_wrapper::TrueType,                     // AccSize
+        meta::AutoValueWrapper<true>,                // PColor
+        meta::AutoValueWrapper<true>,                // LColor
+        meta::AutoValueWrapper<false>,               // RColor
+        meta::AutoValueWrapper<true>,                // AccSize
         basic_bin_tree_node::PrimaryColorTagEnum::P  // PrimaryColor
         >;
 #endif
@@ -177,7 +169,7 @@ struct Stats {
     size_t dat_size;
 };
 
-template <CntrTplDeclParamList>
+template <CntrTplParamList(_)>
 struct Cntr {
 #if EnStaging
     using OriginLike = OriginLike_;
@@ -201,228 +193,175 @@ struct Cntr {
 
     SegAllocatorLike seg_alctr;
     DataAllocatorLike data_alctr;
-};
 
-template <CntrTplParamList,
+    template <
 #if EnStaging
-          typename OriginLikeInitArg,
+        typename OriginLikeInitArg,
 #endif
-          typename SegAllocatorLikeInitArg, typename DataAllocatorLikeInitArg>
-void Init(Cntr<CntrTplArgList>& cntr,
+        typename SegAllocatorLikeInitArg, typename DataAllocatorLikeInitArg>
+    void Init(this Cntr& cntr,
 #if !EnStaging
-          size_t elem_size,
+              size_t elem_size,
 #endif
-          size_t elem_stride, size_t seg_elem_slot_cnt,
+              size_t elem_stride, size_t seg_elem_slot_cnt,
 #if EnStaging
-          OriginLikeInitArg&& origin_like_init_arg,
+              OriginLikeInitArg&& origin_like_init_arg,
 #endif
-          SegAllocatorLikeInitArg&& seg_alctr_like_init_arg,
-          DataAllocatorLikeInitArg&& data_alctr_like_init_arg);
+              SegAllocatorLikeInitArg&& seg_alctr_like_init_arg,
+              DataAllocatorLikeInitArg&& data_alctr_like_init_arg);
 
-template <CntrTplParamList,
+    template <
 #if EnStaging
-          typename OriginLikeInitArg,
+        typename OriginLikeInitArg,
 #endif
-          typename SegAllocatorLikeInitArg, typename DataAllocatorLikeInitArg,
-          typename SrcOriginLike, typename SrcSegAllocatorLike,
-          typename SrcDataAllocatorLike>
-void Init(Cntr<CntrTplArgList>& cntr, size_t elem_stride,
-          size_t seg_elem_slot_cnt,
+        typename SegAllocatorLikeInitArg, typename DataAllocatorLikeInitArg,
+        typename SrcOriginLike, typename SrcSegAllocatorLike,
+        typename SrcDataAllocatorLike>
+    void Init(this Cntr& cntr, size_t elem_stride, size_t seg_elem_slot_cnt,
 #if EnStaging
-          OriginLikeInitArg&& origin_like_init_arg,
+              OriginLikeInitArg&& origin_like_init_arg,
 #endif
-          SegAllocatorLikeInitArg&& seg_alctr_like_init_arg,
-          DataAllocatorLikeInitArg&& data_alctr_like_init_arg,
-          Cntr<
+              SegAllocatorLikeInitArg&& seg_alctr_like_init_arg,
+              DataAllocatorLikeInitArg&& data_alctr_like_init_arg,
+              Cntr<
 #if EnStaging
-              SrcOriginLike,
+                  SrcOriginLike,
 #endif
-              SrcSegAllocatorLike, SrcDataAllocatorLike> const& src_cntr);
+                  SrcSegAllocatorLike, SrcDataAllocatorLike> const& src_cntr);
 
-template <CntrTplParamList>
-void Deinit(Cntr<CntrTplArgList>& cntr);
+    void Deinit(this Cntr& cntr);
 
-template <CntrTplParamList
 #if EnStaging
-          ,
-          typename OriginLikeInitArg
+    template <typename OriginLikeInitArg>
 #endif
-          >
-void Copy(Cntr<CntrTplArgList>& cntr,
+    void Copy(this Cntr& cntr,
 #if EnStaging
-          OriginLikeInitArg&& origin_like_init_arg,
+              OriginLikeInitArg&& origin_like_init_arg,
 #endif
-          Cntr<CntrTplArgList> const& src_cntr);
+              Cntr const& src_cntr);
 
-template <CntrTplParamList>
-constexpr size_t GetCursorSize(Cntr<CntrTplArgList> const&);
+    void* GetReferedInstPtr(this Cntr const& cntr);
 
-template <CntrTplParamList>
-size_t GetElemSize(Cntr<CntrTplArgList> const& cntr);
+    constexpr size_t GetCursorSize(this Cntr const& cntr);
 
-template <CntrTplParamList>
-size_t GetElemCnt(Cntr<CntrTplArgList> const& cntr);
+    size_t GetElemSize(this Cntr const& cntr);
 
-template <CntrTplParamList>
-size_t GetMaxElemCnt(Cntr<CntrTplArgList> const& cntr);
+    size_t GetElemCnt(this Cntr const& cntr);
 
-template <CntrTplParamList>
-void GetLBCursor(Cntr<CntrTplArgList> const& cntr, Cursor* dst_cursor);
+    size_t GetMaxElemCnt(this Cntr const& cntr);
 
-template <CntrTplParamList>
-void GetRBCursor(Cntr<CntrTplArgList> const& cntr, Cursor* dst_cursor);
+    void GetLBCursor(this Cntr const& cntr, Cursor* dst_cursor);
 
-template <CntrTplParamList>
-void PeekL(Cntr<CntrTplArgList>& cntr, bool lazy_copy_elem,
-           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
-           void* dst_elem);
+    void GetRBCursor(this Cntr const& cntr, Cursor* dst_cursor);
 
-template <CntrTplParamList>
-void PeekL(Cntr<CntrTplArgList> const& cntr, bool lazy_copy_elem,
-           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
-           void* dst_elem);
+    void PeekL(this auto& cntr, bool lazy_copy_elem,
+               seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+               void* dst_elem);
 
-template <CntrTplParamList>
-void PeekR(Cntr<CntrTplArgList>& cntr, bool lazy_copy_elem,
-           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
-           void* dst_elem);
+    void PeekR(this auto& cntr, bool lazy_copy_elem,
+               seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+               void* dst_elem);
 
-template <CntrTplParamList>
-void PeekR(Cntr<CntrTplArgList> const& cntr, bool lazy_copy_elem,
-           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
-           void* dst_elem);
+    void Refer(this auto& cntr, size_t idx, bool lazy_copy_elem,
+               seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+               void* dst_elem);
 
-template <CntrTplParamList>
-void Refer(Cntr<CntrTplArgList>& cntr, size_t idx, bool lazy_copy_elem,
-           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
-           void* dst_elem);
+    void Derefer(this auto& cntr, Cursor* pos_cursor, bool lazy_copy_elem,
+                 seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_elem);
 
-template <CntrTplParamList>
-void Refer(Cntr<CntrTplArgList> const& cntr, size_t idx, bool lazy_copy_elem,
-           seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
-           void* dst_elem);
+    template <typename Predictor>
+    void* FindFirst(this Cntr& cntr, Predictor&& predictor, Cursor* dst_cursor,
+                    void* dst_elem);
 
-template <CntrTplParamList>
-void Derefer(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor,
-             bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
-             void* dst_elem);
+    template <typename Reader>
+    void Read(this Cntr const& cntr, Cursor* pos_cursor, size_t cnt,
+              Reader&& reader, Cursor* dst_cursor);
 
-template <CntrTplParamList>
-void Derefer(Cntr<CntrTplArgList> const& cntr, Cursor* pos_cursor,
-             bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
-             void* dst_elem);
+    template <typename Writer>
+    void Write(this Cntr& cntr, Cursor* pos_cursor, size_t cnt, Writer&& writer,
+               Cursor* dst_cursor);
 
-template <CntrTplParamList, typename Predictor>
-void* FindFirst(Cntr<CntrTplArgList>& cntr, Predictor&& predictor,
-                Cursor* dst_cursor, void* dst_elem);
+    template <typename ReaderWriter>
+    void ReadWrite(this Cntr& cntr, Cursor* pos_cursor, size_t cnt,
+                   ReaderWriter&& reader_writer, Cursor* dst_cursor);
 
-template <CntrTplParamList, typename Reader>
-void Read(Cntr<CntrTplArgList> const& cntr, Cursor* pos_cursor, size_t cnt,
-          Reader&& reader, Cursor* dst_cursor);
+    template <typename Writer>
+    void PushL(this Cntr& cntr, size_t cnt, Writer&& writer,
+               Cursor* dst_cursor);
 
-template <CntrTplParamList, typename Writer>
-static void Write(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor, size_t cnt,
-                  Writer&& writer, Cursor* dst_cursor);
+    template <typename Writer>
+    void PushR(this Cntr& cntr, size_t cnt, Writer&& writer,
+               Cursor* dst_cursor);
 
-template <CntrTplParamList, typename ReaderWriter>
-void ReadWrite(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor, size_t cnt,
-               ReaderWriter&& reader_writer, Cursor* dst_cursor);
+    template <typename Writer>
+    void Insert(this Cntr& cntr, Cursor* pos_cursor, size_t cnt,
+                Writer&& writer, Cursor* dst_cursor);
 
-template <CntrTplParamList, typename Writer>
-void PushL(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
-           Cursor* dst_cursor);
+    template <typename Reader>
+    void PopL(this Cntr& cntr, size_t cnt, Reader&& reader);
 
-template <CntrTplParamList, typename Writer>
-void PushR(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
-           Cursor* dst_cursor);
+    template <typename Reader>
+    void PopR(this Cntr& cntr, size_t cnt, Reader&& reader);
 
-template <CntrTplParamList, typename Writer>
-void Insert(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor, size_t cnt,
-            Writer&& writer, Cursor* dst_cursor);
+    template <typename Reader>
+    void Erase(this Cntr& cntr, Cursor* pos_cursor, size_t cnt,
+               Reader&& reader);
 
-template <CntrTplParamList, typename Reader>
-void PopL(Cntr<CntrTplArgList>& cntr, size_t cnt, Reader&& reader);
+    void EraseAll(this Cntr& cntr);
 
-template <CntrTplParamList, typename Reader>
-void PopR(Cntr<CntrTplArgList>& cntr, size_t cnt, Reader&& reader);
-
-template <CntrTplParamList, typename Reader>
-void Erase(Cntr<CntrTplArgList>& cntr, Cursor* pos_cursor, size_t cnt,
-           Reader&& reader);
-
-template <CntrTplParamList>
-void EraseAll(Cntr<CntrTplArgList>& cntr);
-
-template <CntrTplParamList>
-void Reset(Cntr<CntrTplArgList>& cntr);
+    void Reset(this Cntr& cntr);
 
 #if EnStaging
 
-template <CntrTplParamList, typename OriginOriginLike,
-          typename OriginSegAllocator, typename OriginDataAllocator,
-          typename NewOriginLikeInitArg>
-void Collapse(Cntr<CntrTplArgList>& cntr,
-              Cntr<OriginOriginLike, OriginSegAllocator,
-                   OriginDataAllocator> const& origin_cntr,
-              NewOriginLikeInitArg&& new_origin_like_init_arg);
+    template <typename OriginOriginLike, typename OriginSegAllocator,
+              typename OriginDataAllocator, typename NewOriginLikeInitArg>
+    void Collapse(this Cntr& cntr,
+                  Cntr<OriginOriginLike, OriginSegAllocator,
+                       OriginDataAllocator> const& origin_cntr,
+                  NewOriginLikeInitArg&& new_origin_like_init_arg);
 
-template <CntrTplParamList>
-void WriteBack(Cntr<CntrTplArgList>& cntr, int write_back_strategy,
-               unsigned long long cost_coeff_read,
-               unsigned long long cost_coeff_write,
-               unsigned long long cost_coeff_insert,
-               unsigned long long cost_coeff_erase);
+    void WriteBack(this Cntr& cntr, int write_back_strategy,
+                   unsigned long long cost_coeff_read,
+                   unsigned long long cost_coeff_write,
+                   unsigned long long cost_coeff_insert,
+                   unsigned long long cost_coeff_erase);
 #endif
 
-template <CntrTplParamList>
-void CopyCursor(Cntr<CntrTplArgList> const& cntr, Cursor* src_cursor,
-                Cursor* dst_cursor);
+    void CopyCursor(this Cntr const& cntr, Cursor* src_cursor,
+                    Cursor* dst_cursor);
 
-template <CntrTplParamList>
-bool AreEqualCursor(Cntr<CntrTplArgList> const& cntr, Cursor* cursor_a,
-                    Cursor* cursor_b);
+    bool AreEqualCursor(this Cntr const& cntr, Cursor* cursor_a,
+                        Cursor* cursor_b);
 
-template <CntrTplParamList>
-int CompareCursor(Cntr<CntrTplArgList> const& cntr, Cursor* cursor_a,
-                  Cursor* cursor_b);
+    comparison::Ordering CompareCursor(this Cntr const& cntr, Cursor* cursor_a,
+                                       Cursor* cursor_b);
 
-template <CntrTplParamList>
-size_t GetCursorDist(Cntr<CntrTplArgList> const& cntr, Cursor* cursor_a,
-                     Cursor* cursor_b);
+    size_t GetCursorDist(this Cntr const& cntr, Cursor* cursor_a,
+                         Cursor* cursor_b);
 
-template <CntrTplParamList>
-size_t GetCursorIdx(Cntr<CntrTplArgList> const& cntr, Cursor* cursor);
+    size_t GetCursorIdx(this Cntr const& cntr, Cursor* cursor);
 
-template <CntrTplParamList>
-void CursorStepL(Cntr<CntrTplArgList> const& cntr, Cursor* cursor);
+    void CursorStepL(this Cntr const& cntr, Cursor* cursor);
 
-template <CntrTplParamList>
-void CursorStepR(Cntr<CntrTplArgList> const& cntr, Cursor* cursor);
+    void CursorStepR(this Cntr const& cntr, Cursor* cursor);
 
-template <CntrTplParamList>
-void CursorAdvanceL(Cntr<CntrTplArgList> const& cntr, Cursor* cursor,
-                    size_t step);
+    void CursorAdvanceL(this Cntr const& cntr, Cursor* cursor, size_t step);
 
-template <CntrTplParamList>
-void CursorAdvanceR(Cntr<CntrTplArgList> const& cntr, Cursor* cursor,
-                    size_t step);
+    void CursorAdvanceR(this Cntr const& cntr, Cursor* cursor, size_t step);
 
-template <CntrTplParamList>
-void PrintState(Cntr<CntrTplArgList> const& cntr);
+    void PrintState(this Cntr const& cntr);
 
-template <CntrTplParamList>
-Stats GetStats(Cntr<CntrTplArgList> const& cntr);
+    Stats GetStats(this Cntr const& cntr);
 
-template <CntrTplParamList>
-void Sanitize(Cntr<CntrTplArgList> const& cntr,
-              mem_recorder::MemRecorder* dst_seg,
-              mem_recorder::MemRecorder* dst_data);
+    void Sanitize(this Cntr const& cntr, mem_recorder::MemRecorder* dst_seg,
+                  mem_recorder::MemRecorder* dst_data);
+};
 
 }  // namespace zeta::core::Namespace
 
 namespace zeta::core {
 
-template <CntrTplParamList>
+template <CntrTplParamList()>
 struct lifecycle::Traits<Namespace::Cntr<CntrTplArgList>> {
     template <typename... Args>
     static void Init(Namespace::Cntr<CntrTplArgList>& cntr, Args&&... args);
@@ -430,154 +369,44 @@ struct lifecycle::Traits<Namespace::Cntr<CntrTplArgList>> {
     static void Deinit(Namespace::Cntr<CntrTplArgList>& cntr);
 };
 
-template <CntrTplParamList>
-struct seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const> {
-    static void* GetReferedInstPtr(Namespace::Cntr<CntrTplArgList> const& cntr);
+template <CntrTplParamList()>
+struct seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>
+    : public seq_cntr::MemberFuncCntrTraitsAdapter<
+          Namespace::Cntr<CntrTplArgList>, Namespace::Cursor> {
+    static constexpr seq_cntr::capability::Flag
+    GetStaticEnabledCapabilityFlag();
 
-    static constexpr seq_cntr::CapabilityFlag GetStaticEnabledCapabilityFlag();
+    static constexpr seq_cntr::capability::Flag
+    GetStaticDisabledCapabilityFlag();
 
-    static constexpr seq_cntr::CapabilityFlag GetStaticDisabledCapabilityFlag();
+    static constexpr seq_cntr::capability::Flag GetDynamicEnabledCapabilityFlag(
+        Namespace::Cntr<CntrTplArgList>& cntr);
 
-    static constexpr seq_cntr::CapabilityFlag GetDynamicEnabledCapabilityFlag(
-        Namespace::Cntr<CntrTplArgList> const& cntr);
-
-    static constexpr seq_cntr::CapabilityFlag GetDynamicDisabledCapabilityFlag(
-        Namespace::Cntr<CntrTplArgList> const& cntr);
-
-    static size_t GetCursorSize(Namespace::Cntr<CntrTplArgList> const& cntr);
-
-    static size_t GetElemSize(Namespace::Cntr<CntrTplArgList> const& cntr);
-
-    static size_t GetElemCnt(Namespace::Cntr<CntrTplArgList> const& cntr);
-
-    static size_t GetMaxElemCnt(Namespace::Cntr<CntrTplArgList> const& cntr);
-
-    static void GetLBCursor(Namespace::Cntr<CntrTplArgList> const& cntr,
-                            void* dst_cursor);
-
-    static void GetRBCursor(Namespace::Cntr<CntrTplArgList> const& cntr,
-                            void* dst_cursor);
-
-    static void PeekL(Namespace::Cntr<CntrTplArgList> const& cntr,
-                      bool lazy_copy_elem,
-                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                      void* dst_cursor, void* dst_elem);
-
-    static void PeekR(Namespace::Cntr<CntrTplArgList> const& cntr,
-                      bool lazy_copy_elem,
-                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                      void* dst_cursor, void* dst_elem);
-
-    static void Refer(Namespace::Cntr<CntrTplArgList> const& cntr, size_t idx,
-                      bool lazy_copy_elem,
-                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                      void* dst_cursor, void* dst_elem);
-
-    static void Derefer(Namespace::Cntr<CntrTplArgList> const& cntr,
-                        void* pos_cursor, bool lazy_copy_elem,
-                        seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                        void* dst_elem);
-
-    template <typename Reader>
-    static void Read(Namespace::Cntr<CntrTplArgList> const& cntr,
-                     void* pos_cursor, size_t cnt, Reader&& reader,
-                     void* dst_cursor);
-
-    static void CopyCursor(Namespace::Cntr<CntrTplArgList> const& cntr,
-                           void* src_cursor, void* dst_cursor);
-
-    static bool AreEqualCursor(Namespace::Cntr<CntrTplArgList> const& cntr,
-                               void* cursor_a, void* cursor_b);
-
-    static int CompareCursor(Namespace::Cntr<CntrTplArgList> const& cntr,
-                             void* cursor_a, void* cursor_b);
-
-    static size_t GetCursorDist(Namespace::Cntr<CntrTplArgList> const& cntr,
-                                void* cursor_a, void* cursor_b);
-
-    static size_t GetCursorIdx(Namespace::Cntr<CntrTplArgList> const& cntr,
-                               void* cursor);
-
-    static void CursorStepL(Namespace::Cntr<CntrTplArgList> const& cntr,
-                            void* cursor);
-
-    static void CursorStepR(Namespace::Cntr<CntrTplArgList> const& cntr,
-                            void* cursor);
-
-    static void CursorAdvanceL(Namespace::Cntr<CntrTplArgList> const& cntr,
-                               void* cursor, size_t step);
-
-    static void CursorAdvanceR(Namespace::Cntr<CntrTplArgList> const& cntr,
-                               void* cursor, size_t step);
+    static constexpr seq_cntr::capability::Flag
+    GetDynamicDisabledCapabilityFlag(Namespace::Cntr<CntrTplArgList>& cntr);
 };
 
-template <CntrTplParamList>
-struct seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList>>
-    : public seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const> {
-    static constexpr seq_cntr::CapabilityFlag GetStaticEnabledCapabilityFlag();
+template <CntrTplParamList()>
+struct seq_cntr::CntrTraits<Namespace::Cntr<CntrTplArgList> const>
+    : public seq_cntr::MemberFuncCntrTraitsAdapter<
+          Namespace::Cntr<CntrTplArgList> const, Namespace::Cursor> {
+    static constexpr seq_cntr::capability::Flag
+    GetStaticEnabledCapabilityFlag();
 
-    static constexpr seq_cntr::CapabilityFlag GetStaticDisabledCapabilityFlag();
+    static constexpr seq_cntr::capability::Flag
+    GetStaticDisabledCapabilityFlag();
 
-    static void PeekL(Namespace::Cntr<CntrTplArgList>& cntr,
-                      bool lazy_copy_elem,
-                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                      void* dst_cursor, void* dst_elem);
+    static constexpr seq_cntr::capability::Flag GetDynamicEnabledCapabilityFlag(
+        Namespace::Cntr<CntrTplArgList> const& cntr);
 
-    static void PeekR(Namespace::Cntr<CntrTplArgList>& cntr,
-                      bool lazy_copy_elem,
-                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                      void* dst_cursor, void* dst_elem);
-
-    static void Refer(Namespace::Cntr<CntrTplArgList>& cntr, size_t idx,
-                      bool lazy_copy_elem,
-                      seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                      void* dst_cursor, void* dst_elem);
-
-    static void Derefer(Namespace::Cntr<CntrTplArgList>& cntr, void* pos_cursor,
-                        bool lazy_copy_elem,
-                        seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                        void* dst_elem);
-
-    template <typename Writer>
-    static void Write(Namespace::Cntr<CntrTplArgList>& cntr, void* pos_cursor,
-                      size_t cnt, Writer&& writer, void* dst_cursor);
-
-    template <typename ReaderWriter>
-    static void ReadWrite(Namespace::Cntr<CntrTplArgList>& cntr,
-                          void* pos_cursor, size_t cnt,
-                          ReaderWriter&& reader_writer, void* dst_cursor);
-
-    template <typename Writer>
-    static void PushL(Namespace::Cntr<CntrTplArgList>& cntr, size_t cnt,
-                      Writer&& writer, void* dst_cursor);
-
-    template <typename Writer>
-    static void PushR(Namespace::Cntr<CntrTplArgList>& cntr, size_t cnt,
-                      Writer&& writer, void* dst_cursor);
-
-    template <typename Writer>
-    static void Insert(Namespace::Cntr<CntrTplArgList>& cntr, void* pos_cursor,
-                       size_t cnt, Writer&& writer, void* dst_cursor);
-
-    template <typename Reader>
-    static void PopL(Namespace::Cntr<CntrTplArgList>& cntr, size_t cnt,
-                     Reader&& reader);
-
-    template <typename Reader>
-    static void PopR(Namespace::Cntr<CntrTplArgList>& cntr, size_t cnt,
-                     Reader&& reader);
-
-    template <typename Reader>
-    static void Erase(Namespace::Cntr<CntrTplArgList>& cntr, void* pos_cursor,
-                      size_t cnt, Reader&& reader);
-
-    static void EraseAll(Namespace::Cntr<CntrTplArgList>& cntr);
+    static constexpr seq_cntr::capability::Flag
+    GetDynamicDisabledCapabilityFlag(
+        Namespace::Cntr<CntrTplArgList> const& cntr);
 };
 
 }  // namespace zeta::core
 
 #pragma pop_macro("Namespace")
-#pragma pop_macro("CntrTplDeclParamList")
 #pragma pop_macro("CntrTplParamList")
 #pragma pop_macro("CntrTplArgList")
 

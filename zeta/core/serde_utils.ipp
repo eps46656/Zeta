@@ -6,12 +6,11 @@
 #include <zeta/core/pair.ipp>
 #include <zeta/core/serde_utils.hpp>
 #include <zeta/core/utils.hpp>
-#include <zeta/core/value_wrapper.ipp>
 
 namespace zeta::core {
 
 template <integral::IsUnsignedIntegral Integral>
-pair::Pair<Integral, bool> serde_utils::CanonicalizeIntegral(
+constexpr pair::Pair<Integral, bool> serde_utils::CanonicalizeIntegral(
     Integral value, Integral range_max) {
     bool no_lossy{ true };
 
@@ -23,24 +22,17 @@ pair::Pair<Integral, bool> serde_utils::CanonicalizeIntegral(
     return { value, no_lossy };
 }
 
-template <integral::IsIntegral Integral, typename EndiannessLike,
+template <integral::IsIntegral Integral,
+          serde_utils::IsEndiannessType EndiannessType,
           integral::IsUnsignedIntegral DigitIntegral, size_t DigitWidth,
           typename DigitCntLike, elem_stream::acceptor::IsAcceptor Acceptor>
     requires requires {
-        requires serde_utils::IsEndiannessEnum<EndiannessLike> ||
-                     value_wrapper::IsValueWrapperWith<
-                         EndiannessLike, serde_utils::EndiannessEnum::Value>;
-
         requires 0 < DigitWidth;
-
         requires DigitWidth <= integral::WidthOf<DigitIntegral>;
-
-        requires value_wrapper::IsValueWrapperWith<DigitCntLike, size_t>;
     }
-bool serde_utils::SerializeIntegral(
-    Integral src_value, EndiannessLike endianness_like,
-    meta::TypeWrapper<DigitIntegral>,
-    value_wrapper::StaticValueWrapper<size_t, DigitWidth>,
+constexpr bool serde_utils::SerializeIntegral(
+    Integral src_value, EndiannessType endianness,
+    meta::TypeWrapper<DigitIntegral>, meta::ValueWrapper<size_t, DigitWidth>,
     DigitCntLike digit_cnt_like, bool allow_lossy, Acceptor&& acceptor,
     error::Error* dst_error) {
     constexpr bool is_signed{ integral::IsSignedIntegral<Integral> };
@@ -60,11 +52,19 @@ bool serde_utils::SerializeIntegral(
         }
     }())::Type;
 
-    EndiannessEnum::Value endianness_value{ [=]() {
-        if constexpr (IsEndiannessEnum<EndiannessLike>) {
-            return EndiannessLike::value;
+    Endianness endianness_value{ [=]() {
+        if constexpr (meta::IsValueWrapperT<EndiannessType, Endianness>) {
+            return EndiannessType::value;
         } else {
-            return endianness_like();
+            return endianness;
+        }
+    }() };
+
+    size_t digit_cnt{ [=]() {
+        if constexpr (meta::IsValueWrapperT<DigitCntLike, size_t>) {
+            return DigitCntLike::value;
+        } else {
+            return digit_cnt_like;
         }
     }() };
 
@@ -72,7 +72,7 @@ bool serde_utils::SerializeIntegral(
         integral_math::PowerOf2Minus1<DigitIntegral>(DigitWidth)
     };
 
-    ZETA_Core_DebugAssert(0 < digit_cnt_like());
+    ZETA_Core_DebugAssert(0 < digit_cnt);
 
     bool is_neg{ src_value < 0 };
 
@@ -90,11 +90,11 @@ bool serde_utils::SerializeIntegral(
     size_t exc_digit_cnt;
     size_t eff_digit_cnt;
 
-    if (digit_cnt_like() < src_int_digit_cnt) {
+    if (digit_cnt < src_int_digit_cnt) {
         exc_digit_cnt = 0;
-        eff_digit_cnt = digit_cnt_like();
+        eff_digit_cnt = digit_cnt;
     } else {
-        exc_digit_cnt = digit_cnt_like() - src_int_digit_cnt;
+        exc_digit_cnt = digit_cnt - src_int_digit_cnt;
         eff_digit_cnt = src_int_digit_cnt;
     }
 
@@ -121,7 +121,7 @@ bool serde_utils::SerializeIntegral(
     } };
 
     switch (endianness_value) {
-    case EndiannessEnum::Little::value: {
+    case Endianness::Little: {
         for (size_t i{ 0 }; i < eff_digit_cnt; ++i) {
             buffer[i] = static_cast<DigitIntegral>(
                 op_src_value %
@@ -146,7 +146,7 @@ bool serde_utils::SerializeIntegral(
         break;
     }
 
-    case EndiannessEnum::Big::value: {
+    case Endianness::Big: {
         if (0 < exc_digit_cnt) {
             buffer[0] = is_neg ? digit_range_max : 0;
             elem_stream::acceptor::Transfer(
@@ -198,25 +198,17 @@ bool serde_utils::SerializeIntegral(
     return no_lossy;
 }
 
-template <integral::IsIntegral Integral, typename EndiannessLike,
+template <integral::IsIntegral Integral,
+          serde_utils::IsEndiannessType EndiannessType,
           integral::IsUnsignedIntegral DigitIntegral, size_t DigitWidth,
           typename DigitCntLike, elem_stream::provider::IsProvider Provider>
     requires requires {
-        requires serde_utils::IsEndiannessEnum<EndiannessLike> ||
-                     value_wrapper::IsValueWrapperWith<
-                         EndiannessLike, serde_utils::EndiannessEnum::Value>;
-
         requires 0 < DigitWidth;
-
         requires DigitWidth <= integral::WidthOf<DigitIntegral>;
-
-        requires meta::IsSame<DigitCntLike, serde_utils::VariableOctetCntTag> ||
-                     value_wrapper::IsValueWrapperWith<DigitCntLike, size_t>;
     }
-bool serde_utils::DeserializeIntegral(
-    Integral& dst_value, EndiannessLike endianness_like,
-    meta::TypeWrapper<DigitIntegral>,
-    value_wrapper::StaticValueWrapper<size_t, DigitWidth>,
+constexpr bool serde_utils::DeserializeIntegral(
+    Integral& dst_value, EndiannessType endianness,
+    meta::TypeWrapper<DigitIntegral>, meta::ValueWrapper<size_t, DigitWidth>,
     DigitCntLike digit_cnt_like, bool allow_lossy, Provider&& provider,
     error::Error* dst_error) {
     constexpr bool is_signed{ integral::IsSignedIntegral<Integral> };
@@ -236,20 +228,16 @@ bool serde_utils::DeserializeIntegral(
         }
     }())::Type;
 
-    EndiannessEnum::Value endianness_value;
-
-    if constexpr (IsEndiannessEnum<EndiannessLike>) {
-        endianness_value = EndiannessLike::value;
-    } else {
-        endianness_value = endianness_like();
-    }
+    Endianness endianness_value{ [=]() {
+        if constexpr (meta::IsValueWrapperT<EndiannessType, Endianness>) {
+            return EndiannessType::value;
+        } else {
+            return endianness;
+        }
+    }() };
 
     DigitIntegral digit_range_max{ integral_math::PowerOf2Minus1<DigitIntegral>(
         DigitWidth) };
-
-    constexpr bool is_variable_digit_cnt{
-        meta::IsSame<DigitCntLike, VariableOctetCntTag>
-    };
 
     constexpr size_t src_int_digit_cnt{ integral_math::CeilDiv(
         integral::WidthOf<Integral>, DigitWidth) };
@@ -257,13 +245,18 @@ bool serde_utils::DeserializeIntegral(
     constexpr size_t op_un_int_digit_cnt{ integral_math::CeilDiv(
         integral::WidthOf<OpUnsignedIntegral>, DigitWidth) };
 
-    size_t digit_cnt;
-
-    if constexpr (is_variable_digit_cnt) {
-        digit_cnt = 0;
-    } else {
-        digit_cnt = digit_cnt_like();
-    }
+    size_t digit_cnt{ [=]() {
+        if constexpr (meta::IsSame<DigitCntLike,
+                                   serde_utils::VariableOctetCntTag>) {
+            return 0;
+        } else if constexpr (meta::IsValueWrapperT<DigitCntLike, size_t>) {
+            ZETA_Core_StaticAssert(0 < DigitCntLike::value);
+            return DigitCntLike::value;
+        } else {
+            ZETA_Core_DebugAssert(0 < digit_cnt_like);
+            return digit_cnt_like;
+        }
+    }() };
 
     constexpr size_t buffer_digit_cnt{ comparison_utils::BasicMax(
         src_int_digit_cnt, 32U) };
@@ -369,11 +362,11 @@ bool serde_utils::DeserializeIntegral(
     OpUnsignedIntegral op_dst_value{ 0 };
 
     switch (endianness_value) {
-    case EndiannessEnum::Little::value: {
+    case Endianness::Little: {
         DigitIntegral* buffer_h{ buffer_a };
         DigitIntegral* buffer_l{ buffer_b };
 
-        if constexpr (is_variable_digit_cnt) {
+        if (digit_cnt == 0) {
             eff_digit_cnt = elem_stream::provider::Transfer(
                 provider, buffer_l, sizeof(DigitIntegral),
                 sizeof(DigitIntegral), src_int_digit_cnt);
@@ -416,14 +409,14 @@ bool serde_utils::DeserializeIntegral(
         break;
     }
 
-    case EndiannessEnum::Big::value: {
+    case Endianness::Big: {
         DigitIntegral* buffer_h{ buffer_a };
         DigitIntegral* buffer_l{ buffer_b };
 
         size_t eff_digit_cnt_h;
         size_t eff_digit_cnt_l;
 
-        if constexpr (is_variable_digit_cnt) {
+        if (digit_cnt == 0) {
             bool exceeded{ false };
 
             size_t last_eff_digit_cnt;
@@ -507,10 +500,10 @@ bool serde_utils::DeserializeIntegral(
             } else {
                 elem_stream::provider::Transfer(
                     provider, buffer_l, sizeof(DigitIntegral),
-                    sizeof(DigitIntegral), digit_cnt_like());
+                    sizeof(DigitIntegral), digit_cnt);
 
                 eff_digit_cnt_h = 0;
-                eff_digit_cnt_l = digit_cnt_like();
+                eff_digit_cnt_l = digit_cnt;
             }
         }
 

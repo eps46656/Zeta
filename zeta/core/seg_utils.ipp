@@ -24,11 +24,12 @@ inline void seg_utils::SegShoveL(circular_array::Cntr& l_ca,
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    seq_cntr::PushR(l_ca, shove_cnt, elem_stream::EmptyProvider{}, nullptr);
+    seq_cntr::PushR(l_ca, shove_cnt, elem_stream::provider::EmptyProvider{},
+                    nullptr);
 
     l_ca.AssignFromCircularArray(l_elem_cnt, r_ca, 0, shove_cnt);
 
-    seq_cntr::PopL(r_ca, shove_cnt, elem_stream::EmptyAcceptor{});
+    seq_cntr::PopL(r_ca, shove_cnt, elem_stream::acceptor::EmptyAcceptor{});
 }
 
 inline void seg_utils::SegShoveR(circular_array::Cntr& l_ca,
@@ -44,12 +45,12 @@ inline void seg_utils::SegShoveR(circular_array::Cntr& l_ca,
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    seq_cntr::PushL(r_ca, shove_cnt, elem_stream::EmptyProvider{}, nullptr);
+    seq_cntr::PushL(r_ca, shove_cnt, elem_stream::provider::EmptyProvider{},
+                    nullptr);
 
-    circular_array::AssignFromCircularArray(r_ca, 0, l_ca,
-                                            l_elem_cnt - shove_cnt, shove_cnt);
+    r_ca.AssignFromCircularArray(0, l_ca, l_elem_cnt - shove_cnt, shove_cnt);
 
-    seq_cntr::PopR(l_ca, shove_cnt, elem_stream::EmptyAcceptor{});
+    seq_cntr::PopR(l_ca, shove_cnt, elem_stream::acceptor::EmptyAcceptor{});
 }
 
 template <typename Writer>
@@ -76,28 +77,21 @@ void seg_utils::SegInsertShoveL(circular_array::Cntr& l_ca,
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    circular_array::PushR(l_ca, shove_cnt, elem_stream::EmptyProvider{},
-                          nullptr);
+    l_ca.PushR(shove_cnt, elem_stream::provider::EmptyProvider{}, nullptr);
 
-    if (0 < cnt_a) {
-        circular_array::AssignFromCircularArray(l_ca, l_elem_cnt, r_ca, 0,
-                                                cnt_a);
-    }
+    if (0 < cnt_a) { l_ca.AssignFromCircularArray(l_elem_cnt, r_ca, 0, cnt_a); }
 
-    if (0 < cnt_b) {
-        circular_array::IdxWrite(l_ca, l_elem_cnt + cnt_a, cnt_b, writer);
-    }
+    if (0 < cnt_b) { l_ca.IdxWrite(l_elem_cnt + cnt_a, cnt_b, writer); }
 
     if (0 < cnt_c) {
-        circular_array::AssignFromCircularArray(
-            l_ca, l_elem_cnt + cnt_a + cnt_b, r_ca, cnt_a, cnt_c);
+        l_ca.AssignFromCircularArray(l_elem_cnt + cnt_a + cnt_b, r_ca, cnt_a,
+                                     cnt_c);
     }
 
-    circular_array::PopL(r_ca, cnt_a + cnt_c, elem_stream::EmptyAcceptor{});
+    r_ca.PopL(cnt_a + cnt_c, elem_stream::acceptor::EmptyAcceptor{});
 
     if (0 < ins_cnt - cnt_b) {
-        circular_array::IdxInsert(r_ca, rl_cnt - cnt_a, ins_cnt - cnt_b,
-                                  writer);
+        r_ca.IdxInsert(rl_cnt - cnt_a, ins_cnt - cnt_b, writer);
     }
 }
 
@@ -125,26 +119,24 @@ void seg_utils::SegInsertShoveR(circular_array::Cntr& l_ca,
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    circular_array::PushL(r_ca, shove_cnt, elem_stream::EmptyProvider{},
-                          nullptr);
+    r_ca.PushL(shove_cnt, elem_stream::provider::EmptyProvider{}, nullptr);
 
     if (0 < cnt_c) {
-        circular_array::AssignFromCircularArray(
-            r_ca, 0, l_ca, l_elem_cnt - cnt_a - cnt_c, cnt_c);
+        r_ca.AssignFromCircularArray(0, l_ca, l_elem_cnt - cnt_a - cnt_c,
+                                     cnt_c);
     }
 
-    if (0 < cnt_b) { circular_array::IdxWrite(r_ca, cnt_c, cnt_b, writer); }
+    if (0 < cnt_b) { r_ca.IdxWrite(cnt_c, cnt_b, writer); }
 
     if (0 < cnt_a) {
-        circular_array::AssignFromCircularArray(r_ca, cnt_c + cnt_b, l_ca,
-                                                l_elem_cnt - cnt_a, cnt_a);
+        r_ca.AssignFromCircularArray(cnt_c + cnt_b, l_ca, l_elem_cnt - cnt_a,
+                                     cnt_a);
     }
 
-    circular_array::PopR(l_ca, cnt_c + cnt_a, elem_stream::EmptyAcceptor{});
+    l_ca.PopR(cnt_c + cnt_a, elem_stream::acceptor::EmptyAcceptor{});
 
     if (0 < ins_cnt - cnt_b) {
-        circular_array::IdxInsert(l_ca, l_elem_cnt - lr_cnt, ins_cnt - cnt_b,
-                                  writer);
+        l_ca.IdxInsert(l_elem_cnt - lr_cnt, ins_cnt - cnt_b, writer);
     }
 }
 
@@ -170,24 +162,23 @@ void seg_utils::SegEraseShoveL(circular_array::Cntr& l_ca,
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    seq_cntr::PushR(l_ca, shove_cnt, elem_stream::EmptyProvider{}, nullptr);
+    seq_cntr::PushR(l_ca, shove_cnt, elem_stream::provider::EmptyProvider{},
+                    nullptr);
 
-    if (0 < cnt_a) {
-        circular_array::AssignFromCircularArray(l_ca, l_elem_cnt, r_ca, 0,
-                                                cnt_a);
-    }
+    if (0 < cnt_a) { l_ca.AssignFromCircularArray(l_elem_cnt, r_ca, 0, cnt_a); }
 
     if (0 < cnt_c) {
-        circular_array::AssignFromCircularArray(l_ca, l_elem_cnt + cnt_a, r_ca,
-                                                cnt_a + cnt_b, cnt_c);
+        l_ca.AssignFromCircularArray(l_elem_cnt + cnt_a, r_ca, cnt_a + cnt_b,
+                                     cnt_c);
     }
 
     if constexpr (!meta::IsSame<meta::RemoveCVRef<Reader>,
-                                elem_stream::EmptyAcceptor>) {
-        circular_array::IdxRead(r_ca, rl_cnt, ers_cnt, reader);
+                                elem_stream::acceptor::EmptyAcceptor>) {
+        r_ca.IdxRead(rl_cnt, ers_cnt, reader);
     }
 
-    seq_cntr::PopL(r_ca, cnt_a + cnt_b + cnt_c, elem_stream::EmptyAcceptor{});
+    seq_cntr::PopL(r_ca, cnt_a + cnt_b + cnt_c,
+                   elem_stream::acceptor::EmptyAcceptor{});
 }
 
 template <typename Reader>
@@ -210,25 +201,25 @@ void seg_utils::SegEraseShoveR(circular_array::Cntr& l_ca,
     size_t cnt_b{ ers_cnt };
     size_t cnt_c{ shove_cnt - cnt_a };
 
-    seq_cntr::PushL(r_ca, shove_cnt, elem_stream::EmptyProvider{}, nullptr);
+    seq_cntr::PushL(r_ca, shove_cnt, elem_stream::provider::EmptyProvider{},
+                    nullptr);
 
     if (0 < cnt_c) {
-        circular_array::AssignFromCircularArray(
-            r_ca, 0, l_ca, l_ca.elem_cnt - cnt_a - cnt_b - cnt_c, cnt_c);
+        r_ca.AssignFromCircularArray(
+            0, l_ca, l_ca.elem_cnt - cnt_a - cnt_b - cnt_c, cnt_c);
     }
 
     if (0 < cnt_a) {
-        circular_array::AssignFromCircularArray(r_ca, cnt_c, l_ca,
-                                                l_ca.elem_cnt - cnt_a, cnt_a);
+        r_ca.AssignFromCircularArray(cnt_c, l_ca, l_ca.elem_cnt - cnt_a, cnt_a);
     }
 
     if constexpr (!meta::IsSame<meta::RemoveCVRef<Reader>,
-                                elem_stream::EmptyAcceptor>) {
-        circular_array::IdxRead(l_ca, l_ca.elem_cnt - lr_cnt - ers_cnt, ers_cnt,
-                                reader);
+                                elem_stream::acceptor::EmptyAcceptor>) {
+        l_ca.IdxRead(l_ca.elem_cnt - lr_cnt - ers_cnt, ers_cnt, reader);
     }
 
-    seq_cntr::PopR(l_ca, cnt_a + cnt_b + cnt_c, elem_stream::EmptyAcceptor{});
+    seq_cntr::PopR(l_ca, cnt_a + cnt_b + cnt_c,
+                   elem_stream::acceptor::EmptyAcceptor{});
 }
 
 }  // namespace zeta::core

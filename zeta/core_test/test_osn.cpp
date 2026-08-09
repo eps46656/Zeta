@@ -118,7 +118,7 @@ struct BinFSProvider {
 
 template <>
 struct zeta::core::elem_stream::provider::ProviderTraits<BinFSProvider>
-    : public zeta::core::elem_stream::provider::DefaultProviderTraits<
+    : public zeta::core::elem_stream::provider::MemberFuncProviderTraitsAdapter<
           BinFSProvider> {};
 
 struct BinFSAcceptor {
@@ -176,7 +176,7 @@ struct BinFSAcceptor {
 
 template <>
 struct zeta::core::elem_stream::acceptor::AcceptorTraits<BinFSAcceptor>
-    : public zeta::core::elem_stream::acceptor::DefaultAcceptorTraits<
+    : public zeta::core::elem_stream::acceptor::MemberFuncAcceptorTraitsAdapter<
           BinFSAcceptor> {};
 
 inline void main1(int num) {
@@ -257,15 +257,17 @@ inline void main1(int num) {
 
     while (deserializer.state !=
            zeta::core::object_state_notation::state_machine::
-               DeserializationStateMachineBase::StateEnum::Completed::value) {
+               DeserializationStateMachineBase::StateEnum::Completed) {
         ZETA_Core_Debug_PrintCurPos;
 
-        ZETA_Core_Debug_PrintVar(deserializer.state);
-        ZETA_Core_Debug_PrintVar(serializer.state);
+        ZETA_Core_Debug_PrintVar(
+            zeta::core::meta::ToUnderlying(deserializer.state));
+        ZETA_Core_Debug_PrintVar(
+            zeta::core::meta::ToUnderlying(serializer.state));
 
         switch (deserializer.state) {
         case zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::SendingNodeTag::value: {
+            DeserializationStateMachineBase::StateEnum::SendingNodeTag: {
             ZETA_Core_Debug_PrintCurPos;
 
             zeta::core::object_state_notation::NodeTag node_tag;
@@ -284,11 +286,9 @@ inline void main1(int num) {
         }
 
         case zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::SendingNameString::
-                value:
+            DeserializationStateMachineBase::StateEnum::SendingNameString:
         case zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::SendingObjTypeString::
-                value: {
+            DeserializationStateMachineBase::StateEnum::SendingObjTypeString: {
             zeta::core::lin_seq_elem_stream::Acceptor str_reader{
                 .data = str_buffer,
                 .elem_size = 1,
@@ -322,8 +322,7 @@ inline void main1(int num) {
         }
 
         case zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::SendingRegionAttr::
-                value: {
+            DeserializationStateMachineBase::StateEnum::SendingRegionAttr: {
             unsigned long long region_beg;
             unsigned long long region_size;
 
@@ -342,7 +341,7 @@ inline void main1(int num) {
 
         case zeta::core::object_state_notation::state_machine::
             DeserializationStateMachineBase::StateEnum::
-                SendingIntegralDescriptor::value: {
+                SendingIntegralDescriptor: {
             if (!deserializer.DeserializeIntegralDescriptor(
                     integral_descriptor)) {
                 ZETA_Core_DebugAssert(false);
@@ -361,8 +360,7 @@ inline void main1(int num) {
         }
 
         case zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::SendingListElemCnt::
-                value: {
+            DeserializationStateMachineBase::StateEnum::SendingListElemCnt: {
             size_t list_elem_cnt;
 
             if (!deserializer.DeserializeListElemCnt(list_elem_cnt)) {
@@ -379,8 +377,7 @@ inline void main1(int num) {
         }
 
         case zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::SendingIntegral::
-                value: {
+            DeserializationStateMachineBase::StateEnum::SendingIntegral: {
             if (integral_descriptor.is_signed) {
                 if (!deserializer.DeserializeIntegral(signed_integral)) {
                     ZETA_Core_DebugAssert(false);
@@ -407,8 +404,7 @@ inline void main1(int num) {
         }
 
         case zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::SendingTermination::
-                value: {
+            DeserializationStateMachineBase::StateEnum::SendingTermination: {
             if (!deserializer.TerminateNode()) {
                 ZETA_Core_DebugAssert(false);
                 return;
@@ -423,7 +419,8 @@ inline void main1(int num) {
         }
 
         default:
-            ZETA_Core_Debug_PrintVar(deserializer.state);
+            ZETA_Core_Debug_PrintVar(
+                zeta::core::meta::ToUnderlying(deserializer.state));
 
             ZETA_Core_DebugAssert(false);
             return;
@@ -432,12 +429,12 @@ inline void main1(int num) {
         ZETA_Core_DebugAssert(
             deserializer.state !=
             zeta::core::object_state_notation::state_machine::
-                DeserializationStateMachineBase::StateEnum::Corrupted::value);
+                DeserializationStateMachineBase::StateEnum::Corrupted);
 
         ZETA_Core_DebugAssert(
             serializer.state !=
             zeta::core::object_state_notation::state_machine::
-                SerializationStateMachineBase::StateEnum::Corrupted::value);
+                SerializationStateMachineBase::StateEnum::Corrupted);
 
         zeta::core::debug_utils::ClearDebugStrStream();
     }
@@ -445,12 +442,12 @@ inline void main1(int num) {
     ZETA_Core_DebugAssert(
         serializer.state ==
         zeta::core::object_state_notation::state_machine::
-            SerializationStateMachineBase::StateEnum::Completed::value);
+            SerializationStateMachineBase::StateEnum::Completed);
 
     ZETA_Core_DebugAssert(
         deserializer.state ==
         zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::Completed::value);
+            DeserializationStateMachineBase::StateEnum::Completed);
 
     {
         ZETA_Core_DebugAssert(!bin_fs.eof());

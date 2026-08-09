@@ -6,6 +6,7 @@
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/integral_utils.ipp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/pair.hpp>
 
@@ -26,10 +27,12 @@ RetInt GetRandomInt(LBInt lb, RBInt rb) {
     ZETA_Core_StaticAssert(core::integral::IsIntegral<LBInt>);
     ZETA_Core_StaticAssert(core::integral::IsIntegral<RBInt>);
 
-    ZETA_Core_DebugAssert(core::integral::MathCompare(
-                              core::integral::RangeMinOf<RetInt>, lb) <= 0);
-    ZETA_Core_DebugAssert(core::integral::MathCompare(
-                              rb, core::integral::RangeMaxOf<RetInt>) <= 0);
+    ZETA_Core_DebugAssert(core::integral_utils::MathCompare(
+                              core::integral::RangeMinOf<RetInt>, lb) !=
+                          core::comparison::Ordering::Greater);
+    ZETA_Core_DebugAssert(core::integral_utils::MathCompare(
+                              rb, core::integral::RangeMaxOf<RetInt>) !=
+                          core::comparison::Ordering::Greater);
 
     RetInt ret_lb{ static_cast<RetInt>(lb) };
     RetInt ret_rb{ static_cast<RetInt>(rb) };

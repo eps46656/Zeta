@@ -213,27 +213,4 @@ constexpr Integral RangeMaxOf{ []() {
                : detail::Pow2Minus1_<Integral>(WidthOf<Integral>);
 }() };
 
-template <typename IntegralX, typename IntegralY>
-int MathCompare(IntegralX x, IntegralY y) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<IntegralX>);
-    ZETA_Core_StaticAssert(integral::IsIntegral<IntegralY>);
-
-    constexpr bool x_is_signed{ IsSignedIntegral<IntegralX> };
-    constexpr bool y_is_signed{ IsSignedIntegral<IntegralY> };
-
-    if constexpr (x_is_signed == y_is_signed) { return (y < x) - (x < y); }
-
-    if constexpr (x_is_signed && !y_is_signed) {
-        if (x < 0) { return -1; }
-        auto unsigned_x{ static_cast<MakeUnsignedOf<IntegralX>>(x) };
-        return (y < unsigned_x) - (unsigned_x < y);
-    }
-
-    if constexpr (!x_is_signed && y_is_signed) {
-        if (y < 0) { return 1; }
-        auto unsigned_y{ static_cast<MakeUnsignedOf<IntegralY>>(y) };
-        return (unsigned_y < x) - (x < unsigned_y);
-    }
-}
-
 }  // namespace zeta::core::integral

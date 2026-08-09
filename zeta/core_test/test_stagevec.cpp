@@ -157,10 +157,10 @@ inline void test_staging_seg_vector() {
 
         zeta::core::seq_cntr::Assign(seq_cntr_b_origin, seq_cntr_a_origin);
 
-        zeta::core::staging_seg_vector::Reset(
-            *static_cast<
-                zeta::core_test::staging_seg_vector_utils::StagingSegVector*>(
-                seq_cntr_b.cntr));
+        static_cast<
+            zeta::core_test::staging_seg_vector_utils::StagingSegVector*>(
+            seq_cntr_b.cntr)
+            ->Reset();
 
         zeta::core_test::seq_cntr_utils::Sanitize(&seq_cntr_b);
 
@@ -239,10 +239,10 @@ inline void test_staging_seg_vector_copy_init() {
         zeta::core::seq_cntr::Assign(dd_b, dd_a);
         zeta::core::seq_cntr::Assign(dd_c, dd_a);
 
-        zeta::core::staging_seg_vector::Reset(
-            *static_cast<
-                zeta::core_test::staging_seg_vector_utils::StagingSegVector*>(
-                sv_a.cntr));
+        static_cast<
+            zeta::core_test::staging_seg_vector_utils::StagingSegVector*>(
+            sv_a.cntr)
+            ->Reset();
 
         zeta::core_test::seq_cntr_utils::Sanitize(&dd_c);
         zeta::core_test::seq_cntr_utils::Sanitize(&sv_a);
@@ -487,10 +487,10 @@ inline void test_staging_vector_collapse() {
 
         zeta::core::seq_cntr::Assign(seq_cntr_a, seq_cntr_base);
 
-        zeta::core::staging_seg_vector::Reset(
-            *static_cast<
-                zeta::core_test::staging_seg_vector_utils::StagingSegVector*>(
-                seq_cntr_b.cntr));
+        static_cast<
+            zeta::core_test::staging_seg_vector_utils::StagingSegVector*>(
+            seq_cntr_b.cntr)
+            ->Reset();
 
         zeta::core_test::seq_cntr_utils::DoRandomOperations(
             std::vector<zeta::core::seq_cntr_ref::Ref*>{ &seq_cntr_a,
@@ -550,18 +550,14 @@ inline void test_staging_vector_collapse() {
         ZETA_Core_PrintVar(seq_cntr_b.cntr);
         ZETA_Core_PrintVar(seq_cntr_c.cntr);
 
-        zeta::core::staging_seg_vector::Collapse(
-            *static_cast<
-                zeta::core_test::staging_seg_vector_utils::StagingSegVector*>(
-                seq_cntr_c.cntr),
-
-            *static_cast<
-                zeta::core_test::staging_seg_vector_utils::StagingSegVector*>(
-                seq_cntr_b.cntr),
-
-            zeta::core::seq_cntr_ref::MakeRef(
-                *static_cast<zeta::core_test::debug_deque_utils::DebugDeque*>(
-                    seq_cntr_base.cntr)));
+        static_cast<
+            zeta::core_test::staging_seg_vector_utils::StagingSegVector*>(
+            seq_cntr_c.cntr)
+            ->Collapse(*static_cast<zeta::core_test::staging_seg_vector_utils::
+                                        StagingSegVector*>(seq_cntr_b.cntr),
+                       zeta::core::seq_cntr_ref::Ref{ *static_cast<
+                           zeta::core_test::debug_deque_utils::DebugDeque*>(
+                           seq_cntr_base.cntr) });
 
         ZETA_Core_PrintCurPos;
 

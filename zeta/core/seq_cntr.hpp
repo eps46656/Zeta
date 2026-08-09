@@ -27,239 +27,153 @@ concept IsWriter = elem_stream::provider::IsProvider<Writer>;
 template <typename ReaderWriter>
 concept IsReaderWriter = elem_stream::provider::IsProvider<ReaderWriter>;
 
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define ZETA_Core_SeqCntr_AllocaCursor(cntr)             \
-    ({                                                   \
-        __builtin_alloca_with_align(                     \
-            ::zeta::core::seq_cntr::GetCursorSize(cntr), \
-            __CHAR_BIT__ * alignof(max_align_t));        \
-    })
+using EmptyReader = elem_stream::acceptor::EmptyAcceptor;
+using EmptyWriter = elem_stream::provider::EmptyProvider;
+using EmptyReaderWriter = elem_stream::provider::EmptyProvider;
+
+using LinSeqReader = lin_seq_elem_stream::Acceptor;
+using LinSeqWriter = lin_seq_elem_stream::Provider;
+
+using FnReader = fn_elem_stream::Acceptor;
+using FnWriter = fn_elem_stream::Provider;
+using FnReaderWriter = fn_elem_stream::Provider;
+
+namespace capability {
 
 // clang-format off
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define ZETA_Core_SeqCntr_CapabilityWithoutAlwaysNever_XMacro(func, sep) \
-    func(GetCursorSize, 2) sep                                                 \
+#define ZETA_Core_SeqCntr_CapabilityWithoutAlwaysNever_XMacro(func, sep)       \
+    func(GetCursorSize, 2, true) sep                                           \
                                                                                \
-    func(GetElemSize, 3) sep                                                   \
-    func(GetElemCnt, 4) sep                                                    \
-    func(GetMaxElemCnt, 5) sep                                                 \
+    func(GetElemSize, 3, true) sep                                             \
+    func(GetElemCnt, 4, true) sep                                              \
+    func(GetMaxElemCnt, 5, true) sep                                           \
                                                                                \
-    func(GetLBCursor, 6) sep                                                   \
-    func(GetRBCursor, 7) sep                                                   \
+    func(GetLBCursor, 6, true) sep                                             \
+    func(GetRBCursor, 7, true) sep                                             \
                                                                                \
-    func(PeekL, 8) sep                                                         \
-    func(PeekR, 9) sep                                                         \
+    func(PeekL, 8, true) sep                                                   \
+    func(PeekR, 9, true) sep                                                   \
                                                                                \
-    func(Refer, 10) sep                                                        \
-    func(Derefer, 11) sep                                                      \
+    func(Refer, 10, true) sep                                                  \
+    func(Derefer, 11, true) sep                                                \
                                                                                \
-    func(Read, 12) sep                                                         \
-    func(Write, 13) sep                                                        \
-    func(ReadWrite, 14) sep                                                    \
+    func(Read, 12, true) sep                                                   \
+    func(Write, 13, false) sep                                                 \
+    func(ReadWrite, 14, false) sep                                             \
                                                                                \
-    func(PushL, 15) sep                                                        \
-    func(PushR, 16) sep                                                        \
-    func(Insert, 17) sep                                                       \
+    func(PushL, 15, false) sep                                                 \
+    func(PushR, 16, false) sep                                                 \
+    func(Insert, 17, false) sep                                                \
                                                                                \
-    func(PopL, 18) sep                                                         \
-    func(PopR, 19) sep                                                         \
-    func(Erase, 20) sep                                                        \
-    func(EraseAll, 21) sep                                                     \
+    func(PopL, 18, false) sep                                                  \
+    func(PopR, 19, false) sep                                                  \
+    func(Erase, 20, false) sep                                                 \
+    func(EraseAll, 21, false) sep                                              \
                                                                                \
-    func(CopyCursor, 22) sep                                                   \
+    func(CopyCursor, 22, true) sep                                             \
                                                                                \
-    func(AreEqualCursor, 23) sep                                               \
-    func(CompareCursor, 24) sep                                                \
-    func(GetCursorDist, 25) sep                                                \
-    func(GetCursorIdx, 26) sep                                                 \
+    func(AreEqualCursor, 23, true) sep                                         \
+    func(CompareCursor, 24, true) sep                                          \
+    func(GetCursorDist, 25, true) sep                                          \
+    func(GetCursorIdx, 26, true) sep                                           \
                                                                                \
-    func(CursorStepL, 27) sep                                                  \
-    func(CursorStepR, 28) sep                                                  \
+    func(CursorStepL, 27, true) sep                                            \
+    func(CursorStepR, 28, true) sep                                            \
                                                                                \
-    func(CursorAdvanceL, 29) sep                                               \
-    func(CursorAdvanceR, 30)
+    func(CursorAdvanceL, 29, true) sep                                         \
+    func(CursorAdvanceR, 30, true)
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define ZETA_Core_SeqCntr_Capability_XMacro(func, sep)                         \
-    func(Always, 0) sep                                                        \
-    func(Never, 1) sep                                                         \
+    func(Always, 0, false) sep                                                 \
+    func(Never, 1, false) sep                                                  \
     ZETA_Core_SeqCntr_CapabilityWithoutAlwaysNever_XMacro(func, sep)
 
 // clang-format on
 
-using CapabilityFlag = unsigned;
-
-struct CapabilityEnum {
-    using Type = unsigned;
-
+enum struct Kind : unsigned char {
 #pragma push_macro("F")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define F(name, num)                                                        \
-    struct name {                                                           \
-        static constexpr Type value{ num };                                 \
-        ZETA_Core_StaticAssert(value <= integral::WidthOf<CapabilityFlag>); \
-    };
+#define F(name, num, is_const) name = num,
 
-    ZETA_Core_SeqCntr_Capability_XMacro(F, );
+    ZETA_Core_SeqCntr_Capability_XMacro(F, )
 
 #pragma pop_macro("F")
 };
 
+using Flag = unsigned;
+
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
-struct CapabilityFlagBuilder {
+struct FlagBuilder {
 #pragma push_macro("F")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define F(name, num) bool const name;
+#define F(name, num, is_const) bool const name;
 
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
     ZETA_Core_SeqCntr_CapabilityWithoutAlwaysNever_XMacro(F, );
 
 #pragma pop_macro("F")
 
-    constexpr CapabilityFlag operator()() const {
+    constexpr Flag operator()() const {
 #pragma push_macro("F")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define F(name, num) \
-    (static_cast<CapabilityFlag>(this->name) << CapabilityEnum::name::value)
+#define F(name, num, is_const) \
+    (static_cast<Flag>(this->name) << meta::ToUnderlying(Kind::name))
 
-        return (static_cast<CapabilityFlag>(1)
-                << CapabilityEnum::Always::value) |
+        return (static_cast<Flag>(1) << meta::ToUnderlying(Kind::Always)) |
                ZETA_Core_SeqCntr_CapabilityWithoutAlwaysNever_XMacro(F, |);
 
 #pragma pop_macro("F")
     }
 };
 
-constexpr CapabilityFlag empty_capability_flag{ CapabilityFlagBuilder{
-    .GetCursorSize = false,
-    .GetElemSize = false,
-    .GetElemCnt = false,
-    .GetMaxElemCnt = false,
-    .GetLBCursor = false,
-    .GetRBCursor = false,
-    .PeekL = false,
-    .PeekR = false,
-    .Refer = false,
-    .Derefer = false,
-    .Read = false,
-    .Write = false,
-    .ReadWrite = false,
-    .PushL = false,
-    .PushR = false,
-    .Insert = false,
-    .PopL = false,
-    .PopR = false,
-    .Erase = false,
-    .EraseAll = false,
-    .CopyCursor = false,
-    .AreEqualCursor = false,
-    .CompareCursor = false,
-    .GetCursorDist = false,
-    .GetCursorIdx = false,
-    .CursorStepL = false,
-    .CursorStepR = false,
-    .CursorAdvanceL = false,
-    .CursorAdvanceR = false,
+constexpr Flag empty_capability_flag{ FlagBuilder{
+#pragma push_macro("F")
+
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define F(name, num, is_const) .name = false,
+
+    ZETA_Core_SeqCntr_CapabilityWithoutAlwaysNever_XMacro(F, )
+
+#pragma pop_macro("F")
 }() };
 
-constexpr CapabilityFlag full_capability_flag{ CapabilityFlagBuilder{
-    .GetCursorSize = true,
-    .GetElemSize = true,
-    .GetElemCnt = true,
-    .GetMaxElemCnt = true,
-    .GetLBCursor = true,
-    .GetRBCursor = true,
-    .PeekL = true,
-    .PeekR = true,
-    .Refer = true,
-    .Derefer = true,
-    .Read = true,
-    .Write = true,
-    .ReadWrite = true,
-    .PushL = true,
-    .PushR = true,
-    .Insert = true,
-    .PopL = true,
-    .PopR = true,
-    .Erase = true,
-    .EraseAll = true,
-    .CopyCursor = true,
-    .AreEqualCursor = true,
-    .CompareCursor = true,
-    .GetCursorDist = true,
-    .GetCursorIdx = true,
-    .CursorStepL = true,
-    .CursorStepR = true,
-    .CursorAdvanceL = true,
-    .CursorAdvanceR = true,
+constexpr Flag full_capability_flag{ FlagBuilder{
+#pragma push_macro("F")
+
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define F(name, num, is_const) .name = true,
+
+    ZETA_Core_SeqCntr_CapabilityWithoutAlwaysNever_XMacro(F, )
+
+#pragma pop_macro("F")
 }() };
 
-constexpr CapabilityFlag non_const_capability_flag{ CapabilityFlagBuilder{
-    .GetCursorSize = false,
-    .GetElemSize = false,
-    .GetElemCnt = false,
-    .GetMaxElemCnt = false,
-    .GetLBCursor = false,
-    .GetRBCursor = false,
-    .PeekL = false,
-    .PeekR = false,
-    .Refer = false,
-    .Derefer = false,
-    .Read = false,
-    .Write = true,
-    .ReadWrite = true,
-    .PushL = true,
-    .PushR = true,
-    .Insert = true,
-    .PopL = true,
-    .PopR = true,
-    .Erase = true,
-    .EraseAll = true,
-    .CopyCursor = false,
-    .AreEqualCursor = false,
-    .CompareCursor = false,
-    .GetCursorDist = false,
-    .GetCursorIdx = false,
-    .CursorStepL = false,
-    .CursorStepR = false,
-    .CursorAdvanceL = false,
-    .CursorAdvanceR = false,
+constexpr Flag non_const_capability_flag{ FlagBuilder{
+#pragma push_macro("F")
+
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define F(name, num, is_const) .name = !is_const,
+
+    ZETA_Core_SeqCntr_CapabilityWithoutAlwaysNever_XMacro(F, )
+
+#pragma pop_macro("F")
 }() };
 
-constexpr CapabilityFlag const_capability_flag{ CapabilityFlagBuilder{
-    .GetCursorSize = true,
-    .GetElemSize = true,
-    .GetElemCnt = true,
-    .GetMaxElemCnt = true,
-    .GetLBCursor = true,
-    .GetRBCursor = true,
-    .PeekL = true,
-    .PeekR = true,
-    .Refer = true,
-    .Derefer = true,
-    .Read = true,
-    .Write = false,
-    .ReadWrite = false,
-    .PushL = false,
-    .PushR = false,
-    .Insert = false,
-    .PopL = false,
-    .PopR = false,
-    .Erase = false,
-    .EraseAll = false,
-    .CopyCursor = true,
-    .AreEqualCursor = true,
-    .CompareCursor = true,
-    .GetCursorDist = true,
-    .GetCursorIdx = true,
-    .CursorStepL = true,
-    .CursorStepR = true,
-    .CursorAdvanceL = true,
-    .CursorAdvanceR = true,
+constexpr Flag const_capability_flag{ FlagBuilder{
+#pragma push_macro("F")
+
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define F(name, num, is_const) .name = is_const,
+
+    ZETA_Core_SeqCntr_CapabilityWithoutAlwaysNever_XMacro(F, )
+
+#pragma pop_macro("F")
 }() };
 
 ZETA_Core_StaticAssert((non_const_capability_flag & const_capability_flag) ==
@@ -268,17 +182,25 @@ ZETA_Core_StaticAssert((non_const_capability_flag & const_capability_flag) ==
 ZETA_Core_StaticAssert((non_const_capability_flag | const_capability_flag) ==
                        full_capability_flag);
 
-struct ElemPtrView {
-    struct AliasabilityEnum {
-        using Type = unsigned;
+constexpr bool CheckFlags(capability::Flag static_enabled_capability_flag,
+                          capability::Flag static_disabled_capability_flag);
 
-        static constexpr Type Null{ 0 };
-        static constexpr Type ReadOnly{ 1 };
-        static constexpr Type ReadWrite{ 2 };
+constexpr bool CheckFlags(capability::Flag static_enabled_capability_flag,
+                          capability::Flag static_disabled_capability_flag,
+                          capability::Flag dynamic_enabled_capability_flag,
+                          capability::Flag dynamic_disabled_capability_flag);
+
+}  // namespace capability
+
+struct ElemPtrView {
+    enum struct AliasabilityEnum : unsigned char {
+        Null = 0,
+        ReadOnly = 1,
+        ReadWrite = 2,
     };
 
     void* ptr;
-    AliasabilityEnum::Type aliasability;
+    AliasabilityEnum aliasability;
 
     bool operator==(ElemPtrView const&) const = default;
     bool operator!=(ElemPtrView const&) const = default;
@@ -291,445 +213,410 @@ struct CursorLimit {
 /**
 @page zeta__core__seq_cntr__CntrTraits CntrTraits
 */
-template <typename Cntr, typename = void>
+template <typename Cntr>
 struct CntrTraits;  // IWYU pragma: export
 
-namespace detail {
-
-template <typename Cntr>
-concept HasCapabilitySystem_ = requires(Cntr& cntr) {
-    requires meta::IsSame<
-        meta::RemoveCVRef<decltype(CntrTraits<Cntr>::GetReferedInstPtr(cntr))>,
-        void*>;
-
-    requires meta::IsSame<
-        meta::RemoveCVRef<
-            decltype(CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag())>,
-        CapabilityFlag>;
-
-    requires(CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag() &
-             empty_capability_flag) == empty_capability_flag;
-
-    requires(CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag() |
-             full_capability_flag) == full_capability_flag;
-
-    requires meta::IsSame<
-        meta::RemoveCVRef<
-            decltype(CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag())>,
-        CapabilityFlag>;
-
-    requires(CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag() &
-             empty_capability_flag) == empty_capability_flag;
-
-    requires(CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag() |
-             full_capability_flag) == full_capability_flag;
-
-    requires meta::IsSame<
-        meta::RemoveCVRef<
-            decltype(CntrTraits<Cntr>::GetDynamicEnabledCapabilityFlag(cntr))>,
-        CapabilityFlag>;
-
-    requires meta::IsSame<
-        meta::RemoveCVRef<
-            decltype(CntrTraits<Cntr>::GetDynamicDisabledCapabilityFlag(cntr))>,
-        CapabilityFlag>;
-
-    requires(CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag() &
-             CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag()) ==
-                empty_capability_flag;
-};
-
-#pragma push_macro("MethodConceptGenMacro")
+#pragma push_macro("SatisfiesMethodMacro")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define MethodConceptGenMacro(capability, method, ret, ...)                    \
-    template <typename Cntr>                                                   \
-    concept Satisfies##method##Contract_ = requires(                           \
-        Cntr& cntr, bool bool_val, void* void_ptr, void const* const_void_ptr, \
-        int int_val, size_t size_val, ElemPtrView* elem_ptr_view_ptr,          \
-        elem_stream::acceptor::ArchetAcceptor reader,                          \
-        elem_stream::provider::ArchetProvider writer,                          \
-        elem_stream::provider::ArchetProvider reader_writer,                   \
-        meta::AlwaysMatchedTag unused) {                                       \
-        requires HasCapabilitySystem_<Cntr>;                                   \
-                                                                               \
-        requires(CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag() &         \
-                 (static_cast<CapabilityFlag>(1)                               \
-                  << CapabilityEnum::capability::value)) != 0 ||               \
-                        requires {                                             \
-                            requires meta::IsMatched<                          \
-                                meta::RemoveCVRef<                             \
-                                    decltype(CntrTraits<Cntr>::method(         \
-                                        __VA_ARGS__))>,                        \
-                                decltype(ret)>;                                \
-                        };                                                     \
-    };                                                                         \
-    ZETA_Core_StaticAssert(true)
-
-MethodConceptGenMacro(  //
-    GetCursorSize,      // capability
-    GetCursorSize,      // method
-                        //
-    size_val,           // ret
-                        //
-    cntr                // cntr
-);
-
-MethodConceptGenMacro(  //
-    GetElemSize,        // capability
-    GetElemSize,        // method
-                        //
-    size_val,           // ret
-                        //
-    cntr                // cntr
-);
-
-MethodConceptGenMacro(  //
-    GetElemCnt,         // capability
-    GetElemCnt,         // method
-                        //
-    size_val,           // ret
-                        //
-    cntr                // cntr
-);
-
-MethodConceptGenMacro(  //
-    GetMaxElemCnt,      // capability
-    GetMaxElemCnt,      // method
-                        //
-    size_val,           // ret
-                        //
-    cntr                // cntr
-);
-
-MethodConceptGenMacro(  //
-    GetLBCursor,        // capability
-    GetLBCursor,        // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    void_ptr            // cursor
-);
-
-MethodConceptGenMacro(  //
-    GetRBCursor,        // capability
-    GetRBCursor,        // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    void_ptr            // cursor
-);
-
-MethodConceptGenMacro(  //
-    PeekL,              // capability
-    PeekL,              // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    bool_val,           // lazy_copy_elem
-    elem_ptr_view_ptr,  // dst_elem_ptr_view
-    void_ptr,           // dst_cursor, optional
-    void_ptr            // dst_elem, optional
-);
-
-MethodConceptGenMacro(  //
-    PeekR,              // capability
-    PeekR,              // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    bool_val,           // lazy_copy_elem
-    elem_ptr_view_ptr,  // dst_elem_ptr_view
-    void_ptr,           // dst_cursor, optional
-    void_ptr            // dst_elem, optional
-);
-
-MethodConceptGenMacro(  //
-    Refer,              // capability
-    Refer,              // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    size_val,           // idx
-    bool_val,           // lazy_copy_elem
-    elem_ptr_view_ptr,  // dst_elem_ptr_view
-    void_ptr,           // dst_cursor, optional
-    void_ptr            // dst_elem, optional
-);
-
-MethodConceptGenMacro(  //
-    Derefer,            // capability
-    Derefer,            // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    void_ptr,           // pos_cursor
-    bool_val,           // lazy_copy_elem
-    elem_ptr_view_ptr,  // dst_elem_ptr_view
-    void_ptr            // dst_elem, optional
-);
-
-MethodConceptGenMacro(  //
-    Read,               // capability
-    Read,               // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    void_ptr,           // pos_cursor
-    size_val,           // cnt
-    reader,             // reader
-    void_ptr            // dst_cursor
-);
-
-MethodConceptGenMacro(  //
-    Write,              // capability
-    Write,              // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    void_ptr,           // pos_cursor, point to original position
-    size_val,           // cnt
-    writer,             // writer
-    void_ptr            // dst_cursor, optional, point to final position
-                        // after write
-);
-
-MethodConceptGenMacro(  //
-    ReadWrite,          // capability
-    ReadWrite,          // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    void_ptr,           // pos_cursor
-    size_val,           // cnt
-    reader_writer,      // reader_writer
-    void_ptr            // dst_cursor
-);
-
-MethodConceptGenMacro(  //
-    PushL,              // capability
-    PushL,              // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    size_val,           // cnt
-    writer,             // writer
-    void_ptr            // dst_cursor
-);
-
-MethodConceptGenMacro(  //
-    PushR,              // capability
-    PushR,              // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    size_val,           // cnt
-    writer,             //
-    void_ptr            // dst_cursor
-);
-
-MethodConceptGenMacro(  //
-    Insert,             // capability
-    Insert,             // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    void_ptr,           // pos_cursor
-    size_val,           // cnt
-    writer,             // writer
-    void_ptr            // dst_cursor
-);
-
-MethodConceptGenMacro(  //
-    PopL,               // capability
-    PopL,               // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    size_val,           // cnt
-    reader              // reader
-);
-
-MethodConceptGenMacro(  //
-    PopR,               // capability
-    PopR,               // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    size_val,           // cnt
-    reader              // reader
-);
-
-MethodConceptGenMacro(  //
-    Erase,              // capability
-    Erase,              // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    void_ptr,           // pos_cursor
-    size_val,           // cnt
-    reader              // reader
-);
-
-MethodConceptGenMacro(  //
-    EraseAll,           // capability
-    EraseAll,           // method
-                        //
-    unused,             // ret
-                        //
-    cntr                // cntr
-);
-
-MethodConceptGenMacro(  //
-    CopyCursor,         // capability
-    CopyCursor,         // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    void_ptr,           // src_cursor
-    void_ptr            // dst_cursor
-);
-
-MethodConceptGenMacro(  //
-    AreEqualCursor,     // capability
-    AreEqualCursor,     // method
-                        //
-    bool_val,           //
-                        //
-    cntr,               // cntr
-    void_ptr,           // cursor_a
-    void_ptr            // cursor_b
-);
-
-MethodConceptGenMacro(  //
-    CompareCursor,      // capability
-    CompareCursor,      // method
-                        //
-    int_val,            //
-                        //
-    cntr,               // cntr
-    void_ptr,           // cursor_a
-    void_ptr            // cursor_b
-);
-
-MethodConceptGenMacro(  //
-    GetCursorDist,      // capability
-    GetCursorDist,      // method
-                        //
-    size_val,           //
-                        //
-    cntr,               // cntr
-    void_ptr,           // cursor_a
-    void_ptr            // cursor_b
-);
-
-MethodConceptGenMacro(  //
-    GetCursorIdx,       // capability
-    GetCursorIdx,       // method
-                        //
-    size_val,           //
-                        //
-    cntr,               // cntr
-    void_ptr            // cursor
-);
-
-MethodConceptGenMacro(  //
-    CursorStepL,        // capability
-    CursorStepL,        // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    void_ptr            // cursor
-);
-
-MethodConceptGenMacro(  //
-    CursorStepR,        // capability
-    CursorStepR,        // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    void_ptr            // cursor
-);
-
-MethodConceptGenMacro(  //
-    CursorAdvanceL,     // capability
-    CursorAdvanceL,     // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    void_ptr,           // cursor
-    size_val            // step
-);
-
-MethodConceptGenMacro(  //
-    CursorAdvanceR,     // capability
-    CursorAdvanceR,     // method
-                        //
-    unused,             // ret
-                        //
-    cntr,               // cntr
-    void_ptr,           // cursor
-    size_val            // step
-);
-
-#pragma pop_macro("MethodConceptGenMacro")
-
-}  // namespace detail
+#define SatisfiesMethodMacro(cap, method, ret, ...)                            \
+    requires(CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag() &             \
+             (static_cast<capability::Flag>(1)                                 \
+              << meta::ToUnderlying(capability::Kind::cap))) != 0 ||           \
+                    requires {                                                 \
+                        requires meta::IsMatched<                              \
+                            meta::RemoveRef<decltype(CntrTraits<Cntr>::method( \
+                                __VA_ARGS__))>,                                \
+                            decltype(ret)>;                                    \
+                    }
 
 template <typename Cntr>
-concept IsSeqCntr = requires(Cntr& cntr) {
-    requires detail::HasCapabilitySystem_<Cntr>;
-    requires detail::SatisfiesGetCursorSizeContract_<Cntr>;
-    requires detail::SatisfiesGetElemSizeContract_<Cntr>;
-    requires detail::SatisfiesGetElemCntContract_<Cntr>;
-    requires detail::SatisfiesGetMaxElemCntContract_<Cntr>;
-    requires detail::SatisfiesGetLBCursorContract_<Cntr>;
-    requires detail::SatisfiesGetRBCursorContract_<Cntr>;
-    requires detail::SatisfiesPeekLContract_<Cntr>;
-    requires detail::SatisfiesPeekRContract_<Cntr>;
-    requires detail::SatisfiesReferContract_<Cntr>;
-    requires detail::SatisfiesDereferContract_<Cntr>;
-    requires detail::SatisfiesReadContract_<Cntr>;
-    requires detail::SatisfiesWriteContract_<Cntr>;
-    requires detail::SatisfiesReadWriteContract_<Cntr>;
-    requires detail::SatisfiesPushLContract_<Cntr>;
-    requires detail::SatisfiesPushRContract_<Cntr>;
-    requires detail::SatisfiesInsertContract_<Cntr>;
-    requires detail::SatisfiesPopLContract_<Cntr>;
-    requires detail::SatisfiesPopRContract_<Cntr>;
-    requires detail::SatisfiesEraseContract_<Cntr>;
-    requires detail::SatisfiesEraseAllContract_<Cntr>;
-    requires detail::SatisfiesCopyCursorContract_<Cntr>;
-    requires detail::SatisfiesAreEqualCursorContract_<Cntr>;
-    requires detail::SatisfiesCompareCursorContract_<Cntr>;
-    requires detail::SatisfiesGetCursorDistContract_<Cntr>;
-    requires detail::SatisfiesGetCursorIdxContract_<Cntr>;
-    requires detail::SatisfiesCursorStepLContract_<Cntr>;
-    requires detail::SatisfiesCursorStepRContract_<Cntr>;
-    requires detail::SatisfiesCursorAdvanceLContract_<Cntr>;
-    requires detail::SatisfiesCursorAdvanceRContract_<Cntr>;
+concept IsSeqCntr = requires(
+    Cntr& cntr, bool bool_val, void* void_ptr, void const* const_void_ptr,
+    int int_val, size_t size_val, ElemPtrView* elem_ptr_view_ptr,
+    elem_stream::acceptor::ArchetAcceptor reader,
+    elem_stream::provider::ArchetProvider writer,
+    elem_stream::provider::ArchetProvider reader_writer,
+    comparison::Ordering three_way_result_value,
+    meta::AlwaysMatchedTag unused) {
+    requires requires {
+        requires meta::IsSame<
+            meta::RemoveRef<decltype(CntrTraits<Cntr>::GetReferedInstPtr(
+                cntr))>,
+            void*>;
+
+        requires meta::IsSame<
+            meta::RemoveRef<
+                decltype(CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag())>,
+            capability::Flag>;
+
+        requires(CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag() &
+                 capability::empty_capability_flag) ==
+                    capability::empty_capability_flag;
+
+        requires(CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag() |
+                 capability::full_capability_flag) ==
+                    capability::full_capability_flag;
+
+        requires meta::IsSame<
+            meta::RemoveRef<
+                decltype(CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag())>,
+            capability::Flag>;
+
+        requires(CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag() &
+                 capability::empty_capability_flag) ==
+                    capability::empty_capability_flag;
+
+        requires(CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag() |
+                 capability::full_capability_flag) ==
+                    capability::full_capability_flag;
+
+        requires meta::IsSame<
+            meta::RemoveRef<
+                decltype(CntrTraits<Cntr>::GetDynamicEnabledCapabilityFlag(
+                    cntr))>,
+            capability::Flag>;
+
+        requires meta::IsSame<
+            meta::RemoveRef<
+                decltype(CntrTraits<Cntr>::GetDynamicDisabledCapabilityFlag(
+                    cntr))>,
+            capability::Flag>;
+
+        requires(CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag() &
+                 CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag()) ==
+                    capability::empty_capability_flag;
+    };
+
+    SatisfiesMethodMacro(  //
+        GetCursorSize,     // capability
+        GetCursorSize,     // method
+                           //
+        size_val,          // ret
+                           //
+        cntr               // cntr
+    );
+
+    SatisfiesMethodMacro(  //
+        GetElemSize,       // capability
+        GetElemSize,       // method
+                           //
+        size_val,          // ret
+                           //
+        cntr               // cntr
+    );
+
+    SatisfiesMethodMacro(  //
+        GetElemCnt,        // capability
+        GetElemCnt,        // method
+                           //
+        size_val,          // ret
+                           //
+        cntr               // cntr
+    );
+
+    SatisfiesMethodMacro(  //
+        GetMaxElemCnt,     // capability
+        GetMaxElemCnt,     // method
+                           //
+        size_val,          // ret
+                           //
+        cntr               // cntr
+    );
+
+    SatisfiesMethodMacro(  //
+        GetLBCursor,       // capability
+        GetLBCursor,       // method
+                           //
+        unused,            // ret
+                           //
+        cntr,              // cntr
+        void_ptr           // cursor
+    );
+
+    SatisfiesMethodMacro(  //
+        GetRBCursor,       // capability
+        GetRBCursor,       // method
+                           //
+        unused,            // ret
+                           //
+        cntr,              // cntr
+        void_ptr           // cursor
+    );
+
+    SatisfiesMethodMacro(   //
+        PeekL,              // capability
+        PeekL,              // method
+                            //
+        unused,             // ret
+                            //
+        cntr,               // cntr
+        bool_val,           // lazy_copy_elem
+        elem_ptr_view_ptr,  // dst_elem_ptr_view
+        void_ptr,           // dst_cursor, optional
+        void_ptr            // dst_elem, optional
+    );
+
+    SatisfiesMethodMacro(   //
+        PeekR,              // capability
+        PeekR,              // method
+                            //
+        unused,             // ret
+                            //
+        cntr,               // cntr
+        bool_val,           // lazy_copy_elem
+        elem_ptr_view_ptr,  // dst_elem_ptr_view
+        void_ptr,           // dst_cursor, optional
+        void_ptr            // dst_elem, optional
+    );
+
+    SatisfiesMethodMacro(   //
+        Refer,              // capability
+        Refer,              // method
+                            //
+        unused,             // ret
+                            //
+        cntr,               // cntr
+        size_val,           // idx
+        bool_val,           // lazy_copy_elem
+        elem_ptr_view_ptr,  // dst_elem_ptr_view
+        void_ptr,           // dst_cursor, optional
+        void_ptr            // dst_elem, optional
+    );
+
+    SatisfiesMethodMacro(   //
+        Derefer,            // capability
+        Derefer,            // method
+                            //
+        unused,             // ret
+                            //
+        cntr,               // cntr
+        void_ptr,           // pos_cursor
+        bool_val,           // lazy_copy_elem
+        elem_ptr_view_ptr,  // dst_elem_ptr_view
+        void_ptr            // dst_elem, optional
+    );
+
+    SatisfiesMethodMacro(  //
+        Read,              // capability
+        Read,              // method
+                           //
+        unused,            // ret
+                           //
+        cntr,              // cntr
+        void_ptr,          // pos_cursor
+        size_val,          // cnt
+        reader,            // reader
+        void_ptr           // dst_cursor
+    );
+
+    SatisfiesMethodMacro(  //
+        Write,             // capability
+        Write,             // method
+                           //
+        unused,            // ret
+                           //
+        cntr,              // cntr
+        void_ptr,          // pos_cursor, point to original position
+        size_val,          // cnt
+        writer,            // writer
+        void_ptr           // dst_cursor, optional, point to final position
+                           // after write
+    );
+
+    SatisfiesMethodMacro(  //
+        ReadWrite,         // capability
+        ReadWrite,         // method
+                           //
+        unused,            // ret
+                           //
+        cntr,              // cntr
+        void_ptr,          // pos_cursor
+        size_val,          // cnt
+        reader_writer,     // reader_writer
+        void_ptr           // dst_cursor
+    );
+
+    SatisfiesMethodMacro(  //
+        PushL,             // capability
+        PushL,             // method
+                           //
+        unused,            // ret
+                           //
+        cntr,              // cntr
+        size_val,          // cnt
+        writer,            // writer
+        void_ptr           // dst_cursor
+    );
+
+    SatisfiesMethodMacro(  //
+        PushR,             // capability
+        PushR,             // method
+                           //
+        unused,            // ret
+                           //
+        cntr,              // cntr
+        size_val,          // cnt
+        writer,            //
+        void_ptr           // dst_cursor
+    );
+
+    SatisfiesMethodMacro(  //
+        Insert,            // capability
+        Insert,            // method
+                           //
+        unused,            // ret
+                           //
+        cntr,              // cntr
+        void_ptr,          // pos_cursor
+        size_val,          // cnt
+        writer,            // writer
+        void_ptr           // dst_cursor
+    );
+
+    SatisfiesMethodMacro(  //
+        PopL,              // capability
+        PopL,              // method
+                           //
+        unused,            // ret
+                           //
+        cntr,              // cntr
+        size_val,          // cnt
+        reader             // reader
+    );
+
+    SatisfiesMethodMacro(  //
+        PopR,              // capability
+        PopR,              // method
+                           //
+        unused,            // ret
+                           //
+        cntr,              // cntr
+        size_val,          // cnt
+        reader             // reader
+    );
+
+    SatisfiesMethodMacro(  //
+        Erase,             // capability
+        Erase,             // method
+                           //
+        unused,            // ret
+                           //
+        cntr,              // cntr
+        void_ptr,          // pos_cursor
+        size_val,          // cnt
+        reader             // reader
+    );
+
+    SatisfiesMethodMacro(  //
+        EraseAll,          // capability
+        EraseAll,          // method
+                           //
+        unused,            // ret
+                           //
+        cntr               // cntr
+    );
+
+    SatisfiesMethodMacro(  //
+        CopyCursor,        // capability
+        CopyCursor,        // method
+                           //
+        unused,            // ret
+                           //
+        cntr,              // cntr
+        void_ptr,          // src_cursor
+        void_ptr           // dst_cursor
+    );
+
+    SatisfiesMethodMacro(  //
+        AreEqualCursor,    // capability
+        AreEqualCursor,    // method
+                           //
+        bool_val,          //
+                           //
+        cntr,              // cntr
+        void_ptr,          // cursor_a
+        void_ptr           // cursor_b
+    );
+
+    SatisfiesMethodMacro(        //
+        CompareCursor,           // capability
+        CompareCursor,           // method
+                                 //
+        three_way_result_value,  //
+                                 //
+        cntr,                    // cntr
+        void_ptr,                // cursor_a
+        void_ptr                 // cursor_b
+    );
+
+    SatisfiesMethodMacro(  //
+        GetCursorDist,     // capability
+        GetCursorDist,     // method
+                           //
+        size_val,          //
+                           //
+        cntr,              // cntr
+        void_ptr,          // cursor_a
+        void_ptr           // cursor_b
+    );
+
+    SatisfiesMethodMacro(  //
+        GetCursorIdx,      // capability
+        GetCursorIdx,      // method
+                           //
+        size_val,          //
+                           //
+        cntr,              // cntr
+        void_ptr           // cursor
+    );
+
+    SatisfiesMethodMacro(  //
+        CursorStepL,       // capability
+        CursorStepL,       // method
+                           //
+        unused,            // ret
+                           //
+        cntr,              // cntr
+        void_ptr           // cursor
+    );
+
+    SatisfiesMethodMacro(  //
+        CursorStepR,       // capability
+        CursorStepR,       // method
+                           //
+        unused,            // ret
+                           //
+        cntr,              // cntr
+        void_ptr           // cursor
+    );
+
+    SatisfiesMethodMacro(  //
+        CursorAdvanceL,    // capability
+        CursorAdvanceL,    // method
+                           //
+        unused,            // ret
+                           //
+        cntr,              // cntr
+        void_ptr,          // cursor
+        size_val           // step
+    );
+
+    SatisfiesMethodMacro(  //
+        CursorAdvanceR,    // capability
+        CursorAdvanceR,    // method
+                           //
+        unused,            // ret
+                           //
+        cntr,              // cntr
+        void_ptr,          // cursor
+        size_val           // step
+    );
 };
 
-template <typename Cntr>
-struct DefaultCntrTraits {
+#pragma pop_macro("SatisfiesMethodMacro")
+
+template <typename Cntr, typename Cursor>
+struct MemberFuncCntrTraitsAdapter {
     static constexpr decltype(auto) GetReferedInstPtr(Cntr& cntr);
 
     static constexpr decltype(auto) GetStaticEnabledCapabilityFlag();
@@ -839,124 +726,128 @@ struct DefaultCntrTraits {
                                                    size_t step);
 };
 
-constexpr bool CheckCapabilityFlags(
-    CapabilityFlag static_enabled_capability_flag,
-    CapabilityFlag static_disabled_capability_flag);
-
-bool CheckCapabilityFlags(CapabilityFlag static_enabled_capability_flag,
-                          CapabilityFlag static_disabled_capability_flag,
-                          CapabilityFlag dynamic_enabled_capability_flag,
-                          CapabilityFlag dynamic_disabled_capability_flag);
+template <IsSeqCntr Cntr>
+constexpr decltype(auto) GetReferedInstPtr(Cntr& cntr);
 
 template <IsSeqCntr Cntr>
-void* GetReferedInstPtr(Cntr& cntr);
+constexpr decltype(auto) GetStaticEnabledCapabilityFlag();
 
 template <IsSeqCntr Cntr>
-constexpr CapabilityFlag GetStaticEnabledCapabilityFlag();
+constexpr decltype(auto) GetStaticDisabledCapabilityFlag();
 
 template <IsSeqCntr Cntr>
-constexpr CapabilityFlag GetStaticDisabledCapabilityFlag();
+constexpr decltype(auto) GetDynamicEnabledCapabilityFlag(Cntr& cntr);
 
 template <IsSeqCntr Cntr>
-CapabilityFlag GetDynamicEnabledCapabilityFlag(Cntr& cntr);
+constexpr decltype(auto) GetDynamicDisabledCapabilityFlag(Cntr& cntr);
 
 template <IsSeqCntr Cntr>
-CapabilityFlag GetDynamicDisabledCapabilityFlag(Cntr& cntr);
+constexpr decltype(auto) GetCursorSize(Cntr& cntr);
 
 template <IsSeqCntr Cntr>
-size_t GetCursorSize(Cntr& cntr);
+constexpr decltype(auto) GetElemSize(Cntr& cntr);
 
 template <IsSeqCntr Cntr>
-size_t GetElemSize(Cntr& cntr);
+constexpr decltype(auto) GetElemCnt(Cntr& cntr);
 
 template <IsSeqCntr Cntr>
-size_t GetElemCnt(Cntr& cntr);
+constexpr decltype(auto) GetMaxElemCnt(Cntr& cntr);
 
 template <IsSeqCntr Cntr>
-size_t GetMaxElemCnt(Cntr& cntr);
+constexpr decltype(auto) GetLBCursor(Cntr& cntr, void* dst_cursor);
 
 template <IsSeqCntr Cntr>
-void GetLBCursor(Cntr& cntr, void* dst_cursor);
+constexpr decltype(auto) GetRBCursor(Cntr& cntr, void* dst_cursor);
 
 template <IsSeqCntr Cntr>
-void GetRBCursor(Cntr& cntr, void* dst_cursor);
+constexpr decltype(auto) PeekL(Cntr& cntr, bool lazy_copy_elem,
+                               ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+                               void* dst_elem);
 
 template <IsSeqCntr Cntr>
-void PeekL(Cntr& cntr, bool lazy_copy_elem, ElemPtrView* dst_elem_ptr_view,
-           void* dst_cursor, void* dst_elem);
+constexpr decltype(auto) PeekR(Cntr& cntr, bool lazy_copy_elem,
+                               ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+                               void* dst_elem);
 
 template <IsSeqCntr Cntr>
-void PeekR(Cntr& cntr, bool lazy_copy_elem, ElemPtrView* dst_elem_ptr_view,
-           void* dst_cursor, void* dst_elem);
+constexpr decltype(auto) Refer(Cntr& cntr, size_t idx, bool lazy_copy_elem,
+                               ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+                               void* dst_elem);
 
 template <IsSeqCntr Cntr>
-void Refer(Cntr& cntr, size_t idx, bool lazy_copy_elem,
-           ElemPtrView* dst_elem_ptr_view, void* dst_cursor, void* dst_elem);
-
-template <IsSeqCntr Cntr>
-void Derefer(Cntr& cntr, void* pos_cursor, bool lazy_copy_elem,
-             ElemPtrView* dst_elem_ptr_view, void* dst_elem);
+constexpr decltype(auto) Derefer(Cntr& cntr, void* pos_cursor,
+                                 bool lazy_copy_elem,
+                                 ElemPtrView* dst_elem_ptr_view,
+                                 void* dst_elem);
 
 template <IsSeqCntr Cntr, IsReader Reader>
-void Read(Cntr& cntr, void* pos_cursor, size_t cnt, Reader&& reader,
-          void* dst_cursor);
+constexpr decltype(auto) Read(Cntr& cntr, void* pos_cursor, size_t cnt,
+                              Reader&& reader, void* dst_cursor);
 
 template <IsSeqCntr Cntr, IsWriter Writer>
-void Write(Cntr& cntr, void* pos_cursor, size_t cnt, Writer&& writer,
-           void* dst_cursor);
+constexpr decltype(auto) Write(Cntr& cntr, void* pos_cursor, size_t cnt,
+                               Writer&& writer, void* dst_cursor);
 
 template <IsSeqCntr Cntr, IsReaderWriter ReaderWriter>
-void ReadWrite(Cntr& cntr, void* pos_cursor, size_t cnt,
-               ReaderWriter&& reader_writer, void* dst_cursor);
+constexpr decltype(auto) ReadWrite(Cntr& cntr, void* pos_cursor, size_t cnt,
+                                   ReaderWriter&& reader_writer,
+                                   void* dst_cursor);
 
 template <IsSeqCntr Cntr, IsWriter Writer>
-void PushL(Cntr& cntr, size_t cnt, Writer&& writer, void* dst_cursor);
+constexpr decltype(auto) PushL(Cntr& cntr, size_t cnt, Writer&& writer,
+                               void* dst_cursor);
 
 template <IsSeqCntr Cntr, IsWriter Writer>
-void PushR(Cntr& cntr, size_t cnt, Writer&& writer, void* dst_cursor);
+constexpr decltype(auto) PushR(Cntr& cntr, size_t cnt, Writer&& writer,
+                               void* dst_cursor);
 
 template <IsSeqCntr Cntr, IsWriter Writer>
-void Insert(Cntr& cntr, void* pos_cursor, size_t cnt, Writer&& writer,
-            void* dst_cursor);
+constexpr decltype(auto) Insert(Cntr& cntr, void* pos_cursor, size_t cnt,
+                                Writer&& writer, void* dst_cursor);
 
 template <IsSeqCntr Cntr, IsReader Reader>
-void PopL(Cntr& cntr, size_t cnt, Reader&& reader);
+constexpr decltype(auto) PopL(Cntr& cntr, size_t cnt, Reader&& reader);
 
 template <IsSeqCntr Cntr, IsReader Reader>
-void PopR(Cntr& cntr, size_t cnt, Reader&& reader);
+constexpr decltype(auto) PopR(Cntr& cntr, size_t cnt, Reader&& reader);
 
 template <IsSeqCntr Cntr, IsReader Reader>
-void Erase(Cntr& cntr, void* pos_cursor, size_t cnt, Reader&& reader);
+constexpr decltype(auto) Erase(Cntr& cntr, void* pos_cursor, size_t cnt,
+                               Reader&& reader);
 
 template <IsSeqCntr Cntr>
-void EraseAll(Cntr& cntr);
+constexpr decltype(auto) EraseAll(Cntr& cntr);
 
 template <IsSeqCntr Cntr>
-void CopyCursor(Cntr& cntr, void* src_cursor, void* dst_cursor);
+constexpr decltype(auto) CopyCursor(Cntr& cntr, void* src_cursor,
+                                    void* dst_cursor);
 
 template <IsSeqCntr Cntr>
-bool AreEqualCursor(Cntr& cntr, void* cursor_a, void* cursor_b);
+constexpr decltype(auto) AreEqualCursor(Cntr& cntr, void* cursor_a,
+                                        void* cursor_b);
 
 template <IsSeqCntr Cntr>
-int CompareCursor(Cntr& cntr, void* cursor_a, void* cursor_b);
+constexpr decltype(auto) CompareCursor(Cntr& cntr, void* cursor_a,
+                                       void* cursor_b);
 
 template <IsSeqCntr Cntr>
-size_t GetCursorDist(Cntr& cntr, void* cursor_a, void* cursor_b);
+constexpr decltype(auto) GetCursorDist(Cntr& cntr, void* cursor_a,
+                                       void* cursor_b);
 
 template <IsSeqCntr Cntr>
-size_t GetCursorIdx(Cntr& cntr, void* cursor);
+constexpr decltype(auto) GetCursorIdx(Cntr& cntr, void* cursor);
 
 template <IsSeqCntr Cntr>
-void CursorStepL(Cntr& cntr, void* cursor);
+constexpr decltype(auto) CursorStepL(Cntr& cntr, void* cursor);
 
 template <IsSeqCntr Cntr>
-void CursorStepR(Cntr& cntr, void* cursor);
+constexpr decltype(auto) CursorStepR(Cntr& cntr, void* cursor);
 
 template <IsSeqCntr Cntr>
-void CursorAdvanceL(Cntr& cntr, void* cursor, size_t step);
+constexpr decltype(auto) CursorAdvanceL(Cntr& cntr, void* cursor, size_t step);
 
 template <IsSeqCntr Cntr>
-void CursorAdvanceR(Cntr& cntr, void* cursor, size_t step);
+constexpr decltype(auto) CursorAdvanceR(Cntr& cntr, void* cursor, size_t step);
 
 struct VTable {
     unsigned long long custom_tags[4];
@@ -984,92 +875,75 @@ struct VTable {
     void (*Derefer)(void* cntr, void* pos_cursor, bool lazy_copy_elem,
                     ElemPtrView* dst_elem_ptr_view, void* dst_elem);
 
-    void (*Read_EmptyAcceptor)(void* cntr, void* pos_cursor, size_t cnt,
-                               elem_stream::provider::EmptyProvider reader,
-                               void* dst_cursor);
+    void (*Read_EmptyReader)(void* cntr, void* pos_cursor, size_t cnt,
+                             EmptyReader reader, void* dst_cursor);
 
-    void (*Read_LinSeqAcceptor)(void* cntr, void* pos_cursor, size_t cnt,
-                                lin_seq_elem_stream::Acceptor& reader,
-                                void* dst_cursor);
+    void (*Read_LinSeqReader)(void* cntr, void* pos_cursor, size_t cnt,
+                              LinSeqReader& reader, void* dst_cursor);
 
-    void (*Read_FnAcceptor)(void* cntr, void* pos_cursor, size_t cnt,
-                            fn_elem_stream::Acceptor reader, void* dst_cursor);
+    void (*Read_FnReader)(void* cntr, void* pos_cursor, size_t cnt,
+                          FnReader reader, void* dst_cursor);
 
-    void (*Write_EmptyProvider)(void* cntr, void* pos_cursor, size_t cnt,
-                                elem_stream::provider::EmptyProvider writer,
-                                void* dst_cursor);
+    void (*Write_EmptyWriter)(void* cntr, void* pos_cursor, size_t cnt,
+                              EmptyWriter writer, void* dst_cursor);
 
-    void (*Write_LinSeqProvider)(void* cntr, void* pos_cursor, size_t cnt,
-                                 lin_seq_elem_stream::Provider& writer,
-                                 void* dst_cursor);
+    void (*Write_LinSeqWriter)(void* cntr, void* pos_cursor, size_t cnt,
+                               LinSeqWriter& writer, void* dst_cursor);
 
-    void (*Write_FnProvider)(void* cntr, void* pos_cursor, size_t cnt,
-                             fn_elem_stream::Provider writer, void* dst_cursor);
+    void (*Write_FnWriter)(void* cntr, void* pos_cursor, size_t cnt,
+                           FnWriter writer, void* dst_cursor);
 
-    void (*ReadWrite_FnProvider)(void* cntr, void* pos_cursor, size_t cnt,
-                                 fn_elem_stream::Provider reader_writer,
-                                 void* dst_cursor);
+    void (*ReadWrite_FnReaderWriter)(void* cntr, void* pos_cursor, size_t cnt,
+                                     FnReaderWriter reader_writer,
+                                     void* dst_cursor);
 
-    void (*PushL_EmptyProvider)(void* cntr, size_t cnt,
-                                elem_stream::provider::EmptyProvider writer,
-                                void* dst_cursor);
-
-    void (*PushL_LinSeqProvider)(void* cntr, size_t cnt,
-                                 lin_seq_elem_stream::Provider& writer,
-                                 void* dst_cursor);
-
-    void (*PushL_FnProvider)(void* cntr, size_t cnt,
-                             fn_elem_stream::Provider writer, void* dst_cursor);
-
-    void (*PushR_EmptyProvider)(void* cntr, size_t cnt,
-                                elem_stream::provider::EmptyProvider writer,
-                                void* dst_cursor);
-
-    void (*PushR_LinSeqProvider)(void* cntr, size_t cnt,
-                                 lin_seq_elem_stream::Provider& writer,
-                                 void* dst_cursor);
-
-    void (*PushR_FnProvider)(void* cntr, size_t cnt,
-                             fn_elem_stream::Provider writer, void* dst_cursor);
-
-    void (*Insert_EmptyProvider)(void* cntr, void* pos_cursor, size_t cnt,
-                                 elem_stream::provider::EmptyProvider writer,
-                                 void* dst_cursor);
-
-    void (*Insert_LinSeqProvider)(void* cntr, void* pos_cursor, size_t cnt,
-                                  lin_seq_elem_stream::Provider& writer,
-                                  void* dst_cursor);
-
-    void (*Insert_FnProvider)(void* cntr, void* pos_cursor, size_t cnt,
-                              fn_elem_stream::Provider writer,
+    void (*PushL_EmptyWriter)(void* cntr, size_t cnt, EmptyWriter writer,
                               void* dst_cursor);
 
-    void (*PopL_EmptyAcceptor)(void* cntr, size_t cnt,
-                               elem_stream::acceptor::EmptyAcceptor reader);
+    void (*PushL_LinSeqWriter)(void* cntr, size_t cnt, LinSeqWriter& writer,
+                               void* dst_cursor);
 
-    void (*PopL_LinSeqAcceptor)(void* cntr, size_t cnt,
-                                lin_seq_elem_stream::Acceptor& reader);
+    void (*PushL_FnWriter)(void* cntr, size_t cnt, FnWriter writer,
+                           void* dst_cursor);
 
-    void (*PopL_FnAcceptor)(void* cntr, size_t cnt,
-                            fn_elem_stream::Acceptor reader);
+    void (*PushR_EmptyWriter)(void* cntr, size_t cnt, EmptyWriter writer,
+                              void* dst_cursor);
 
-    void (*PopR_EmptyAcceptor)(void* cntr, size_t cnt,
-                               elem_stream::acceptor::EmptyAcceptor reader);
+    void (*PushR_LinSeqWriter)(void* cntr, size_t cnt, LinSeqWriter& writer,
+                               void* dst_cursor);
 
-    void (*PopR_LinSeqAcceptor)(void* cntr, size_t cnt,
-                                lin_seq_elem_stream::Acceptor& reader);
+    void (*PushR_FnWriter)(void* cntr, size_t cnt, FnWriter writer,
+                           void* dst_cursor);
 
-    void (*PopR_FnAcceptor)(void* cntr, size_t cnt,
-                            fn_elem_stream::Acceptor reader);
+    void (*Insert_EmptyWriter)(void* cntr, void* pos_cursor, size_t cnt,
+                               EmptyWriter writer, void* dst_cursor);
 
-    void (*Erase_EmptyAcceptor)(void* cntr, void* pos_cursor, size_t cnt,
-                                elem_stream::acceptor::EmptyAcceptor reader);
+    void (*Insert_LinSeqWriter)(void* cntr, void* pos_cursor, size_t cnt,
+                                LinSeqWriter& writer, void* dst_cursor);
 
-    void (*Erase_LinSeqAcceptor)(void* cntr, void* pos_cursor, size_t cnt,
-                                 lin_seq_elem_stream::Acceptor& reader);
+    void (*Insert_FnWriter)(void* cntr, void* pos_cursor, size_t cnt,
+                            FnWriter writer, void* dst_cursor);
 
-    void (*Erase_FnAcceptor)(void* cntr, void* pos_cursor, size_t cnt,
-                             fn_elem_stream::Acceptor reader);
+    void (*PopL_EmptyReader)(void* cntr, size_t cnt, EmptyReader reader);
+
+    void (*PopL_LinSeqReader)(void* cntr, size_t cnt, LinSeqReader& reader);
+
+    void (*PopL_FnReader)(void* cntr, size_t cnt, FnReader reader);
+
+    void (*PopR_EmptyReader)(void* cntr, size_t cnt, EmptyReader reader);
+
+    void (*PopR_LinSeqReader)(void* cntr, size_t cnt, LinSeqReader& reader);
+
+    void (*PopR_FnReader)(void* cntr, size_t cnt, FnReader reader);
+
+    void (*Erase_EmptyReader)(void* cntr, void* pos_cursor, size_t cnt,
+                              EmptyReader reader);
+
+    void (*Erase_LinSeqReader)(void* cntr, void* pos_cursor, size_t cnt,
+                               LinSeqReader& reader);
+
+    void (*Erase_FnReader)(void* cntr, void* pos_cursor, size_t cnt,
+                           FnReader reader);
 
     void (*EraseAll)(void* cntr);
 
@@ -1077,7 +951,8 @@ struct VTable {
 
     bool (*AreEqualCursor)(void* cntr, void* cursor_a, void* cursor_b);
 
-    int (*CompareCursor)(void* cntr, void* cursor_a, void* cursor_b);
+    comparison::Ordering (*CompareCursor)(void* cntr, void* cursor_a,
+                                          void* cursor_b);
 
     size_t (*GetCursorDist)(void* cntr, void* cursor_a, void* cursor_b);
 
@@ -1100,7 +975,7 @@ struct VTable {
 template <IsSeqCntr Cntr>
 constexpr VTable BuildVTableBasic();
 
-template <IsSeqCntr Cntr, typename = void>
+template <IsSeqCntr Cntr>
 struct BuildVTableImpl {
     static constexpr VTable Call();
 };

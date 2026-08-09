@@ -7,48 +7,6 @@
 
 namespace zeta::core {
 
-template <typename AFirst, typename ASecond, typename BFirst, typename BSecond>
-constexpr bool pair::operator==(Pair<AFirst, ASecond> const& a,
-                                Pair<BFirst, BSecond> const& b) {
-    return comparison::BasicCompare(comparison::ComparisonTypeEnum::EqualTo{},
-                                    a, b);
-}
-
-template <typename AFirst, typename ASecond, typename BFirst, typename BSecond>
-constexpr bool pair::operator!=(Pair<AFirst, ASecond> const& a,
-                                Pair<BFirst, BSecond> const& b) {
-    return comparison::BasicCompare(
-        comparison::ComparisonTypeEnum::NotEqualTo{}, a, b);
-}
-
-template <typename AFirst, typename ASecond, typename BFirst, typename BSecond>
-constexpr bool pair::operator<(Pair<AFirst, ASecond> const& a,
-                               Pair<BFirst, BSecond> const& b) {
-    return comparison::BasicCompare(comparison::ComparisonTypeEnum::Less{}, a,
-                                    b);
-}
-
-template <typename AFirst, typename ASecond, typename BFirst, typename BSecond>
-constexpr bool pair::operator<=(Pair<AFirst, ASecond> const& a,
-                                Pair<BFirst, BSecond> const& b) {
-    return comparison::BasicCompare(comparison::ComparisonTypeEnum::LessEqual{},
-                                    a, b);
-}
-
-template <typename AFirst, typename ASecond, typename BFirst, typename BSecond>
-constexpr bool pair::operator>(Pair<AFirst, ASecond> const& a,
-                               Pair<BFirst, BSecond> const& b) {
-    return comparison::BasicCompare(comparison::ComparisonTypeEnum::Greater{},
-                                    a, b);
-}
-
-template <typename AFirst, typename ASecond, typename BFirst, typename BSecond>
-constexpr bool pair::operator>=(Pair<AFirst, ASecond> const& a,
-                                Pair<BFirst, BSecond> const& b) {
-    return comparison::BasicCompare(
-        comparison::ComparisonTypeEnum::GreaterEqual{}, a, b);
-}
-
 template <typename First, typename Second>
 constexpr unsigned long long
 hash::BasicHasher<pair::Pair<First, Second>>::operator()(
@@ -58,19 +16,14 @@ hash::BasicHasher<pair::Pair<First, Second>>::operator()(
     return hash::BasicHash(h2, salt);
 }
 
-template <typename ComparisonType, typename AFirst, typename ASecond,
-          typename BFirst, typename BSecond>
-constexpr int comparison::BasicComparator<
-    ComparisonType, pair::Pair<AFirst, ASecond>, pair::Pair<BFirst, BSecond>>::
-operator()(ComparisonType, pair::Pair<AFirst, ASecond> const& a,
-           pair::Pair<BFirst, BSecond> const& b) const {
-    ZETA_Core_StaticAssert(comparison::IsComparisonType<ComparisonType>);
-
-    return comparison_utils::PairWiseLexCompare(
-        ComparisonType{}, a.first, b.first,
-        comparison::BasicCompare<AFirst, BFirst>,                       //
-        a.second, b.second, comparison::BasicCompare<ASecond, BSecond>  //
-    );
+template <typename AFirst, typename ASecond, typename BFirst, typename BSecond>
+template <comparison::IsOpType OpType>
+constexpr auto comparison::ComparatorTraits<comparison::BasicComparator<
+    pair::Pair<AFirst, ASecond>, pair::Pair<BFirst, BSecond>>>::
+    Compare(auto const&, OpType op, pair::Pair<AFirst, ASecond> const& a,
+            pair::Pair<BFirst, BSecond> const& b) {
+    return comparison_utils::BasicPairWiseLexCompare(op, a.first, b.first,
+                                                     a.second, b.second);
 }
 
 }  // namespace zeta::core

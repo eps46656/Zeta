@@ -3,6 +3,7 @@
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/function_ref.hpp>
 #include <zeta/core/meta.hpp>
+#include <zeta/core/utils.hpp>
 
 namespace zeta::core {
 

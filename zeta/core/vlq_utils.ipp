@@ -135,7 +135,7 @@ template <integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
           elem_stream::provider::IsProvider InnerProvider>
 struct elem_stream::provider::ProviderTraits<
     vlq_utils::detail::Provider_<UnitIntegral, UnitWidth, InnerProvider>>
-    : public elem_stream::provider::DefaultProviderTraits<
+    : public elem_stream::provider::MemberFuncProviderTraitsAdapter<
           vlq_utils::detail::Provider_<UnitIntegral, UnitWidth,
                                        InnerProvider>> {};
 
@@ -143,14 +143,14 @@ template <integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
           elem_stream::acceptor::IsAcceptor InnerAcceptor>
 struct elem_stream::acceptor::AcceptorTraits<
     vlq_utils::detail::Acceptor_<UnitIntegral, UnitWidth, InnerAcceptor>>
-    : public elem_stream::acceptor::DefaultAcceptorTraits<
+    : public elem_stream::acceptor::MemberFuncAcceptorTraitsAdapter<
           vlq_utils::detail::Acceptor_<UnitIntegral, UnitWidth,
                                        InnerAcceptor>> {};
 
 template <integral::IsIntegral Integral, size_t UnitWidth>
     requires requires { requires 2 <= UnitWidth; }
 constexpr size_t vlq_utils::EstimateSerializedUnitCnt(
-    Integral value, value_wrapper::StaticValueWrapper<size_t, UnitWidth>) {
+    Integral value, meta::ValueWrapper<size_t, UnitWidth>) {
     size_t need_bit_cnt;
 
     if constexpr (integral::IsSignedIntegral<Integral>) {
@@ -172,18 +172,19 @@ constexpr size_t vlq_utils::EstimateSerializedUnitCnt(
     return integral_math::CeilDiv(need_bit_cnt, UnitWidth - 1);
 }
 
-template <integral::IsIntegral Integral, typename EndiannessLike,
+template <integral::IsIntegral Integral,
+          serde_utils::IsEndiannessType EndiannessType,
           integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
-          typename Acceptor>
+          elem_stream::acceptor::IsAcceptor Acceptor>
     requires requires {
         requires 2 <= UnitWidth;
         requires UnitWidth <= integral::WidthOf<UnitIntegral>;
     }
 bool vlq_utils::SerializeIntegral(
-    Integral src_value, EndiannessLike endianness_like,
+    Integral src_value, EndiannessType endianness,
     meta::TypeWrapper<UnitIntegral> unit_integral,
-    value_wrapper::StaticValueWrapper<size_t, UnitWidth> unit_width,
-    bool allow_lossy, Acceptor&& acceptor, error::Error* dst_error) {
+    meta::ValueWrapper<size_t, UnitWidth> unit_width, bool allow_lossy,
+    Acceptor&& acceptor, error::Error* dst_error) {
     detail::Acceptor_<UnitIntegral, UnitWidth, Acceptor> vlq_acceptor{
         .inner_acceptor = acceptor,
         .buffer = {},
@@ -191,11 +192,10 @@ bool vlq_utils::SerializeIntegral(
     };
 
     bool no_lossy{ serde_utils::SerializeIntegral(
-        src_value, endianness_like, unit_integral,
-        value_wrapper::StaticValueWrapper<size_t, UnitWidth - 1>{},
-        value_wrapper::DynamicValueWrapper<size_t>{
-            (EstimateSerializedUnitCnt)(src_value, unit_width) },
-        allow_lossy, vlq_acceptor, dst_error) };
+        src_value, endianness, unit_integral,
+        meta::ValueWrapper<size_t, UnitWidth - 1>{},
+        (EstimateSerializedUnitCnt)(src_value, unit_width), allow_lossy,
+        vlq_acceptor, dst_error) };
 
     if (vlq_acceptor.buffer_has_value) {
         elem_stream::acceptor::Transfer(
@@ -208,17 +208,18 @@ bool vlq_utils::SerializeIntegral(
     return no_lossy;
 }
 
-template <integral::IsIntegral Integral, typename EndiannessLike,
+template <integral::IsIntegral Integral,
+          serde_utils::IsEndiannessType EndiannessType,
           integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
-          typename Provider>
+          elem_stream::provider::IsProvider Provider>
     requires requires {
         requires 2 <= UnitWidth;
         requires UnitWidth <= integral::WidthOf<UnitIntegral>;
     }
 bool vlq_utils::DeserializeIntegral(
-    Integral& dst_value, EndiannessLike endianness_like,
+    Integral& dst_value, EndiannessType endianness,
     meta::TypeWrapper<UnitIntegral> unit_integral,
-    value_wrapper::StaticValueWrapper<size_t, UnitWidth>, bool allow_lossy,
+    meta::ValueWrapper<size_t, UnitWidth>, bool allow_lossy,
     Provider&& provider, error::Error* dst_error) {
     detail::Provider_<UnitIntegral, UnitWidth, Provider> vlq_provider{
         .inner_provider = provider,
@@ -227,8 +228,8 @@ bool vlq_utils::DeserializeIntegral(
     };
 
     bool no_lossy{ serde_utils::DeserializeIntegral(
-        dst_value, endianness_like, unit_integral,
-        value_wrapper::StaticValueWrapper<size_t, UnitWidth - 1>{},
+        dst_value, endianness, unit_integral,
+        meta::ValueWrapper<size_t, UnitWidth - 1>{},
         serde_utils::VariableOctetCntTag{}, allow_lossy, vlq_provider,
         dst_error) };
 

@@ -4,20 +4,17 @@
 #include <zeta/core/llist.hpp>
 #include <zeta/core/ptr_utils.hpp>
 
-#pragma push_macro("NodeTplDeclParamList")
-#define NodeTplDeclParamList \
-    typename LinkType_, typename LColorTag_, typename RColorTag_
-
 #pragma push_macro("NodeTplParamList")
-#define NodeTplParamList \
-    typename LinkType, typename LColorTag, typename RColorTag
+#define NodeTplParamList(suffix)                           \
+    typename LinkType##suffix, typename LColorTag##suffix, \
+        typename RColorTag##suffix
 
 #pragma push_macro("NodeTplArgList")
 #define NodeTplArgList LinkType, LColorTag, RColorTag
 
 namespace zeta::core::basic_llist_node {
 
-template <NodeTplDeclParamList>
+template <NodeTplParamList(_)>
 struct Node {
     using LinkType = LinkType_;
     using LColorTag = LColorTag_;
@@ -59,7 +56,7 @@ __attribute__((aligned(8)));
 
 namespace zeta::core {
 
-template <NodeTplParamList>
+template <NodeTplParamList()>
 struct llist::NodeTraits<basic_llist_node::Node<NodeTplArgList> const> {
     static constexpr bool IsConst();
 
@@ -94,4 +91,3 @@ struct llist::NodeTraits<
 
 #pragma pop_macro("NodeTplArgList")
 #pragma pop_macro("NodeTplParamList")
-#pragma pop_macro("NodeTplDeclParamList")

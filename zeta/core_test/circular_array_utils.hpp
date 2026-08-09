@@ -5,7 +5,6 @@
 #include <zeta/core/circular_array.ipp>
 #include <zeta/core/seq_cntr.hpp>
 #include <zeta/core/seq_cntr.ipp>
-#include <zeta/core/value_wrapper.hpp>
 #include <zeta/core_test/seq_cntr_utils.hpp>
 
 namespace zeta::core_test::circular_array_utils {
@@ -37,7 +36,7 @@ SeqCntrRef Create(size_t stride, size_t slot_cnt) {
     ca->rot = 0;
 
     core::seq_cntr::CntrTraits<CircularArray>::Read(
-        *ca, nullptr, 0, core::elem_stream::EmptyAcceptor{});
+        *ca, nullptr, 0, core::elem_stream::acceptor::EmptyAcceptor{});
 
     // SeqCntrRef seq_cntr_ref{ *ca };
     SeqCntrRef seq_cntr_ref;

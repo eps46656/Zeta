@@ -3,7 +3,6 @@
 #include <zeta/core/comparison.hpp>
 #include <zeta/core/comparison.ipp>
 #include <zeta/core/comparison_utils.hpp>
-#include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/reduce.ipp>
@@ -12,35 +11,17 @@ namespace zeta::core {
 
 namespace comparison_utils::detail {
 
-template <typename Value_>
-struct Wrapper_ {
-    using Value = Value_;
-    Value value;
-};
-
-}  // namespace comparison_utils::detail
-
-namespace comparison_utils::detail {
-
 template <typename Comparator>
 struct MinOperation_ {
     Comparator const& cmptr;
 
-    template <typename WrapperA, typename WrapperB>
-    constexpr decltype(auto) operator()(WrapperA&& a, WrapperB&& b) const {
-        decltype(auto) ret{ comparison::Compare(
-                                this->cmptr,
-                                comparison::ComparisonTypeEnum::LessEqual{},
-                                static_cast<decltype(a.value)>(a.value),
-                                static_cast<decltype(b.value)>(b.value))
-                                ? static_cast<decltype(a.value)>(a.value)
-                                : static_cast<decltype(b.value)>(b.value) };
-
-        if constexpr (meta::IsRef<decltype(ret)>) {
-            return Wrapper_<decltype(ret)>{ ret };
-        } else {
-            return Wrapper_<decltype(ret)>{ meta::Move(ret) };
-        }
+    template <typename A, typename B>
+    constexpr decltype(auto) operator()(A&& a, B&& b) const {
+        return comparison::Compare(
+                   this->cmptr,
+                   meta::AutoValueWrapper<comparison::Op::LessEqual>{}, a, b)
+                   ? meta::Forward<A>(a)
+                   : meta::Forward<B>(b);
     }
 };
 
@@ -50,17 +31,9 @@ template <typename Comparator, typename Value0, typename... Values>
 constexpr decltype(auto) comparison_utils::Min(Comparator const& cmptr,
                                                Value0&& value0,
                                                Values&&... values) {
-    auto ret{ reduce::TreeReduce(
-        detail::MinOperation_{ cmptr },
-        detail::Wrapper_<Value0&&>{ meta::Forward<Value0>(value0) },
-        detail::Wrapper_<Values&&>{ meta::Forward<Values>(values) }...) };
-
-    if constexpr (meta::IsLValueRef<typename decltype(ret)::Value>) {
-        return ret.value;
-    } else {
-        return static_cast<meta::RemoveCVRef<decltype(ret.value)>>(
-            meta::Move(ret.value));
-    }
+    return reduce::TreeReduce(detail::MinOperation_{ cmptr },
+                              meta::Forward<Value0>(value0),
+                              meta::Forward<Values>(values)...);
 }
 
 template <typename Value0, typename... Values>
@@ -79,8 +52,9 @@ struct MaxOperation_ {
 
     template <typename A, typename B>
     constexpr decltype(auto) operator()(A&& a, B&& b) const {
-        return comparison::Compare(this->cmptr,
-                                   comparison::ComparisonTypeEnum::Less{}, a, b)
+        return comparison::Compare(
+                   this->cmptr, meta::AutoValueWrapper<comparison::Op::Less>{},
+                   a, b)
                    ? meta::Forward<B>(b)
                    : meta::Forward<A>(a);
     }
@@ -172,22 +146,73 @@ inline int comparison_utils::MemSeqLexCompare(
 
 namespace comparison_utils::detail {
 
-constexpr int PairWiseLexCompare_() { return 0; }
+constexpr comparison::Ordering PairWiseLexCompare_() {
+    return comparison::Ordering::Equal;
+}
 
 template <typename A, typename B, typename Comparator, typename... Args>
-constexpr int PairWiseLexCompare_(A&& a, B&& b, Comparator const& cmptr,
-                                  Args&&... args) {
-    int cmp{ comparison::Compare(cmptr,
-                                 comparison::ComparisonTypeEnum::ThreeWay{},
-                                 meta::Forward<A>(a), meta::Forward<B>(b)) };
-    return cmp == 0 ? (PairWiseLexCompare_)(args...) : cmp;
+constexpr comparison::Ordering PairWiseLexCompare_(A&& a, B&& b,
+                                                   Comparator const& cmptr,
+                                                   Args&&... args) {
+    comparison::Ordering cmp{ comparison::Compare(
+        cmptr, meta::AutoValueWrapper<comparison::Op::Order>{},
+        meta::Forward<A>(a), meta::Forward<B>(b)) };
+    return cmp == comparison::Ordering::Equal ? (PairWiseLexCompare_)(args...)
+                                              : cmp;
 }
 
 }  // namespace comparison_utils::detail
 
 template <typename... Args>
-constexpr int comparison_utils::PairWiseLexCompare(Args&&... args) {
+    requires requires { requires sizeof...(Args) % 3 == 0; }
+constexpr comparison::Ordering comparison_utils::PairWiseLexCompare(
+    Args&&... args) {
     return detail::PairWiseLexCompare_(meta::Forward<Args>(args)...);
+}
+
+namespace comparison_utils::detail {
+
+template <comparison::IsOpType OpType>
+constexpr auto BasicPairWiseLexCompare_(OpType op) {
+    if constexpr (meta::IsSame<OpType,
+                               meta::AutoValueWrapper<comparison::Op::Order>>) {
+        return comparison::Ordering::Equal;
+    } else {
+        return (meta::ToUnderlying(op) & comparison::equal_bit) != 0;
+    }
+}
+
+template <comparison::IsOpType OpType, typename A, typename B, typename... Args>
+constexpr auto BasicPairWiseLexCompare_(OpType op, A&& a, B&& b,
+                                        Args&&... args) {
+    if constexpr (sizeof...(args) == 0) {
+        return comparison::BasicCompare(op, meta::Forward<A>(a),
+                                        meta::Forward<B>(b));
+    } else {
+        comparison::Ordering cmp{ comparison::BasicCompare(
+            meta::AutoValueWrapper<comparison::Op::Order>{},
+            meta::Forward<A>(a), meta::Forward<B>(b)) };
+
+        if (cmp == comparison::Ordering::Equal) {
+            return (BasicPairWiseLexCompare_)(op, meta::Forward<Args>(args)...);
+        }
+
+        if constexpr (meta::IsSame<OpType, meta::AutoValueWrapper<
+                                               comparison::Op::Order>>) {
+            return cmp;
+        } else {
+            return (static_cast<unsigned>(cmp) & meta::ToUnderlying(op)) != 0;
+        }
+    }
+}
+
+}  // namespace comparison_utils::detail
+
+template <comparison::IsOpType OpType, typename... Args>
+    requires requires { requires sizeof...(Args) % 2 == 0; }
+constexpr auto comparison_utils::BasicPairWiseLexCompare(OpType op,
+                                                         Args&&... args) {
+    return detail::BasicPairWiseLexCompare_(op, meta::Forward<Args>(args)...);
 }
 
 template <typename Comparator, typename SeqA, typename SeqB>

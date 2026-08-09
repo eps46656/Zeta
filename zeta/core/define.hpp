@@ -8,6 +8,8 @@
 
 #define ZETA_Core_Identity(...) __VA_ARGS__
 
+#define ZETA_Core_Comma ,
+
 #define ZETA_Core_ToStr_(x) #x
 #define ZETA_Core_ToStr(x) ZETA_Core_ToStr_(x)
 

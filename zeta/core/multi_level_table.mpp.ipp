@@ -23,8 +23,8 @@
 #define Namespace multi_level_data_table
 
 #pragma push_macro("CntrTplParamList")
-#define CntrTplParamList                               \
-    typename ActiveMap, typename NavNodeAllocatorLike, \
+#define CntrTplParamList                                                   \
+    integral::IsUnsignedIntegral ActiveMap, typename NavNodeAllocatorLike, \
         typename DataNodeAllocatorLike
 
 #pragma push_macro("CntrTplArgList")
@@ -39,7 +39,8 @@
 #define Namespace multi_level_ptr_table
 
 #pragma push_macro("CntrTplParamList")
-#define CntrTplParamList typename ActiveMap, typename NavNodeAllocatorLike
+#define CntrTplParamList \
+    integral::IsUnsignedIntegral ActiveMap, typename NavNodeAllocatorLike
 
 #pragma push_macro("CntrTplArgList")
 #define CntrTplArgList ActiveMap, NavNodeAllocatorLike
@@ -156,7 +157,8 @@ void CheckBranchIdx_  // NOLINT(misc-use-internal-linkage)
     (BranchIdx const& idx, BranchNum branch_num) {
     ZETA_Core_StaticAssert(integral::IsIntegral<BranchIdx>);
     ZETA_Core_DebugAssert(0 <= idx);
-    ZETA_Core_DebugAssert(integral::MathCompare(idx, branch_num) < 0);
+    ZETA_Core_DebugAssert(integral_utils::MathCompare(idx, branch_num) ==
+                          comparison::Ordering::Less);
 }
 
 template <typename SrcBranchIdxes>
@@ -165,25 +167,26 @@ BranchNum FetchAndCheckBranchIdx_(SrcBranchIdxes& src_branch_idxes,
     auto branch_idx{ src_branch_idxes() };
     ZETA_Core_StaticAssert(integral::IsIntegral<decltype(branch_idx)>);
     ZETA_Core_DebugAssert(0 <= branch_idx);
-    ZETA_Core_DebugAssert(integral::MathCompare(branch_idx, branch_num) < 0);
+    ZETA_Core_DebugAssert(integral_utils::MathCompare(branch_idx, branch_num) ==
+                          comparison::Ordering::Less);
 
     return static_cast<BranchNum>(branch_idx);
 }
 
-template <typename ActiveMap>
+template <integral::IsUnsignedIntegral ActiveMap>
 constexpr bool TestActiveMap_  // NOLINT(misc-use-internal-linkage)
     (ActiveMap active_map, BranchNum idx) {
     return (active_map & (static_cast<ActiveMap>(1)
                           << static_cast<unsigned long long>(idx))) != 0;
 }
 
-template <typename ActiveMap>
+template <integral::IsUnsignedIntegral ActiveMap>
 size_t GetNavNodeSize_(BranchNum branch_num) {
     return __builtin_offsetof(ZETA_Core_Identity(NavNode<ActiveMap>),
                               ptrs[branch_num]);
 }
 
-template <typename ActiveMap,
+template <integral::IsUnsignedIntegral ActiveMap,
           typename NavNodeAllocator>
 NavNode<ActiveMap>* AllocateNavNode_  // NOLINT(misc-use-internal-linkage)
     (BranchNum branch_num, NavNodeAllocator& nav_node_alctr) {
@@ -196,7 +199,7 @@ NavNode<ActiveMap>* AllocateNavNode_  // NOLINT(misc-use-internal-linkage)
     return nav_node;
 }
 
-template <typename ActiveMap,
+template <integral::IsUnsignedIntegral ActiveMap,
           typename NavNodeAllocator>
 void DeallocateNavNode_  // NOLINT(misc-use-internal-linkage)
     (NavNode<ActiveMap>* node, NavNodeAllocator& node_alctr) {
@@ -205,13 +208,13 @@ void DeallocateNavNode_  // NOLINT(misc-use-internal-linkage)
 
 #if EnDataNode
 
-template <typename ActiveMap>
+template <integral::IsUnsignedIntegral ActiveMap>
 size_t GetDataNodeSize_(size_t elem_stride, BranchNum branch_num) {
     return __builtin_offsetof(ZETA_Core_Identity(DataNode<ActiveMap>),
                               data[elem_stride * branch_num]);
 }
 
-template <typename ActiveMap, typename DataNodeAllocator>
+template <integral::IsUnsignedIntegral ActiveMap, typename DataNodeAllocator>
 DataNode<ActiveMap>* AllocateDataNode_  // NOLINT(misc-use-internal-linkage)
     (size_t elem_stride, BranchNum branch_num,
      DataNodeAllocator& data_node_alctr) {
@@ -224,7 +227,7 @@ DataNode<ActiveMap>* AllocateDataNode_  // NOLINT(misc-use-internal-linkage)
     return data_node;
 }
 
-template <typename ActiveMap, typename DataNodeAllocator>
+template <integral::IsUnsignedIntegral ActiveMap, typename DataNodeAllocator>
 void DeallocateDataNode_  // NOLINT(misc-use-internal-linkage)
     (DataNode<ActiveMap>* node, DataNodeAllocator& data_node_alctr) {
     allocator::Deallocate(data_node_alctr, node);
@@ -234,21 +237,22 @@ void DeallocateDataNode_  // NOLINT(misc-use-internal-linkage)
 
 }  // namespace Namespace::detail
 
-template <CntrTplParamList, typename NavNodeAllocatorInitArg
+template <CntrTplParamList>
+template <typename NavNodeAllocatorInitArg
 #if EnDataNode
           ,
           typename DataNodeAllocatorInitArg
 #endif
           >
-void Namespace::Init(Cntr<CntrTplArgList>& cntr,
-                     NavNodeAllocatorInitArg&& nav_node_alctr_init_arg,
+constexpr void Namespace::Cntr<CntrTplArgList>::Init(
+    this Cntr& cntr, NavNodeAllocatorInitArg&& nav_node_alctr_init_arg,
 #if EnDataNode
-                     DataNodeAllocatorInitArg&& data_node_alctr_init_arg,
+    DataNodeAllocatorInitArg&& data_node_alctr_init_arg,
 #endif
-                     unsigned level, BranchNum const* branch_nums
+    unsigned level, BranchNum const* branch_nums
 #if EnDataNode
-                     ,
-                     size_t elem_stride
+    ,
+    size_t elem_stride
 #endif
 ) {
     ZETA_Core_DebugAssert(0 < level);
@@ -264,7 +268,6 @@ void Namespace::Init(Cntr<CntrTplArgList>& cntr,
 
     lifecycle::Init(cntr.nav_node_alctr, meta::Forward<NavNodeAllocatorInitArg>(
                                              nav_node_alctr_init_arg));
-    allocator::CheckContract(cntr.nav_node_alctr);
 
 #if EnDataNode
     lifecycle::Init(
@@ -281,25 +284,26 @@ void Namespace::Init(Cntr<CntrTplArgList>& cntr,
     cntr.elem_stride = elem_stride;
 #endif
 
-    cntr.size = 0;
+    cntr.elem_cnt = 0;
 
     cntr.root = nullptr;
 }
 
 template <CntrTplParamList>
-void Namespace::Deinit(Cntr<CntrTplArgList>& cntr) {
-    EraseAll(cntr);
+constexpr void Namespace::Cntr<CntrTplArgList>::Deinit(this Cntr& cntr) {
+    cntr.EraseAll();
 }
 
 template <CntrTplParamList>
-size_t Namespace::GetSize(Cntr<CntrTplArgList>& cntr) {
+constexpr size_t Namespace::Cntr<CntrTplArgList>::GetElemCnt(this Cntr& cntr) {
     detail::CheckCntr_(cntr);
 
-    return cntr.size;
+    return cntr.elem_cnt;
 }
 
 template <CntrTplParamList>
-size_t Namespace::GetCapacity(Cntr<CntrTplArgList>& cntr) {
+constexpr size_t Namespace::Cntr<CntrTplArgList>::GetMaxElemCnt(
+    this Cntr& cntr) {
     detail::CheckCntr_(cntr);
 
     size_t ret{ 1 };
@@ -308,7 +312,7 @@ size_t Namespace::GetCapacity(Cntr<CntrTplArgList>& cntr) {
     BranchNum const* branch_nums{ cntr.branch_nums };
 
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
-        if (__builtin_umulll_overflow(ret, branch_nums[level_i], &ret)) {
+        if (__builtin_mul_overflow(ret, branch_nums[level_i], &ret)) {
             return ZETA_Core_max_capacity;
         }
     }
@@ -316,9 +320,10 @@ size_t Namespace::GetCapacity(Cntr<CntrTplArgList>& cntr) {
     return ret;
 }
 
-template <CntrTplParamList, typename BranchIdxesSource>
-void* Namespace::Access(
-    Cntr<CntrTplArgList>& cntr,
+template <CntrTplParamList>
+template <typename BranchIdxesSource>
+constexpr void* Namespace::Cntr<CntrTplArgList>::Access(
+    this Cntr& cntr,
     BranchIdxesSource&&
         src_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward)
 ) {
@@ -369,9 +374,10 @@ void* Namespace::Access(
 #endif
 }
 
-template <CntrTplParamList, typename DstBranchIdxes>
-void* Namespace::FindFirst(
-    Cntr<CntrTplArgList>& cntr,
+template <CntrTplParamList>
+template <typename DstBranchIdxes>
+constexpr void* Namespace::Cntr<CntrTplArgList>::FindFirst(
+    this Cntr& cntr,
     DstBranchIdxes&&
         dst_branch_idxes  // NOLINT(cppcoreguidelines-missing-std-forward)
 ) {
@@ -381,12 +387,13 @@ void* Namespace::FindFirst(
         constexpr size_t operator()() { return 0; }
     } src_branch_idxes;
 
-    return (FindNextIncl)(cntr, src_branch_idxes, dst_branch_idxes);
+    return cntr.FindNextIncl(src_branch_idxes, dst_branch_idxes);
 }
 
-template <CntrTplParamList, typename DstBranchIdxes>
-void* Namespace::FindLast(
-    Cntr<CntrTplArgList>& cntr,
+template <CntrTplParamList>
+template <typename DstBranchIdxes>
+constexpr void* Namespace::Cntr<CntrTplArgList>::FindLast(
+    this Cntr& cntr,
     DstBranchIdxes&&
         dst_branch_idxes  // NOLINT(cppcoreguidelines-missing-std-forward)
 ) {
@@ -398,12 +405,13 @@ void* Namespace::FindLast(
         size_t operator()() { return *(--this->branch_nums) - 1; }
     } src_branch_idxes{ .branch_nums = cntr.branch_nums + cntr.level };
 
-    return (FindPrevIncl)(cntr, src_branch_idxes, dst_branch_idxes);
+    return cntr.FindPrevIncl(src_branch_idxes, dst_branch_idxes);
 }
 
-template <CntrTplParamList, typename SrcBranchIdxes, typename DstBranchIdxes>
-void* Namespace::FindPrevIncl(
-    Cntr<CntrTplArgList>& cntr,
+template <CntrTplParamList>
+template <typename SrcBranchIdxes, typename DstBranchIdxes>
+constexpr void* Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
+    this Cntr& cntr,
     SrcBranchIdxes&&
         src_branch_idxes_,  // NOLINT(cppcoreguidelines-missing-std-forward)
     DstBranchIdxes&&
@@ -541,9 +549,10 @@ void* Namespace::FindPrevIncl(
 #endif
 }
 
-template <CntrTplParamList, typename SrcBranchIdxes, typename DstBranchIdxes>
-void* Namespace::FindPrevExcl(
-    Cntr<CntrTplArgList>& cntr,
+template <CntrTplParamList>
+template <typename SrcBranchIdxes, typename DstBranchIdxes>
+constexpr void* Namespace::Cntr<CntrTplArgList>::FindPrevExcl(
+    this Cntr& cntr,
     SrcBranchIdxes&&
         src_branch_idxes_,  // NOLINT(cppcoreguidelines-missing-std-forward
     DstBranchIdxes&&
@@ -584,12 +593,13 @@ void* Namespace::FindPrevExcl(
 
 L1:;
 
-    return (FindPrevIncl)(cntr, branch_idxes, dst_branch_idxes);
+    return cntr.FindPrevIncl(branch_idxes, dst_branch_idxes);
 }
 
-template <CntrTplParamList, typename SrcBranchIdxes, typename DstBranchIdxes>
-void* Namespace::FindNextIncl(
-    Cntr<CntrTplArgList>& cntr,
+template <CntrTplParamList>
+template <typename SrcBranchIdxes, typename DstBranchIdxes>
+constexpr void* Namespace::Cntr<CntrTplArgList>::FindNextIncl(
+    this Cntr& cntr,
     SrcBranchIdxes&&
         src_branch_idxes_,  // NOLINT(cppcoreguidelines-missing-std-forward)
     DstBranchIdxes&&
@@ -727,9 +737,10 @@ void* Namespace::FindNextIncl(
 #endif
 }
 
-template <CntrTplParamList, typename SrcBranchIdxes, typename DstBranchIdxes>
-void* Namespace::FindNextExcl(
-    Cntr<CntrTplArgList>& cntr,
+template <CntrTplParamList>
+template <typename SrcBranchIdxes, typename DstBranchIdxes>
+constexpr void* Namespace::Cntr<CntrTplArgList>::FindNextExcl(
+    this Cntr& cntr,
     SrcBranchIdxes&&
         src_branch_idxes_,  // NOLINT(cppcoreguidelines-missing-std-forward
     DstBranchIdxes&&
@@ -770,12 +781,13 @@ void* Namespace::FindNextExcl(
 
 L1:;
 
-    return (FindNextIncl)(cntr, branch_idxes, dst_branch_idxes);
+    return cntr.FindNextIncl(branch_idxes, dst_branch_idxes);
 }
 
-template <CntrTplParamList, typename BranchIdxesSource>
-pair::Pair<void*, bool> Namespace::Insert(
-    Cntr<CntrTplArgList>& cntr,
+template <CntrTplParamList>
+template <typename BranchIdxesSource>
+constexpr pair::Pair<void*, bool> Namespace::Cntr<CntrTplArgList>::Insert(
+    this Cntr& cntr,
     BranchIdxesSource&&
         src_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward)
 ) {
@@ -864,7 +876,7 @@ pair::Pair<void*, bool> Namespace::Insert(
         last_branch_idx) };
 
     if (newly_inserted) {
-        ++cntr.size;
+        ++cntr.elem_cnt;
 
         static_cast<EnDataNodeTernary(DataNode, NavNode) < ActiveMap>* >
             (node)->active_map += static_cast<ActiveMap>(1) << last_branch_idx;
@@ -873,9 +885,10 @@ pair::Pair<void*, bool> Namespace::Insert(
     return { .first = addr, .second = newly_inserted };
 }
 
-template <CntrTplParamList, typename BramchIdxSource>
-bool Namespace::Erase(
-    Cntr<CntrTplArgList>& cntr,
+template <CntrTplParamList>
+template <typename BramchIdxSource>
+constexpr bool Namespace::Cntr<CntrTplArgList>::Erase(
+    this Cntr& cntr,
     BramchIdxSource&&
         src_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward)
 ) {
@@ -930,7 +943,7 @@ bool Namespace::Erase(
         return false;
     }
 
-    --cntr.size;
+    --cntr.elem_cnt;
 
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
         node = nodes[level_i];
@@ -967,7 +980,7 @@ bool Namespace::Erase(
 namespace Namespace::detail {
 
 template <CntrTplParamList>
-void EraseAllRecursive_  // NOLINT(misc-use-internal-linkage)
+constexpr void EraseAllRecursive_  // NOLINT(misc-use-internal-linkage)
     (Cntr<CntrTplArgList>& cntr, void* node, unsigned level_i) {
     auto& nav_node_alctr{ meta::GetInstRef(cntr.nav_node_alctr) };
 
@@ -1000,7 +1013,7 @@ void EraseAllRecursive_  // NOLINT(misc-use-internal-linkage)
 }  // namespace Namespace::detail
 
 template <CntrTplParamList>
-void Namespace::EraseAll(Cntr<CntrTplArgList>& cntr) {
+constexpr void Namespace::Cntr<CntrTplArgList>::EraseAll(this Cntr& cntr) {
     detail::CheckCntr_(cntr);
 
     unsigned level{ cntr.level };
@@ -1010,13 +1023,13 @@ void Namespace::EraseAll(Cntr<CntrTplArgList>& cntr) {
 
     detail::EraseAllRecursive_(cntr, root, level - 1);
 
-    cntr.size = 0;
+    cntr.elem_cnt = 0;
     cntr.root = nullptr;
 }
 
 namespace Namespace::detail {
 
-template <typename ActiveMap>
+template <integral::IsUnsignedIntegral ActiveMap>
 size_t SanitizeRecursive_  // NOLINT(
                            // misc-no-recursion,
                            // misc-use-internal-linkage)
@@ -1046,7 +1059,8 @@ size_t SanitizeRecursive_  // NOLINT(
 
         for (unsigned i{ 0 }; i < branch_nums[0]; ++i) {
             k += detail::TestActiveMap_(
-                static_cast<DataNode<ActiveMap>*>(node)->active_map, i);
+                static_cast<DataNode<ActiveMap>*>(node)->active_map,
+                static_cast<BranchNum>(i));
         }
 
         ZETA_Core_DebugAssert(k == ret);
@@ -1108,11 +1122,11 @@ size_t SanitizeRecursive_  // NOLINT(
 }  // namespace Namespace::detail
 
 template <CntrTplParamList>
-void Namespace::Sanitize(Cntr<CntrTplArgList>& cntr,
-                         mem_recorder::MemRecorder* dst_nav_node
+constexpr void Namespace::Cntr<CntrTplArgList>::Sanitize(
+    this Cntr& cntr, mem_recorder::MemRecorder* dst_nav_node
 #if EnDataNode
-                         ,
-                         mem_recorder::MemRecorder* dst_data_node
+    ,
+    mem_recorder::MemRecorder* dst_data_node
 #endif
 ) {
 #if !ZETA_Core_EnableDebug
@@ -1155,7 +1169,7 @@ void Namespace::Sanitize(Cntr<CntrTplArgList>& cntr,
 #endif
                                        root) };
 
-    ZETA_Core_DebugAssert(size == cntr.size);
+    ZETA_Core_DebugAssert(size == cntr.elem_cnt);
 
     if (origin_dst_nav_node != dst_nav_node) {
         mem_recorder::Destroy(dst_nav_node);

@@ -3,40 +3,41 @@
 #include <zeta/core/elem_stream.hpp>
 #include <zeta/core/error.hpp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/value_wrapper.hpp>
+#include <zeta/core/serde_utils.hpp>
 
 namespace zeta::core::vlq_utils {
 
 template <integral::IsIntegral Integral, size_t UnitWidth>
     requires requires { requires 2 <= UnitWidth; }
 constexpr size_t EstimateSerializedUnitCnt(
-    Integral value,
-    value_wrapper::StaticValueWrapper<size_t, UnitWidth> unit_width);
+    Integral value, meta::ValueWrapper<size_t, UnitWidth> unit_width);
 
-template <integral::IsIntegral Integral, typename EndiannessLike,
+template <integral::IsIntegral Integral,
+          serde_utils::IsEndiannessType EndiannessType,
           integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
-          typename Acceptor>
+          elem_stream::acceptor::IsAcceptor Acceptor>
     requires requires {
         requires 2 <= UnitWidth;
         requires UnitWidth <= integral::WidthOf<UnitIntegral>;
     }
-bool SerializeIntegral(
-    Integral src_value, EndiannessLike endianness_like,
-    meta::TypeWrapper<UnitIntegral> unit_integral,
-    value_wrapper::StaticValueWrapper<size_t, UnitWidth> unit_width,
-    bool allow_lossy, Acceptor&& acceptor, error::Error* dst_error);
+bool SerializeIntegral(Integral src_value, EndiannessType endianness,
+                       meta::TypeWrapper<UnitIntegral> unit_integral,
+                       meta::ValueWrapper<size_t, UnitWidth> unit_width,
+                       bool allow_lossy, Acceptor&& acceptor,
+                       error::Error* dst_error);
 
-template <integral::IsIntegral Integral, typename EndiannessLike,
+template <integral::IsIntegral Integral,
+          serde_utils::IsEndiannessType EndiannessType,
           integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
-          typename Provider>
+          elem_stream::provider::IsProvider Provider>
     requires requires {
         requires 2 <= UnitWidth;
         requires UnitWidth <= integral::WidthOf<UnitIntegral>;
     }
-bool DeserializeIntegral(
-    Integral& dst_value, EndiannessLike endianness_like,
-    meta::TypeWrapper<UnitIntegral> unit_integral,
-    value_wrapper::StaticValueWrapper<size_t, UnitWidth> unit_width,
-    bool allow_lossy, Provider&& provider, error::Error* dst_error);
+bool DeserializeIntegral(Integral& dst_value, EndiannessType endianness,
+                         meta::TypeWrapper<UnitIntegral> unit_integral,
+                         meta::ValueWrapper<size_t, UnitWidth> unit_width,
+                         bool allow_lossy, Provider&& provider,
+                         error::Error* dst_error);
 
 }  // namespace zeta::core::vlq_utils

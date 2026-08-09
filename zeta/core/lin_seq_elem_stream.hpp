@@ -38,12 +38,12 @@ namespace zeta::core {
 
 template <>
 struct elem_stream::provider::ProviderTraits<lin_seq_elem_stream::Provider>
-    : elem_stream::provider::DefaultProviderTraits<
+    : elem_stream::provider::MemberFuncProviderTraitsAdapter<
           lin_seq_elem_stream::Provider> {};
 
 template <>
 struct elem_stream::acceptor::AcceptorTraits<lin_seq_elem_stream::Acceptor>
-    : elem_stream::acceptor::DefaultAcceptorTraits<
+    : elem_stream::acceptor::MemberFuncAcceptorTraitsAdapter<
           lin_seq_elem_stream::Acceptor> {};
 
 }  // namespace zeta::core

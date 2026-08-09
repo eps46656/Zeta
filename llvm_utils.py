@@ -11,7 +11,7 @@ import typing
 import beartype
 import clang.cindex
 
-from . import utils
+from . import building_utils, utils
 
 
 @beartype.beartype
@@ -215,7 +215,7 @@ class LLVMCompilerConfig:
 
 
 @beartype.beartype
-class LLVMCompiler:
+class LLVMToolchain:
     def __init__(self, config: LLVMCompilerConfig):
         self.verbose = config.verbose
 
@@ -317,7 +317,7 @@ class LLVMCompiler:
             *compile_args,
 
             *(
-                f"{key}={value}"
+                f"-D{key}={value}"
                 for key, value in config.c_defines.items()
             ),
 
@@ -337,7 +337,7 @@ class LLVMCompiler:
             *compile_args,
 
             *(
-                f"{key}={value}"
+                f"-D{key}={value}"
                 for key, value in config.cpp_defines.items()
             ),
 
@@ -613,7 +613,7 @@ class LLVMCompiler:
 class DirectIncludeFileRepo:
     def __init__(
         self,
-        llvm_compiler: LLVMCompiler,
+        llvm_compiler: LLVMToolchain,
         records: dict[str, typing.Any],
     ):
         self.llvm_compiler = llvm_compiler
@@ -621,7 +621,7 @@ class DirectIncludeFileRepo:
 
     @staticmethod
     def from_json_file(
-        llvm_compiler: LLVMCompiler,
+        llvm_compiler: LLVMToolchain,
         path: utils.PathLike,
     ) -> DirectIncludeFileRepo:
         path = utils.to_pathlib_path(path)
@@ -660,3 +660,232 @@ class DirectIncludeFileRepo:
             utils.to_pathlib_path(_)
             for _ in self.records[path_str]["include_files"]
         ]
+
+
+@beartype.beartype
+@dataclasses.dataclass
+class ModuleContext:
+    builder: building_utils.Builder
+    llvm_toolchain: LLVMToolchain
+    base_dir: pathlib.Path
+    build_dir: pathlib.Path
+    config_name: str
+    commom_deps: typing.Sequence[object]
+
+    build_nodes: dict[typing.Hashable, building_utils.BuildNode]
+
+
+@beartype.beartype
+class CCPPFileBuildNode(building_utils.BuildNode):
+    def __init__(
+        self,
+        module_context: ModuleContext,
+        file: utils.PathLike,
+        langs: utils.Language | typing.Iterable[utils.Language],
+        additional_deps: set[object],
+    ) -> None:
+        self.module_context = module_context
+
+        self.file = utils.to_canon_path(file, solve_symlink=True)
+
+        self.langs: tuple[utils.Language] = \
+            (langs,) if isinstance(langs, utils.Language) \
+            else tuple(sorted(set(langs)))
+
+        self.additional_deps: set[object] = set(additional_deps)
+
+        self.cached_parsed_tu: typing.Optional[clang.cindex.TranslationUnit] = None
+
+    @functools.cached_property
+    def get_identity(self) -> tuple[str, str]:
+        return (self.file.as_posix(), self.module_context.config_name)
+
+    @functools.cached_property
+    def get_time_source(self) -> pathlib.Path:
+        return self.file
+
+    @functools.cached_property
+    def get_deps(self) -> set[pathlib.Path]:
+        cache_file = self.module_context.build_dir / \
+            self.module_context.config_name / \
+            f"{self.file.name}.file_including_files.json"
+
+        if cache_file.is_file() and \
+                1e-3 <= cache_file.stat().st_mtime - self.file.stat().st_mtime:
+            include_files = [
+                utils.to_canon_path(val, solve_symlink=True)
+                for val in utils.read_json(cache_file)
+            ]
+        else:
+            include_files: set[pathlib.Path] = set()
+
+            for lang in self.langs:
+                for include_file in get_include_files(
+                        self.module_context.llvm_toolchain.parse_ast(
+                            self.file, lang)):
+                    if include_file.is_relative_to(self.module_context.base_dir):
+                        include_files.add(include_file)
+
+            include_files = sorted(include_files)
+
+            utils.write_json(cache_file, [
+                val.as_posix() for val in include_files
+            ])
+
+        return {
+            *self.module_context.commom_deps,
+
+            *(
+                (val.as_posix(), self.module_context.config_name)
+                for val in include_files
+            ),
+
+            *self.additional_deps,
+        }
+
+    def build(self) -> None:
+        print(f"Checking {self.file}...")
+
+
+T = typing.TypeVar("T", bound=building_utils.BuildNode)
+
+
+@beartype.beartype
+def try_add_build_node_into_module(
+    module_context: ModuleContext,
+    build_node: T,
+) -> tuple[T, bool]:
+    if build_node.get_identity() in module_context.build_nodes:
+        old_build_node = module_context.build_nodes[build_node.get_identity()]
+        assert build_node == old_build_node
+        return (old_build_node, False)
+
+    module_context.build_nodes[build_node.get_identity()] = build_node
+    module_context.builder.add_build_node(build_node)
+    return (build_node, True)
+
+
+@beartype.beartype
+def add_c_cpp_file_build_node(
+    module_context: ModuleContext,
+    c_cpp_file: utils.PathLike,
+    langs: utils.Language | typing.Iterable[utils.Language],
+    additional_deps: typing.Sequence[typing.Hashable],
+) -> tuple[CCPPFileBuildNode, bool]:
+    c_cpp_file = utils.to_canon_path(c_cpp_file, solve_symlink=True)
+
+    build_node = CCPPFileBuildNode(
+        module_context,
+        c_cpp_file,
+        langs,
+        additional_deps,
+    )
+
+    return typing.cast(
+        tuple[CCPPFileBuildNode, bool],
+        try_add_build_node_into_module(module_context, build_node),
+    )
+
+
+@beartype.beartype
+def add_c_cpp_file_to_bc_file_build_node(
+    module_context: ModuleContext,
+    bc_file: utils.PathLike,
+    c_cpp_file: utils.PathLike,
+    lang: utils.Language,
+    additional_deps: typing.Sequence[typing.Hashable],
+) -> tuple[building_utils.BuildNode, bool]:
+    bc_file = utils.to_canon_path(bc_file, solve_symlink=True)
+
+    assert lang.base != lang
+    assert lang.enmacro != lang
+
+    c_cpp_file_build_node = add_c_cpp_file_build_node(
+        module_context, c_cpp_file, lang)[0]
+
+    identity = (bc_file.as_posix(), module_context.config_name)
+
+    time_source = bc_file
+
+    deps = {
+        *module_context.commom_deps,
+        c_cpp_file_build_node.get_identity(),
+        *additional_deps,
+    }
+
+    build_node = building_utils.BasicBuildNode(
+        get_identity=lambda: identity,
+        get_time_source=lambda: time_source,
+        get_deps=lambda: deps,
+        build=lambda: module_context.llvm_toolchain.compile_to_bc(
+            bc_file, c_cpp_file, lang),
+    )
+
+    return typing.cast(
+        tuple[building_utils.BuildNode, bool],
+        try_add_build_node_into_module(module_context, build_node),
+    )
+
+
+@beartype.beartype
+def add_c_cpp_module(
+    module_context: ModuleContext,
+    dir: utils.PathLike,
+    module_name: str,
+    build_dir: utils.PathLike,
+):
+    dir = utils.to_canon_path(dir, solve_symlink=True)
+    build_dir = utils.to_canon_path(build_dir, solve_symlink=True)
+
+    h_file = dir / f"{module_name}.h"
+    hpp_file = dir / f"{module_name}.hpp"
+    ipp_file = dir / f"{module_name}.ipp"
+    c_file = dir / f"{module_name}.c"
+    cpp_file = dir / f"{module_name}.cpp"
+    bc_file = build_dir / module_context.config_name / f"{module_name}.bc"
+
+    assert not c_file.exists() or not cpp_file.exists()
+
+    is_macro = module_name.endswith(".mpp")
+
+    if h_file.exists():
+        add_c_cpp_file_build_node(
+            h_file,
+            utils.Language.MACRO_C_HEADER
+            if is_macro else utils.Language.C_HEADER
+        )
+
+    if hpp_file.exists():
+        add_c_cpp_file_build_node(
+            hpp_file,
+            utils.Language.MACRO_CPP_HEADER
+            if is_macro else utils.Language.CPP_HEADER
+        )
+
+    if ipp_file.exists():
+        add_c_cpp_file_build_node(
+            ipp_file,
+            utils.Language.MACRO_CPP_HEADER
+            if is_macro else utils.Language.CPP_HEADER
+        )
+
+    if c_file.exists():
+        add_c_cpp_file_build_node(
+            c_file,
+            utils.Language.MACRO_C_SOURCE
+            if is_macro else utils.Language.C_SOURCE
+        )
+
+        if not is_macro:
+            add_c_cpp_file_to_bc_file_build_node(
+                bc_file, c_file, utils.Language.C_SOURCE)
+
+    if cpp_file.exists():
+        add_c_cpp_file_build_node(
+            cpp_file,
+            utils.Language.MACRO_CPP_SOURCE
+            if is_macro else utils.Language.CPP_SOURCE
+        )
+
+        if not is_macro:
+            add_c_cpp_to_bc(bc_file, cpp_file, utils.Language.CPP_SOURCE)

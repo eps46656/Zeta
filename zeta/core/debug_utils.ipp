@@ -84,10 +84,12 @@ namespace zeta::core {
 
 namespace debug_utils::detail {
 
-template <unsigned Numeral, typename UnsignedIntegral>
-std::string IntegralToStr_(UnsignedIntegral value) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<UnsignedIntegral>);
-
+template <integral::IsIntegral Value, unsigned Numeral>
+    requires requires {
+        requires Numeral == 2 || Numeral == 8 || Numeral == 10 || Numeral == 16;
+    }
+std::string IntegralToStr_(Value value, bool sign,
+                           meta::ValueWrapper<unsigned, Numeral>) {
     ZETA_Core_StaticAssert(Numeral == 2 || Numeral == 8 || Numeral == 10 ||
                            Numeral == 16);
 
@@ -102,15 +104,28 @@ std::string IntegralToStr_(UnsignedIntegral value) {
     case 16: sep_size = 2; break;
     }
 
+    using UnsignedValue = integral::MakeUnsignedOf<Value>;
+
+    bool is_neg{ value < 0 };
+
+    UnsignedValue un_value{ is_neg ? static_cast<UnsignedValue>(-value)
+                                   : static_cast<UnsignedValue>(value) };
+
     std::string str;
 
-    for (; 0 < value; value /= Numeral) {
+    for (; 0 < un_value; un_value /= Numeral) {
         if (str.size() % (sep_size + 1) == sep_size) { str.push_back('\''); }
 
-        str.push_back(c[value % Numeral]);
+        str.push_back(c[un_value % Numeral]);
     }
 
     if (str.empty()) { str.push_back('0'); }
+
+    if (is_neg) {
+        str.push_back('-');
+    } else if (sign) {
+        str.push_back('+');
+    }
 
     std::reverse(str.begin(), str.end());
 
@@ -159,30 +174,23 @@ struct debug_utils::VarPrinter<
 
         bool is_signed{ integral::IsSignedIntegral<T> };
 
-        using UnProcValue = integral::MakeUnsignedOf<decltype(proc_value)>;
-
-        UnProcValue un_proc_value;
-
-        if (is_signed) {
-            un_proc_value = static_cast<UnProcValue>(
-                proc_value < 0 ? -proc_value : proc_value);
-        } else {
-            un_proc_value = static_cast<UnProcValue>(proc_value);
-        }
-
         os << Format(std::right, dec_width)
            << (is_signed ? proc_value < 0 ? '-' : '+' : ' ')
-           << detail::IntegralToStr_<10>(un_proc_value) << "d";
+           << detail::IntegralToStr_(proc_value, is_signed,
+                                     meta::AutoValueWrapper<10U>{})
+           << "d";
 
         os << space_str;
 
         os << Format(std::right, dec_width)
-           << (is_signed ? proc_value < 0 ? '-' : '+' : ' ')
-           << detail::IntegralToStr_<16>(un_proc_value) << "h";
+           << detail::IntegralToStr_(proc_value, is_signed,
+                                     meta::AutoValueWrapper<16U>{})
+           << "h";
 
         os << Format(std::right, dec_width)
-           << (is_signed ? proc_value < 0 ? '-' : '+' : ' ')
-           << detail::IntegralToStr_<2>(un_proc_value) << "b";
+           << detail::IntegralToStr_(proc_value, is_signed,
+                                     meta::AutoValueWrapper<2U>{})
+           << "b";
 
         if constexpr (meta::IsAnySame<T, char*, char const*>) {
             os << space_str << "\"" << value << "\"";
@@ -257,61 +265,6 @@ inline void debug_utils::ClearDebugStrStream() {
     debug_str_stream.str("");
     debug_str_stream.clear();
 }
-
-/*
-template <typename Iterator>
-Iterator debug_utils::FindEnclosedBlock(Iterator iter) {
-    char first_c{ *iter };
-
-    switch (first_c) {
-    case '\'':
-    case '\"':
-    case '(':
-    case '[':
-    case '{':
-    default: ZETA_Core_DebugAssert(false);
-    }
-
-    std::string stack;
-    stack.push_back(first_c);
-
-    while (!stack.empty()) {
-        char c{ *(++iter) };
-
-        if (stack.back() == '\'') {
-            if (c == '\'') { stack.pop_back(); }
-            continue;
-        }
-
-        if (stack.back() == '\"') {
-            if (c == '\"') { stack.pop_back(); }
-            continue;
-        }
-
-        switch (c) {
-        case '\'':
-        case '\"':
-        case '(':
-        case '[':
-        case '{': stack.push_back(c); break;
-        case ')':
-            ZETA_Core_DebugAssert(stack.back() == '(');
-            stack.pop_back();
-            break;
-        case ']':
-            ZETA_Core_DebugAssert(stack.back() == '[');
-            stack.pop_back();
-            break;
-        case '}':
-            ZETA_Core_DebugAssert(stack.back() == '{');
-            stack.pop_back();
-            break;
-        }
-    }
-
-    return iter;
-}
-*/
 
 }  // namespace zeta::core
 

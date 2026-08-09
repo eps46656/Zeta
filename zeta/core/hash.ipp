@@ -8,38 +8,18 @@
 namespace zeta::core {
 
 template <typename Hasher, typename Value>
-constexpr unsigned long long hash::HasherTraits<Hasher, Value>::Hash(
-    Hasher const& hasher, Value const& value, unsigned long long salt) {
-    return hasher(value, salt);
-}
-
-template <typename Hasher, typename Value>
+    requires hash::CanHash<Hasher, Value>
 constexpr unsigned long long hash::Hash(Hasher const& hasher,
                                         Value const& value,
                                         unsigned long long salt) {
-    return HasherTraits<Hasher, Value>::Hash(hasher, value, salt);
+    return HasherTraits<Hasher>::Hash(hasher, value, salt);
 }
 
-template <typename Hasher, typename Value>
-void hash::CheckContract() {
-#pragma push_macro("CheckMethod")
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CheckMethod(method, ...)                                   \
-    ZETA_Core_Unused([&](Hasher const& hasher, Value const& value, \
-                         unsigned long long salt) {                \
-        ZETA_Core_Unused(hasher);                                  \
-        ZETA_Core_Unused(value);                                   \
-        ZETA_Core_Unused(salt);                                    \
-        (method)(__VA_ARGS__);                                     \
-    })
-
-    CheckMethod(  //
-        Hash,     // method
-                  //
-        hasher,   // hasher
-        value,    // value
-        salt      // salt
-    );
+template <typename Hasher>
+template <typename Value>
+constexpr decltype(auto) hash::MemberFuncHasherTraitsAdapter<Hasher>::Hash(
+    Hasher const& hasher, Value const& value) {
+    return hasher.Hash(value);
 }
 
 template <typename Value>
@@ -48,38 +28,19 @@ unsigned long long hash::BasicHash(Value const& value,
     return (Hash)(BasicHasher<Value>{}, value, salt);
 }
 
-template <typename Value>
-constexpr unsigned long long hash::UniversalBasicHasher::operator()(
-    Value const& value, unsigned long long salt) const {
-    return (BasicHash<Value>)(value, salt);
-}
+template <integral::IsIntegral Integral>
+struct hash::HasherTraits<hash::BasicHasher<Integral>> {
+    static unsigned long long Hash(Integral integral, unsigned long long salt) {
+        auto unsigned_integral{ integral::MakeUnsignedOf<Integral>{
+            integral } };
 
-template <typename Value>
-unsigned long long hash::TypeErasedBasicHash(void const* value,
-                                             unsigned long long salt) {
-    return (BasicHash<Value>)(*static_cast<Value const*>(value), salt);
-}
+        unsigned long long value{ salt };
 
-template <typename Value>
-size_t hash::CppStdBasicHash<Value>::operator()(Value const& value) const {
-    return static_cast<size_t>((BasicHash<Value>)(value, 0));
-}
-
-template <typename Value>
-struct hash::BasicHasher<
-    Value, meta::EnableIf<
-               (integral::IsIntegral<Value> || meta::IsPointer<Value>), void>> {
-    unsigned long long operator()(Value const& value_,
-                                  unsigned long long salt) const {
-        unsigned long long value;
-
-        if constexpr (integral::IsIntegral<Value>) {
-            value = static_cast<unsigned long long>(value_);
-        } else if constexpr (meta::IsPointer<Value>) {
-            value = reinterpret_cast<unsigned long long>(value_);
+        for (; 0 < unsigned_integral;
+             unsigned_integral >>= integral::WidthOf<Integral>) {
+            value *= 23;
+            value += static_cast<unsigned long long>(integral);
         }
-
-        value ^= salt;
 
 #if ZETA_Core_ullong_width == 32
         value = (value ^ (value >> 16)) * 0x45d9f3bULL;
@@ -98,5 +59,34 @@ struct hash::BasicHasher<
         return value;
     }
 };
+
+template <meta::IsPointer Pointer>
+struct hash::HasherTraits<hash::BasicHasher<Pointer>> {
+    static unsigned long long Hash(void* const pointer,
+                                   unsigned long long salt) {
+        return (BasicHash)(reinterpret_cast<uintptr_t>(pointer), salt);
+    }
+};
+
+template <>
+struct hash::HasherTraits<hash::UniversalBasicHasher> {
+    template <typename Value>
+    static constexpr unsigned long long Hash(hash::UniversalBasicHasher const&,
+                                             Value const& value,
+                                             unsigned long long salt) {
+        return (BasicHash)(value, salt);
+    }
+};
+
+template <typename Value>
+unsigned long long hash::TypeErasedBasicHash(void const* value,
+                                             unsigned long long salt) {
+    return (BasicHash<Value>)(*static_cast<Value const*>(value), salt);
+}
+
+template <typename Value>
+size_t hash::CppStdBasicHash<Value>::operator()(Value const& value) const {
+    return static_cast<size_t>((BasicHash<Value>)(value, 0));
+}
 
 }  // namespace zeta::core

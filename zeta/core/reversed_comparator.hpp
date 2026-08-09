@@ -9,32 +9,32 @@ struct ReversedComparator {
     Comparator const& cmptr;
 
     template <typename A, typename B>
-    int Compare(comparison::ComparisonTypeEnum::ThreeWay, A const& a,
+    int Compare(comparison::comparison_type::tag::ThreeWay, A const& a,
                 B const& b) const;
 
     template <typename A, typename B>
-    bool Compare(comparison::ComparisonTypeEnum::EqualTo, A const& a,
+    bool Compare(comparison::comparison_type::tag::Equal, A const& a,
                  B const& b) const;
 
     template <typename A, typename B>
-    bool Compare(comparison::ComparisonTypeEnum::NotEqualTo, A const& a,
+    bool Compare(comparison::comparison_type::tag::NotEqual, A const& a,
                  B const& b) const;
 
     template <typename A, typename B>
-    bool Compare(comparison::ComparisonTypeEnum::Less, A const& a,
+    bool Compare(comparison::comparison_type::tag::Less, A const& a,
                  B const& b) const;
 
     template <typename A, typename B>
-    bool Compare(comparison::ComparisonTypeEnum::LessEqual, A const& a,
+    bool Compare(comparison::comparison_type::tag::LessEqual, A const& a,
                  B const& b) const;
 
     template <typename A, typename B>
-    bool Compare(comparison::ComparisonTypeEnum::Greater, A const& a,
+    bool Compare(comparison::meta::AutoValueWrapper<Op::Greater>, A const& a,
                  B const& b) const;
 
     template <typename A, typename B>
-    bool Compare(comparison::ComparisonTypeEnum::GreaterEqual, A const& a,
-                 B const& b) const;
+    bool Compare(comparison::meta::AutoValueWrapper<Op::Greater> Equal,
+                 A const& a, B const& b) const;
 };
 
 template <typename Comparator>

@@ -40,7 +40,7 @@ class Config:
 
 @beartype.beartype
 def add_deps(builder: building_utils.Builder, config: Config):
-    compiler = llvm_utils.LLVMCompiler(llvm_utils.LLVMCompilerConfig(
+    compiler = llvm_utils.LLVMToolchain(llvm_utils.LLVMCompilerConfig(
         verbose=config.verbose,
 
         target=config.target,
@@ -332,7 +332,6 @@ def add_deps(builder: building_utils.Builder, config: Config):
         "test_datetime",
         CPP,
         {
-            zeta_core_out_dir / "datetime.bc",
         },
     )
 
@@ -532,7 +531,6 @@ def add_deps(builder: building_utils.Builder, config: Config):
             # zeta_core_out_dir / "seq_cntr.bc",
             # zeta_core_out_dir / "staging_vector.bc",
             zeta_core_out_dir / "mem_recorder.bc",
-            zeta_core_out_dir / "utils.bc",
             out_dir / "timer.bc",
         },
     )

@@ -2,60 +2,211 @@
 
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
-
-#if ZETA_Core_ullong_width == 32
-
-#define ZETA_Core_DateTime_min_year (-400 * 16)
-#define ZETA_Core_DateTime_max_year (+400 * (32 - 16))
-
-#elif ZETA_Core_ullong_width == 64
-
-#define ZETA_Core_DateTime_min_year (-400 * 16)
-#define ZETA_Core_DateTime_max_year (+400 * (1024 - 16))
-
-#else
-
-#error "Unsupported architecture."
-
-#endif
-
-ZETA_Core_StaticAssert(ZETA_Core_DateTime_min_year % 400 == 0);
+#include <zeta/core/pair.hpp>
 
 namespace zeta::core::datetime {
 
-struct Date;
-struct DateTime;
+using BaseIntegral = long long;
 
-struct Date {
-    int year;  // ZETA_Core_DateTime_min_year ~ ZETA_Core_DateTime_max_year
-    unsigned char month;  // 1 ~ 12
-    unsigned char day;    // 1 ~ 31
+constexpr BaseIntegral year_range_half{ integral::RangeMinOf<BaseIntegral> /
+                                        86400 / 8 };
+
+constexpr BaseIntegral global_year_base{ 2000 };
+
+constexpr BaseIntegral year_range_min{ global_year_base - year_range_half };
+
+constexpr BaseIntegral year_range_max{ global_year_base + year_range_half };
+
+enum struct TimeStandard : unsigned char {
+    GMT = 0,
+    UTC = 1,
 };
 
-struct DateTime {
-    int year;  // ZETA_Core_DateTime_min_year ~ ZETA_Core_DateTime_max_year
-    unsigned char month;  // 1 ~ 12
-    unsigned char day;    // 1 ~ 31
+template <typename T>
+concept IsTimeStandardType =
+    meta::IsAnySame<T, TimeStandard, meta::AutoValueWrapper<TimeStandard::GMT>,
+                    meta::AutoValueWrapper<TimeStandard::UTC>>;
 
-    unsigned char hour;  // 0 ~ 23
-    unsigned char min;   // 0 ~ 59
-    unsigned char sec;   // 0 ~ 60
+struct HourMinSec {
+    unsigned hour : 5;  // 0 ~ 23
+    unsigned min : 6;   // 0 ~ 59
+    unsigned sec : 6;   // 0 ~ 60
 
-    u32_t us;  // 0 ~ 999999
+    constexpr bool operator==(HourMinSec const& other) const = default;
+    constexpr bool operator!=(HourMinSec const& other) const = default;
 };
 
-unsigned long long DateToAbsDay(Date date);
+}  // namespace zeta::core::datetime
 
-Date AbsDayToDate(unsigned long long abs_day);
+namespace zeta::core {
 
-int GetDayInWeek(Date date);
+template <>
+struct comparison::ComparatorTraits<
+    comparison::BasicComparator<datetime::HourMinSec, datetime::HourMinSec>> {
+    template <IsOpType OpType>
+    static constexpr auto Compare(auto const&, OpType,
+                                  datetime::HourMinSec const& a,
+                                  datetime::HourMinSec const& b);
+};
 
-unsigned long long UTCDateTimeToAbsUs(DateTime datetime);
+template <>
+struct comparison::EnableNativeOperatorByBasicComparison<datetime::HourMinSec,
+                                                         datetime::HourMinSec> {
+    static constexpr bool enable_equal{ false };
+    static constexpr bool enable_not_equal{ false };
+    static constexpr bool enable_less{ true };
+    static constexpr bool enable_less_equal{ true };
+    static constexpr bool enable_greater{ true };
+    static constexpr bool enable_greater_equal{ true };
+};
 
-DateTime AbsUsToUTCDateTime(unsigned long long abs_us);
+}  // namespace zeta::core
 
-unsigned long long GMTDateTimeToAbsUs(DateTime datetime);
+namespace zeta::core::datetime {
 
-DateTime AbsUsToGMTDateTime(unsigned long long abs_us);
+struct MonthDay {
+    unsigned month : 4;  // 1 ~ 12
+    unsigned day : 5;    // 1 ~ 31
+
+    constexpr bool operator==(MonthDay const& other) const = default;
+    constexpr bool operator!=(MonthDay const& other) const = default;
+};
+
+}  // namespace zeta::core::datetime
+
+namespace zeta::core {
+
+template <>
+struct comparison::ComparatorTraits<
+    comparison::BasicComparator<datetime::MonthDay, datetime::MonthDay>> {
+    template <IsOpType OpType>
+    static constexpr auto Compare(auto const&, OpType,
+                                  datetime::MonthDay const& a,
+                                  datetime::MonthDay const& b);
+};
+
+template <>
+struct comparison::EnableNativeOperatorByBasicComparison<datetime::MonthDay,
+                                                         datetime::MonthDay> {
+    static constexpr bool enable_equal{ false };
+    static constexpr bool enable_not_equal{ false };
+    static constexpr bool enable_less{ true };
+    static constexpr bool enable_less_equal{ true };
+    static constexpr bool enable_greater{ true };
+    static constexpr bool enable_greater_equal{ true };
+};
+
+}  // namespace zeta::core
+
+namespace zeta::core::datetime {
+
+struct YearMonthDay {
+    BaseIntegral year;
+    unsigned month : 4;  // 1 ~ 12
+    unsigned day : 5;    // 1 ~ 31
+
+    constexpr bool IsValid(this YearMonthDay const& self);
+
+    constexpr bool operator==(YearMonthDay const& other) const = default;
+    constexpr bool operator!=(YearMonthDay const& other) const = default;
+};
+
+}  // namespace zeta::core::datetime
+
+namespace zeta::core {
+
+template <>
+struct comparison::ComparatorTraits<comparison::BasicComparator<
+    datetime::YearMonthDay, datetime::YearMonthDay>> {
+    template <IsOpType OpType>
+    static constexpr auto Compare(auto const&, OpType,
+                                  datetime::YearMonthDay const& a,
+                                  datetime::YearMonthDay const& b);
+};
+
+template <>
+struct comparison::EnableNativeOperatorByBasicComparison<
+    datetime::YearMonthDay, datetime::YearMonthDay> {
+    static constexpr bool enable_equal{ false };
+    static constexpr bool enable_not_equal{ false };
+    static constexpr bool enable_less{ true };
+    static constexpr bool enable_less_equal{ true };
+    static constexpr bool enable_greater{ true };
+    static constexpr bool enable_greater_equal{ true };
+};
+
+}  // namespace zeta::core
+
+namespace zeta::core::datetime {
+
+struct YearMonthDayHourMinSec {
+    BaseIntegral year;
+    unsigned month : 4;  // 1 ~ 12
+    unsigned day : 5;    // 1 ~ 31
+
+    unsigned hour : 5;  // 0 ~ 23
+    unsigned min : 6;   // 0 ~ 59
+    unsigned sec : 6;   // 0 ~ 60
+
+    template <IsTimeStandardType TimeStandardType>
+    constexpr bool IsValid(this YearMonthDayHourMinSec const& self,
+                           TimeStandardType time_standard_like);
+
+    constexpr bool operator==(YearMonthDayHourMinSec const& other) const =
+        default;
+
+    constexpr bool operator!=(YearMonthDayHourMinSec const& other) const =
+        default;
+};
+
+}  // namespace zeta::core::datetime
+
+namespace zeta::core {
+
+template <>
+struct comparison::ComparatorTraits<comparison::BasicComparator<
+    datetime::YearMonthDayHourMinSec, datetime::YearMonthDayHourMinSec>> {
+    template <IsOpType OpType>
+    static constexpr auto Compare(auto const&, OpType,
+                                  datetime::YearMonthDayHourMinSec const& a,
+                                  datetime::YearMonthDayHourMinSec const& b);
+};
+
+template <>
+struct comparison::EnableNativeOperatorByBasicComparison<
+    datetime::YearMonthDayHourMinSec, datetime::YearMonthDayHourMinSec> {
+    static constexpr bool enable_equal{ false };
+    static constexpr bool enable_not_equal{ false };
+    static constexpr bool enable_less{ true };
+    static constexpr bool enable_less_equal{ true };
+    static constexpr bool enable_greater{ true };
+    static constexpr bool enable_greater_equal{ true };
+};
+
+}  // namespace zeta::core
+
+namespace zeta::core::datetime {
+
+constexpr bool IsLeapYear(BaseIntegral year);
+
+constexpr unsigned GetYearDayOffsetFromMonthDay(bool is_leap_year,
+                                                MonthDay const& md);
+
+constexpr MonthDay GetMonthDayFromYearDayOffset(bool is_leap_year,
+                                                unsigned day_offset_in_year);
+
+constexpr BaseIntegral GetGlobalDayOffsetFromYearMonthDay(
+    YearMonthDay const& ymd);
+
+constexpr YearMonthDay GetYearMonthDayFromGlobalDayOffset(
+    BaseIntegral global_day_offset);
+
+template <IsTimeStandardType TimeStandardType>
+constexpr BaseIntegral GetGlobalSecOffsetFromYearMonthDay(
+    TimeStandardType time_standard, YearMonthDayHourMinSec const& ymdhms);
+
+template <IsTimeStandardType TimeStandardType>
+constexpr YearMonthDayHourMinSec GetYearMonthDayHourMinSecFromGlobalSecOffset(
+    TimeStandardType time_standard, BaseIntegral global_sec_offset);
 
 }  // namespace zeta::core::datetime

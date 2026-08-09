@@ -1,22 +1,35 @@
 #pragma once
 
+#include <zeta/core/integral.hpp>
 #include <zeta/core/lifecycle.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/tuple.hpp>
 
 namespace zeta::core {
 
-template <typename T, typename En>
-constexpr void lifecycle::Traits<T, En>::Init(T&) {}
+template <integral::IsIntegral Integral>
+struct lifecycle::Traits<Integral> {
+    static constexpr void Init(Integral&) {}
 
-template <typename T, typename En>
-template <typename Arg>
-constexpr void lifecycle::Traits<T, En>::Init(T& obj, Arg&& arg) {
-    obj = meta::Forward<Arg>(arg);
-}
+    template <integral::IsIntegral InitIntegral>
+    static constexpr void Init(Integral& obj, InitIntegral& i) {
+        obj = i;
+    }
 
-template <typename T, typename En>
-constexpr void lifecycle::Traits<T, En>::Deinit(T&) {}
+    static constexpr void Deinit(Integral&) {}
+};
+
+template <typename T>
+template <typename... Args>
+constexpr void lifecycle::MemberFuncTraitsAdapter<T>::Init(T& obj,
+                                                           Args&&... args) {
+    obj.Init(meta::Forward<Args>(args)...);
+};
+
+template <typename T>
+constexpr void lifecycle::MemberFuncTraitsAdapter<T>::Deinit(T& obj) {
+    obj.Deinit();
+};
 
 template <typename... Args>
 constexpr auto lifecycle::MakeInitArgsTuple(Args&&... args) {
@@ -28,7 +41,7 @@ constexpr void lifecycle::Init(T&, SkipInitTag) {}
 
 template <typename T, typename... Args>
 constexpr void lifecycle::Init(T& obj, Args&&... args) {
-    Traits<T, void>::Init(obj, meta::Forward<Args>(args)...);
+    Traits<T>::Init(obj, meta::Forward<Args>(args)...);
 }
 
 namespace lifecycle::detail {
@@ -62,7 +75,7 @@ constexpr void lifecycle::Init(T& obj, InitArgsTuple<Args...>&& t) {
 
 template <typename T, typename... Args>
 constexpr void lifecycle::Deinit(T& obj) {
-    Traits<T, void>::Deinit(obj);
+    Traits<T>::Deinit(obj);
 }
 
 }  // namespace zeta::core

@@ -7,28 +7,12 @@
 
 namespace zeta::core::object_state_notation {
 
-struct NodeTypeEnum {
-    using Value = unsigned char;
-
-    struct Null {
-        static constexpr Value value{ 0 };
-    };
-
-    struct Integral {
-        static constexpr Value value{ 1 };
-    };
-
-    struct IntegralList {
-        static constexpr Value value{ 2 };
-    };
-
-    struct NodeList {
-        static constexpr Value value{ 3 };
-    };
-
-    struct Terminator {
-        static constexpr Value value{ 4 };
-    };
+enum struct NodeTypeEnum : unsigned char {
+    Null = 0,
+    Integral = 1,
+    IntegralList = 2,
+    NodeList = 3,
+    Terminator = 4,
 };
 
 constexpr unsigned min_region_attr_size{ 4 };
@@ -81,7 +65,7 @@ struct Config {
 };
 
 struct NodeTag {
-    NodeTypeEnum::Value node_type;
+    NodeTypeEnum node_type;
     bool has_name;
     bool has_obj_type;
     bool has_region;
@@ -121,60 +105,23 @@ bool DeserializeHeaderFromOctets(Provider&& provider, Header& dst_header);
 namespace state_machine {
 
 struct SerializationStateMachineBase {
-    struct StateEnum {
-        using Value = unsigned char;
-
-        struct ReceivingNodeTag {
-            static constexpr Value value{ 0 };
-        };
-
-        struct ReceivingNodeTagOrTermination {
-            static constexpr Value value{ 1 };
-        };
-
-        struct ReceivingNameString {
-            static constexpr Value value{ 2 };
-        };
-
-        struct ReceivingObjTypeString {
-            static constexpr Value value{ 3 };
-        };
-
-        struct ReceivingRegionAttr {
-            static constexpr Value value{ 4 };
-        };
-
-        struct ReceivingIntegralDescriptor {
-            static constexpr Value value{ 5 };
-        };
-
-        struct ReceivingListElemCnt {
-            static constexpr Value value{ 6 };
-        };
-
-        struct ReceivingIntegral {
-            static constexpr Value value{ 7 };
-        };
-
-        struct ReceivingIntegralOrTermination {
-            static constexpr Value value{ 8 };
-        };
-
-        struct ReceivingTermination {
-            static constexpr Value value{ 9 };
-        };
-
-        struct Completed {
-            static constexpr Value value{ 10 };
-        };
-
-        struct Corrupted {
-            static constexpr Value value{ static_cast<unsigned char>(-1) };
-        };
+    enum struct StateEnum : unsigned char {
+        ReceivingNodeTag = 0,
+        ReceivingNodeTagOrTermination = 1,
+        ReceivingNameString = 2,
+        ReceivingObjTypeString = 3,
+        ReceivingRegionAttr = 4,
+        ReceivingIntegralDescriptor = 5,
+        ReceivingListElemCnt = 6,
+        ReceivingIntegral = 7,
+        ReceivingIntegralOrTermination = 8,
+        ReceivingTermination = 9,
+        Completed = 10,
+        Corrupted = static_cast<unsigned char>(-1),
     };
 
-    static constexpr StateEnum::Value FindNextState_(StateEnum::Value cur_state,
-                                                     NodeTag const& node_tag);
+    static constexpr StateEnum FindNextState_(StateEnum cur_state,
+                                              NodeTag const& node_tag);
 };
 
 template <elem_stream::acceptor::IsAcceptor Acceptor>
@@ -183,7 +130,7 @@ struct SerializeToOctetsStateMachine : public SerializationStateMachineBase {
 
     Config config;
 
-    StateEnum::Value state;
+    StateEnum state;
 
     unsigned short depth;
 
@@ -234,52 +181,21 @@ struct SerializeToOctetsStateMachine : public SerializationStateMachineBase {
 };
 
 struct DeserializationStateMachineBase {
-    struct StateEnum {
-        using Value = unsigned char;
-
-        struct SendingNodeTag {
-            static constexpr Value value{ 0 };
-        };
-
-        struct SendingNameString {
-            static constexpr Value value{ 2 };
-        };
-
-        struct SendingObjTypeString {
-            static constexpr Value value{ 3 };
-        };
-
-        struct SendingRegionAttr {
-            static constexpr Value value{ 4 };
-        };
-
-        struct SendingIntegralDescriptor {
-            static constexpr Value value{ 5 };
-        };
-
-        struct SendingListElemCnt {
-            static constexpr Value value{ 6 };
-        };
-
-        struct SendingIntegral {
-            static constexpr Value value{ 7 };
-        };
-
-        struct SendingTermination {
-            static constexpr Value value{ 9 };
-        };
-
-        struct Completed {
-            static constexpr Value value{ 10 };
-        };
-
-        struct Corrupted {
-            static constexpr Value value{ static_cast<unsigned char>(-1) };
-        };
+    enum struct StateEnum : unsigned char {
+        SendingNodeTag = 0,
+        SendingNameString = 2,
+        SendingObjTypeString = 3,
+        SendingRegionAttr = 4,
+        SendingIntegralDescriptor = 5,
+        SendingListElemCnt = 6,
+        SendingIntegral = 7,
+        SendingTermination = 9,
+        Completed = 10,
+        Corrupted = static_cast<unsigned char>(-1),
     };
 
-    static constexpr StateEnum::Value FindNextState_(StateEnum::Value cur_state,
-                                                     NodeTag const& node_tag);
+    static constexpr StateEnum FindNextState_(StateEnum cur_state,
+                                              NodeTag const& node_tag);
 };
 
 template <elem_stream::provider::IsProvider Provider>
@@ -289,7 +205,7 @@ struct DeserializeFromOctetsStateMachine
 
     Config config;
 
-    StateEnum::Value state;
+    StateEnum state;
 
     unsigned short depth;
 

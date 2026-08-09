@@ -1,190 +1,165 @@
 #pragma once
 
 #include <zeta/core/assoc_cntr.hpp>
-#include <zeta/core/define.hpp>
+#include <zeta/core/lifecycle.hpp>
 
 namespace zeta::core::assoc_cntr_ref {
 
 struct Ref {
     size_t cursor_size;
 
-    size_t width;
-    size_t capacity;
+    size_t elem_size;
+    size_t max_elem_cnt;
 
-    assoc_cntr::CapabilityFlag dynamic_enabled_capability_flag;
-    assoc_cntr::CapabilityFlag dynamic_disabled_capability_flag;
+    assoc_cntr::capability::Flag dynamic_enabled_capability_flag;
+    assoc_cntr::capability::Flag dynamic_disabled_capability_flag;
 
     assoc_cntr::VTable const* vtable;
 
     void* cntr;
+
+    constexpr Ref() = default;
+
+    constexpr Ref(Ref const&) = default;
+
+    constexpr Ref(Ref&&) = default;
+
+    template <assoc_cntr::IsAssocCntr Cntr>
+    constexpr Ref(Cntr& cntr);
+
+    constexpr Ref& operator=(Ref const&) = default;
+
+    constexpr Ref& operator=(Ref&&) = default;
+
+    template <assoc_cntr::IsAssocCntr Cntr>
+    constexpr void Init(this Ref& ref, Cntr& cntr);
+
+    constexpr void* GetReferedInstPtr(this Ref const& ref);
+
+    constexpr size_t GetCursorSize(this Ref const&);
+
+    constexpr size_t GetElemSize(this Ref const& ref);
+
+    constexpr size_t GetSride(this Ref const& ref);
+
+    constexpr size_t GetOffset(this Ref const& ref);
+
+    constexpr size_t GetElemCnt(this Ref const& ref);
+
+    constexpr size_t GetMaxElemCnt(this Ref const& ref);
+
+    constexpr void GetLBCursor(this Ref const& ref, void* dst_cursor);
+
+    constexpr void GetRBCursor(this Ref const& ref, void* dst_cursor);
+
+    constexpr void PeekL(this Ref const& ref, bool lazy_copy_elem,
+                         assoc_cntr::ElemPtrView* dst_elem_ptr_view,
+                         void* dst_cursor, void* dst_elem);
+
+    constexpr void PeekR(this Ref const& ref, bool lazy_copy_elem,
+                         assoc_cntr::ElemPtrView* dst_elem_ptr_view,
+                         void* dst_cursor, void* dst_elem);
+
+    constexpr void Derefer(this Ref const& ref, void* pos_cursor,
+                           bool lazy_copy_elem,
+                           assoc_cntr::ElemPtrView* dst_elem_ptr_view,
+                           void* dst_elem);
+
+    template <
+        hash::CanHash<void const*> KeyHasher,
+        comparison::CanCompare<void const*, void const*> KeyElemComparator>
+    constexpr void Find(this Ref const& ref, void const* key,
+                        KeyHasher const& key_hasher,
+                        KeyElemComparator const& key_elem_cmptr,
+                        bool lazy_copy_elem,
+                        assoc_cntr::ElemPtrView* dst_elem_ptr_view,
+                        void* dst_cursor, void* dst_elem);
+
+    template <
+        hash::CanHash<void const*> KeyHasher,
+        comparison::CanCompare<void const*, void const*> KeyElemComparator,
+        assoc_cntr::IsWriter Writer>
+    constexpr void* Insert(this Ref& ref, void const* key,
+                           KeyHasher const& key_hasher,
+                           KeyElemComparator const& key_elem_cmptr,
+                           Writer&& writer, void* dst_cursor);
+
+    constexpr void PopL(this Ref& ref, size_t cnt);
+
+    constexpr void PopR(this Ref& ref, size_t cnt);
+
+    constexpr void Erase(this Ref& ref, void* pos_cursor);
+
+    constexpr void EraseAll(this Ref& ref);
+
+    constexpr void CopyCursor(this Ref const& ref, void* src_cursor,
+                              void* dst_cursor);
+
+    constexpr bool AreEqualCursor(this Ref const& ref, void const* cursor_a,
+                                  void const* cursor_b);
+
+    constexpr comparison::Ordering CompareCursor(this Ref const& ref,
+                                                 void const* cursor_a,
+                                                 void const* cursor_b);
+
+    constexpr size_t GetCursorDist(this Ref const& ref, void const* cursor_a,
+                                   void const* cursor_b);
+
+    constexpr size_t GetCursorIdx(this Ref const& ref, void const* cursor);
+
+    constexpr void CursorStepL(this Ref const& ref, void* cursor);
+
+    constexpr void CursorStepR(this Ref const& ref, void* cursor);
+
+    constexpr void CursorAdvanceL(this Ref const& ref, void* cursor,
+                                  size_t step);
+
+    constexpr void CursorAdvanceR(this Ref const& ref, void* cursor,
+                                  size_t step);
+
+    constexpr void Check(this Ref const& ref);
 };
-
-assoc_cntr::CapabilityFlag GetDynamicEnabledCapabilityFlag(Ref& ref);
-
-assoc_cntr::CapabilityFlag GetDynamicEnabledCapabilityFlag(Ref const& ref);
-
-assoc_cntr::CapabilityFlag GetDynamicDisabledCapabilityFlag(Ref& ref);
-
-assoc_cntr::CapabilityFlag GetDynamicDisabledCapabilityFlag(Ref const& ref);
-
-size_t GetCursorSize(Ref const&);
-
-size_t GetElemSize(Ref const& ref);
-
-size_t GetSride(Ref const& ref);
-
-size_t GetOffset(Ref const& ref);
-
-size_t GetElemCnt(Ref const& ref);
-
-size_t GetMaxElemCnt(Ref const& ref);
-
-void GetLBCursor(Ref const& ref, void* dst_cursor);
-
-void GetRBCursor(Ref const& ref, void* dst_cursor);
-
-void* PeekL(Ref const& ref, bool lazy_copy_elem, void* dst_cursor,
-            void* dst_elem);
-
-void* PeekR(Ref const& ref, bool lazy_copy_elem, void* dst_cursor,
-            void* dst_elem);
-
-void* Access(Ref const& ref, size_t idx, bool lazy_copy_elem, void* dst_cursor,
-             void* dst_elem);
-
-void* Derefer(Ref const& ref, void* pos_cursor, bool lazy_copy_elem,
-              void* dst_elem);
-
-template <typename KeyHash, typename KeyElemCompare>
-void* Find(Ref const& ref, void const* key, KeyHash&& key_hash,
-           KeyElemCompare&& key_elem_compare, bool lazy_copy_elem,
-           void* dst_cursor, void* dst_elem);
-
-void* Insert(Ref& ref, void const* elem, void* dst_cursor);
-
-void PopL(Ref& ref, size_t cnt);
-
-void PopR(Ref& ref, size_t cnt);
-
-void Erase(Ref& ref, void* pos_cursor);
-
-void EraseAll(Ref& ref);
-
-void CopyCursor(Ref const& ref, void* src_cursor, void* dst_cursor);
-
-bool AreEqualCursor(Ref const& ref, void const* cursor_a, void const* cursor_b);
-
-int CompareCursor(Ref const& ref, void const* cursor_a, void const* cursor_b);
-
-size_t GetCursorDist(Ref const& ref, void const* cursor_a,
-                     void const* cursor_b);
-
-size_t GetCursorIdx(Ref const& ref, void const* cursor);
-
-void CursorStepL(Ref const& ref, void* cursor);
-
-void CursorStepR(Ref const& ref, void* cursor);
-
-void CursorAdvanceL(Ref const& ref, void* cursor, size_t step);
-
-void CursorAdvanceR(Ref const& ref, void* cursor, size_t step);
-
-void CheckRef(Ref& ref);
-
-template <typename AssocCntr>
-Ref MakeRef(AssocCntr& cntr);
 
 }  // namespace zeta::core::assoc_cntr_ref
 
 namespace zeta::core {
 
 template <>
-struct assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const> {
-    static void* GetReferedInstPtr(assoc_cntr_ref::Ref const& ref);
-
-    static constexpr assoc_cntr::CapabilityFlag
-    GetStaticEnabledCapabilityFlag();
-
-    static constexpr assoc_cntr::CapabilityFlag
-    GetStaticDisabledCapabilityFlag();
-
-    static constexpr assoc_cntr::CapabilityFlag GetDynamicEnabledCapabilityFlag(
-        assoc_cntr_ref::Ref const& ref);
-
-    static constexpr assoc_cntr::CapabilityFlag
-    GetDynamicDisabledCapabilityFlag(assoc_cntr_ref::Ref const& ref);
-
-    static size_t GetCursorSize(assoc_cntr_ref::Ref const& ref);
-
-    static size_t GetElemSize(assoc_cntr_ref::Ref const& ref);
-
-    static size_t GetElemCnt(assoc_cntr_ref::Ref const& ref);
-
-    static size_t GetMaxElemCnt(assoc_cntr_ref::Ref const& ref);
-
-    static void GetLBCursor(assoc_cntr_ref::Ref const& ref, void* dst_cursor);
-
-    static void GetRBCursor(assoc_cntr_ref::Ref const& ref, void* dst_cursor);
-
-    static void* PeekL(assoc_cntr_ref::Ref const& ref, bool lazy_copy_elem,
-                       void* dst_cursor, void* dst_elem);
-
-    static void* PeekR(assoc_cntr_ref::Ref const& ref, bool lazy_copy_elem,
-                       void* dst_cursor, void* dst_elem);
-
-    static void* Derefer(assoc_cntr_ref::Ref const& ref, void* pos_cursor,
-                         bool lazy_copy_elem, void* dst_elem);
-
-    template <typename KeyHash, typename KeyElemCompare>
-    static void* Find(assoc_cntr_ref::Ref const& ref, void const* key,
-                      KeyHash&& key_hash, KeyElemCompare&& key_elem_compare,
-                      bool lazy_copy_elem, void* dst_cursor, void* dst_elem);
-
-    static void CopyCursor(assoc_cntr_ref::Ref const& ref, void* src_cursor,
-                           void* dst_cursor);
-
-    static bool AreEqualCursor(assoc_cntr_ref::Ref const& ref,
-                               void const* cursor_a, void const* cursor_b);
-
-    static int CompareCursor(assoc_cntr_ref::Ref const& ref,
-                             void const* cursor_a, void const* cursor_b);
-
-    static size_t GetCursorDist(assoc_cntr_ref::Ref const& ref,
-                                void const* cursor_a, void const* cursor_b);
-
-    static size_t GetCursorIdx(assoc_cntr_ref::Ref const& ref,
-                               void const* cursor);
-
-    static void CursorStepL(assoc_cntr_ref::Ref const& ref, void* cursor);
-
-    static void CursorStepR(assoc_cntr_ref::Ref const& ref, void* cursor);
-
-    static void CursorAdvanceL(assoc_cntr_ref::Ref const& ref, void* cursor,
-                               size_t step);
-
-    static void CursorAdvanceR(assoc_cntr_ref::Ref const& ref, void* cursor,
-                               size_t step);
-};
+struct lifecycle::Traits<assoc_cntr_ref::Ref>
+    : public lifecycle::MemberFuncTraitsAdapter<assoc_cntr_ref::Ref> {};
 
 template <>
 struct assoc_cntr::CntrTraits<assoc_cntr_ref::Ref>
-    : public assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const> {
-    static constexpr assoc_cntr::CapabilityFlag
+    : public assoc_cntr::MemberFuncCntrTraitsAdapter<assoc_cntr_ref::Ref,
+                                                     void> {
+    static constexpr assoc_cntr::capability::Flag
     GetStaticEnabledCapabilityFlag();
 
-    static constexpr assoc_cntr::CapabilityFlag
+    static constexpr assoc_cntr::capability::Flag
     GetStaticDisabledCapabilityFlag();
 
-    static void* Insert(assoc_cntr_ref::Ref& ref, void const* elem,
-                        void* dst_cursor);
+    static constexpr assoc_cntr::capability::Flag
+    GetDynamicEnabledCapabilityFlag(assoc_cntr_ref::Ref& ref);
 
-    static void PopL(assoc_cntr_ref::Ref& ref, size_t cnt);
+    static constexpr assoc_cntr::capability::Flag
+    GetDynamicDisabledCapabilityFlag(assoc_cntr_ref::Ref& ref);
+};
 
-    static void PopR(assoc_cntr_ref::Ref& ref, size_t cnt);
+template <>
+struct assoc_cntr::CntrTraits<assoc_cntr_ref::Ref const>
+    : public assoc_cntr::MemberFuncCntrTraitsAdapter<assoc_cntr_ref::Ref const,
+                                                     void> {
+    static constexpr assoc_cntr::capability::Flag
+    GetStaticEnabledCapabilityFlag();
 
-    static void Erase(assoc_cntr_ref::Ref& ref, void* pos_cursor);
+    static constexpr assoc_cntr::capability::Flag
+    GetStaticDisabledCapabilityFlag();
 
-    static void EraseAll(assoc_cntr_ref::Ref& ref);
+    static constexpr assoc_cntr::capability::Flag
+    GetDynamicEnabledCapabilityFlag(assoc_cntr_ref::Ref const& ref);
+
+    static constexpr assoc_cntr::capability::Flag
+    GetDynamicDisabledCapabilityFlag(assoc_cntr_ref::Ref const& ref);
 };
 
 }  // namespace zeta::core

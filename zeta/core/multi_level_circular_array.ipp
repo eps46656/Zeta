@@ -73,7 +73,7 @@ void CheckCursor_(Cntr<CntrTplArgList> const& cntr, Cursor const* cursor) {
     ZETA_Core_DebugAssert(cursor != nullptr);
 
     Cursor re_cursor;
-    (Refer)(cntr, cursor->idx, true, nullptr, &re_cursor, nullptr);
+    cntr.Refer(cursor->idx, true, nullptr, &re_cursor, nullptr);
 
     ZETA_Core_DebugAssert(*cursor == re_cursor);
 }
@@ -158,7 +158,8 @@ void Access_(Cntr<CntrTplArgList> const& cntr, size_t idx, bool lazy_copy_elem,
 
     auto& node_alctr{ meta::GetInstRef(cntr.node_alctr) };
 
-    ZETA_Core_DebugAssert(seq_cntr::IsReferable(idx, 1, elem_cnt));
+    ZETA_Core_DebugAssert(
+        seq_cntr::check_operation::CanRefer(idx, 1, elem_cnt));
 
     if (idx == static_cast<size_t>(-1) || idx == elem_cnt) {
         if (dst_elem_ptr_view != nullptr) {
@@ -281,14 +282,12 @@ ACCESS_FROM_MLPT: {
             .nav_node_alctr = node_alctr,
         };
 
-    n = static_cast<Node*>(*static_cast<void**>(multi_level_ptr_table::Refer(
-        mlpt,
-        SrcBranchIdxes_{
-            .seg_idx = tree_seg_offset + seg_idx,
-            .rots = rots + (level - 1),
-            .branch_num = branch_num,
-            .acc_branch_num = TableMeta<branch_num>::acc_branch_nums[level - 1],
-        })));
+    n = static_cast<Node*>(*static_cast<void**>(mlpt.Refer(SrcBranchIdxes_{
+        .seg_idx = tree_seg_offset + seg_idx,
+        .rots = rots + (level - 1),
+        .branch_num = branch_num,
+        .acc_branch_num = TableMeta<branch_num>::acc_branch_nums[level - 1],
+    })));
 
     goto END;
 }
@@ -1318,7 +1317,8 @@ void multi_level_circular_array::Insert(Cntr<CntrTplArgList>& cntr,
         Node* old_l_n{ llist::GetR(head_n) };
         size_t old_l_seg_elem_slot_idx{ tree_elem_offset % seg_elem_slot_cnt };
 
-        detail::Push_<0>(cntr, cnt, elem_stream::EmptyProvider{}, dst_cursor);
+        detail::Push_<0>(cntr, cnt, elem_stream::provider::EmptyProvider{},
+                         dst_cursor);
 
         if (cnt < seg_elem_slot_cnt) {
             auto p{ detail::Assign_<1, 1>(elem_size, elem_stride, elem_stride,
@@ -1351,7 +1351,8 @@ void multi_level_circular_array::Insert(Cntr<CntrTplArgList>& cntr,
         break;
     }
     case 1: {
-        detail::Push_<1>(cntr, cnt, elem_stream::EmptyProvider{}, dst_cursor);
+        detail::Push_<1>(cntr, cnt, elem_stream::provider::EmptyProvider{},
+                         dst_cursor);
 
         (Sanitize)(cntr, nullptr, nullptr);
 
@@ -1517,7 +1518,7 @@ template <CntrTplParamList>
 int multi_level_circular_array::CompareCursor(Cntr<CntrTplArgList> const& cntr,
                                               Cursor const* cursor_a,
                                               Cursor const* cursor_b) {
-    return comparison::BasicCompare(comparison::ComparisonTypeEnum::ThreeWay{},
+    return comparison::BasicCompare(comparison::Op::Order,
                                     (GetCursorIdx)(cntr, cursor_a) + 1,
                                     (GetCursorIdx)(cntr, cursor_b) + 1);
 }
@@ -1833,10 +1834,10 @@ void* seq_cntr::CntrTraits<
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::CapabilityFlag
+constexpr seq_cntr::capability::Flag
 seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
     GetStaticEnabledCapabilityFlag() {
-    return seq_cntr::CapabilityFlagBuilder{
+    return seq_cntr::capability::FlagBuilder{
         .GetCursorSize = true,
 
         .GetElemSize = true,
@@ -1881,7 +1882,7 @@ seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::CapabilityFlag
+constexpr seq_cntr::capability::Flag
 seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList> const>::
     GetStaticEnabledCapabilityFlag() {
     return seq_cntr::CntrTraits<multi_level_circular_array::Cntr<
@@ -1890,21 +1891,21 @@ seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList> const>::
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::CapabilityFlag
+constexpr seq_cntr::capability::Flag
 seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList>>::
     GetStaticDisabledCapabilityFlag() {
     return seq_cntr::empty_capability_flag;
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::CapabilityFlag
+constexpr seq_cntr::capability::Flag
 seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList> const>::
     GetStaticDisabledCapabilityFlag() {
     return seq_cntr::non_const_capability_flag;
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::CapabilityFlag
+constexpr seq_cntr::capability::Flag
 seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList> const>::
     GetDynamicEnabledCapabilityFlag(
         multi_level_circular_array::Cntr<CntrTplArgList> const&) {
@@ -1912,7 +1913,7 @@ seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList> const>::
 }
 
 template <CntrTplParamList>
-constexpr seq_cntr::CapabilityFlag
+constexpr seq_cntr::capability::Flag
 seq_cntr::CntrTraits<multi_level_circular_array::Cntr<CntrTplArgList> const>::
     GetDynamicDisabledCapabilityFlag(
         multi_level_circular_array::Cntr<CntrTplArgList> const&) {

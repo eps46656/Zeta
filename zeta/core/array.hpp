@@ -2,8 +2,11 @@
 
 namespace zeta::core::array {
 
-template <typename Elem, size_t N>
+template <typename Elem_, size_t N_>
 struct Array {
+    using Elem = Elem_;
+    static constexpr size_t N{ N_ };
+
     Elem elems[N];
 
     constexpr Elem& operator[](size_t idx) &;

@@ -11,22 +11,16 @@
 #include <zeta/core/integral.hpp>
 #include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/multi_level_ptr_table.hpp>
-#include <zeta/core/value_wrapper.hpp>
-
-#pragma push_macro("CntrTplDeclParamList")
-#define CntrTplDeclParamList                                \
-    typename NodeHasherLike_, typename NodeComparatorLike_, \
-        typename SaltRandomEngineLike_, typename TableNodeAllocatorLike_
 
 #pragma push_macro("CntrTplParamList")
-#define CntrTplParamList                                  \
-    typename NodeHasherLike, typename NodeComparatorLike, \
-        typename SaltRandomEngineLike, typename TableNodeAllocatorLike
+#define CntrTplParamList(suffix)                                  \
+    typename HasherLike##suffix, typename ComparatorLike##suffix, \
+        typename SaltRandomEngineLike##suffix,                    \
+        typename TableNodeAllocatorLike##suffix
 
 #pragma push_macro("CntrTplArgList")
-#define CntrTplArgList                                        \
-    NodeHasherLike, NodeComparatorLike, SaltRandomEngineLike, \
-        TableNodeAllocatorLike
+#define CntrTplArgList \
+    HasherLike, ComparatorLike, SaltRandomEngineLike, TableNodeAllocatorLike
 
 namespace zeta::core::generic_hash_table {
 
@@ -47,10 +41,9 @@ constexpr array::Array<multi_level_ptr_table::BranchNum, max_level> branch_nums{
     }()
 };
 
-using UFP =
-    fixed_point::FixedPoint<value_wrapper::FalseType,
-                            value_wrapper::StaticValueWrapper<size_t, 16>,
-                            value_wrapper::StaticValueWrapper<size_t, 16>>;
+using UFP = fixed_point::FixedPoint<meta::AutoValueWrapper<false>,
+                                    meta::ValueWrapper<size_t, 16>,
+                                    meta::ValueWrapper<size_t, 16>>;
 
 constexpr size_t min_bucket_size{ 37 };
 
@@ -70,11 +63,11 @@ constexpr UFP min_drift_ratio{ UFP::FromFraction(150U, 100U) };  // 1.5
 constexpr UFP max_drift_ratio{ UFP::FromIntegral(16U) };         // 16
 
 using TreeNode =
-    basic_bin_tree_node::Node<void*,                     // LinkType
-                              value_wrapper::TrueType,   // PColorTag
-                              value_wrapper::FalseType,  // LColorTag
-                              value_wrapper::FalseType,  // RColorTag
-                              value_wrapper::FalseType,  // AccSizeTag
+    basic_bin_tree_node::Node<void*,                          // LinkType
+                              meta::AutoValueWrapper<true>,   // PColorTag
+                              meta::AutoValueWrapper<false>,  // LColorTag
+                              meta::AutoValueWrapper<false>,  // RColorTag
+                              meta::AutoValueWrapper<false>,  // AccSizeTag
                               basic_bin_tree_node::PrimaryColorTagEnum::P>;
 
 }  // namespace zeta::core::generic_hash_table
@@ -116,15 +109,17 @@ struct Node {
 
     TreeNode tn;
 
+    unsigned long long hash_code;
+
     ZETA_Core_DebugStructPadding;
 
     void Init();
 };
 
-template <CntrTplDeclParamList>
+template <CntrTplParamList(_)>
 struct Cntr {
-    using NodeHasherLike = NodeHasherLike_;
-    using NodeComparatorLike = NodeComparatorLike_;
+    using HasherLike = HasherLike_;
+    using ComparatorLike = ComparatorLike_;
     using SaltRandomEngineLike = SaltRandomEngineLike_;
     using TableNodeAllocatorLike = TableNodeAllocatorLike_;
 
@@ -140,66 +135,61 @@ struct Cntr {
     size_t cur_bucket_size;
     size_t nxt_bucket_size;
 
-    size_t size;
+    size_t node_cnt;
 
     RehashingConfig rehashing_config;
 
-    NodeHasherLike node_hasher;
+    HasherLike hasher;
 
-    NodeComparatorLike node_cmptr;
+    ComparatorLike cmptr;
 
     SaltRandomEngineLike salt_random_engine;
 
     TableNodeAllocatorLike table_node_alctr;
+
+    template <typename NodeHashLikeInitArg, typename ComparatorInitArg,
+              typename TableNodeAllocatorInitArg,
+              typename SaltRandomEngineInitArg>
+    void Init(this Cntr& ght, RehashingConfig const& rehashing_config,
+              NodeHashLikeInitArg&& hasher_init_arg,
+              ComparatorInitArg&& cmptr_init_arg,
+              SaltRandomEngineInitArg&& salt_random_engine_init_arg,
+              TableNodeAllocatorInitArg&& table_node_alctr_init_arg);
+
+    void Deinit(this Cntr& ght);
+
+    size_t GetNodeCnt(this Cntr const& ght);
+
+    bool Contain(this Cntr const& ght, Node const* node);
+
+    template <
+        hash::CanHash<void const*> KeyHasher,
+        comparison::CanCompare<void const*, void const*> KeyElemComparator>
+    Node* Find(this Cntr const& ght, void const* key,
+               KeyHasher const& key_hasher,
+               KeyElemComparator const& key_elem_cmptr);
+
+    template <
+        hash::CanHash<void const*> KeyHasher,
+        comparison::CanCompare<void const*, void const*> KeyElemComparator>
+    void Insert(this Cntr& ght, void const* key, KeyHasher const& key_hasher,
+                KeyElemComparator const& key_elem_cmptr, Node* node);
+
+    void Extract(this Cntr& ght, Node* node);
+
+    Node* ExtractAny(this Cntr& ght);
+
+    void ExtractAll(this Cntr& ght);
+
+    bool RunPending(this Cntr& ght, size_t quata);
+
+    auto GetEffFactor(this Cntr const& ght);
+
+    void Sanitize(this Cntr const& ght, mem_recorder::MemRecorder* dst_table,
+                  mem_recorder::MemRecorder* dst_node);
 };
-
-template <CntrTplParamList, typename NodeHashLikeInitArg,
-          typename NodeComparatorInitArg, typename TableNodeAllocatorInitArg,
-          typename SaltRandomEngineInitArg>
-void Init(Cntr<CntrTplArgList>& ght, RehashingConfig const& rehashing_config,
-          NodeHashLikeInitArg&& node_hash_init_arg,
-          NodeComparatorInitArg&& node_compare_init_arg,
-          SaltRandomEngineInitArg&& salt_random_engine_init_arg,
-          TableNodeAllocatorInitArg&& table_node_alctr_init_arg);
-
-template <CntrTplParamList>
-void Deinit(Cntr<CntrTplArgList>& ght);
-
-template <CntrTplParamList>
-size_t GetSize(Cntr<CntrTplArgList> const& ght);
-
-template <CntrTplParamList>
-bool Contain(Cntr<CntrTplArgList> const& ght, Node const* node);
-
-template <CntrTplParamList, typename KeyHash, typename KeyNodeCompare>
-Node* Find(Cntr<CntrTplArgList> const& ght, void const* key,
-           KeyHash const& key_hash, KeyNodeCompare const& key_node_compare);
-
-template <CntrTplParamList>
-void Insert(Cntr<CntrTplArgList>& ght, Node* node);
-
-template <CntrTplParamList>
-void Extract(Cntr<CntrTplArgList>& ght, Node* node);
-
-template <CntrTplParamList>
-Node* ExtractAny(Cntr<CntrTplArgList>& ght);
-
-template <CntrTplParamList>
-void ExtractAll(Cntr<CntrTplArgList>& ght);
-
-template <CntrTplParamList>
-bool RunPending(Cntr<CntrTplArgList>& ght, size_t quata);
-
-template <CntrTplParamList>
-auto GetEffFactor(Cntr<CntrTplArgList> const& ght);
-
-template <CntrTplParamList>
-void Sanitize(Cntr<CntrTplArgList> const& ght,
-              mem_recorder::MemRecorder* dst_table,
-              mem_recorder::MemRecorder* dst_node);
 
 }  // namespace zeta::core::generic_hash_table
 
-#pragma pop_macro("CntrTplDeclParamList")
 #pragma pop_macro("CntrTplParamList")
 #pragma pop_macro("CntrTplArgList")

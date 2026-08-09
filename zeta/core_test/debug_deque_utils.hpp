@@ -33,7 +33,7 @@ SeqCntrRef Create() {
 
     dd->elem_size = sizeof(Elem);
 
-    DebugDequeNS::Init(*dd);
+    dd->Init();
 
     SeqCntrRef seq_cntr_ref{ *dd };
 
@@ -51,7 +51,7 @@ inline void Destroy(void* dd_) {
 
     Pack* pack{ ZETA_Core_MemberToStruct(Pack, debug_deque, dd) };
 
-    DebugDequeNS::Deinit(*dd);
+    dd->Deinit();
 
     delete pack;
 }

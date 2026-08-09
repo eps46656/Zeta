@@ -5,6 +5,7 @@ import pathlib
 import traceback
 import typing
 
+import abc
 import beartype
 
 from . import utils
@@ -81,6 +82,36 @@ class BuildNode:
     path: pathlib.Path
     get_deps: typing.Optional[typing.Callable[[], set[pathlib.Path]]]
     build_unit: typing.Optional[typing.Callable[[], None]]
+
+
+'''
+@beartype.beartype
+class BuildNode(abc.ABC):
+    @abc.abstractmethod
+    def get_identity(self) -> typing.Hashable:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_time_source(self) -> pathlib.Path:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_deps(self) -> set[pathlib.Path]:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def build(self) -> None:
+        raise NotImplementedError()
+'''
+
+
+@beartype.beartype
+@dataclasses.dataclass
+class BasicBuildNode(BuildNode):
+    get_identity: typing.Callable[[], typing.Hashable]
+    get_time_source: typing.Callable[[], pathlib.Path]
+    get_deps: typing.Callable[[], set[pathlib.Path]]
+    build: typing.Callable[[], None]
 
 
 @beartype.beartype

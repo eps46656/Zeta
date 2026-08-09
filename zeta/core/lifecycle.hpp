@@ -4,14 +4,15 @@
 
 namespace zeta::core::lifecycle {
 
-template <typename T, typename = void>
-struct Traits {
-    static constexpr void Init(T&);
+template <typename T>
+struct Traits;
 
-    template <typename Arg>
-    static constexpr void Init(T& obj, Arg&& arg);
+template <typename T>
+struct MemberFuncTraitsAdapter {
+    template <typename... Args>
+    static constexpr void Init(T& obj, Args&&... args);
 
-    static constexpr void Deinit(T&);
+    static constexpr void Deinit(T& obj);
 };
 
 template <typename... Ts>

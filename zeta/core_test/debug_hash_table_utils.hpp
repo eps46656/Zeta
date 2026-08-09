@@ -15,8 +15,9 @@ namespace zeta::core_test::debug_hash_table_utils {
 using AssocCntrRef = core::assoc_cntr_ref::Ref;
 
 namespace DebugHashTableNS = core::debug_hash_table;
-using DebugHashTable = DebugHashTableNS::Cntr<core::assoc_cntr::FnHash,
-                                              core::assoc_cntr::FnCompare>;
+using DebugHashTable =
+    DebugHashTableNS::Cntr<core::fn_hash::FnHasher,
+                           core::fn_comparison::FnComparator>;
 
 struct DebugHashTablePack {
     DebugHashTable debug_ht;
@@ -41,10 +42,9 @@ AssocCntrRef Create() {
     pack->debug_ht.elem_key_eq_proxy.elem_cmptr =
         core::comparison::TypeErasedBasicCompare<Elem, Elem>;
 
-    DebugHashTableNS::Init(pack->debug_ht);
+    pack->debug_ht.Init();
 
-    AssocCntrRef assoc_cntr_ref{ zeta::core::assoc_cntr_ref::MakeRef(
-        pack->debug_ht) };
+    AssocCntrRef assoc_cntr_ref{ pack->debug_ht };
 
     assoc_cntr_utils::AddSanitizeFunc(&pack->debug_ht, Sanitize);
 
@@ -58,7 +58,7 @@ inline void Sanitize(void const*) {}
 inline void Destroy(void* dht_) {
     DebugHashTable* dht{ static_cast<DebugHashTable*>(dht_) };
 
-    DebugHashTableNS::Deinit(*dht);
+    dht->Deinit();
 }
 
 }  // namespace zeta::core_test::debug_hash_table_utils

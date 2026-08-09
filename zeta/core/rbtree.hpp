@@ -1,47 +1,68 @@
 #pragma once
 
+#include <zeta/core/bin_tree.hpp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/mem_recorder.hpp>
 
 namespace zeta::core::rbtree {
 
-template <typename RBTreeNode, typename = void>
-struct NodeTraits;  // IWYU pragma: export
-
 constexpr unsigned black{ 1 };
 constexpr unsigned red{ 2 };
 
 constexpr size_t max_height{ integral::WidthOf<size_t> * 2 };
 
-template <typename BinTreeNode>
-unsigned GetColor(BinTreeNode* n);
+template <typename Node>
+struct NodeTraits;
 
-template <typename BinTreeNode>
-void SetColor(BinTreeNode* n, unsigned color);
+template <typename Node>
+concept IsNode = requires(Node* n, unsigned color) {
+    requires bin_tree::IsNode<Node>;
 
-template <typename RBTreeNode>
-void CheckContract();
+    requires meta::IsSame<
+        meta::RemoveCVRef<decltype(NodeTraits<Node>::GetColor(n))>, unsigned>;
 
-template <typename RBTreeNode>
-RBTreeNode* InsertL(RBTreeNode* pos, RBTreeNode* n);
+    requires bin_tree::IsConst<Node>() ||
+                 meta::IsSame<
+                     meta::RemoveCVRef<decltype(NodeTraits<Node>::SetColor(
+                         n, color))>,
+                     void>;
+};
 
-template <typename RBTreeNode>
-RBTreeNode* InsertR(RBTreeNode* pos, RBTreeNode* n);
+template <typename Node>
+struct MemberFuncNodeTraitsAdapter {
+    static constexpr decltype(auto) GetColor(Node* n);
 
-template <typename RBTreeNode>
-RBTreeNode* Insert(RBTreeNode* pos_l, RBTreeNode* pos_r, RBTreeNode* n);
+    template <typename _ = void>
+        requires meta::IsSame<_, void>
+    static constexpr decltype(auto) SetColor(Node* n, unsigned color);
+};
 
-template <typename RBTreeNode>
-RBTreeNode* GeneralInsertL(RBTreeNode* root, RBTreeNode* pos, RBTreeNode* n);
+template <IsNode Node>
+constexpr unsigned GetColor(Node* n);
 
-template <typename RBTreeNode>
-RBTreeNode* GeneralInsertR(RBTreeNode* root, RBTreeNode* pos, RBTreeNode* n);
+template <IsNode Node>
+constexpr void SetColor(Node* n, unsigned color);
 
-template <typename RBTreeNode>
-RBTreeNode* Extract(RBTreeNode* pos);
+template <IsNode Node>
+constexpr Node* InsertL(Node* pos, Node* n);
 
-template <typename RBTreeNode>
-void Sanitize(mem_recorder::MemRecorder* dst_mr, RBTreeNode* root);
+template <IsNode Node>
+constexpr Node* InsertR(Node* pos, Node* n);
+
+template <IsNode Node>
+constexpr Node* Insert(Node* pos_l, Node* pos_r, Node* n);
+
+template <IsNode Node>
+constexpr Node* GeneralInsertL(Node* root, Node* pos, Node* n);
+
+template <IsNode Node>
+constexpr Node* GeneralInsertR(Node* root, Node* pos, Node* n);
+
+template <IsNode Node>
+constexpr Node* Extract(Node* pos);
+
+template <IsNode Node>
+constexpr void Sanitize(mem_recorder::MemRecorder* dst_mr, Node* root);
 
 }  // namespace zeta::core::rbtree

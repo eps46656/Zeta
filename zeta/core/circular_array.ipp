@@ -5,6 +5,8 @@
 #include <zeta/core/comparison_utils.ipp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
+#include <zeta/core/elem_stream.hpp>
+#include <zeta/core/elem_stream.ipp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/seq_cntr.hpp>
@@ -14,9 +16,9 @@
 
 namespace zeta::core {
 
-inline void* circular_array::Cntr::ReferElem(void* data, size_t elem_stride,
-                                             size_t slot_cnt, size_t rot,
-                                             size_t idx) {
+inline void* circular_array::ReferElem(void* data, size_t elem_stride,
+                                       size_t slot_cnt, size_t rot,
+                                       size_t idx) {
     ZETA_Core_DebugAssert(data != nullptr);
     ZETA_Core_DebugAssert(0 < elem_stride);
     ZETA_Core_DebugAssert(rot < slot_cnt);
@@ -29,9 +31,9 @@ inline void* circular_array::Cntr::ReferElem(void* data, size_t elem_stride,
            elem_stride * (k < slot_cnt ? k : k - slot_cnt);
 }
 
-inline size_t circular_array::Cntr::GetLongestContPred(size_t elem_cnt,
-                                                       size_t slot_cnt,
-                                                       size_t rot, size_t idx) {
+inline size_t circular_array::GetLongestContPred(size_t elem_cnt,
+                                                 size_t slot_cnt, size_t rot,
+                                                 size_t idx) {
     ZETA_Core_DebugAssert(rot == 0 || rot < slot_cnt);
     ZETA_Core_DebugAssert(idx <= elem_cnt);
     ZETA_Core_DebugAssert(elem_cnt <= slot_cnt);
@@ -43,9 +45,9 @@ inline size_t circular_array::Cntr::GetLongestContPred(size_t elem_cnt,
     return ret;
 }
 
-inline size_t circular_array::Cntr::GetLongestContSucr(size_t elem_cnt,
-                                                       size_t slot_cnt,
-                                                       size_t rot, size_t idx) {
+inline size_t circular_array::GetLongestContSucr(size_t elem_cnt,
+                                                 size_t slot_cnt, size_t rot,
+                                                 size_t idx) {
     ZETA_Core_DebugAssert(rot == 0 || rot < slot_cnt);
     ZETA_Core_DebugAssert(idx <= elem_cnt);
     ZETA_Core_DebugAssert(elem_cnt <= slot_cnt);
@@ -77,7 +79,7 @@ inline void CheckCntr_  // NOLINT(misc-use-internal-linkage)
 }
 
 inline void CheckCursor_  // NOLINT(misc-use-internal-linkage)
-    (Cntr const& cntr, void const* cursor_) {
+    (Cntr const& cntr, Cursor const* cursor_) {
     Cursor const* cursor{ static_cast<Cursor const*>(cursor_) };
 
     (CheckCntr_)(cntr);
@@ -96,9 +98,9 @@ inline void CheckCursor_  // NOLINT(misc-use-internal-linkage)
         seq_cntr::check_operation::CanRefer(cursor->idx, 1, elem_cnt));
 
     ZETA_Core_DebugAssert(elem_cnt <= cursor->idx ||
-                          cursor->elem == (Cntr::ReferElem)(data, elem_stride,
-                                                            slot_cnt, rot,
-                                                            cursor->idx));
+                          cursor->elem == (ReferElem)(data, elem_stride,
+                                                      slot_cnt, rot,
+                                                      cursor->idx));
 }
 
 }  // namespace circular_array::detail
@@ -245,9 +247,7 @@ inline size_t circular_array::Cntr::GetMaxElemCnt(this Cntr const& cntr) {
 }
 
 inline void circular_array::Cntr::GetLBCursor(this Cntr const& cntr,
-                                              void* dst_cursor_) {
-    Cursor* dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
+                                              Cursor* dst_cursor) {
     detail::CheckCntr_(cntr);
 
     if (dst_cursor == nullptr) { return; }
@@ -258,9 +258,7 @@ inline void circular_array::Cntr::GetLBCursor(this Cntr const& cntr,
 }
 
 inline void circular_array::Cntr::GetRBCursor(this Cntr const& cntr,
-                                              void* dst_cursor_) {
-    Cursor* dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
+                                              Cursor* dst_cursor) {
     detail::CheckCntr_(cntr);
 
     if (dst_cursor == nullptr) { return; }
@@ -272,9 +270,8 @@ inline void circular_array::Cntr::GetRBCursor(this Cntr const& cntr,
 
 inline void circular_array::Cntr::PeekL(
     this auto&& cntr, bool lazy_copy_elem,
-    seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor_,
+    seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
     void* dst_elem) {
-    Cursor* dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
     detail::CheckCntr_(cntr);
 
     ZETA_Core_DebugAssert(dst_elem_ptr_view != nullptr ||
@@ -319,10 +316,8 @@ inline void circular_array::Cntr::PeekL(
 
 inline void circular_array::Cntr::PeekR(
     this auto&& cntr, bool lazy_copy_elem,
-    seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor_,
+    seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
     void* dst_elem) {
-    Cursor* dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
     detail::CheckCntr_(cntr);
 
     ZETA_Core_DebugAssert(dst_elem_ptr_view != nullptr ||
@@ -368,10 +363,8 @@ inline void circular_array::Cntr::PeekR(
 
 inline void circular_array::Cntr::Refer(
     this auto&& cntr, size_t idx, bool lazy_copy_elem,
-    seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor_,
+    seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
     void* dst_elem) {
-    Cursor* dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
     detail::CheckCntr_(cntr);
 
     ZETA_Core_DebugAssert(dst_elem_ptr_view != nullptr ||
@@ -419,10 +412,8 @@ inline void circular_array::Cntr::Refer(
 }
 
 inline void circular_array::Cntr::Derefer(
-    this auto&& cntr, void const* pos_cursor_, bool lazy_copy_elem,
+    this auto&& cntr, Cursor const* pos_cursor, bool lazy_copy_elem,
     seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_elem) {
-    Cursor const* pos_cursor{ static_cast<Cursor const*>(pos_cursor_) };
-
     detail::CheckCursor_(cntr, pos_cursor);
 
     ZETA_Core_DebugAssert(dst_elem_ptr_view != nullptr || dst_elem != nullptr);
@@ -452,13 +443,14 @@ inline void circular_array::Cntr::Derefer(
 
 namespace circular_array::detail {
 
-template <bool EnWrite, seq_cntr::IsReaderWriter ReaderWriter>
+template <bool EnWrite, typename ReaderWriter>
 void ReadWrite_  // NOLINT(misc-use-internal-linkage)
     (Cntr& cntr, size_t idx, size_t cnt, ReaderWriter&& reader_writer,
      Cursor* dst_cursor) {
     (CheckCntr_)(cntr);
 
     void* data{ cntr.data };
+    size_t elem_size{ cntr.elem_size };
     size_t elem_stride{ cntr.elem_stride };
     size_t rot{ cntr.rot };
     size_t elem_cnt{ cntr.elem_cnt };
@@ -469,12 +461,21 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
 
     while (0 < cnt) {
         size_t cur_cnt{ comparison_utils::BasicMin(
-            cnt, Cntr::GetLongestContSucr(elem_cnt, slot_cnt, rot, idx)) };
+            cnt, (GetLongestContSucr)(elem_cnt, slot_cnt, rot, idx)) };
 
-        reader_writer.Transfer(
-            static_cast<meta::Conditional<EnWrite, void*, void const*>>(
-                Cntr::ReferElem(data, elem_stride, slot_cnt, rot, idx)),
-            elem_stride, cur_cnt);
+        if constexpr (EnWrite) {
+            elem_stream::provider::Transfer(
+                reader_writer,
+                static_cast<void*>(
+                    (ReferElem)(data, elem_stride, slot_cnt, rot, idx)),
+                elem_size, elem_stride, cur_cnt);
+        } else {
+            elem_stream::acceptor::Transfer(
+                reader_writer,
+                static_cast<void const*>(
+                    (ReferElem)(data, elem_stride, slot_cnt, rot, idx)),
+                elem_size, elem_stride, cur_cnt);
+        }
 
         idx += cur_cnt;
         cnt -= cur_cnt;
@@ -483,21 +484,18 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
     if (dst_cursor != nullptr) {
         dst_cursor->cntr = &cntr;
         dst_cursor->idx = idx;
-        dst_cursor->elem = idx < elem_cnt ? Cntr::ReferElem(data, elem_stride,
-                                                            slot_cnt, rot, idx)
-                                          : nullptr;
+        dst_cursor->elem =
+            idx < elem_cnt ? (ReferElem)(data, elem_stride, slot_cnt, rot, idx)
+                           : nullptr;
     }
 }
 
 }  // namespace circular_array::detail
 
 template <seq_cntr::IsReader Reader>
-void circular_array::Cntr::Read(this Cntr const& cntr, void const* pos_cursor_,
+void circular_array::Cntr::Read(this Cntr const& cntr, Cursor const* pos_cursor,
                                 size_t cnt, Reader&& reader,
-                                void* dst_cursor_) {
-    Cursor const* pos_cursor{ static_cast<Cursor const*>(pos_cursor_) };
-    Cursor* dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
+                                Cursor* dst_cursor) {
     detail::CheckCursor_(cntr, pos_cursor);
 
     detail::ReadWrite_<false>(const_cast<Cntr&>(cntr), pos_cursor->idx, cnt,
@@ -505,24 +503,18 @@ void circular_array::Cntr::Read(this Cntr const& cntr, void const* pos_cursor_,
 }
 
 template <seq_cntr::IsWriter Writer>
-void circular_array::Cntr::Write(this Cntr& cntr, void const* pos_cursor_,
+void circular_array::Cntr::Write(this Cntr& cntr, Cursor const* pos_cursor,
                                  size_t cnt, Writer&& writer,
-                                 void* dst_cursor_) {
-    Cursor const* pos_cursor{ static_cast<Cursor const*>(pos_cursor_) };
-    Cursor* dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
+                                 Cursor* dst_cursor) {
     detail::CheckCursor_(cntr, pos_cursor);
 
     detail::ReadWrite_<true>(cntr, pos_cursor->idx, cnt, writer, dst_cursor);
 }
 
 template <seq_cntr::IsReaderWriter ReaderWriter>
-void circular_array::Cntr::ReadWrite(this Cntr& cntr, void const* pos_cursor_,
+void circular_array::Cntr::ReadWrite(this Cntr& cntr, Cursor const* pos_cursor,
                                      size_t cnt, ReaderWriter&& reader_writer,
-                                     void* dst_cursor_) {
-    Cursor const* pos_cursor{ static_cast<Cursor const*>(pos_cursor_) };
-    Cursor* dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
+                                     Cursor* dst_cursor) {
     detail::CheckCursor_(cntr, pos_cursor);
 
     detail::ReadWrite_<true>(cntr, pos_cursor->idx, cnt, reader_writer,
@@ -550,12 +542,11 @@ void circular_array::Cntr::IdxReadWrite(this Cntr& cntr, size_t idx, size_t cnt,
 
 template <seq_cntr::IsWriter Writer>
 void circular_array::Cntr::PushL(this Cntr& cntr, size_t cnt, Writer&& writer,
-                                 void* dst_cursor_) {
-    Cursor* dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
+                                 Cursor* dst_cursor) {
     detail::CheckCntr_(cntr);
 
     void* data{ cntr.data };
+    size_t elem_size{ cntr.elem_size };
     size_t elem_stride{ cntr.elem_stride };
     size_t elem_cnt{ cntr.elem_cnt };
     size_t slot_cnt{ cntr.slot_cnt };
@@ -580,8 +571,9 @@ void circular_array::Cntr::PushL(this Cntr& cntr, size_t cnt, Writer&& writer,
         size_t cur_cnt{ comparison_utils::BasicMin(
             cnt, (GetLongestContSucr)(elem_cnt, slot_cnt, rot, idx)) };
 
-        writer((ReferElem)(data, elem_stride, slot_cnt, rot, idx), elem_stride,
-               cur_cnt);
+        elem_stream::provider::Transfer(
+            writer, (ReferElem)(data, elem_stride, slot_cnt, rot, idx),
+            elem_size, elem_stride, cur_cnt);
 
         idx += cur_cnt;
         cnt -= cur_cnt;
@@ -590,12 +582,11 @@ void circular_array::Cntr::PushL(this Cntr& cntr, size_t cnt, Writer&& writer,
 
 template <seq_cntr::IsWriter Writer>
 void circular_array::Cntr::PushR(this Cntr& cntr, size_t cnt, Writer&& writer,
-                                 void* dst_cursor_) {
-    Cursor* dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
+                                 Cursor* dst_cursor) {
     detail::CheckCntr_(cntr);
 
     void* data{ cntr.data };
+    size_t elem_size{ cntr.elem_size };
     size_t elem_stride{ cntr.elem_stride };
     size_t elem_cnt{ cntr.elem_cnt };
     size_t slot_cnt{ cntr.slot_cnt };
@@ -622,20 +613,18 @@ void circular_array::Cntr::PushR(this Cntr& cntr, size_t cnt, Writer&& writer,
 
         cnt -= cur_cnt;
 
-        writer((ReferElem)(data, elem_stride, slot_cnt, rot, idx), elem_stride,
-               cur_cnt);
+        elem_stream::provider::Transfer(
+            writer, (ReferElem)(data, elem_stride, slot_cnt, rot, idx),
+            elem_size, elem_stride, cur_cnt);
 
         idx += cur_cnt;
     }
 }
 
 template <seq_cntr::IsWriter Writer>
-void circular_array::Cntr::Insert(this Cntr& cntr, void* pos_cursor_,
+void circular_array::Cntr::Insert(this Cntr& cntr, Cursor* pos_cursor,
                                   size_t cnt, Writer&& writer,
-                                  void* dst_cursor_) {
-    Cursor* pos_cursor{ static_cast<Cursor*>(pos_cursor_) };
-    Cursor* dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
-
+                                  Cursor* dst_cursor) {
     detail::CheckCursor_(cntr, pos_cursor);
 
     void* data{ cntr.data };
@@ -743,10 +732,8 @@ void circular_array::Cntr::PopR(this Cntr& cntr, size_t cnt, Reader&& reader) {
 }
 
 template <seq_cntr::IsReader Reader>
-void circular_array::Cntr::Erase(this Cntr& cntr, void* pos_cursor_, size_t cnt,
-                                 Reader&& reader) {
-    Cursor* pos_cursor{ static_cast<Cursor*>(pos_cursor_) };
-
+void circular_array::Cntr::Erase(this Cntr& cntr, Cursor* pos_cursor,
+                                 size_t cnt, Reader&& reader) {
     detail::CheckCursor_(cntr, pos_cursor);
 
     size_t idx{ pos_cursor->idx };
@@ -803,9 +790,8 @@ inline void circular_array::Cntr::EraseAll(this Cntr& cntr) {
 
 inline void circular_array::Cntr::CopyCursor(this Cntr const& cntr,
                                              void const* src_cursor_,
-                                             void* dst_cursor_) {
+                                             Cursor* dst_cursor) {
     Cursor const* src_cursor{ static_cast<Cursor const*>(src_cursor_) };
-    Cursor* dst_cursor{ static_cast<Cursor*>(dst_cursor_) };
 
     detail::CheckCursor_(cntr, src_cursor);
 
@@ -817,27 +803,26 @@ inline void circular_array::Cntr::CopyCursor(this Cntr const& cntr,
 }
 
 inline bool circular_array::Cntr::AreEqualCursor(this Cntr const& cntr,
-                                                 void const* cursor_a,
-                                                 void const* cursor_b) {
+                                                 Cursor const* cursor_a,
+                                                 Cursor const* cursor_b) {
     return cntr.GetCursorIdx(cursor_a) == cntr.GetCursorIdx(cursor_b);
 }
 
-inline int circular_array::Cntr::CompareCursor(this Cntr const& cntr,
-                                               void const* cursor_a,
-                                               void const* cursor_b) {
-    return comparison::BasicCompare(comparison::ComparisonTypeEnum::ThreeWay{},
-                                    cntr.GetCursorIdx(cursor_a) + 1,
-                                    cntr.GetCursorIdx(cursor_b) + 1);
+inline comparison::Ordering circular_array::Cntr::CompareCursor(
+    this Cntr const& cntr, Cursor const* cursor_a, Cursor const* cursor_b) {
+    return comparison::BasicCompare(
+        comparison::comparison_type::tag::ThreeWay{},
+        cntr.GetCursorIdx(cursor_a) + 1, cntr.GetCursorIdx(cursor_b) + 1);
 }
 
 inline size_t circular_array::Cntr::GetCursorDist(this Cntr const& cntr,
-                                                  void const* cursor_a,
-                                                  void const* cursor_b) {
+                                                  Cursor const* cursor_a,
+                                                  Cursor const* cursor_b) {
     return cntr.GetCursorIdx(cursor_b) - cntr.GetCursorIdx(cursor_a);
 }
 
 inline size_t circular_array::Cntr::GetCursorIdx(this Cntr const& cntr,
-                                                 void const* cursor_) {
+                                                 Cursor const* cursor_) {
     Cursor const* cursor{ static_cast<Cursor const*>(cursor_) };
 
     detail::CheckCursor_(cntr, cursor);
@@ -846,17 +831,17 @@ inline size_t circular_array::Cntr::GetCursorIdx(this Cntr const& cntr,
 }
 
 inline void circular_array::Cntr::CursorStepL(this Cntr const& cntr,
-                                              void* cursor) {
+                                              Cursor* cursor) {
     cntr.CursorAdvanceL(cursor, 1);
 }
 
 inline void circular_array::Cntr::CursorStepR(this Cntr const& cntr,
-                                              void* cursor) {
+                                              Cursor* cursor) {
     cntr.CursorAdvanceR(cursor, 1);
 }
 
 inline void circular_array::Cntr::CursorAdvanceL(this Cntr const& cntr,
-                                                 void* cursor_, size_t step) {
+                                                 Cursor* cursor_, size_t step) {
     Cursor* cursor{ static_cast<Cursor*>(cursor_) };
 
     detail::CheckCursor_(cntr, cursor);
@@ -879,7 +864,7 @@ inline void circular_array::Cntr::CursorAdvanceL(this Cntr const& cntr,
 }
 
 inline void circular_array::Cntr::CursorAdvanceR(this Cntr const& cntr,
-                                                 void* cursor_, size_t step) {
+                                                 Cursor* cursor_, size_t step) {
     Cursor* cursor{ static_cast<Cursor*>(cursor_) };
 
     detail::CheckCursor_(cntr, cursor);
@@ -961,9 +946,9 @@ void circular_array::Cntr::AssignFromSeqCntr(this Cntr& cntr, size_t dst_beg,
     }
 }
 
-constexpr seq_cntr::CapabilityFlag
+constexpr seq_cntr::capability::Flag
 seq_cntr::CntrTraits<circular_array::Cntr>::GetStaticEnabledCapabilityFlag() {
-    return seq_cntr::CapabilityFlagBuilder{
+    return seq_cntr::capability::FlagBuilder{
         .GetCursorSize = true,
 
         .GetElemSize = true,
@@ -1007,33 +992,45 @@ seq_cntr::CntrTraits<circular_array::Cntr>::GetStaticEnabledCapabilityFlag() {
     }();
 }
 
-constexpr seq_cntr::CapabilityFlag seq_cntr::CntrTraits<
-    circular_array::Cntr const>::GetStaticEnabledCapabilityFlag() {
-    return seq_cntr::CntrTraits<
-               circular_array::Cntr>::GetStaticEnabledCapabilityFlag() &
-           seq_cntr::const_capability_flag;
-}
-
-constexpr seq_cntr::CapabilityFlag
+constexpr seq_cntr::capability::Flag
 seq_cntr::CntrTraits<circular_array::Cntr>::GetStaticDisabledCapabilityFlag() {
-    return seq_cntr::empty_capability_flag;
+    return seq_cntr::capability::empty_capability_flag;
 }
 
-constexpr seq_cntr::CapabilityFlag seq_cntr::CntrTraits<
+constexpr seq_cntr::capability::Flag
+seq_cntr::CntrTraits<circular_array::Cntr>::GetDynamicEnabledCapabilityFlag(
+    circular_array::Cntr&) {
+    return seq_cntr::capability::empty_capability_flag;
+}
+
+constexpr seq_cntr::capability::Flag
+seq_cntr::CntrTraits<circular_array::Cntr>::GetDynamicDisabledCapabilityFlag(
+    circular_array::Cntr&) {
+    return seq_cntr::capability::empty_capability_flag;
+}
+
+constexpr seq_cntr::capability::Flag seq_cntr::CntrTraits<
+    circular_array::Cntr const>::GetStaticEnabledCapabilityFlag() {
+    return seq_cntr::GetStaticEnabledCapabilityFlag<circular_array::Cntr>() &
+           seq_cntr::capability::const_capability_flag;
+}
+
+constexpr seq_cntr::capability::Flag seq_cntr::CntrTraits<
     circular_array::Cntr const>::GetStaticDisabledCapabilityFlag() {
-    return seq_cntr::non_const_capability_flag;
+    return seq_cntr::GetStaticDisabledCapabilityFlag<circular_array::Cntr>() |
+           seq_cntr::capability::non_const_capability_flag;
 }
 
-constexpr seq_cntr::CapabilityFlag seq_cntr::
+constexpr seq_cntr::capability::Flag seq_cntr::
     CntrTraits<circular_array::Cntr const>::GetDynamicEnabledCapabilityFlag(
         circular_array::Cntr const&) {
-    return seq_cntr::empty_capability_flag;
+    return seq_cntr::capability::empty_capability_flag;
 }
 
-constexpr seq_cntr::CapabilityFlag seq_cntr::
+constexpr seq_cntr::capability::Flag seq_cntr::
     CntrTraits<circular_array::Cntr const>::GetDynamicDisabledCapabilityFlag(
         circular_array::Cntr const&) {
-    return seq_cntr::empty_capability_flag;
+    return seq_cntr::capability::empty_capability_flag;
 }
 
 }  // namespace zeta::core

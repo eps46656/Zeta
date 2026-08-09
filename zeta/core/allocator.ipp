@@ -45,8 +45,6 @@ void allocator::Deallocate(Allocator& alctr, void* ptr) {
 
 template <typename Allocator>
 void* allocator::SafeAllocate(Allocator& alctr, size_t align, size_t size) {
-    (CheckContract)(alctr);
-
     size_t self_align{ (GetAlign)(alctr) };
 
     ZETA_Core_DebugAssert(0 < align);
@@ -58,46 +56,6 @@ void* allocator::SafeAllocate(Allocator& alctr, size_t align, size_t size) {
     ZETA_Core_DebugAssert(__builtin_is_aligned(ptr, self_align));
 
     return ptr;
-}
-
-template <typename Allocator>
-void allocator::CheckContract(Allocator& alctr) {
-#pragma push_macro("CheckMethod")
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CheckMethod(method, ...)                            \
-    ZETA_Core_Unused([&](void* void_ptr, size_t size_val) { \
-        ZETA_Core_Unused(void_ptr);                         \
-        ZETA_Core_Unused(size_val);                         \
-        (method)(__VA_ARGS__);                              \
-    })
-
-    CheckMethod(            //
-        GetReferedInstPtr,  // method
-                            //
-        alctr               // allocator
-    );
-
-    CheckMethod(   //
-        GetAlign,  // method
-                   //
-        alctr      // allocator
-    );
-
-    CheckMethod(   //
-        Allocate,  // method
-                   //
-        alctr,     // allocator
-        size_val   // size
-    );
-
-    CheckMethod(     //
-        Deallocate,  // method
-                     //
-        alctr,       // allocator
-        void_ptr     // ptr
-    );
-
-#pragma push_macro("CheckMethod")
 }
 
 template <typename Allocator>
@@ -115,8 +73,8 @@ constexpr allocator::VTable allocator::BuildVTableBasic() {
     };
 }
 
-template <typename Allocator, typename En>
-constexpr allocator::VTable allocator::BuildVTableImpl<Allocator, En>::Call() {
+template <typename Allocator>
+constexpr allocator::VTable allocator::BuildVTableImpl<Allocator>::Call() {
     return (BuildVTableBasic<Allocator>)();
 }
 

@@ -44,7 +44,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
 
     # --------------------------------------------------------------------------
 
-    compiler = llvm_utils.LLVMCompiler(llvm_utils.LLVMCompilerConfig(
+    tool_chain = llvm_utils.LLVMToolchain(llvm_utils.LLVMCompilerConfig(
         verbose=config.verbose,
 
         target=config.target,
@@ -95,7 +95,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         @functools.cached_property
         def parsed_asts(self) -> dict[utils.Language, clang.cindex.TranslationUnit]:
             return {
-                lang: compiler.parse_ast(self.file, lang)
+                lang: tool_chain.parse_ast(self.file, lang)
                 for lang in self.langs
             }
 
@@ -157,7 +157,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
         builder.add_build_node(
             bc_file,
             lambda: {FILE, c_cpp_file},
-            lambda: compiler.compile_to_bc(
+            lambda: tool_chain.compile_to_bc(
                 bc_file, c_cpp_file, utils.Language.CPP_SOURCE),
         )
 
@@ -232,6 +232,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
     add_c_cpp_module("comparison_utils")
     add_c_cpp_module("comparison")
     add_c_cpp_module("datetime")
+    add_c_cpp_module("datetime")
     add_c_cpp_module("debug_deque")
     add_c_cpp_module("debug_hash_table")
     add_c_cpp_module("debug_utils")
@@ -240,7 +241,9 @@ def add_deps(builder: building_utils.Builder, config: Config):
     add_c_cpp_module("elem_stream")
     add_c_cpp_module("error")
     add_c_cpp_module("fixed_point")
+    add_c_cpp_module("fn_comparison")
     add_c_cpp_module("fn_elem_stream")
+    add_c_cpp_module("fn_hash")
     add_c_cpp_module("function_ref")
     add_c_cpp_module("generic_hash_table")
     add_c_cpp_module("hash_utils")
