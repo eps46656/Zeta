@@ -505,6 +505,9 @@ T& GetInstRef(T& inst) {
 }
 
 template <typename T>
+using GetInstRefType = RemoveRef<decltype(GetInstRef(Declval<T>()))>;
+
+template <typename T>
 T* GetInstPtr(T* inst) {
     return inst;
 }

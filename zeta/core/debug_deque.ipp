@@ -490,7 +490,7 @@ constexpr bool debug_deque::Cntr::AreEqualCursor(this Cntr const& cntr,
 constexpr comparison::Ordering debug_deque::Cntr::CompareCursor(
     this Cntr const& cntr, Cursor const* cursor_a, Cursor const* cursor_b) {
     return comparison::BasicCompare(
-        meta::AutoValueWrapper<comparison::Op::Order>{},
+        meta::AutoValueWrapper<comparison::OpEnum::Order>{},
         cntr.GetCursorIdx(cursor_a) + 1, cntr.GetCursorIdx(cursor_b) + 1);
 }
 

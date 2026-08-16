@@ -20,31 +20,14 @@ concept IsProvider = requires(Provider& provider, void* data, size_t elem_size,
 
     requires meta::IsSame<
         meta::RemoveCVRef<decltype(ProviderTraits<meta::RemoveCVRef<Provider>>::
-                                       GetElemSize(provider))>,
-        size_t>;
+                                       IsEnd(provider))>,
+        bool>;
 
     requires meta::IsSame<
         meta::RemoveCVRef<
             decltype(ProviderTraits<meta::RemoveCVRef<Provider>>::Transfer(
                 provider, data, elem_size, elem_stride, cnt))>,
         size_t>;
-};
-
-template <typename Provider>
-struct MemberFuncProviderTraitsAdapter {
-    static constexpr bool IsEnd(Provider const& provider) {
-        return provider.IsEnd();
-    }
-
-    static constexpr size_t GetElemSize(Provider const& provider) {
-        return provider.GetElemSize();
-    }
-
-    static constexpr size_t Transfer(Provider& provider, void* dst,
-                                     size_t dst_elem_size,
-                                     size_t dst_elem_stride, size_t cnt) {
-        return provider.Transfer(dst, dst_elem_size, dst_elem_stride, cnt);
-    }
 };
 
 template <typename Provider>
@@ -57,14 +40,24 @@ template <typename Provider>
 constexpr size_t Transfer(Provider&& provider, void* dst, size_t dst_elem_size,
                           size_t dst_elem_stride, size_t cnt);
 
+template <typename Provider>
+struct MemberFuncProviderTraitsAdapter {
+    static constexpr size_t GetElemSize(Provider const& provider);
+
+    static constexpr bool IsEnd(Provider const& provider);
+
+    static constexpr size_t Transfer(Provider& provider, void* dst,
+                                     size_t dst_elem_size,
+                                     size_t dst_elem_stride, size_t cnt);
+};
+
 struct EmptyProvider {
-    static constexpr bool IsEnd() { return true; }
+    static constexpr size_t GetElemSize();
 
-    static constexpr size_t GetElemSize() { return 0; }
+    static constexpr bool IsEnd();
 
-    static constexpr size_t Transfer(void*, size_t, size_t, size_t) {
-        return 0;
-    }
+    static constexpr size_t Transfer(void* dst, size_t dst_elem_size,
+                                     size_t dst_elem_stride, size_t cnt);
 };
 
 template <>
@@ -91,31 +84,14 @@ concept IsAcceptor = requires(Acceptor& acceptor, void const* data,
 
     requires meta::IsSame<
         meta::RemoveCVRef<decltype(AcceptorTraits<meta::RemoveCVRef<Acceptor>>::
-                                       GetElemSize(acceptor))>,
-        size_t>;
+                                       IsEnd(acceptor))>,
+        bool>;
 
     requires meta::IsSame<
         meta::RemoveCVRef<
             decltype(AcceptorTraits<meta::RemoveCVRef<Acceptor>>::Transfer(
                 acceptor, data, elem_size, elem_stride, cnt))>,
         size_t>;
-};
-
-template <typename Acceptor>
-struct MemberFuncAcceptorTraitsAdapter {
-    static constexpr size_t IsEnd(Acceptor const& acceptor) {
-        return acceptor.IsEnd();
-    }
-
-    static constexpr size_t GetElemSize(Acceptor const& acceptor) {
-        return acceptor.GetElemSize();
-    }
-
-    static constexpr size_t Transfer(Acceptor& acceptor, void const* src,
-                                     size_t src_elem_size,
-                                     size_t src_elem_stride, size_t cnt) {
-        return acceptor.Transfer(src, src_elem_size, src_elem_stride, cnt);
-    }
 };
 
 template <typename Acceptor>
@@ -129,14 +105,24 @@ constexpr size_t Transfer(Acceptor&& acceptor, void const* src,
                           size_t src_elem_size, size_t src_elem_stride,
                           size_t cnt);
 
+template <typename Acceptor>
+struct MemberFuncAcceptorTraitsAdapter {
+    static constexpr bool IsEnd(Acceptor const& acceptor);
+
+    static constexpr size_t GetElemSize(Acceptor const& acceptor);
+
+    static constexpr size_t Transfer(Acceptor& acceptor, void const* src,
+                                     size_t src_elem_size,
+                                     size_t src_elem_stride, size_t cnt);
+};
+
 struct EmptyAcceptor {
-    static constexpr bool IsEnd() { return true; }
+    static constexpr bool IsEnd();
 
-    static constexpr size_t GetElemSize() { return 0; }
+    static constexpr size_t GetElemSize();
 
-    static constexpr size_t Transfer(void const*, size_t, size_t, size_t) {
-        return 0;
-    }
+    static constexpr size_t Transfer(void const* src, size_t src_elem_size,
+                                     size_t src_elem_stride, size_t cnt);
 };
 
 template <>

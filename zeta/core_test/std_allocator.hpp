@@ -59,24 +59,24 @@ struct Allocator {
 
 namespace zeta::core {
 
-template <typename Allocator>
-struct allocator::AllocatorTraits<
-    Allocator, meta::EnableIf<meta::IsAnySame<
-                   Allocator, zeta::core_test::std_allocator::Allocator,
-                   zeta::core_test::std_allocator::Allocator const>>> {
-    static void* GetReferedInstPtr(Allocator const& alctr) {
+template <>
+struct allocator::AllocatorTraits<core_test::std_allocator::Allocator> {
+    static void* GetReferedInstPtr(
+        core_test::std_allocator::Allocator const& alctr) {
         return const_cast<void*>(static_cast<void const*>(&alctr));
     }
 
-    static size_t GetAlign(Allocator const& alctr) {
+    static size_t GetAlign(core_test::std_allocator::Allocator const& alctr) {
         return zeta::core_test::std_allocator::Allocator::GetAlign(alctr);
     }
 
-    static void* Allocate(Allocator& alctr, size_t size) {
+    static void* Allocate(core_test::std_allocator::Allocator& alctr,
+                          size_t size) {
         return zeta::core_test::std_allocator::Allocator::Allocate(alctr, size);
     }
 
-    static void Deallocate(Allocator& alctr, void* ptr) {
+    static void Deallocate(core_test::std_allocator::Allocator& alctr,
+                           void* ptr) {
         zeta::core_test::std_allocator::Allocator::Deallocate(alctr, ptr);
     }
 };

@@ -43,8 +43,8 @@ inline void Sanitize(void* ac) {
     iter->second(ac);
 }
 
-inline void Sanitize(core::assoc_cntr_ref::Ref const* ac) {
-    Sanitize(ac->cntr);
+inline void Sanitize(core::assoc_cntr_ref::Cntr const* ac) {
+    Sanitize(ac->target_cntr);
 }
 
 inline auto& GetDestroyFuncs() {
@@ -73,61 +73,76 @@ inline void Destroy(void* ac) {
     iter->second(ac);
 }
 
-inline void Destroy(core::assoc_cntr_ref::Ref* ac) { Destroy(ac->cntr); }
+inline void Destroy(core::assoc_cntr_ref::Cntr* ac) {
+    Destroy(ac->target_cntr);
+}
 
 template <typename AssocCntr, typename Key, typename Elem>
 Elem* Find(AssocCntr* ac, Key const& key) {
-    void* cursor{ ZETA_Core_AssocCntr_AllocaCursor(*ac) };
+    core::assoc_cntr::CursorLimit* cursor;
 
-    auto elem{ static_cast<Elem*>(core::assoc_cntr::Find(
+    auto elem_find_with_key{ static_cast<Elem*>(core::assoc_cntr::Find(
         *ac, &key, core::hash::TypeErasedBasicHash<Key>,
-        core::comparison::TypeErasedBasicCompare<Key, Elem>, true, cursor,
-        nullptr)) };
+        core::comparison::TypeErasedBasicCompare<Key, Elem>, true, nullptr,
+        &cursor, nullptr)) };
 
     Sanitize(ac);
 
+    if constexpr (core::meta::IsSame<core::meta::RemoveCVRef<Key>,
+                                     core::meta::RemoveCVRef<Elem> >) {
+        //
+    }
+
     ZETA_Core_DebugAssert(
-        core::assoc_cntr::Derefer(*ac, cursor, true, nullptr) == elem);
+        core::assoc_cntr::Derefer(*ac, &cursor, true, nullptr, nullptr) ==
+        elem_find_with_key);
 
-    if (elem == nullptr) { return nullptr; }
+    if (elem_find_with_key == nullptr) { return nullptr; }
 
-    ZETA_Core_DebugAssert(core::comparison::BasicCompare(key, *elem) == 0);
+    if constexpr (core::meta::IsSame<core::meta::RemoveCVRef<Key>,
+                                     core::meta::RemoveCVRef<Elem> >) {
+        ZETA_Core_DebugAssert(core::comparison::BasicCompare(
+            core::meta::AutoValueWrapper<core::comparison::OpEnum::Equal>{},
+            key, *elem_find_with_key));
+    }
 
-    return elem;
+    return elem_find_with_key;
 }
 
 template <typename AssocCntr, typename Elem>
 Elem* Insert(AssocCntr* ac, Elem const& elem) {
-    void* cursor{ ZETA_Core_AssocCntr_AllocaCursor(*ac) };
+    core::assoc_cntr::CursorLimit cursor;
 
     auto ins_elem{ static_cast<Elem*>(
-        core::assoc_cntr::Insert(*ac, &elem, cursor)) };
+        core::assoc_cntr::Insert(*ac, &elem, &cursor)) };
 
     Sanitize(ac);
 
-    ZETA_Core_DebugAssert(
-        core::assoc_cntr::Derefer(*ac, cursor, true, nullptr) == ins_elem);
+    ZETA_Core_DebugAssert(core::assoc_cntr::Derefer(*ac, &cursor, true, nullptr,
+                                                    nullptr) == ins_elem);
 
     ZETA_Core_DebugAssert(ins_elem != nullptr);
 
-    ZETA_Core_DebugAssert(core::comparison::BasicCompare(elem, *ins_elem) == 0);
+    ZETA_Core_DebugAssert(core::comparison::BasicCompare(
+        core::meta::AutoValueWrapper<core::comparison::OpEnum::Equal>{}, elem,
+        *ins_elem));
 
     return ins_elem;
 }
 
 template <typename AssocCntr, typename Key, typename Elem>
 bool Erase(AssocCntr* ac, Key const& key) {
-    void* cursor{ ZETA_Core_AssocCntr_AllocaCursor(*ac) };
+    core::assoc_cntr::CursorLimit cursor;
 
     auto elem{ static_cast<Elem*>(core::assoc_cntr::Find(
         *ac, &key, core::hash::TypeErasedBasicHash<Key>,
-        core::comparison::TypeErasedBasicCompare<Key, Elem>, true, cursor,
+        core::comparison::TypeErasedBasicCompare<Key, Elem>, true, &cursor,
         nullptr)) };
 
     Sanitize(ac);
 
     ZETA_Core_DebugAssert(
-        core::assoc_cntr::Derefer(*ac, cursor, true, nullptr) == elem);
+        core::assoc_cntr::Derefer(*ac, &cursor, true, nullptr) == elem);
 
     if (elem == nullptr) { return false; }
 
@@ -136,7 +151,7 @@ bool Erase(AssocCntr* ac, Key const& key) {
     size_t old_size{ core::assoc_cntr::GetElemCnt(*ac) };
     ZETA_Core_DebugAssert(0 < old_size);
 
-    core::assoc_cntr::Erase(*ac, cursor);
+    core::assoc_cntr::Erase(*ac, &cursor);
 
     Sanitize(ac);
 
@@ -175,8 +190,9 @@ Elem* SyncFind(std::vector<AssocCntr*> const& acs, Key const& key) {
         ZETA_Core_DebugAssert((elem == nullptr) == (cur_elem == nullptr));
 
         if (elem != nullptr) {
-            ZETA_Core_DebugAssert(
-                core::comparison::BasicCompare(*elem, *cur_elem) == 0);
+            ZETA_Core_DebugAssert(core::comparison::BasicCompare(
+                core::meta::AutoValueWrapper<core::comparison::OpEnum::Equal>{},
+                *elem, *cur_elem));
         }
     }
 
@@ -209,19 +225,19 @@ bool SyncErase(std::vector<AssocCntr*> const& acs, Elem const& elem) {
 
 template <typename AssocCntrA, typename AssocCntrB, typename Elem>
 void Contain(AssocCntrA* a, AssocCntrB* b) {
-    void* a_iter{ ZETA_Core_AssocCntr_AllocaCursor(*a) };
-    void* a_end{ ZETA_Core_AssocCntr_AllocaCursor(*a) };
+    core::assoc_cntr::CursorLimit a_iter;
+    core::assoc_cntr::CursorLimit a_end;
 
-    core::assoc_cntr::PeekL(*a, true, a_iter, nullptr);
-    core::assoc_cntr::GetRBCursor(*a, a_end);
+    core::assoc_cntr::PeekL(*a, true, &a_iter, nullptr);
+    core::assoc_cntr::GetRBCursor(*a, &a_end);
 
     size_t size{ 0 };
 
-    while (!core::assoc_cntr::AreEqualCursor(*a, a_iter, a_end)) {
+    while (!core::assoc_cntr::AreEqualCursor(*a, &a_iter, &a_end)) {
         ++size;
 
         auto a_elem{ static_cast<Elem*>(
-            core::assoc_cntr::Derefer(*a, a_iter, true, nullptr)) };
+            core::assoc_cntr::Derefer(*a, &a_iter, true, nullptr)) };
 
         ZETA_Core_DebugAssert(a_elem != nullptr);
 
@@ -231,11 +247,11 @@ void Contain(AssocCntrA* a, AssocCntrB* b) {
 
         ZETA_Core_DebugAssert(*a_elem == *b_elem);
 
-        core::assoc_cntr::CursorStepR(*a, a_iter);
+        core::assoc_cntr::CursorStepR(*a, &a_iter);
     }
 
     ZETA_Core_DebugAssert(
-        core::assoc_cntr::Derefer(*a, a_iter, true, nullptr) == nullptr);
+        core::assoc_cntr::Derefer(*a, &a_iter, true, nullptr) == nullptr);
 
     ZETA_Core_DebugAssert(core::assoc_cntr::GetElemCnt(*a) == size);
 }

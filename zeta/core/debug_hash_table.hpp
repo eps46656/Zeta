@@ -14,6 +14,10 @@
 
 namespace zeta::core::debug_hash_table {
 
+struct ObjWrapper {
+    mutable void* obj;
+};
+
 template <typename ElemHasherLike>
 struct HasherProxy {
     ElemHasherLike elem_hasher;
@@ -27,7 +31,7 @@ struct HasherProxy {
     unsigned long long (*key_hash_func)(void const* key_hasher,
                                         void const* key);
 
-    unsigned long long operator()(void const* a) const;
+    unsigned long long operator()(ObjWrapper const& a) const;
 };
 
 template <typename ElemComparatorLike>
@@ -43,12 +47,12 @@ struct EqProxy {
     bool (*key_elem_eq_func)(void const* key_elem_cmptr, void const* elem,
                              void const* key);
 
-    bool operator()(void const* a, void const* b) const;
+    bool operator()(ObjWrapper const& a, ObjWrapper const& b) const;
 };
 
 template <typename HasherLike, typename ComparatorLike>
 using hash_table_t =
-    std::unordered_multiset<void const*, HasherProxy<HasherLike>&,
+    std::unordered_multiset<ObjWrapper, HasherProxy<HasherLike>&,
                             EqProxy<ComparatorLike>&>;
 
 template <typename HasherLike, typename ComparatorLike>
@@ -61,8 +65,8 @@ struct Cntr {
 
     size_t elem_size;
 
-    HasherProxy<HasherLike> elem_key_hasher_proxy;
-    EqProxy<ComparatorLike> elem_key_eq_proxy;
+    HasherProxy<HasherLike> hasher_proxy;
+    EqProxy<ComparatorLike> eq_proxy;
 
     HashTable* hash_table;
 
@@ -82,27 +86,36 @@ struct Cntr {
 
     constexpr void GetRBCursor(this Cntr const& cntr, Cursor* dst_cursor);
 
-    constexpr void PeekL(this auto&& cntr, bool lazy_copy_elem,
+    constexpr void PeekL(this auto& cntr, bool lazy_copy_elem,
                          assoc_cntr::ElemPtrView* dst_elem_ptr_view,
                          Cursor* dst_cursor, void* dst_elem);
 
-    constexpr void PeekR(this auto&& cntr, bool lazy_copy_elem,
+    constexpr void PeekR(this auto& cntr, bool lazy_copy_elem,
                          assoc_cntr::ElemPtrView* dst_elem_ptr_view,
                          Cursor* dst_cursor, void* dst_elem);
 
-    constexpr void Derefer(this auto&& cntr, Cursor const* pos_cursor,
+    constexpr void Derefer(this auto& cntr, Cursor const* pos_cursor,
                            bool lazy_copy_elem,
                            assoc_cntr::ElemPtrView* dst_elem_ptr_view,
                            void* dst_elem);
 
+    constexpr void Find(this auto& cntr, void const* elem, bool lazy_copy_elem,
+                        assoc_cntr::ElemPtrView* dst_elem_ptr_view,
+                        Cursor* dst_cursor, void* dst_elem);
+
     template <
         hash::CanHash<void const*> KeyHasher,
         comparison::CanCompare<void const*, void const*> KeyElemComparator>
-    constexpr void Find(this Cntr const& cntr, void const* key,
+    constexpr void Find(this auto& cntr, void const* key,
                         KeyHasher const& key_hasher,
                         KeyElemComparator const& key_elem_cmptr,
-                        bool lazy_copy_elem, Cursor* dst_cursor,
-                        void* dst_elem);
+                        bool lazy_copy_elem,
+                        assoc_cntr::ElemPtrView* dst_elem_ptr_view,
+                        Cursor* dst_cursor, void* dst_elem);
+
+    template <assoc_cntr::IsWriter Writer>
+    constexpr void Insert(this Cntr& cntr, void const* elem, Writer&& writer,
+                          Cursor* dst_cursor);
 
     template <
         hash::CanHash<void const*> KeyHasher,
@@ -113,11 +126,15 @@ struct Cntr {
                           KeyElemComparator const& key_elem_cmptr,
                           Writer&& writer, Cursor* dst_cursor);
 
-    constexpr void PopL(this Cntr& cntr, size_t cnt);
+    template <assoc_cntr::IsReader Reader>
+    constexpr void PopL(this Cntr& cntr, size_t cnt, Reader&& reader);
 
-    constexpr void PopR(this Cntr& cntr, size_t cnt);
+    template <assoc_cntr::IsReader Reader>
+    constexpr void PopR(this Cntr& cntr, size_t cnt, Reader&& reader);
 
-    constexpr void Erase(this Cntr& cntr, Cursor* pos_cursor);
+    template <assoc_cntr::IsReader Reader>
+    constexpr void Erase(this Cntr& cntr, Cursor* pos_cursor, size_t cnt,
+                         Reader&& reader);
 
     constexpr void EraseAll(this Cntr& cntr);
 

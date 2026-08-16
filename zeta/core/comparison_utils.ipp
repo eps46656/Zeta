@@ -19,7 +19,8 @@ struct MinOperation_ {
     constexpr decltype(auto) operator()(A&& a, B&& b) const {
         return comparison::Compare(
                    this->cmptr,
-                   meta::AutoValueWrapper<comparison::Op::LessEqual>{}, a, b)
+                   meta::AutoValueWrapper<comparison::OpEnum::LessEqual>{}, a,
+                   b)
                    ? meta::Forward<A>(a)
                    : meta::Forward<B>(b);
     }
@@ -53,8 +54,8 @@ struct MaxOperation_ {
     template <typename A, typename B>
     constexpr decltype(auto) operator()(A&& a, B&& b) const {
         return comparison::Compare(
-                   this->cmptr, meta::AutoValueWrapper<comparison::Op::Less>{},
-                   a, b)
+                   this->cmptr,
+                   meta::AutoValueWrapper<comparison::OpEnum::Less>{}, a, b)
                    ? meta::Forward<B>(b)
                    : meta::Forward<A>(a);
     }
@@ -155,7 +156,7 @@ constexpr comparison::Ordering PairWiseLexCompare_(A&& a, B&& b,
                                                    Comparator const& cmptr,
                                                    Args&&... args) {
     comparison::Ordering cmp{ comparison::Compare(
-        cmptr, meta::AutoValueWrapper<comparison::Op::Order>{},
+        cmptr, meta::AutoValueWrapper<comparison::OpEnum::Order>{},
         meta::Forward<A>(a), meta::Forward<B>(b)) };
     return cmp == comparison::Ordering::Equal ? (PairWiseLexCompare_)(args...)
                                               : cmp;
@@ -174,8 +175,8 @@ namespace comparison_utils::detail {
 
 template <comparison::IsOpType OpType>
 constexpr auto BasicPairWiseLexCompare_(OpType op) {
-    if constexpr (meta::IsSame<OpType,
-                               meta::AutoValueWrapper<comparison::Op::Order>>) {
+    if constexpr (meta::IsSame<OpType, meta::AutoValueWrapper<
+                                           comparison::OpEnum::Order>>) {
         return comparison::Ordering::Equal;
     } else {
         return (meta::ToUnderlying(op) & comparison::equal_bit) != 0;
@@ -190,7 +191,7 @@ constexpr auto BasicPairWiseLexCompare_(OpType op, A&& a, B&& b,
                                         meta::Forward<B>(b));
     } else {
         comparison::Ordering cmp{ comparison::BasicCompare(
-            meta::AutoValueWrapper<comparison::Op::Order>{},
+            meta::AutoValueWrapper<comparison::OpEnum::Order>{},
             meta::Forward<A>(a), meta::Forward<B>(b)) };
 
         if (cmp == comparison::Ordering::Equal) {
@@ -198,10 +199,11 @@ constexpr auto BasicPairWiseLexCompare_(OpType op, A&& a, B&& b,
         }
 
         if constexpr (meta::IsSame<OpType, meta::AutoValueWrapper<
-                                               comparison::Op::Order>>) {
+                                               comparison::OpEnum::Order>>) {
             return cmp;
         } else {
-            return (static_cast<unsigned>(cmp) & meta::ToUnderlying(op)) != 0;
+            return (static_cast<unsigned>(cmp) &
+                    meta::ToUnderlying(op.value)) != 0;
         }
     }
 }

@@ -82,6 +82,13 @@ struct Node : public Node1<NodeTplArgList(_)> {
         }
     constexpr void Init(size_t acc_size);
 
+    template <typename _ = void>
+        requires requires {
+            requires meta::IsSame<_, void>;
+            requires AccSizeTag::value;
+        }
+    static constexpr size_t GetNullAccSize();
+
     constexpr Node* GetPPtr();
     constexpr Node* GetLPtr();
     constexpr Node* GetRPtr();

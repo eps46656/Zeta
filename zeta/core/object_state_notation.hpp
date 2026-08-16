@@ -116,7 +116,7 @@ struct SerializationStateMachineBase {
         ReceivingIntegral = 7,
         ReceivingIntegralOrTermination = 8,
         ReceivingTermination = 9,
-        Completed = 10,
+        Finished = 10,
         Corrupted = static_cast<unsigned char>(-1),
     };
 

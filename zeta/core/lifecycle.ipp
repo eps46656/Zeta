@@ -33,7 +33,7 @@ constexpr void lifecycle::MemberFuncTraitsAdapter<T>::Deinit(T& obj) {
 
 template <typename... Args>
 constexpr auto lifecycle::MakeInitArgsTuple(Args&&... args) {
-    return InitArgsTuple<Args...>{ meta::Forward<Args>(args)... };
+    return InitArgsTuple<Args...>{ .t{ meta::Forward<Args>(args)... } };
 }
 
 template <typename T>

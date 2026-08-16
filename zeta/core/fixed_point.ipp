@@ -484,7 +484,7 @@ constexpr comparison::Ordering fixed_point::MathCompare(
                    << (op_fraction_width - BFractionWidth::value) };
 
     return comparison::BasicCompare(
-        meta::AutoValueWrapper<comparison::Op::Order>{}, x, y);
+        meta::AutoValueWrapper<comparison::OpEnum::Order>{}, x, y);
 }
 
 template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
@@ -499,8 +499,8 @@ constexpr auto comparison::ComparatorTraits<comparison::BasicComparator<
             fixed_point::FixedPoint<FixedPointTplArgList(B)> const& b) {
     comparison::Ordering ord{ fixed_point::MathCompare(a, b) };
 
-    if constexpr (meta::IsSame<OpType,
-                               meta::AutoValueWrapper<comparison::Op::Order>>) {
+    if constexpr (meta::IsSame<OpType, meta::AutoValueWrapper<
+                                           comparison::OpEnum::Order>>) {
         return ord;
     } else {
         return (meta::ToUnderlying(ord) & meta::ToUnderlying(OpType::value)) !=

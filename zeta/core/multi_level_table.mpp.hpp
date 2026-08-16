@@ -174,16 +174,16 @@ struct Cntr {
      * nullptr.
      */
     template <typename BranchIdxesSource>
-    constexpr void* Access(this Cntr& cntr,
-                           BranchIdxesSource&& src_branch_idxes);
+    constexpr auto Access(this auto& cntr, BranchIdxesSource&& src_branch_idxes)
+        -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
     template <typename DstBranchIdxes>
-    constexpr void* FindFirst(this Cntr& cntr,
-                              DstBranchIdxes&& dst_branch_idxes);
+    constexpr auto FindFirst(this auto& cntr, DstBranchIdxes&& dst_branch_idxes)
+        -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
     template <typename DstBranchIdxes>
-    constexpr void* FindLast(this Cntr& cntr,
-                             DstBranchIdxes&& dst_branch_idxes);
+    constexpr auto FindLast(this auto& cntr, DstBranchIdxes&& dst_branch_idxes)
+        -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
     /**
      * @brief Find the first entry before idx.
@@ -194,14 +194,16 @@ struct Cntr {
      * @return The reference of target entry.
      */
     template <typename SrcBranchIdxes, typename DstBranchIdxes>
-    constexpr void* FindPrevIncl(this Cntr& cntr,
-                                 SrcBranchIdxes&& src_branch_idxes,
-                                 DstBranchIdxes&& dst_branch_idxes);
+    constexpr auto FindPrevIncl(this auto& cntr,
+                                SrcBranchIdxes&& src_branch_idxes,
+                                DstBranchIdxes&& dst_branch_idxes)
+        -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
     template <typename SrcBranchIdxes, typename DstBranchIdxes>
-    constexpr void* FindPrevExcl(this Cntr& cntr,
-                                 SrcBranchIdxes&& src_branch_idxes,
-                                 DstBranchIdxes&& dst_branch_idxes);
+    constexpr auto FindPrevExcl(this auto& cntr,
+                                SrcBranchIdxes&& src_branch_idxes,
+                                DstBranchIdxes&& dst_branch_idxes)
+        -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
     /**
      * @brief Find the first entry after idx.
@@ -212,14 +214,16 @@ struct Cntr {
      * @return The reference of target entry.
      */
     template <typename SrcBranchIdxes, typename DstBranchIdxes>
-    constexpr void* FindNextIncl(this Cntr& cntr,
-                                 SrcBranchIdxes&& src_branch_idxes,
-                                 DstBranchIdxes&& dst_branch_idxes);
+    constexpr auto FindNextIncl(this auto& cntr,
+                                SrcBranchIdxes&& src_branch_idxes,
+                                DstBranchIdxes&& dst_branch_idxes)
+        -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
     template <typename SrcBranchIdxes, typename DstBranchIdxes>
-    constexpr void* FindNextExcl(this Cntr& cntr,
-                                 SrcBranchIdxes&& src_branch_idxes,
-                                 DstBranchIdxes&& dst_branch_idxes);
+    constexpr auto FindNextExcl(this auto& cntr,
+                                SrcBranchIdxes&& src_branch_idxes,
+                                DstBranchIdxes&& dst_branch_idxes)
+        -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
     template <typename BranchIdxesSource>
     constexpr pair::Pair<void*, bool> Insert(

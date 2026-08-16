@@ -154,17 +154,21 @@ struct debug_utils::VarPrinter<bool> {
 
 template <typename T>
 struct debug_utils::VarPrinter<
-    T, meta::EnableIf<(integral::IsIntegral<T> || meta::IsPointer<T>), void>> {
+    T, meta::EnableIf<(integral::IsIntegral<meta::RemoveRef<T>> ||
+                       meta::IsPointer<meta::RemoveRef<T>>),
+                      void>> {
     static std::ostream& Print(std::ostream& os, T const& value) {
+        using RawT = meta::RemoveRef<T>;
+
         auto proc_value{ [=]() {
-            if constexpr (meta::IsPointer<T>) {
+            if constexpr (meta::IsPointer<RawT>) {
                 return reinterpret_cast<uintptr_t>(value);
-            } else if constexpr (integral::IsSignedIntegral<T> &&
-                                 integral::WidthOf<T> <
+            } else if constexpr (integral::IsSignedIntegral<RawT> &&
+                                 integral::WidthOf<RawT> <
                                      integral::WidthOf<int>) {
                 return static_cast<int>(value);
-            } else if constexpr (integral::IsUnsignedIntegral<T> &&
-                                 integral::WidthOf<T> <
+            } else if constexpr (integral::IsUnsignedIntegral<RawT> &&
+                                 integral::WidthOf<RawT> <
                                      integral::WidthOf<unsigned>) {
                 return static_cast<unsigned>(value);
             } else {
@@ -174,8 +178,11 @@ struct debug_utils::VarPrinter<
 
         bool is_signed{ integral::IsSignedIntegral<T> };
 
+        if constexpr (core::meta::IsSame<RawT, char>) {
+            os << value << space_str;
+        }
+
         os << Format(std::right, dec_width)
-           << (is_signed ? proc_value < 0 ? '-' : '+' : ' ')
            << detail::IntegralToStr_(proc_value, is_signed,
                                      meta::AutoValueWrapper<10U>{})
            << "d";

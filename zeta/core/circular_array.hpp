@@ -15,14 +15,14 @@ struct Cursor {
     void* elem;
 };
 
-void* ReferElem(void* data, size_t elem_stride, size_t elem_capacity,
-                size_t slot_offset, size_t idx);
-
-size_t GetLongestContSucr(size_t elem_cnt, size_t elem_capacity,
+constexpr void* ReferElem(void* data, size_t elem_stride, size_t elem_capacity,
                           size_t slot_offset, size_t idx);
 
-size_t GetLongestContPred(size_t elem_cnt, size_t elem_capacity,
-                          size_t slot_offset, size_t idx);
+constexpr size_t GetLongestContSucr(size_t elem_cnt, size_t elem_capacity,
+                                    size_t slot_offset, size_t idx);
+
+constexpr size_t GetLongestContPred(size_t elem_cnt, size_t elem_capacity,
+                                    size_t slot_offset, size_t idx);
 
 struct Cntr {
     void* data;
@@ -32,129 +32,136 @@ struct Cntr {
     size_t slot_cnt;
     size_t rot;
 
-    void Init(this Cntr const& cntr);
+    constexpr void Init(this Cntr const& cntr);
 
-    void Deinit(this Cntr& cntr);
+    constexpr void Deinit(this Cntr& cntr);
 
-    void* GetReferedInstPtr(this Cntr const& cntr);
+    constexpr void* GetReferedInstPtr(this Cntr const& cntr);
 
     constexpr size_t GetCursorSize(this Cntr const& cntr);
 
-    size_t GetElemSize(this Cntr const& cntr);
+    constexpr size_t GetElemSize(this Cntr const& cntr);
 
-    size_t GetElemStride(this Cntr const& cntr);
+    constexpr size_t GetElemStride(this Cntr const& cntr);
 
-    size_t GetIdxOffset(this Cntr const& cntr);
+    constexpr size_t GetIdxOffset(this Cntr const& cntr);
 
-    size_t GetElemCnt(this Cntr const& cntr);
+    constexpr size_t GetElemCnt(this Cntr const& cntr);
 
-    size_t GetMaxElemCnt(this Cntr const& cntr);
+    constexpr size_t GetMaxElemCnt(this Cntr const& cntr);
 
-    void GetLBCursor(this Cntr const& cntr, Cursor* dst_cursor);
+    constexpr void GetLBCursor(this Cntr const& cntr, Cursor* dst_cursor);
 
-    void GetRBCursor(this Cntr const& cntr, Cursor* dst_cursor);
+    constexpr void GetRBCursor(this Cntr const& cntr, Cursor* dst_cursor);
 
-    void PeekL(this auto&& cntr, bool lazy_copy_elem,
-               seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
-               void* dst_elem);
+    constexpr void PeekL(this auto&& cntr, bool lazy_copy_elem,
+                         seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                         Cursor* dst_cursor, void* dst_elem);
 
-    void PeekR(this auto&& cntr, bool lazy_copy_elem,
-               seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
-               void* dst_elem);
+    constexpr void PeekR(this auto&& cntr, bool lazy_copy_elem,
+                         seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                         Cursor* dst_cursor, void* dst_elem);
 
-    void Refer(this auto&& cntr, size_t idx, bool lazy_copy_elem,
-               seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
-               void* dst_elem);
+    constexpr void Refer(this auto&& cntr, size_t idx, bool lazy_copy_elem,
+                         seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                         Cursor* dst_cursor, void* dst_elem);
 
-    void Derefer(this auto&& cntr, Cursor const* pos_cursor,
-                 bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                 void* dst_elem);
+    constexpr void Derefer(this auto&& cntr, Cursor const* pos_cursor,
+                           bool lazy_copy_elem,
+                           seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                           void* dst_elem);
 
     template <seq_cntr::IsReader Reader>
-    void Read(this Cntr const& cntr, Cursor const* pos_cursor, size_t cnt,
-              Reader&& reader, Cursor* dst_cursor);
+    constexpr void Read(this Cntr const& cntr, Cursor const* pos_cursor,
+                        size_t cnt, Reader&& reader, Cursor* dst_cursor);
 
     template <seq_cntr::IsWriter Writer>
-    void Write(this Cntr& cntr, Cursor const* pos_cursor, size_t cnt,
-               Writer&& writer, Cursor* dst_cursor);
+    constexpr void Write(this Cntr& cntr, Cursor const* pos_cursor, size_t cnt,
+                         Writer&& writer, Cursor* dst_cursor);
 
     template <seq_cntr::IsReaderWriter ReaderWriter>
-    void ReadWrite(this Cntr& cntr, Cursor const* pos_cursor, size_t cnt,
-                   ReaderWriter&& reader_writer, Cursor* dst_cursor);
+    constexpr void ReadWrite(this Cntr& cntr, Cursor const* pos_cursor,
+                             size_t cnt, ReaderWriter&& reader_writer,
+                             Cursor* dst_cursor);
 
     template <seq_cntr::IsReader Reader>
-    void IdxRead(this Cntr const& cntr, size_t idx, size_t cnt,
-                 Reader&& reader_writer);
+    constexpr void IdxRead(this Cntr const& cntr, size_t idx, size_t cnt,
+                           Reader&& reader_writer);
 
     template <seq_cntr::IsWriter Writer>
-    void IdxWrite(this Cntr& cntr, size_t idx, size_t cnt,
-                  Writer&& reader_writer);
+    constexpr void IdxWrite(this Cntr& cntr, size_t idx, size_t cnt,
+                            Writer&& reader_writer);
 
     template <seq_cntr::IsReaderWriter ReaderWriter>
-    void IdxReadWrite(this Cntr& cntr, size_t idx, size_t cnt,
-                      ReaderWriter&& reader_writer);
+    constexpr void IdxReadWrite(this Cntr& cntr, size_t idx, size_t cnt,
+                                ReaderWriter&& reader_writer);
 
     template <seq_cntr::IsWriter Writer>
-    void PushL(this Cntr& cntr, size_t cnt, Writer&& writer,
-               Cursor* dst_cursor);
+    constexpr void PushL(this Cntr& cntr, size_t cnt, Writer&& writer,
+                         Cursor* dst_cursor);
 
     template <seq_cntr::IsWriter Writer>
-    void PushR(this Cntr& cntr, size_t cnt, Writer&& writer,
-               Cursor* dst_cursor);
+    constexpr void PushR(this Cntr& cntr, size_t cnt, Writer&& writer,
+                         Cursor* dst_cursor);
 
     template <seq_cntr::IsWriter Writer>
-    void Insert(this Cntr& cntr, Cursor* pos_cursor, size_t cnt,
-                Writer&& writer, Cursor* dst_cursor);
+    constexpr void Insert(this Cntr& cntr, Cursor* pos_cursor, size_t cnt,
+                          Writer&& writer, Cursor* dst_cursor);
 
     template <seq_cntr::IsWriter Writer>
-    void IdxInsert(this Cntr& cntr, size_t idx, size_t cnt, Writer&& writer);
+    constexpr void IdxInsert(this Cntr& cntr, size_t idx, size_t cnt,
+                             Writer&& writer);
 
     template <seq_cntr::IsReader Reader>
-    void PopL(this Cntr& cntr, size_t cnt, Reader&& reader);
+    constexpr void PopL(this Cntr& cntr, size_t cnt, Reader&& reader);
 
     template <seq_cntr::IsReader Reader>
-    void PopR(this Cntr& cntr, size_t cnt, Reader&& reader);
+    constexpr void PopR(this Cntr& cntr, size_t cnt, Reader&& reader);
 
     template <seq_cntr::IsReader Reader>
-    void Erase(this Cntr& cntr, Cursor* pos_cursor, size_t cnt,
-               Reader&& reader);
+    constexpr void Erase(this Cntr& cntr, Cursor* pos_cursor, size_t cnt,
+                         Reader&& reader);
 
     template <seq_cntr::IsReader Reader>
-    void IdxErase(this Cntr& cntr, size_t idx, size_t cnt, Reader&& reader);
+    constexpr void IdxErase(this Cntr& cntr, size_t idx, size_t cnt,
+                            Reader&& reader);
 
-    void EraseAll(this Cntr& cntr);
+    constexpr void EraseAll(this Cntr& cntr);
 
-    void CopyCursor(this Cntr const& cntr, void const* src_cursor,
-                    Cursor* dst_cursor);
+    constexpr void CopyCursor(this Cntr const& cntr, void const* src_cursor,
+                              Cursor* dst_cursor);
 
-    bool AreEqualCursor(this Cntr const& cntr, Cursor const* cursor_a,
-                        Cursor const* cursor_b);
+    constexpr bool AreEqualCursor(this Cntr const& cntr, Cursor const* cursor_a,
+                                  Cursor const* cursor_b);
 
-    comparison::Ordering CompareCursor(this Cntr const& cntr,
-                                       Cursor const* cursor_a,
-                                       Cursor const* cursor_b);
+    constexpr comparison::Ordering CompareCursor(this Cntr const& cntr,
+                                                 Cursor const* cursor_a,
+                                                 Cursor const* cursor_b);
 
-    size_t GetCursorDist(this Cntr const& cntr, Cursor const* cursor_a,
-                         Cursor const* cursor_b);
+    constexpr size_t GetCursorDist(this Cntr const& cntr,
+                                   Cursor const* cursor_a,
+                                   Cursor const* cursor_b);
 
-    size_t GetCursorIdx(this Cntr const& cntr, Cursor const* cursor);
+    constexpr size_t GetCursorIdx(this Cntr const& cntr, Cursor const* cursor);
 
-    void CursorStepL(this Cntr const& cntr, Cursor* cursor);
+    constexpr void CursorStepL(this Cntr const& cntr, Cursor* cursor);
 
-    void CursorStepR(this Cntr const& cntr, Cursor* cursor);
+    constexpr void CursorStepR(this Cntr const& cntr, Cursor* cursor);
 
-    void CursorAdvanceL(this Cntr const& cntr, Cursor* cursor, size_t step);
+    constexpr void CursorAdvanceL(this Cntr const& cntr, Cursor* cursor,
+                                  size_t step);
 
-    void CursorAdvanceR(this Cntr const& cntr, Cursor* cursor, size_t step);
+    constexpr void CursorAdvanceR(this Cntr const& cntr, Cursor* cursor,
+                                  size_t step);
 
     template <seq_cntr::IsSeqCntr SrcSeqCntr>
-    void AssignFromSeqCntr(this Cntr& cntr, size_t dst_beg,
-                           SrcSeqCntr const& src_seq_cntr,
-                           void* src_seq_cntr_cursor, size_t cnt);
+    constexpr void AssignFromSeqCntr(this Cntr& cntr, size_t dst_beg,
+                                     SrcSeqCntr const& src_seq_cntr,
+                                     void* src_seq_cntr_cursor, size_t cnt);
 
-    void AssignFromCircularArray(this Cntr& cntr, size_t dst_beg,
-                                 Cntr const& src_cntr, size_t src_beg,
-                                 size_t cnt);
+    constexpr void AssignFromCircularArray(this Cntr& cntr, size_t dst_beg,
+                                           Cntr const& src_cntr, size_t src_beg,
+                                           size_t cnt);
 };
 
 }  // namespace zeta::core::circular_array

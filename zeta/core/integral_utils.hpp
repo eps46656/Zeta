@@ -233,18 +233,6 @@ using SignedFastIntegral = decltype(detail::SignedFastIntegral_<N>())::Type;
 template <integral::IsIntegral IntegralA, integral::IsIntegral IntegralB>
 constexpr comparison::Ordering MathCompare(IntegralA a, IntegralB b);
 
-template <integral::IsIntegral IntegralDst, integral::IsIntegral IntegralA,
-          integral::IsIntegral IntegralB>
-constexpr IntegralDst OverflowAdd(IntegralA a, IntegralB b, bool& no_lossy);
-
-template <integral::IsIntegral IntegralDst, integral::IsIntegral IntegralA,
-          integral::IsIntegral IntegralB>
-constexpr IntegralDst OverflowSub(IntegralA a, IntegralB b, bool& no_lossy);
-
-template <integral::IsIntegral IntegralDst, integral::IsIntegral IntegralA,
-          integral::IsIntegral IntegralB>
-constexpr IntegralDst OverflowMul(IntegralA a, IntegralB b, bool& no_lossy);
-
 template <integral::IsIntegral DstIntegral, integral::IsIntegral SrcIntegral>
 constexpr DstIntegral LossyDetectingCast(SrcIntegral const& a, bool& no_lossy);
 

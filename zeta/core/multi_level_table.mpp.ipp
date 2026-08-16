@@ -322,11 +322,11 @@ constexpr size_t Namespace::Cntr<CntrTplArgList>::GetMaxElemCnt(
 
 template <CntrTplParamList>
 template <typename BranchIdxesSource>
-constexpr void* Namespace::Cntr<CntrTplArgList>::Access(
-    this Cntr& cntr,
+constexpr auto Namespace::Cntr<CntrTplArgList>::Access(
+    this auto& cntr,
     BranchIdxesSource&&
         src_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward)
-) {
+    ) -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*> {
     detail::CheckCntr_(cntr);
 
     unsigned level{ cntr.level };
@@ -376,11 +376,11 @@ constexpr void* Namespace::Cntr<CntrTplArgList>::Access(
 
 template <CntrTplParamList>
 template <typename DstBranchIdxes>
-constexpr void* Namespace::Cntr<CntrTplArgList>::FindFirst(
-    this Cntr& cntr,
+constexpr auto Namespace::Cntr<CntrTplArgList>::FindFirst(
+    this auto& cntr,
     DstBranchIdxes&&
         dst_branch_idxes  // NOLINT(cppcoreguidelines-missing-std-forward)
-) {
+    ) -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*> {
     detail::CheckCntr_(cntr);
 
     struct {
@@ -392,11 +392,11 @@ constexpr void* Namespace::Cntr<CntrTplArgList>::FindFirst(
 
 template <CntrTplParamList>
 template <typename DstBranchIdxes>
-constexpr void* Namespace::Cntr<CntrTplArgList>::FindLast(
-    this Cntr& cntr,
+constexpr auto Namespace::Cntr<CntrTplArgList>::FindLast(
+    this auto& cntr,
     DstBranchIdxes&&
         dst_branch_idxes  // NOLINT(cppcoreguidelines-missing-std-forward)
-) {
+    ) -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*> {
     detail::CheckCntr_(cntr);
 
     struct {
@@ -410,13 +410,13 @@ constexpr void* Namespace::Cntr<CntrTplArgList>::FindLast(
 
 template <CntrTplParamList>
 template <typename SrcBranchIdxes, typename DstBranchIdxes>
-constexpr void* Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
-    this Cntr& cntr,
+constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
+    this auto& cntr,
     SrcBranchIdxes&&
         src_branch_idxes_,  // NOLINT(cppcoreguidelines-missing-std-forward)
     DstBranchIdxes&&
         dst_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward)
-) {
+    ) -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*> {
     detail::CheckCntr_(cntr);
 
     unsigned level{ cntr.level };
@@ -551,13 +551,13 @@ constexpr void* Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
 
 template <CntrTplParamList>
 template <typename SrcBranchIdxes, typename DstBranchIdxes>
-constexpr void* Namespace::Cntr<CntrTplArgList>::FindPrevExcl(
-    this Cntr& cntr,
+constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevExcl(
+    this auto& cntr,
     SrcBranchIdxes&&
         src_branch_idxes_,  // NOLINT(cppcoreguidelines-missing-std-forward
     DstBranchIdxes&&
         dst_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward
-) {
+    ) -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*> {
     detail::CheckCntr_(cntr);
 
     unsigned level{ cntr.level };
@@ -598,13 +598,13 @@ L1:;
 
 template <CntrTplParamList>
 template <typename SrcBranchIdxes, typename DstBranchIdxes>
-constexpr void* Namespace::Cntr<CntrTplArgList>::FindNextIncl(
-    this Cntr& cntr,
+constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
+    this auto& cntr,
     SrcBranchIdxes&&
         src_branch_idxes_,  // NOLINT(cppcoreguidelines-missing-std-forward)
     DstBranchIdxes&&
         dst_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward)
-) {
+    ) -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*> {
     detail::CheckCntr_(cntr);
 
     unsigned level{ cntr.level };
@@ -739,13 +739,13 @@ constexpr void* Namespace::Cntr<CntrTplArgList>::FindNextIncl(
 
 template <CntrTplParamList>
 template <typename SrcBranchIdxes, typename DstBranchIdxes>
-constexpr void* Namespace::Cntr<CntrTplArgList>::FindNextExcl(
-    this Cntr& cntr,
+constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextExcl(
+    this auto& cntr,
     SrcBranchIdxes&&
         src_branch_idxes_,  // NOLINT(cppcoreguidelines-missing-std-forward
     DstBranchIdxes&&
         dst_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward
-) {
+    ) -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*> {
     detail::CheckCntr_(cntr);
 
     unsigned level{ cntr.level };

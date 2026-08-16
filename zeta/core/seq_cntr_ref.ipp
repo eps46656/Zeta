@@ -1,7 +1,7 @@
 #pragma once
 
 #include <zeta/core/elem_stream.ipp>
-#include <zeta/core/fn_elem_stream.ipp>
+#include <zeta/core/elem_stream_ref.ipp>
 #include <zeta/core/seq_cntr.ipp>
 #include <zeta/core/seq_cntr_ref.hpp>
 
@@ -16,16 +16,16 @@ namespace zeta::core {
 
 #pragma push_macro("CallMethod_")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CallMethod_(method_ptr, cap_name, method, ...)                      \
-    {                                                                       \
-        ZETA_Core_DebugAssert(                                              \
-            TestCapability(ref.dynamic_enabled_capability_flag, cap_name)); \
-                                                                            \
-        auto method_ptr{ ref.vtable->method };                              \
-        ZETA_Core_DebugAssert(method_ptr != nullptr);                       \
-                                                                            \
-        return method_ptr(ref.cntr, __VA_ARGS__);                           \
-    }                                                                       \
+#define CallMethod_(method_ptr, cap_name, method, ...)                       \
+    {                                                                        \
+        ZETA_Core_DebugAssert(                                               \
+            TestCapability(cntr.dynamic_enabled_capability_flag, cap_name)); \
+                                                                             \
+        auto method_ptr{ cntr.vtable->method };                              \
+        ZETA_Core_DebugAssert(method_ptr != nullptr);                        \
+                                                                             \
+        return method_ptr(cntr.target_cntr, __VA_ARGS__);                    \
+    }                                                                        \
     ZETA_Core_StaticAssert(true);
 
 #pragma push_macro("CallMethod")
@@ -33,280 +33,294 @@ namespace zeta::core {
 #define CallMethod(cap_name, method, ...) \
     CallMethod_(ZETA_Core_TmpName, cap_name, method, __VA_ARGS__)
 
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr seq_cntr_ref::Ref::Ref(Cntr& cntr) {
-    this->Init(cntr);
+template <seq_cntr::IsSeqCntr TargetCntr>
+constexpr seq_cntr_ref::Cntr::Cntr(TargetCntr& target_cntr) {
+    this->Set(target_cntr);
 }
 
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr void seq_cntr_ref::Ref::Init(this Ref& ref, Cntr& cntr) {
-    ref.cursor_size = seq_cntr::GetCursorSize(cntr);
-    ref.width = seq_cntr::GetElemSize(cntr);
-    ref.capacity = seq_cntr::GetMaxElemCnt(cntr);
-    ref.dynamic_enabled_capability_flag =
+constexpr void seq_cntr_ref::Cntr::Init(this Cntr& cntr,
+                                        Cntr const& other_cntr) {
+    cntr = other_cntr;
+}
+
+template <seq_cntr::IsSeqCntr TargetCntr>
+constexpr void seq_cntr_ref::Cntr::Init(this Cntr& cntr,
+                                        TargetCntr& target_cntr) {
+    cntr.Set(target_cntr);
+}
+
+constexpr void seq_cntr_ref::Cntr::Set(this Cntr& cntr,
+                                       Cntr const& other_cntr) {
+    cntr = other_cntr;
+}
+
+template <seq_cntr::IsSeqCntr TargetCntr>
+constexpr void seq_cntr_ref::Cntr::Set(this Cntr& cntr,
+                                       TargetCntr& target_cntr) {
+    cntr.cursor_size = seq_cntr::GetCursorSize(target_cntr);
+    cntr.width = seq_cntr::GetElemSize(target_cntr);
+    cntr.capacity = seq_cntr::GetMaxElemCnt(target_cntr);
+    cntr.dynamic_enabled_capability_flag =
         seq_cntr::GetStaticEnabledCapabilityFlag<Cntr>() |
-        seq_cntr::GetDynamicEnabledCapabilityFlag(cntr);
-    ref.dynamic_disabled_capability_flag =
+        seq_cntr::GetDynamicEnabledCapabilityFlag(target_cntr);
+    cntr.dynamic_disabled_capability_flag =
         seq_cntr::GetStaticDisabledCapabilityFlag<Cntr>() |
-        seq_cntr::GetDynamicDisabledCapabilityFlag(cntr);
-    ref.vtable = &seq_cntr::GetVTable<Cntr>();
-    ref.cntr = const_cast<void*>(static_cast<void const*>(&cntr));
+        seq_cntr::GetDynamicDisabledCapabilityFlag(target_cntr);
+    cntr.vtable = &seq_cntr::GetVTable<Cntr>();
+    cntr.target_cntr =
+        const_cast<void*>(static_cast<void const*>(&target_cntr));
 }
 
-constexpr void* seq_cntr_ref::Ref::GetReferedInstPtr(this Ref const& ref) {
-    return ref.cntr;
+constexpr void seq_cntr_ref::Cntr::Deinit(this Cntr&) {}
+
+constexpr void* seq_cntr_ref::Cntr::GetReferedInstPtr(this Cntr const& cntr) {
+    return cntr.target_cntr;
 }
 
-constexpr size_t seq_cntr_ref::Ref::GetCursorSize(this Ref const& ref) {
-    return ref.cursor_size;
+constexpr size_t seq_cntr_ref::Cntr::GetCursorSize(this Cntr const& cntr) {
+    return cntr.cursor_size;
 }
 
-constexpr size_t seq_cntr_ref::Ref::GetElemSize(this Ref const& ref) {
-    return ref.width;
+constexpr size_t seq_cntr_ref::Cntr::GetElemSize(this Cntr const& cntr) {
+    return cntr.width;
 }
 
-constexpr size_t seq_cntr_ref::Ref::GetElemCnt(this Ref const& ref) {
-    CallMethod(GetElemCnt, GetElemCnt);
+constexpr size_t seq_cntr_ref::Cntr::GetElemCnt(this Cntr const& cntr) {
+    CallMethod(GetElemCnt, get_elem_cnt);
 }
 
-constexpr size_t seq_cntr_ref::Ref::GetMaxElemCnt(this Ref const& ref) {
-    CallMethod(GetMaxElemCnt, GetMaxElemCnt);
+constexpr size_t seq_cntr_ref::Cntr::GetMaxElemCnt(this Cntr const& cntr) {
+    CallMethod(GetMaxElemCnt, get_max_elem_cnt);
 }
 
-constexpr void seq_cntr_ref::Ref::GetLBCursor(this Ref const& ref,
-                                              void* dst_cursor) {
-    CallMethod(GetLBCursor, GetLBCursor, dst_cursor);
+constexpr void seq_cntr_ref::Cntr::GetLBCursor(this Cntr const& cntr,
+                                               void* dst_cursor) {
+    CallMethod(GetLBCursor, get_lb_cursor, dst_cursor);
 }
 
-constexpr void seq_cntr_ref::Ref::GetRBCursor(this Ref const& ref,
-                                              void* dst_cursor) {
-    CallMethod(GetRBCursor, GetRBCursor, dst_cursor);
+constexpr void seq_cntr_ref::Cntr::GetRBCursor(this Cntr const& cntr,
+                                               void* dst_cursor) {
+    CallMethod(GetRBCursor, get_rb_cursor, dst_cursor);
 }
 
-constexpr void seq_cntr_ref::Ref::PeekL(
-    this Ref const& ref, bool lazy_copy_elem,
+constexpr void seq_cntr_ref::Cntr::PeekL(
+    this Cntr const& cntr, bool lazy_copy_elem,
     seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
     void* dst_elem) {
-    CallMethod(PeekL, PeekL, lazy_copy_elem, dst_elem_ptr_view, dst_cursor,
+    CallMethod(PeekL, peek_l, lazy_copy_elem, dst_elem_ptr_view, dst_cursor,
                dst_elem);
 }
 
-constexpr void seq_cntr_ref::Ref::PeekR(
-    this Ref const& ref, bool lazy_copy_elem,
+constexpr void seq_cntr_ref::Cntr::PeekR(
+    this Cntr const& cntr, bool lazy_copy_elem,
     seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
     void* dst_elem) {
-    CallMethod(PeekR, PeekR, lazy_copy_elem, dst_elem_ptr_view, dst_cursor,
+    CallMethod(PeekR, peek_r, lazy_copy_elem, dst_elem_ptr_view, dst_cursor,
                dst_elem);
 }
 
-constexpr void seq_cntr_ref::Ref::Refer(
-    this Ref const& ref, size_t idx, bool lazy_copy_elem,
+constexpr void seq_cntr_ref::Cntr::Refer(
+    this Cntr const& cntr, size_t idx, bool lazy_copy_elem,
     seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
     void* dst_elem) {
-    CallMethod(Refer, Refer, idx, lazy_copy_elem, dst_elem_ptr_view, dst_cursor,
+    CallMethod(Refer, refer, idx, lazy_copy_elem, dst_elem_ptr_view, dst_cursor,
                dst_elem);
 }
 
-constexpr void seq_cntr_ref::Ref::Derefer(
-    this Ref const& ref, void* pos_cursor, bool lazy_copy_elem,
+constexpr void seq_cntr_ref::Cntr::Derefer(
+    this Cntr const& cntr, void* pos_cursor, bool lazy_copy_elem,
     seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_elem) {
-    CallMethod(Derefer, Derefer, pos_cursor, lazy_copy_elem, dst_elem_ptr_view,
+    CallMethod(Derefer, derefer, pos_cursor, lazy_copy_elem, dst_elem_ptr_view,
                dst_elem);
 }
 
 template <typename Reader>
-constexpr void seq_cntr_ref::Ref::Read(this Ref const& ref, void* pos_cursor,
-                                       size_t cnt, Reader&& reader,
-                                       void* dst_cursor) {
+constexpr void seq_cntr_ref::Cntr::Read(this Cntr const& cntr, void* pos_cursor,
+                                        size_t cnt, Reader&& reader,
+                                        void* dst_cursor) {
     using RawReader = meta::RemoveCVRef<Reader>;
 
     if constexpr (meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
-        CallMethod(Read, Read_EmptyReader, pos_cursor, cnt, reader, dst_cursor);
+        CallMethod(Read, read.empty, pos_cursor, cnt, reader, dst_cursor);
     } else if constexpr (meta::IsSame<meta::RemoveCVRef<Reader>,
                                       seq_cntr::LinSeqReader>) {
-        CallMethod(Read, Read_LinSeqReader, pos_cursor, cnt, reader,
-                   dst_cursor);
+        CallMethod(Read, read.lin_seq, pos_cursor, cnt, reader, dst_cursor);
     } else {
-        CallMethod(Read, Read_FnReader, pos_cursor, cnt, reader, dst_cursor);
+        CallMethod(Read, read.fn, pos_cursor, cnt, reader, dst_cursor);
     }
 }
 
 template <typename Writer>
-constexpr void seq_cntr_ref::Ref::Write(this Ref& ref, void* pos_cursor,
-                                        size_t cnt, Writer&& writer,
-                                        void* dst_cursor) {
-    using RawWriter = meta::RemoveCVRef<Writer>;
-
-    if constexpr (meta::IsSame<RawWriter, seq_cntr::EmptyWriter>) {
-        CallMethod(Write, Write_EmptyWriter, pos_cursor, cnt, writer,
-                   dst_cursor);
-    } else if constexpr (meta::IsSame<RawWriter, seq_cntr::LinSeqWriter>) {
-        CallMethod(Write, Write_LinSeqWriter, pos_cursor, cnt, writer,
-                   dst_cursor);
-    } else {
-        CallMethod(Write, Write_FnWriter, pos_cursor, cnt, writer, dst_cursor);
-    }
-}
-
-template <typename ReaderWriter>
-constexpr void seq_cntr_ref::Ref::ReadWrite(this Ref& ref, void* pos_cursor,
-                                            size_t cnt,
-                                            ReaderWriter&& reader_writer,
-                                            void* dst_cursor) {
-    CallMethod(ReadWrite, ReadWrite_FnReaderWriter, pos_cursor, cnt,
-               reader_writer, dst_cursor);
-}
-
-template <typename Writer>
-constexpr void seq_cntr_ref::Ref::PushL(this Ref& ref, size_t cnt,
-                                        Writer&& writer, void* dst_cursor) {
-    using RawWriter = meta::RemoveCVRef<Writer>;
-
-    if constexpr (meta::IsSame<RawWriter, seq_cntr::EmptyWriter>) {
-        CallMethod(PushL, PushL_EmptyWriter, cnt, writer, dst_cursor);
-    } else if constexpr (meta::IsSame<RawWriter, seq_cntr::LinSeqWriter>) {
-        CallMethod(PushL, PushL_LinSeqWriter, cnt, writer, dst_cursor);
-    } else {
-        CallMethod(PushL, PushL_FnWriter, cnt, writer, dst_cursor);
-    }
-}
-
-template <typename Writer>
-constexpr void seq_cntr_ref::Ref::PushR(this Ref& ref, size_t cnt,
-                                        Writer&& writer, void* dst_cursor) {
-    using RawWriter = meta::RemoveCVRef<Writer>;
-
-    if constexpr (meta::IsSame<RawWriter, seq_cntr::EmptyWriter>) {
-        CallMethod(PushR, PushR_EmptyWriter, cnt, writer, dst_cursor);
-    } else if constexpr (meta::IsSame<RawWriter, seq_cntr::LinSeqWriter>) {
-        CallMethod(PushR, PushR_LinSeqWriter, cnt, writer, dst_cursor);
-    } else {
-        CallMethod(PushR, PushR_FnWriter, cnt, writer, dst_cursor);
-    }
-}
-
-template <typename Writer>
-constexpr void seq_cntr_ref::Ref::Insert(this Ref& ref, void* pos_cursor,
+constexpr void seq_cntr_ref::Cntr::Write(this Cntr& cntr, void* pos_cursor,
                                          size_t cnt, Writer&& writer,
                                          void* dst_cursor) {
     using RawWriter = meta::RemoveCVRef<Writer>;
 
     if constexpr (meta::IsSame<RawWriter, seq_cntr::EmptyWriter>) {
-        CallMethod(Insert, Insert_EmptyWriter, pos_cursor, cnt, writer,
-                   dst_cursor);
+        CallMethod(Write, write.empty, pos_cursor, cnt, writer, dst_cursor);
     } else if constexpr (meta::IsSame<RawWriter, seq_cntr::LinSeqWriter>) {
-        CallMethod(Insert, Insert_LinSeqWriter, pos_cursor, cnt, writer,
-                   dst_cursor);
+        CallMethod(Write, write.lin_seq, pos_cursor, cnt, writer, dst_cursor);
     } else {
-        CallMethod(Insert, Insert_FnWriter, pos_cursor, cnt, writer,
-                   dst_cursor);
+        CallMethod(Write, write.fn, pos_cursor, cnt, writer, dst_cursor);
     }
 }
 
-template <typename Reader>
-constexpr void seq_cntr_ref::Ref::PopL(this Ref& ref, size_t cnt,
-                                       Reader&& reader) {
-    using RawReader = meta::RemoveCVRef<Reader>;
-
-    if constexpr (meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
-        CallMethod(PopL, PopL_EmptyReader, cnt, reader);
-    } else if constexpr (meta::IsSame<RawReader, seq_cntr::LinSeqReader>) {
-        CallMethod(PopL, PopL_LinSeqReader, cnt, reader);
-    } else {
-        CallMethod(PopL, PopL_FnReader, cnt, reader);
-    }
-}
-
-template <typename Reader>
-constexpr void seq_cntr_ref::Ref::PopR(this Ref& ref, size_t cnt,
-                                       Reader&& reader) {
-    using RawReader = meta::RemoveCVRef<Reader>;
-
-    if constexpr (meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
-        CallMethod(PopR, PopR_EmptyReader, cnt, reader);
-    } else if constexpr (meta::IsSame<RawReader, seq_cntr::LinSeqReader>) {
-        CallMethod(PopR, PopR_LinSeqReader, cnt, reader);
-    } else {
-        CallMethod(PopR, PopR_FnReader, cnt, reader);
-    }
-}
-
-template <typename Reader>
-constexpr void seq_cntr_ref::Ref::Erase(this Ref& ref, void* pos_cursor,
-                                        size_t cnt, Reader&& reader) {
-    using RawReader = meta::RemoveCVRef<Reader>;
-
-    if constexpr (meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
-        CallMethod(Erase, Erase_EmptyReader, pos_cursor, cnt, reader);
-    } else if constexpr (meta::IsSame<RawReader, seq_cntr::LinSeqReader>) {
-        CallMethod(Erase, Erase_LinSeqReader, pos_cursor, cnt, reader);
-    } else {
-        CallMethod(Erase, Erase_FnReader, pos_cursor, cnt, reader);
-    }
-}
-
-constexpr void seq_cntr_ref::Ref::EraseAll(this Ref& ref) {
-    CallMethod(EraseAll, EraseAll);
-}
-
-constexpr void seq_cntr_ref::Ref::CopyCursor(this Ref const& ref,
-                                             void* src_cursor,
+template <typename ReaderWriter>
+constexpr void seq_cntr_ref::Cntr::ReadWrite(this Cntr& cntr, void* pos_cursor,
+                                             size_t cnt,
+                                             ReaderWriter&& reader_writer,
                                              void* dst_cursor) {
-    CallMethod(CopyCursor, CopyCursor, src_cursor, dst_cursor);
+    CallMethod(ReadWrite, read_write.fn, pos_cursor, cnt, reader_writer,
+               dst_cursor);
 }
 
-constexpr bool seq_cntr_ref::Ref::AreEqualCursor(this Ref const& ref,
-                                                 void* cursor_a,
-                                                 void* cursor_b) {
-    CallMethod(AreEqualCursor, AreEqualCursor, cursor_a, cursor_b);
+template <typename Writer>
+constexpr void seq_cntr_ref::Cntr::PushL(this Cntr& cntr, size_t cnt,
+                                         Writer&& writer, void* dst_cursor) {
+    using RawWriter = meta::RemoveCVRef<Writer>;
+
+    if constexpr (meta::IsSame<RawWriter, seq_cntr::EmptyWriter>) {
+        CallMethod(PushL, push_l.empty, cnt, writer, dst_cursor);
+    } else if constexpr (meta::IsSame<RawWriter, seq_cntr::LinSeqWriter>) {
+        CallMethod(PushL, push_l.lin_seq, cnt, writer, dst_cursor);
+    } else {
+        CallMethod(PushL, push_l.fn, cnt, writer, dst_cursor);
+    }
 }
 
-constexpr comparison::Ordering seq_cntr_ref::Ref::CompareCursor(
-    this Ref const& ref, void* cursor_a, void* cursor_b) {
-    CallMethod(CompareCursor, CompareCursor, cursor_a, cursor_b);
+template <typename Writer>
+constexpr void seq_cntr_ref::Cntr::PushR(this Cntr& cntr, size_t cnt,
+                                         Writer&& writer, void* dst_cursor) {
+    using RawWriter = meta::RemoveCVRef<Writer>;
+
+    if constexpr (meta::IsSame<RawWriter, seq_cntr::EmptyWriter>) {
+        CallMethod(PushR, push_r.empty, cnt, writer, dst_cursor);
+    } else if constexpr (meta::IsSame<RawWriter, seq_cntr::LinSeqWriter>) {
+        CallMethod(PushR, push_r.lin_seq, cnt, writer, dst_cursor);
+    } else {
+        CallMethod(PushR, push_r.fn, cnt, writer, dst_cursor);
+    }
 }
 
-constexpr size_t seq_cntr_ref::Ref::GetCursorDist(this Ref const& ref,
+template <typename Writer>
+constexpr void seq_cntr_ref::Cntr::Insert(this Cntr& cntr, void* pos_cursor,
+                                          size_t cnt, Writer&& writer,
+                                          void* dst_cursor) {
+    using RawWriter = meta::RemoveCVRef<Writer>;
+
+    if constexpr (meta::IsSame<RawWriter, seq_cntr::EmptyWriter>) {
+        CallMethod(Insert, insert.empty, pos_cursor, cnt, writer, dst_cursor);
+    } else if constexpr (meta::IsSame<RawWriter, seq_cntr::LinSeqWriter>) {
+        CallMethod(Insert, insert.lin_seq, pos_cursor, cnt, writer, dst_cursor);
+    } else {
+        CallMethod(Insert, insert.fn, pos_cursor, cnt, writer, dst_cursor);
+    }
+}
+
+template <typename Reader>
+constexpr void seq_cntr_ref::Cntr::PopL(this Cntr& cntr, size_t cnt,
+                                        Reader&& reader) {
+    using RawReader = meta::RemoveCVRef<Reader>;
+
+    if constexpr (meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
+        CallMethod(PopL, pop_l.empty, cnt, reader);
+    } else if constexpr (meta::IsSame<RawReader, seq_cntr::LinSeqReader>) {
+        CallMethod(PopL, pop_l.lin_seq, cnt, reader);
+    } else {
+        CallMethod(PopL, pop_l.fn, cnt, reader);
+    }
+}
+
+template <typename Reader>
+constexpr void seq_cntr_ref::Cntr::PopR(this Cntr& cntr, size_t cnt,
+                                        Reader&& reader) {
+    using RawReader = meta::RemoveCVRef<Reader>;
+
+    if constexpr (meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
+        CallMethod(PopR, pop_r.empty, cnt, reader);
+    } else if constexpr (meta::IsSame<RawReader, seq_cntr::LinSeqReader>) {
+        CallMethod(PopR, pop_r.lin_seq, cnt, reader);
+    } else {
+        CallMethod(PopR, pop_r.fn, cnt, reader);
+    }
+}
+
+template <typename Reader>
+constexpr void seq_cntr_ref::Cntr::Erase(this Cntr& cntr, void* pos_cursor,
+                                         size_t cnt, Reader&& reader) {
+    using RawReader = meta::RemoveCVRef<Reader>;
+
+    if constexpr (meta::IsSame<RawReader, seq_cntr::EmptyReader>) {
+        CallMethod(Erase, erase.empty, pos_cursor, cnt, reader);
+    } else if constexpr (meta::IsSame<RawReader, seq_cntr::LinSeqReader>) {
+        CallMethod(Erase, erase.lin_seq, pos_cursor, cnt, reader);
+    } else {
+        CallMethod(Erase, erase.fn, pos_cursor, cnt, reader);
+    }
+}
+
+constexpr void seq_cntr_ref::Cntr::EraseAll(this Cntr& cntr) {
+    CallMethod(EraseAll, erase_all);
+}
+
+constexpr void seq_cntr_ref::Cntr::CopyCursor(this Cntr const& cntr,
+                                              void* src_cursor,
+                                              void* dst_cursor) {
+    CallMethod(CopyCursor, copy_cursor, src_cursor, dst_cursor);
+}
+
+constexpr bool seq_cntr_ref::Cntr::AreEqualCursor(this Cntr const& cntr,
                                                   void* cursor_a,
                                                   void* cursor_b) {
-    CallMethod(GetCursorDist, GetCursorDist, cursor_a, cursor_b);
+    CallMethod(AreEqualCursor, are_equal_cursor, cursor_a, cursor_b);
 }
 
-constexpr size_t seq_cntr_ref::Ref::GetCursorIdx(this Ref const& ref,
-                                                 void* cursor) {
-    CallMethod(GetCursorIdx, GetCursorIdx, cursor);
+constexpr comparison::Ordering seq_cntr_ref::Cntr::CompareCursor(
+    this Cntr const& cntr, void* cursor_a, void* cursor_b) {
+    CallMethod(CompareCursor, compare_cursor, cursor_a, cursor_b);
 }
 
-constexpr void seq_cntr_ref::Ref::CursorStepL(this Ref const& ref,
-                                              void* cursor) {
-    CallMethod(CursorStepL, CursorStepL, cursor);
+constexpr size_t seq_cntr_ref::Cntr::GetCursorDist(this Cntr const& cntr,
+                                                   void* cursor_a,
+                                                   void* cursor_b) {
+    CallMethod(GetCursorDist, get_cursor_dist, cursor_a, cursor_b);
 }
 
-constexpr void seq_cntr_ref::Ref::CursorStepR(this Ref const& ref,
-                                              void* cursor) {
-    CallMethod(CursorStepR, CursorStepR, cursor);
+constexpr size_t seq_cntr_ref::Cntr::GetCursorIdx(this Cntr const& cntr,
+                                                  void* cursor) {
+    CallMethod(GetCursorIdx, get_cursor_idx, cursor);
 }
 
-constexpr void seq_cntr_ref::Ref::CursorAdvanceL(this Ref const& ref,
-                                                 void* cursor, size_t step) {
-    CallMethod(CursorAdvanceL, CursorAdvanceL, cursor, step);
+constexpr void seq_cntr_ref::Cntr::CursorStepL(this Cntr const& cntr,
+                                               void* cursor) {
+    CallMethod(CursorStepL, cursor_step_l, cursor);
 }
 
-constexpr void seq_cntr_ref::Ref::CursorAdvanceR(this Ref const& ref,
-                                                 void* cursor, size_t step) {
-    CallMethod(CursorAdvanceR, CursorAdvanceR, cursor, step);
+constexpr void seq_cntr_ref::Cntr::CursorStepR(this Cntr const& cntr,
+                                               void* cursor) {
+    CallMethod(CursorStepR, cursor_step_r, cursor);
+}
+
+constexpr void seq_cntr_ref::Cntr::CursorAdvanceL(this Cntr const& cntr,
+                                                  void* cursor, size_t step) {
+    CallMethod(CursorAdvanceL, cursor_advance_l, cursor, step);
+}
+
+constexpr void seq_cntr_ref::Cntr::CursorAdvanceR(this Cntr const& cntr,
+                                                  void* cursor, size_t step) {
+    CallMethod(CursorAdvanceR, cursor_advance_r, cursor, step);
 }
 
 #pragma pop_macro("CallMethod")
 #pragma pop_macro("CallMethod_")
 
-constexpr void seq_cntr_ref::Ref::Check(this Ref const& ref) {
-    ZETA_Core_DebugAssert(0 < ref.width);
-    ZETA_Core_DebugAssert(ref.vtable != nullptr);
-    ZETA_Core_DebugAssert(ref.cntr != nullptr);
+constexpr void seq_cntr_ref::Cntr::Check(this Cntr const& cntr) {
+    ZETA_Core_DebugAssert(0 < cntr.width);
+    ZETA_Core_DebugAssert(cntr.vtable != nullptr);
+    ZETA_Core_DebugAssert(cntr.target_cntr != nullptr);
 
     seq_cntr::capability::Flag enabled_capability_flag{
-        ref.dynamic_enabled_capability_flag
+        cntr.dynamic_enabled_capability_flag
     };
 
 #pragma push_macro("CheckMethod")
@@ -314,110 +328,110 @@ constexpr void seq_cntr_ref::Ref::Check(this Ref const& ref) {
 #define CheckMethod(capability, method)                         \
     ZETA_Core_DebugAssert(                                      \
         !TestCapability(enabled_capability_flag, capability) || \
-        ref.vtable->method != nullptr);
+        cntr.vtable->method != nullptr);
 
-    CheckMethod(GetElemCnt, GetElemCnt);
-    CheckMethod(GetMaxElemCnt, GetMaxElemCnt);
+    CheckMethod(GetElemCnt, get_elem_cnt);
+    CheckMethod(GetMaxElemCnt, get_max_elem_cnt);
 
-    CheckMethod(GetLBCursor, GetLBCursor);
-    CheckMethod(GetRBCursor, GetRBCursor);
-    CheckMethod(PeekL, PeekL);
-    CheckMethod(PeekR, PeekR);
-    CheckMethod(Refer, Refer);
-    CheckMethod(Derefer, Derefer);
+    CheckMethod(GetLBCursor, get_lb_cursor);
+    CheckMethod(GetRBCursor, get_rb_cursor);
+    CheckMethod(PeekL, peek_l);
+    CheckMethod(PeekR, peek_r);
+    CheckMethod(Refer, refer);
+    CheckMethod(Derefer, derefer);
 
-    CheckMethod(Read, Read_EmptyReader);
-    CheckMethod(Read, Read_LinSeqReader);
-    CheckMethod(Read, Read_FnReader);
+    CheckMethod(Read, read.empty);
+    CheckMethod(Read, read.lin_seq);
+    CheckMethod(Read, read.fn);
 
-    CheckMethod(Write, Write_EmptyWriter);
-    CheckMethod(Write, Write_LinSeqWriter);
-    CheckMethod(Write, Write_FnWriter);
+    CheckMethod(Write, write.empty);
+    CheckMethod(Write, write.lin_seq);
+    CheckMethod(Write, write.fn);
 
-    CheckMethod(ReadWrite, ReadWrite_FnReaderWriter);
+    CheckMethod(ReadWrite, read_write.fn);
 
-    CheckMethod(PushL, PushL_EmptyWriter);
-    CheckMethod(PushL, PushL_LinSeqWriter);
-    CheckMethod(PushL, PushL_FnWriter);
+    CheckMethod(PushL, push_l.empty);
+    CheckMethod(PushL, push_l.lin_seq);
+    CheckMethod(PushL, push_l.fn);
 
-    CheckMethod(PushR, PushR_EmptyWriter);
-    CheckMethod(PushR, PushR_LinSeqWriter);
-    CheckMethod(PushR, PushR_FnWriter);
+    CheckMethod(PushR, push_r.empty);
+    CheckMethod(PushR, push_r.lin_seq);
+    CheckMethod(PushR, push_r.fn);
 
-    CheckMethod(Insert, Insert_EmptyWriter);
-    CheckMethod(Insert, Insert_LinSeqWriter);
-    CheckMethod(Insert, Insert_FnWriter);
+    CheckMethod(Insert, insert.empty);
+    CheckMethod(Insert, insert.lin_seq);
+    CheckMethod(Insert, insert.fn);
 
-    CheckMethod(PopL, PopL_EmptyReader);
-    CheckMethod(PopL, PopL_LinSeqReader);
-    CheckMethod(PopL, PopL_FnReader);
+    CheckMethod(PopL, pop_l.empty);
+    CheckMethod(PopL, pop_l.lin_seq);
+    CheckMethod(PopL, pop_l.fn);
 
-    CheckMethod(PopR, PopR_EmptyReader);
-    CheckMethod(PopR, PopR_LinSeqReader);
-    CheckMethod(PopR, PopR_FnReader);
+    CheckMethod(PopR, pop_r.empty);
+    CheckMethod(PopR, pop_r.lin_seq);
+    CheckMethod(PopR, pop_r.fn);
 
-    CheckMethod(Erase, Erase_EmptyReader);
-    CheckMethod(Erase, Erase_LinSeqReader);
-    CheckMethod(Erase, Erase_FnReader);
+    CheckMethod(Erase, erase.empty);
+    CheckMethod(Erase, erase.lin_seq);
+    CheckMethod(Erase, erase.fn);
 
-    CheckMethod(EraseAll, EraseAll);
+    CheckMethod(EraseAll, erase_all);
 
-    CheckMethod(CopyCursor, CopyCursor);
-    CheckMethod(AreEqualCursor, AreEqualCursor);
-    CheckMethod(CompareCursor, CompareCursor);
-    CheckMethod(GetCursorDist, GetCursorDist);
-    CheckMethod(GetCursorIdx, GetCursorIdx);
-    CheckMethod(CursorStepL, CursorStepL);
-    CheckMethod(CursorStepR, CursorStepR);
-    CheckMethod(CursorAdvanceL, CursorAdvanceL);
-    CheckMethod(CursorAdvanceR, CursorAdvanceR);
+    CheckMethod(CopyCursor, copy_cursor);
+    CheckMethod(AreEqualCursor, are_equal_cursor);
+    CheckMethod(CompareCursor, compare_cursor);
+    CheckMethod(GetCursorDist, get_cursor_dist);
+    CheckMethod(GetCursorIdx, get_cursor_idx);
+    CheckMethod(CursorStepL, cursor_step_l);
+    CheckMethod(CursorStepR, cursor_step_r);
+    CheckMethod(CursorAdvanceL, cursor_advance_l);
+    CheckMethod(CursorAdvanceR, cursor_advance_r);
 
 #pragma pop_macro("CheckMethod")
 }
 
 constexpr seq_cntr::capability::Flag
-seq_cntr::CntrTraits<seq_cntr_ref::Ref>::GetStaticEnabledCapabilityFlag() {
+seq_cntr::CntrTraits<seq_cntr_ref::Cntr>::GetStaticEnabledCapabilityFlag() {
     return seq_cntr::capability::empty_capability_flag;
 }
 
 constexpr seq_cntr::capability::Flag
-seq_cntr::CntrTraits<seq_cntr_ref::Ref>::GetStaticDisabledCapabilityFlag() {
+seq_cntr::CntrTraits<seq_cntr_ref::Cntr>::GetStaticDisabledCapabilityFlag() {
     return seq_cntr::capability::empty_capability_flag;
 }
 
 constexpr seq_cntr::capability::Flag
-seq_cntr::CntrTraits<seq_cntr_ref::Ref>::GetDynamicEnabledCapabilityFlag(
-    seq_cntr_ref::Ref& ref) {
-    return ref.dynamic_enabled_capability_flag;
+seq_cntr::CntrTraits<seq_cntr_ref::Cntr>::GetDynamicEnabledCapabilityFlag(
+    seq_cntr_ref::Cntr& cntr) {
+    return cntr.dynamic_enabled_capability_flag;
 }
 
 constexpr seq_cntr::capability::Flag
-seq_cntr::CntrTraits<seq_cntr_ref::Ref>::GetDynamicDisabledCapabilityFlag(
-    seq_cntr_ref::Ref& ref) {
-    return ref.dynamic_disabled_capability_flag;
+seq_cntr::CntrTraits<seq_cntr_ref::Cntr>::GetDynamicDisabledCapabilityFlag(
+    seq_cntr_ref::Cntr& cntr) {
+    return cntr.dynamic_disabled_capability_flag;
 }
 
 constexpr seq_cntr::capability::Flag seq_cntr::CntrTraits<
-    seq_cntr_ref::Ref const>::GetStaticEnabledCapabilityFlag() {
+    seq_cntr_ref::Cntr const>::GetStaticEnabledCapabilityFlag() {
     return seq_cntr::capability::empty_capability_flag;
 }
 
 constexpr seq_cntr::capability::Flag seq_cntr::CntrTraits<
-    seq_cntr_ref::Ref const>::GetStaticDisabledCapabilityFlag() {
+    seq_cntr_ref::Cntr const>::GetStaticDisabledCapabilityFlag() {
     return seq_cntr::capability::non_const_capability_flag;
 }
 
 constexpr seq_cntr::capability::Flag
-seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::GetDynamicEnabledCapabilityFlag(
-    seq_cntr_ref::Ref const& ref) {
-    return ref.dynamic_enabled_capability_flag &
+seq_cntr::CntrTraits<seq_cntr_ref::Cntr const>::GetDynamicEnabledCapabilityFlag(
+    seq_cntr_ref::Cntr const& cntr) {
+    return cntr.dynamic_enabled_capability_flag &
            seq_cntr::capability::const_capability_flag;
 }
 
-constexpr seq_cntr::capability::Flag
-seq_cntr::CntrTraits<seq_cntr_ref::Ref const>::GetDynamicDisabledCapabilityFlag(
-    seq_cntr_ref::Ref const& ref) {
-    return ref.dynamic_disabled_capability_flag |
+constexpr seq_cntr::capability::Flag seq_cntr::
+    CntrTraits<seq_cntr_ref::Cntr const>::GetDynamicDisabledCapabilityFlag(
+        seq_cntr_ref::Cntr const& cntr) {
+    return cntr.dynamic_disabled_capability_flag |
            seq_cntr::capability::non_const_capability_flag;
 }
 

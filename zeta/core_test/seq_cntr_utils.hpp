@@ -504,7 +504,7 @@ void CheckCursor(SeqCntr* sc, size_t max_op_size) {
         ZETA_Core_DebugAssert(
             core::seq_cntr::CompareCursor(*sc, &cursor_a, &cursor_b) ==
             core::comparison::BasicCompare(
-                core::meta::AutoValueWrapper<core::comparison::Op::Order>{},
+                core::meta::AutoValueWrapper<core::comparison::OpEnum::Order>{},
                 idx_a + 1, idx_b + 1));
 
         ZETA_Core_DebugAssert(core::seq_cntr::GetCursorDist(

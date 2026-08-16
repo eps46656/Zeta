@@ -83,33 +83,36 @@ namespace zeta::core_test {
 
 inline bool operator==(PODValue const& x, PODValue const& y) {
     return core::comparison::BasicCompare(
-        core::meta::AutoValueWrapper<core::comparison::Op::Equal>{}, x, y);
+        core::meta::AutoValueWrapper<core::comparison::OpEnum::Equal>{}, x, y);
 }
 
 inline bool operator!=(PODValue const& x, PODValue const& y) {
     return core::comparison::BasicCompare(
-        core::meta::AutoValueWrapper<core::comparison::Op::NotEqual>{}, x, y);
+        core::meta::AutoValueWrapper<core::comparison::OpEnum::NotEqual>{}, x,
+        y);
 }
 
 inline bool operator<(PODValue const& x, PODValue const& y) {
     return core::comparison::BasicCompare(
-        core::meta::AutoValueWrapper<core::comparison::Op::Less>{}, x, y);
+        core::meta::AutoValueWrapper<core::comparison::OpEnum::Less>{}, x, y);
 }
 
 inline bool operator<=(PODValue const& x, PODValue const& y) {
     return core::comparison::BasicCompare(
-        core::meta::AutoValueWrapper<core::comparison::Op::LessEqual>{}, x, y);
+        core::meta::AutoValueWrapper<core::comparison::OpEnum::LessEqual>{}, x,
+        y);
 }
 
 inline bool operator>(PODValue const& x, PODValue const& y) {
     return core::comparison::BasicCompare(
-        core::meta::AutoValueWrapper<core::comparison::Op::Greater>{}, x, y);
+        core::meta::AutoValueWrapper<core::comparison::OpEnum::Greater>{}, x,
+        y);
 }
 
 inline bool operator>=(PODValue const& x, PODValue const& y) {
     return core::comparison::BasicCompare(
-        core::meta::AutoValueWrapper<core::comparison::Op::GreaterEqual>{}, x,
-        y);
+        core::meta::AutoValueWrapper<core::comparison::OpEnum::GreaterEqual>{},
+        x, y);
 }
 
 }  // namespace zeta::core_test

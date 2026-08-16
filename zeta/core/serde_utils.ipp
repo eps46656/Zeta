@@ -52,27 +52,31 @@ constexpr bool serde_utils::SerializeIntegral(
         }
     }())::Type;
 
-    Endianness endianness_value{ [=]() {
-        if constexpr (meta::IsValueWrapperT<EndiannessType, Endianness>) {
+    EndiannessEnum endianness_value{ [=]() {
+        if constexpr (meta::IsValueWrapperT<EndiannessType, EndiannessEnum>) {
             return EndiannessType::value;
-        } else {
+        } else if constexpr (meta::IsSame<EndiannessType, EndiannessEnum>) {
             return endianness;
+        } else {
+            ZETA_Core_StaticAssert(false);
         }
     }() };
 
     size_t digit_cnt{ [=]() {
         if constexpr (meta::IsValueWrapperT<DigitCntLike, size_t>) {
+            ZETA_Core_StaticAssert(0 < DigitCntLike::value);
             return DigitCntLike::value;
-        } else {
+        } else if constexpr (meta::IsSame<DigitCntLike, size_t>) {
+            ZETA_Core_DebugAssert(0 < digit_cnt_like);
             return digit_cnt_like;
+        } else {
+            ZETA_Core_StaticAssert(false);
         }
     }() };
 
     constexpr DigitIntegral digit_range_max{
         integral_math::PowerOf2Minus1<DigitIntegral>(DigitWidth)
     };
-
-    ZETA_Core_DebugAssert(0 < digit_cnt);
 
     bool is_neg{ src_value < 0 };
 
@@ -121,7 +125,7 @@ constexpr bool serde_utils::SerializeIntegral(
     } };
 
     switch (endianness_value) {
-    case Endianness::Little: {
+    case EndiannessEnum::Little: {
         for (size_t i{ 0 }; i < eff_digit_cnt; ++i) {
             buffer[i] = static_cast<DigitIntegral>(
                 op_src_value %
@@ -146,7 +150,7 @@ constexpr bool serde_utils::SerializeIntegral(
         break;
     }
 
-    case Endianness::Big: {
+    case EndiannessEnum::Big: {
         if (0 < exc_digit_cnt) {
             buffer[0] = is_neg ? digit_range_max : 0;
             elem_stream::acceptor::Transfer(
@@ -228,11 +232,13 @@ constexpr bool serde_utils::DeserializeIntegral(
         }
     }())::Type;
 
-    Endianness endianness_value{ [=]() {
-        if constexpr (meta::IsValueWrapperT<EndiannessType, Endianness>) {
+    EndiannessEnum endianness_value{ [=]() {
+        if constexpr (meta::IsValueWrapperT<EndiannessType, EndiannessEnum>) {
             return EndiannessType::value;
-        } else {
+        } else if constexpr (meta::IsSame<EndiannessType, EndiannessEnum>) {
             return endianness;
+        } else {
+            ZETA_Core_StaticAssert(false);
         }
     }() };
 
@@ -252,9 +258,11 @@ constexpr bool serde_utils::DeserializeIntegral(
         } else if constexpr (meta::IsValueWrapperT<DigitCntLike, size_t>) {
             ZETA_Core_StaticAssert(0 < DigitCntLike::value);
             return DigitCntLike::value;
-        } else {
+        } else if constexpr (meta::IsSame<DigitCntLike, size_t>) {
             ZETA_Core_DebugAssert(0 < digit_cnt_like);
             return digit_cnt_like;
+        } else {
+            ZETA_Core_StaticAssert(false);
         }
     }() };
 
@@ -362,7 +370,7 @@ constexpr bool serde_utils::DeserializeIntegral(
     OpUnsignedIntegral op_dst_value{ 0 };
 
     switch (endianness_value) {
-    case Endianness::Little: {
+    case EndiannessEnum::Little: {
         DigitIntegral* buffer_h{ buffer_a };
         DigitIntegral* buffer_l{ buffer_b };
 
@@ -409,7 +417,7 @@ constexpr bool serde_utils::DeserializeIntegral(
         break;
     }
 
-    case Endianness::Big: {
+    case EndiannessEnum::Big: {
         DigitIntegral* buffer_h{ buffer_a };
         DigitIntegral* buffer_l{ buffer_b };
 

@@ -5213,7 +5213,7 @@ template <CntrTplParamList>
 comparison::Ordering Namespace::Cntr<CntrTplArgList>::CompareCursor(
     this Cntr const& cntr, Cursor* cursor_a, Cursor* cursor_b) {
     return comparison::BasicCompare(
-        meta::AutoValueWrapper<comparison::Op::Order>{},
+        meta::AutoValueWrapper<comparison::OpEnum::Order>{},
         cntr.GetCursorIdx(cursor_a) + 1, cntr.GetCursorIdx(cursor_b) + 1);
 }
 

@@ -68,6 +68,16 @@ constexpr void basic_bin_tree_node::Node<NodeTplArgList>::Init(
 }
 
 template <NodeTplParamList>
+template <typename _>
+    requires requires {
+        requires meta::IsSame<_, void>;
+        requires AccSizeTag::value;
+    }
+constexpr size_t basic_bin_tree_node::Node<NodeTplArgList>::GetNullAccSize() {
+    return 0;
+}
+
+template <NodeTplParamList>
 constexpr basic_bin_tree_node::Node<NodeTplArgList>*
 basic_bin_tree_node::Node<NodeTplArgList>::GetPPtr() {
     auto m{ static_cast<Node*>(this->p.GetPtr(alignof(Node), this)) };

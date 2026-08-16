@@ -38,7 +38,7 @@ struct Node {
 };
 
 template <typename ElemHasherLike>
-struct HasherWrapper {
+struct NodeHasherWrapper {
     ElemHasherLike elem_hasher;
 
     template <typename... Args>
@@ -55,16 +55,21 @@ struct HasherWrapper {
 namespace zeta::core {
 
 template <typename ElemHasherLike>
-struct lifecycle::Traits<dynamic_hash_table::HasherWrapper<ElemHasherLike>>
+struct lifecycle::Traits<dynamic_hash_table::NodeHasherWrapper<ElemHasherLike>>
     : public lifecycle::MemberFuncTraitsAdapter<
-          dynamic_hash_table::HasherWrapper<ElemHasherLike>> {};
+          dynamic_hash_table::NodeHasherWrapper<ElemHasherLike>> {};
+
+template <typename ElemHasherLike>
+struct hash::HasherTraits<dynamic_hash_table::NodeHasherWrapper<ElemHasherLike>>
+    : public hash::MemberFuncHasherTraitsAdapter<
+          dynamic_hash_table::NodeHasherWrapper<ElemHasherLike>> {};
 
 }  // namespace zeta::core
 
 namespace zeta::core::dynamic_hash_table {
 
 template <typename ElemComparatorLike>
-struct ComparatorWrapper {
+struct NodeComparatorWrapper {
     ElemComparatorLike elem_cmptr;
 
     template <typename... Args>
@@ -82,9 +87,39 @@ struct ComparatorWrapper {
 namespace zeta::core {
 
 template <typename ComparatorLike>
-struct lifecycle::Traits<dynamic_hash_table::ComparatorWrapper<ComparatorLike>>
+struct lifecycle::Traits<
+    dynamic_hash_table::NodeComparatorWrapper<ComparatorLike>>
     : public lifecycle::MemberFuncTraitsAdapter<
-          dynamic_hash_table::ComparatorWrapper<ComparatorLike>> {};
+          dynamic_hash_table::NodeComparatorWrapper<ComparatorLike>> {};
+
+template <typename ComparatorLike>
+struct comparison::ComparatorTraits<
+    dynamic_hash_table::NodeComparatorWrapper<ComparatorLike>>
+    : public comparison::MemberFuncComparatorTraitsAdapter<
+          dynamic_hash_table::NodeComparatorWrapper<ComparatorLike>> {};
+
+}  // namespace zeta::core
+
+namespace zeta::core::dynamic_hash_table {
+
+template <typename KeyElemComparatorLike>
+struct KeyNodeComparatorWrapper {
+    KeyElemComparatorLike key_elem_cmptr;
+
+    template <comparison::IsOpType OpType>
+    constexpr auto Compare(OpType, void const* key_a,
+                           generic_hash_table::Node const* ghtn_b) const;
+};
+
+}  // namespace zeta::core::dynamic_hash_table
+
+namespace zeta::core {
+
+template <typename ComparatorLike>
+struct comparison::ComparatorTraits<
+    dynamic_hash_table::KeyNodeComparatorWrapper<ComparatorLike>>
+    : public comparison::MemberFuncComparatorTraitsAdapter<
+          dynamic_hash_table::KeyNodeComparatorWrapper<ComparatorLike>> {};
 
 }  // namespace zeta::core
 
@@ -105,8 +140,8 @@ struct Cntr {
 
     size_t elem_size;
 
-    generic_hash_table::Cntr<HasherWrapper<HasherLike>,
-                             ComparatorWrapper<ComparatorLike>,
+    generic_hash_table::Cntr<NodeHasherWrapper<HasherLike>,
+                             NodeComparatorWrapper<ComparatorLike>,
                              SaltRandomEngineLike, TableNodeAllocatorLike>
         ght;
 
@@ -114,17 +149,18 @@ struct Cntr {
 
     NodeAllocatorLike node_alctr;
 
-    template <typename HasherLikeInitArg, typename ComparatorInitArg,
-              typename SaltRandomEngineInitArg, typename NodeAllocatorInitArg,
-              typename TableNodeAllocatorInitArg>
+    template <typename HasherLikeInitArg, typename ComparatorLikeInitArg,
+              typename SaltRandomEngineLikeInitArg,
+              typename NodeAllocatorLikeInitArg,
+              typename TableNodeAllocatorLikeInitArg>
     constexpr void Init(
         this Cntr& cntr, size_t elem_size,
         generic_hash_table::RehashingConfig const& rehashing_config,
         HasherLikeInitArg&& elem_hasher_init_arg,
-        ComparatorInitArg&& elem_cmptr_init_arg,
-        SaltRandomEngineInitArg&& salt_random_engine_init_arg,
-        NodeAllocatorInitArg&& node_alctr_init_arg,
-        TableNodeAllocatorInitArg&& table_node_alctr_init_arg);
+        ComparatorLikeInitArg&& elem_cmptr_init_arg,
+        SaltRandomEngineLikeInitArg&& salt_random_engine_init_arg,
+        NodeAllocatorLikeInitArg&& node_alctr_init_arg,
+        TableNodeAllocatorLikeInitArg&& table_node_alctr_init_arg);
 
     constexpr void Deinit(this Cntr& cntr);
 
@@ -142,28 +178,36 @@ struct Cntr {
 
     constexpr void GetRBCursor(this Cntr const& cntr, Cursor* dst_cursor);
 
-    constexpr void PeekL(this Cntr const& cntr, bool lazy_copy_elem,
+    constexpr void PeekL(this auto& cntr, bool lazy_copy_elem,
                          assoc_cntr::ElemPtrView* dst_elem_ptr_view,
                          Cursor* dst_cursor, void* dst_elem);
 
-    constexpr void PeekR(this Cntr const& cntr, bool lazy_copy_elem,
+    constexpr void PeekR(this auto& cntr, bool lazy_copy_elem,
                          assoc_cntr::ElemPtrView* dst_elem_ptr_view,
                          Cursor* dst_cursor, void* dst_elem);
 
-    constexpr void Derefer(this Cntr const& cntr, Cursor const* pos_cursor,
+    constexpr void Derefer(this auto& cntr, Cursor const* pos_cursor,
                            bool lazy_copy_elem,
                            assoc_cntr::ElemPtrView* dst_elem_ptr_view,
                            void* dst_elem);
 
+    constexpr void Find(this auto& cntr, void const* elem, bool lazy_copy_elem,
+                        assoc_cntr::ElemPtrView* dst_elem_ptr_view,
+                        Cursor* dst_cursor, void* dst_elem);
+
     template <
         hash::CanHash<void const*> KeyHasher,
         comparison::CanCompare<void const*, void const*> KeyElemComparator>
-    constexpr void Find(this auto&& cntr, void const* key,
+    constexpr void Find(this auto& cntr, void const* key,
                         KeyHasher const& key_hasher,
                         KeyElemComparator const& key_elem_cmptr,
                         bool lazy_copy_elem,
                         assoc_cntr::ElemPtrView* dst_elem_ptr_view,
                         Cursor* dst_cursor, void* dst_elem);
+
+    template <assoc_cntr::IsWriter Writer>
+    constexpr void Insert(this Cntr& cntr, void const* elem, Writer&& writer,
+                          Cursor* dst_cursor);
 
     template <
         hash::CanHash<void const*> KeyHasher,
@@ -174,11 +218,15 @@ struct Cntr {
                           KeyElemComparator const& key_elem_cmptr,
                           Writer&& writer, Cursor* dst_cursor);
 
-    constexpr void PopL(this Cntr& cntr, size_t cnt);
+    template <assoc_cntr::IsReader Reader>
+    constexpr void PopL(this Cntr& cntr, size_t cnt, Reader&& reader);
 
-    constexpr void PopR(this Cntr& cntr, size_t cnt);
+    template <assoc_cntr::IsReader Reader>
+    constexpr void PopR(this Cntr& cntr, size_t cnt, Reader&& reader);
 
-    constexpr void Erase(this Cntr& cntr, Cursor* pos_cursor);
+    template <assoc_cntr::IsReader Reader>
+    constexpr void Erase(this Cntr& cntr, Cursor* pos_cursor, size_t cnt,
+                         Reader&& reader);
 
     constexpr void EraseAll(this Cntr& cntr);
 

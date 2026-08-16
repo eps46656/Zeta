@@ -117,16 +117,13 @@ inline void test_IOI(int special_value) {
     ZETA_Core_StaticAssert(zeta::core::integral::WidthOf<RangeIntegral> <=
                            zeta::core::integral::WidthOf<IOIntegral>);
 
-    zeta::core::serde_utils::EndiannessEnum::Value endianness_value;
+    zeta::core::serde_utils::EndiannessEnum endianness;
 
     switch (Endianness) {
     case LE:
-        endianness_value =
-            zeta::core::serde_utils::EndiannessEnum::Little::value;
+        endianness = zeta::core::serde_utils::EndiannessEnum::Little;
         break;
-    case BE:
-        endianness_value = zeta::core::serde_utils::EndiannessEnum::Big::value;
-        break;
+    case BE: endianness = zeta::core::serde_utils::EndiannessEnum::Big; break;
     default: ZETA_Core_Unreachable();
     }
 
@@ -206,15 +203,13 @@ inline void test_IOI(int special_value) {
             io_val,
             // src_value
 
-            zeta::core::value_wrapper::DynamicValueWrapper<
-                zeta::core::serde_utils::EndiannessEnum::Value>{
-                endianness_value },
+            endianness,
             // endianness_like
 
             zeta::core::meta::TypeWrapper<DigitIntegral>{},
             // digit_integral
 
-            zeta::core::value_wrapper::StaticValueWrapper<size_t, DigitWidth>{},
+            zeta::core::meta::ValueWrapper<size_t, DigitWidth>{},
             // digit_width
 
             false,
@@ -262,15 +257,13 @@ inline void test_IOI(int special_value) {
             oi_val,
             // dst_value
 
-            zeta::core::value_wrapper::DynamicValueWrapper<
-                zeta::core::serde_utils::EndiannessEnum::Value>{
-                endianness_value },
+            endianness,
             // endianness_like
 
             zeta::core::meta::TypeWrapper<DigitIntegral>{},
             // digit_integral
 
-            zeta::core::value_wrapper::StaticValueWrapper<size_t, DigitWidth>{},
+            zeta::core::meta::ValueWrapper<size_t, DigitWidth>{},
             // digit_width
 
             false,

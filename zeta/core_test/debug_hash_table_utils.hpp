@@ -7,17 +7,17 @@
 #include <zeta/core/debug_hash_table.hpp>
 #include <zeta/core/debug_hash_table.ipp>
 #include <zeta/core/function_ref.hpp>
-#include <zeta/core/hash.hpp>
+#include <zeta/core/hash.ipp>
+#include <zeta/core/hash_ref.ipp>
 #include <zeta/core_test/assoc_cntr_utils.hpp>
 
 namespace zeta::core_test::debug_hash_table_utils {
 
-using AssocCntrRef = core::assoc_cntr_ref::Ref;
+using AssocCntrRef = core::assoc_cntr_ref::Cntr;
 
 namespace DebugHashTableNS = core::debug_hash_table;
-using DebugHashTable =
-    DebugHashTableNS::Cntr<core::fn_hash::FnHasher,
-                           core::fn_comparison::FnComparator>;
+using DebugHashTable = DebugHashTableNS::Cntr<core::hash_ref::Hasher,
+                                              core::comparison_ref::Comparator>;
 
 struct DebugHashTablePack {
     DebugHashTable debug_ht;
@@ -36,15 +36,20 @@ AssocCntrRef Create() {
 
     pack->debug_ht.elem_size = sizeof(Elem);
 
-    pack->debug_ht.elem_key_hasher_proxy.elem_hasher =
-        core::hash::TypeErasedBasicHash<Elem>;
+    pack->debug_ht.hasher_proxy.elem_hasher.Set(
+        core::hash::BasicHasher<Elem>{}, core::meta::TypeWrapper<Elem>{});
 
-    pack->debug_ht.elem_key_eq_proxy.elem_cmptr =
-        core::comparison::TypeErasedBasicCompare<Elem, Elem>;
+    pack->debug_ht.eq_proxy.elem_cmptr.Set(
+        core::comparison::BasicComparator<Elem, Elem>{},
+        core::meta::TypeWrapper<Elem>{}, core::meta::TypeWrapper<Elem>{});
 
     pack->debug_ht.Init();
 
-    AssocCntrRef assoc_cntr_ref{ pack->debug_ht };
+    ZETA_Core_StaticAssert(
+        zeta::core::assoc_cntr::IsAssocCntr<decltype(pack->debug_ht)>);
+
+    // AssocCntrRef assoc_cntr_ref{ pack->debug_ht };
+    AssocCntrRef assoc_cntr_ref;
 
     assoc_cntr_utils::AddSanitizeFunc(&pack->debug_ht, Sanitize);
 

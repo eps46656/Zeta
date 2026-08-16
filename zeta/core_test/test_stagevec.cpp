@@ -8,7 +8,6 @@
 #include <zeta/core/seq_cntr.hpp>
 #include <zeta/core/seq_cntr.ipp>
 #include <zeta/core/utils.ipp>
-#include <zeta/core/value_wrapper.hpp>
 #include <zeta/core_test/circular_array_utils.hpp>
 #include <zeta/core_test/debug_deque_utils.hpp>
 // #include <zeta/core_test/multi_level_circular_array_utils.hpp>

@@ -4,6 +4,7 @@
 
 #include <cstdlib>
 #include <zeta/core/assoc_cntr.hpp>
+#include <zeta/core/comparison_ref.ipp>
 #include <zeta/core/debug_hash_table.hpp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
@@ -37,14 +38,19 @@ void CheckCursor_(Cntr<CntrTplArgList> const& cntr,
 
 template <typename HasherLike>
 unsigned long long debug_hash_table::HasherProxy<HasherLike>::operator()(
-    void const* a) const {
+    ObjWrapper const& a_) const {
+    void const* a{ a_.obj };
+
     return a == this->cur_key ? this->key_hash_func(this->key_hasher, a)
                               : this->elem_hash_func(&this->elem_hasher, a);
 }
 
 template <typename HasherLike>
-bool debug_hash_table::EqProxy<HasherLike>::operator()(void const* a,
-                                                       void const* b) const {
+bool debug_hash_table::EqProxy<HasherLike>::operator()(
+    ObjWrapper const& a_, ObjWrapper const& b_) const {
+    void const* a{ a_.obj };
+    void const* b{ b_.obj };
+
     bool a_is_key{ a == this->cur_key };
     bool b_is_key{ b == this->cur_key };
 
@@ -58,14 +64,31 @@ bool debug_hash_table::EqProxy<HasherLike>::operator()(void const* a,
         return this->key_elem_eq_func(this->key_elem_cmptr, b, a);
     }
 
-    this->elem_eq_func(this->key_elem_cmptr, a, b);
+    return this->elem_eq_func(this->key_elem_cmptr, a, b);
 }
 
 template <CntrTplParamList>
 constexpr void debug_hash_table::Cntr<CntrTplArgList>::Init(this Cntr& cntr) {
-    cntr.hash_table = new hash_table_t<HasherLike, ComparatorLike>{
-        0, cntr.elem_key_hasher_proxy, cntr.elem_key_eq_proxy
+    cntr.hasher_proxy.elem_hash_func = [](void const* elem_hasher,
+                                          void const* elem) {
+        return hash::Hash(
+            *static_cast<meta::RemoveRef<decltype(meta::GetInstRef(
+                cntr.hasher_proxy.elem_hasher))> const*>(elem_hasher),
+            elem, 0);
     };
+
+    cntr.eq_proxy.elem_eq_func = [](void const* elem_cmptr, void const* elem_a,
+                                    void const* elem_b) {
+        return comparison::Compare(
+            *static_cast<meta::RemoveRef<decltype(meta::GetInstRef(
+                cntr.eq_proxy.elem_cmptr))> const*>(elem_cmptr),
+            meta::AutoValueWrapper<comparison::OpEnum::Equal>{}, elem_a,
+            elem_b);
+    };
+
+    cntr.hash_table =
+        new hash_table_t<HasherLike, ComparatorLike>{ 0, cntr.hasher_proxy,
+                                                      cntr.eq_proxy };
 }
 
 template <CntrTplParamList>
@@ -135,7 +158,7 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::GetRBCursor(
 
 template <CntrTplParamList>
 constexpr void debug_hash_table::Cntr<CntrTplArgList>::PeekL(
-    this auto&& cntr, bool lazy_copy_elem,
+    this auto& cntr, bool lazy_copy_elem,
     assoc_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
     void* dst_elem) {
     detail::CheckCntr_(cntr);
@@ -144,8 +167,7 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::PeekL(
 
     auto pos_cursor{ hash_table->begin() };
 
-    void* elem{ hash_table->empty() ? nullptr
-                                    : const_cast<void*>(*pos_cursor) };
+    void* elem{ hash_table->empty() ? nullptr : pos_cursor->obj };
 
     if (dst_elem_ptr_view != nullptr) {
         dst_elem_ptr_view->ptr = elem;
@@ -175,7 +197,7 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::PeekL(
 
 template <CntrTplParamList>
 constexpr void debug_hash_table::Cntr<CntrTplArgList>::PeekR(
-    this auto&& cntr, bool lazy_copy_elem,
+    this auto& cntr, bool lazy_copy_elem,
     assoc_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
     void* dst_elem) {
     detail::CheckCntr_(cntr);
@@ -190,7 +212,7 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::PeekR(
         elem = nullptr;
     } else {
         --pos_cursor;
-        elem = const_cast<void*>(*pos_cursor);
+        elem = pos_cursor->obj;
     }
 
     if (dst_elem_ptr_view != nullptr) {
@@ -221,19 +243,14 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::PeekR(
 
 template <CntrTplParamList>
 constexpr void debug_hash_table::Cntr<CntrTplArgList>::Derefer(
-    this auto&& cntr, Cursor const* pos_cursor, bool lazy_copy_elem,
+    this auto& cntr, Cursor const* pos_cursor, bool lazy_copy_elem,
     assoc_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_elem) {
     detail::CheckCursor_(cntr, pos_cursor);
 
     auto* hash_table{ cntr.hash_table };
 
-    void* elem{ *pos_cursor == hash_table->end()
-                    ? nullptr
-                    : const_cast<void*>(**pos_cursor) };
-
-    if (elem != nullptr && dst_elem != nullptr && !lazy_copy_elem) {
-        utils::MemCopy(dst_elem, elem, cntr.elem_size);
-    }
+    void* elem{ *pos_cursor == hash_table->end() ? nullptr
+                                                 : (*pos_cursor)->obj };
 
     if (dst_elem_ptr_view != nullptr) {
         dst_elem_ptr_view->ptr = elem;
@@ -257,12 +274,27 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::Derefer(
 }
 
 template <CntrTplParamList>
+constexpr void debug_hash_table::Cntr<CntrTplArgList>::Find(
+    this auto& cntr, void const* elem, bool lazy_copy_elem,
+    assoc_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+    void* dst_elem) {
+    auto* hash_table{ cntr.hash_table };
+
+    auto& hasher_wrapper{ hash_table->hash_function() };
+    auto& eq_wrapper{ hash_table->key_eq() };
+
+    cntr.Find(elem, hasher_wrapper.elem_hasher, eq_wrapper.elem_cmptr,
+              lazy_copy_elem, dst_elem_ptr_view, dst_cursor, dst_elem);
+}
+
+template <CntrTplParamList>
 template <hash::CanHash<void const*> KeyHasher,
           comparison::CanCompare<void const*, void const*> KeyElemComparator>
 constexpr void debug_hash_table::Cntr<CntrTplArgList>::Find(
-    this Cntr const& cntr, void const* key, KeyHasher const& key_hasher,
+    this auto& cntr, void const* key, KeyHasher const& key_hasher,
     KeyElemComparator const& key_elem_cmptr, bool lazy_copy_elem,
-    Cursor* dst_cursor, void* dst_elem) {
+    assoc_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
+    void* dst_elem) {
     auto* hash_table{ cntr.hash_table };
 
     auto& hasher_wrapper{ hash_table->hash_function() };
@@ -274,33 +306,65 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::Find(
         return hash::Hash(*static_cast<KeyHasher const*>(key_hasher), key, 0);
     };
 
-    hasher_wrapper->cur_key = key;
+    hasher_wrapper.cur_key = key;
 
     eq_wrapper.key_elem_cmptr = &key_elem_cmptr;
 
-    eq_wrapper.key_elem_cmptr = [](void const* key_elem_cmptr, void const* key,
-                                   void const* elem) {
+    eq_wrapper.key_elem_eq_func = [](void const* key_elem_cmptr,
+                                     void const* key, void const* elem) {
         return comparison::Compare(
             *static_cast<KeyElemComparator const*>(key_elem_cmptr),
-            meta::AutoValueWrapper<comparison::Op::Equal>{}, key, elem);
+            meta::AutoValueWrapper<comparison::OpEnum::Equal>{}, key, elem);
     };
 
-    eq_wrapper->cur_key = key;
+    eq_wrapper.cur_key = key;
 
-    auto pos_cursor{ hash_table->find(key) };
+    auto pos_cursor{ hash_table->find(ObjWrapper{ const_cast<void*>(key) }) };
 
     if (dst_cursor != nullptr) {
         new (dst_cursor)
             hash_table_t<HasherLike, ComparatorLike>::iterator{ pos_cursor };
     }
 
-    void* elem{ pos_cursor == hash_table->end()
-                    ? nullptr
-                    : const_cast<void*>(*pos_cursor) };
+    void* elem{ pos_cursor == hash_table->end() ? nullptr : pos_cursor->obj };
 
-    if (elem != nullptr && dst_elem != nullptr && !lazy_copy_elem) {
+    if (dst_elem_ptr_view != nullptr) {
+        dst_elem_ptr_view->ptr = elem;
+
+        if constexpr (meta::IsConst<decltype(cntr)>) {
+            dst_elem_ptr_view->aliasability =
+                elem == nullptr
+                    ? assoc_cntr::ElemPtrView::AliasabilityEnum::Null
+                    : assoc_cntr::ElemPtrView::AliasabilityEnum::ReadOnly;
+        } else {
+            dst_elem_ptr_view->aliasability =
+                elem == nullptr
+                    ? assoc_cntr::ElemPtrView::AliasabilityEnum::Null
+                    : assoc_cntr::ElemPtrView::AliasabilityEnum::ReadWrite;
+        }
+    }
+
+    if (dst_cursor != nullptr) {
+        new (dst_cursor)
+            hash_table_t<HasherLike, ComparatorLike>::iterator{ pos_cursor };
+    }
+
+    if (elem != nullptr && !lazy_copy_elem && dst_elem != nullptr) {
         utils::MemCopy(dst_elem, elem, cntr.elem_size);
     }
+}
+
+template <CntrTplParamList>
+template <assoc_cntr::IsWriter Writer>
+constexpr void debug_hash_table::Cntr<CntrTplArgList>::Insert(
+    this Cntr& cntr, void const* elem, Writer&& writer, Cursor* dst_cursor) {
+    auto* hash_table{ cntr.hash_table };
+
+    auto& hasher_wrapper{ hash_table->hash_function() };
+    auto& eq_wrapper{ hash_table->key_eq() };
+
+    cntr.Insert(elem, hasher_wrapper.elem_hasher, eq_wrapper.elem_cmptr, writer,
+                dst_cursor);
 }
 
 template <CntrTplParamList>
@@ -329,17 +393,19 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::Insert(
     eq_wrapper.key_elem_cmptr = &key_elem_cmptr;
 
     eq_wrapper.key_elem_eq_func = [](void const* key_elem_cmptr,
-                                     void const* key, void const* elem) {
+                                     void const* key,
+                                     void const* elem_wrapper) {
         return comparison::Compare(
             *static_cast<KeyElemComparator const*>(key_elem_cmptr),
-            meta::AutoValueWrapper<comparison::Op::Equal>{}, key, elem);
+            meta::AutoValueWrapper<comparison::OpEnum::Equal>{}, key,
+            static_cast<ObjWrapper const*>(elem_wrapper)->obj);
     };
 
     eq_wrapper.cur_key = key;
 
-    auto pos_cursor{ hash_table->insert(key) };
+    auto pos_cursor{ hash_table->insert(ObjWrapper{ const_cast<void*>(key) }) };
 
-    *pos_cursor = std::malloc(cntr.elem_size);
+    pos_cursor->obj = std::malloc(cntr.elem_size);
 
     elem_stream::provider::Transfer(writer, pos_cursor->obj, cntr.elem_size,
                                     cntr.elem_size, 1);
@@ -351,8 +417,10 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::Insert(
 }
 
 template <CntrTplParamList>
+template <assoc_cntr::IsReader Reader>
 constexpr void debug_hash_table::Cntr<CntrTplArgList>::PopL(this Cntr& cntr,
-                                                            size_t cnt) {
+                                                            size_t cnt,
+                                                            Reader&& reader) {
     detail::CheckCntr_(cntr);
 
     auto* hash_table{ cntr.hash_table };
@@ -362,7 +430,10 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::PopL(this Cntr& cntr,
     for (size_t i{ 0 }; i < cnt; ++i) {
         auto pos_cursor{ hash_table->begin() };
 
-        void* elem{ const_cast<void*>(*pos_cursor) };
+        void* elem{ pos_cursor->obj };
+
+        elem_stream::acceptor::Transfer(reader, elem, cntr.elem_size,
+                                        cntr.elem_size, 1);
 
         hash_table->erase(pos_cursor);
 
@@ -371,8 +442,10 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::PopL(this Cntr& cntr,
 }
 
 template <CntrTplParamList>
+template <assoc_cntr::IsReader Reader>
 constexpr void debug_hash_table::Cntr<CntrTplArgList>::PopR(this Cntr& cntr,
-                                                            size_t cnt) {
+                                                            size_t cnt,
+                                                            Reader&& reader) {
     detail::CheckCntr_(cntr);
 
     auto* hash_table{ cntr.hash_table };
@@ -383,7 +456,10 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::PopR(this Cntr& cntr,
         auto pos_cursor{ hash_table->end() };
         --pos_cursor;
 
-        void* elem{ const_cast<void*>(*pos_cursor) };
+        void* elem{ pos_cursor->obj };
+
+        elem_stream::acceptor::Transfer(reader, elem, cntr.elem_size,
+                                        cntr.elem_size, 1);
 
         hash_table->erase(pos_cursor);
 
@@ -392,19 +468,27 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::PopR(this Cntr& cntr,
 }
 
 template <CntrTplParamList>
-constexpr void debug_hash_table::Cntr<CntrTplArgList>::Erase(
-    this Cntr& cntr, Cursor* pos_cursor) {
+template <assoc_cntr::IsReader Reader>
+constexpr void debug_hash_table::Cntr<CntrTplArgList>::Erase(this Cntr& cntr,
+                                                             Cursor* pos_cursor,
+                                                             size_t cnt,
+                                                             Reader&& reader) {
     detail::CheckCursor_(cntr, pos_cursor);
 
     auto* hash_table{ cntr.hash_table };
 
-    ZETA_Core_DebugAssert(*pos_cursor != hash_table->end());
+    for (; 0 < cnt; ++cnt) {
+        ZETA_Core_DebugAssert(*pos_cursor != hash_table->end());
 
-    void* elem{ const_cast<void*>(*pos_cursor) };
+        void* elem{ (*pos_cursor)->obj };
 
-    *pos_cursor = hash_table->erase(*pos_cursor);
+        elem_stream::acceptor::Transfer(reader, elem, cntr.elem_size,
+                                        cntr.elem_size, 1);
 
-    std::free(elem);
+        *pos_cursor = hash_table->erase(*pos_cursor);
+
+        std::free(elem);
+    }
 }
 
 template <CntrTplParamList>

@@ -19,16 +19,16 @@ namespace zeta::core {
 
 #pragma push_macro("CallMethod_")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CallMethod_(method_ptr, cap_name, method, ...)                      \
-    {                                                                       \
-        ZETA_Core_DebugAssert(                                              \
-            TestCapability(ref.dynamic_enabled_capability_flag, cap_name)); \
-                                                                            \
-        auto method_ptr{ ref.vtable->method };                              \
-        ZETA_Core_DebugAssert(method_ptr != nullptr);                       \
-                                                                            \
-        return method_ptr(ref.cntr, __VA_ARGS__);                           \
-    }                                                                       \
+#define CallMethod_(method_ptr, cap_name, method, ...)                       \
+    {                                                                        \
+        ZETA_Core_DebugAssert(                                               \
+            TestCapability(cntr.dynamic_enabled_capability_flag, cap_name)); \
+                                                                             \
+        auto method_ptr{ cntr.vtable->method };                              \
+        ZETA_Core_DebugAssert(method_ptr != nullptr);                        \
+                                                                             \
+        return method_ptr(cntr.target_cntr, __VA_ARGS__);                    \
+    }                                                                        \
     ZETA_Core_StaticAssert(true);
 
 #pragma push_macro("CallMethod")
@@ -36,174 +36,239 @@ namespace zeta::core {
 #define CallMethod(cap_name, method, ...) \
     CallMethod_(ZETA_Core_TmpName, cap_name, method, __VA_ARGS__)
 
-template <assoc_cntr::IsAssocCntr Cntr>
-constexpr assoc_cntr_ref::Ref::Ref(Cntr& cntr) {
-    this->Init(cntr);
+template <assoc_cntr::IsAssocCntr TargetCntr>
+constexpr assoc_cntr_ref::Cntr::Cntr(TargetCntr& target_cntr) {
+    this->Init(target_cntr);
 }
 
-template <assoc_cntr::IsAssocCntr Cntr>
-constexpr void assoc_cntr_ref::Ref::Init(this Ref& ref, Cntr& cntr) {
-    ref.cursor_size = assoc_cntr::GetCursorSize(cntr);
-    ref.elem_size = assoc_cntr::GetElemSize(cntr);
-    ref.max_elem_cnt = assoc_cntr::GetMaxElemCnt(cntr);
-    ref.dynamic_enabled_capability_flag =
-        assoc_cntr::GetStaticEnabledCapabilityFlag<Cntr>() |
-        assoc_cntr::GetDynamicEnabledCapabilityFlag(cntr);
-    ref.dynamic_disabled_capability_flag =
-        assoc_cntr::GetStaticDisabledCapabilityFlag<Cntr>() |
-        assoc_cntr::GetDynamicDisabledCapabilityFlag(cntr);
-    ref.vtable = &assoc_cntr::GetVTable<Cntr>();
-    ref.cntr = const_cast<void*>(static_cast<void const*>(&cntr));
+template <assoc_cntr::IsAssocCntr TargetCntr>
+constexpr void assoc_cntr_ref::Cntr::Init(this Cntr& cntr,
+                                          TargetCntr& target_cntr) {
+    cntr.cursor_size = assoc_cntr::GetCursorSize(target_cntr);
+    cntr.elem_size = assoc_cntr::GetElemSize(target_cntr);
+    cntr.max_elem_cnt = assoc_cntr::GetMaxElemCnt(target_cntr);
+    cntr.dynamic_enabled_capability_flag =
+        assoc_cntr::GetStaticEnabledCapabilityFlag<TargetCntr>() |
+        assoc_cntr::GetDynamicEnabledCapabilityFlag(target_cntr);
+    cntr.dynamic_disabled_capability_flag =
+        assoc_cntr::GetStaticDisabledCapabilityFlag<TargetCntr>() |
+        assoc_cntr::GetDynamicDisabledCapabilityFlag(target_cntr);
+    cntr.vtable = &assoc_cntr::GetVTable<TargetCntr>();
+    cntr.target_cntr =
+        const_cast<void*>(static_cast<void const*>(&target_cntr));
 }
 
-constexpr void* assoc_cntr_ref::Ref::GetReferedInstPtr(this Ref const& ref) {
-    return ref.cntr;
+constexpr void assoc_cntr_ref::Cntr::Init(this Cntr& cntr,
+                                          Cntr const& other_cntr) {
+    cntr = other_cntr;
 }
 
-constexpr size_t assoc_cntr_ref::Ref::GetCursorSize(this Ref const& ref) {
-    return ref.cursor_size;
+constexpr void* assoc_cntr_ref::Cntr::GetReferedInstPtr(this Cntr const& cntr) {
+    return cntr.target_cntr;
 }
 
-constexpr size_t assoc_cntr_ref::Ref::GetElemSize(this Ref const& ref) {
-    return ref.elem_size;
+constexpr size_t assoc_cntr_ref::Cntr::GetCursorSize(this Cntr const& cntr) {
+    return cntr.cursor_size;
 }
 
-constexpr size_t assoc_cntr_ref::Ref::GetElemCnt(this Ref const& ref) {
-    CallMethod(GetElemCnt, GetElemCnt);
+constexpr size_t assoc_cntr_ref::Cntr::GetElemSize(this Cntr const& cntr) {
+    return cntr.elem_size;
 }
 
-constexpr size_t assoc_cntr_ref::Ref::GetMaxElemCnt(this Ref const& ref) {
-    CallMethod(GetMaxElemCnt, GetMaxElemCnt);
+constexpr size_t assoc_cntr_ref::Cntr::GetElemCnt(this Cntr const& cntr) {
+    CallMethod(GetElemCnt, get_elem_cnt);
 }
 
-constexpr void assoc_cntr_ref::Ref::GetLBCursor(this Ref const& ref,
-                                                void* dst_cursor) {
-    CallMethod(GetLBCursor, GetLBCursor, dst_cursor);
+constexpr size_t assoc_cntr_ref::Cntr::GetMaxElemCnt(this Cntr const& cntr) {
+    CallMethod(GetMaxElemCnt, get_max_elem_cnt);
 }
 
-constexpr void assoc_cntr_ref::Ref::GetRBCursor(this Ref const& ref,
-                                                void* dst_cursor) {
-    CallMethod(GetRBCursor, GetRBCursor, dst_cursor);
+constexpr void assoc_cntr_ref::Cntr::GetLBCursor(this Cntr const& cntr,
+                                                 void* dst_cursor) {
+    CallMethod(GetLBCursor, get_lb_cursor, dst_cursor);
 }
 
-constexpr void assoc_cntr_ref::Ref::PeekL(
-    this Ref const& ref, bool lazy_copy_elem,
+constexpr void assoc_cntr_ref::Cntr::GetRBCursor(this Cntr const& cntr,
+                                                 void* dst_cursor) {
+    CallMethod(GetRBCursor, get_rb_cursor, dst_cursor);
+}
+
+constexpr void assoc_cntr_ref::Cntr::PeekL(
+    this Cntr const& cntr, bool lazy_copy_elem,
     assoc_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
     void* dst_elem) {
-    CallMethod(PeekL, PeekL, lazy_copy_elem, dst_elem_ptr_view, dst_cursor,
+    CallMethod(PeekL, peek_l, lazy_copy_elem, dst_elem_ptr_view, dst_cursor,
                dst_elem);
 }
 
-constexpr void assoc_cntr_ref::Ref::PeekR(
-    this Ref const& ref, bool lazy_copy_elem,
+constexpr void assoc_cntr_ref::Cntr::PeekR(
+    this Cntr const& cntr, bool lazy_copy_elem,
     assoc_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
     void* dst_elem) {
-    CallMethod(PeekR, PeekR, lazy_copy_elem, dst_elem_ptr_view, dst_cursor,
+    CallMethod(PeekR, peek_r, lazy_copy_elem, dst_elem_ptr_view, dst_cursor,
                dst_elem);
 }
 
-constexpr void assoc_cntr_ref::Ref::Derefer(
-    this Ref const& ref, void* pos_cursor, bool lazy_copy_elem,
+constexpr void assoc_cntr_ref::Cntr::Derefer(
+    this Cntr const& cntr, void* pos_cursor, bool lazy_copy_elem,
     assoc_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_elem) {
-    CallMethod(Derefer, Derefer, pos_cursor, lazy_copy_elem, dst_elem_ptr_view,
+    CallMethod(Derefer, derefer, pos_cursor, lazy_copy_elem, dst_elem_ptr_view,
                dst_elem);
+}
+
+constexpr void assoc_cntr_ref::Cntr::Find(
+    this Cntr const& cntr, void const* elem, bool lazy_copy_elem,
+    assoc_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+    void* dst_elem) {
+    CallMethod(Find, find.with_elem.fn, elem, lazy_copy_elem, dst_elem_ptr_view,
+               dst_cursor, dst_elem);
 }
 
 template <hash::CanHash<void const*> KeyHasher,
           comparison::CanCompare<void const*, void const*> KeyElemComparator>
-constexpr void assoc_cntr_ref::Ref::Find(
-    this Ref const& ref, void const* key, KeyHasher const& key_hasher,
+constexpr void assoc_cntr_ref::Cntr::Find(
+    this Cntr const& cntr, void const* key, KeyHasher const& key_hasher,
     KeyElemComparator const& key_elem_cmptr, bool lazy_copy_elem,
     assoc_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
     void* dst_elem) {
-    CallMethod(Find, Find_Fn, key, key_hasher, key_elem_cmptr, lazy_copy_elem,
-               dst_elem_ptr_view, dst_cursor, dst_elem);
+    CallMethod(Find, find.with_key.fn, key, key_hasher, key_elem_cmptr,
+               lazy_copy_elem, dst_elem_ptr_view, dst_cursor, dst_elem);
+}
+
+template <assoc_cntr::IsWriter Writer>
+constexpr void* assoc_cntr_ref::Cntr::Insert(this Cntr& cntr, void const* elem,
+                                             Writer&& writer,
+                                             void* dst_cursor) {
+    using RawWriter = meta::RemoveCVRef<Writer>;
+
+    if constexpr (meta::IsSame<RawWriter, assoc_cntr::EmptyWriter>) {
+        CallMethod(Insert, insert.with_elem.empty, elem, writer, dst_cursor);
+    } else {
+        CallMethod(Insert, insert.with_elem.fn, elem, writer, dst_cursor);
+    }
 }
 
 template <hash::CanHash<void const*> KeyHasher,
           comparison::CanCompare<void const*, void const*> KeyElemComparator,
           assoc_cntr::IsWriter Writer>
-constexpr void* assoc_cntr_ref::Ref::Insert(
-    this Ref& ref, void const* key, KeyHasher const& key_hasher,
+constexpr void* assoc_cntr_ref::Cntr::Insert(
+    this Cntr& cntr, void const* key, KeyHasher const& key_hasher,
     KeyElemComparator const& key_elem_cmptr, Writer&& writer,
     void* dst_cursor) {
-    CallMethod(Insert, Insert_Fn, key, key_hasher, key_elem_cmptr, writer,
-               dst_cursor);
+    using RawWriter = meta::RemoveCVRef<Writer>;
+
+    if constexpr (meta::IsSame<RawWriter, assoc_cntr::EmptyWriter>) {
+        CallMethod(Insert, insert.with_key.empty, key, key_hasher,
+                   key_elem_cmptr, writer, dst_cursor);
+    } else {
+        CallMethod(Insert, insert.with_key.fn, key, key_hasher, key_elem_cmptr,
+                   writer, dst_cursor);
+    }
 }
 
-constexpr void assoc_cntr_ref::Ref::PopL(this Ref& ref, size_t cnt) {
-    CallMethod(PopL, PopL, cnt);
+template <assoc_cntr::IsReader Reader>
+constexpr void assoc_cntr_ref::Cntr::PopL(this Cntr& cntr, size_t cnt,
+                                          Reader&& reader) {
+    using RawReader = meta::RemoveCVRef<Reader>;
+
+    if constexpr (meta::IsSame<RawReader, assoc_cntr::EmptyReader>) {
+        CallMethod(PopL, pop_l.empty, cnt, reader);
+    } else if constexpr (meta::IsSame<RawReader, assoc_cntr::LinSeqReader>) {
+        CallMethod(PopL, pop_l.lin_seq, cnt, reader);
+    } else {
+        CallMethod(PopL, pop_l.fn, cnt, reader);
+    }
 }
 
-constexpr void assoc_cntr_ref::Ref::PopR(this Ref& ref, size_t cnt) {
-    CallMethod(PopR, PopR, cnt);
+template <assoc_cntr::IsReader Reader>
+constexpr void assoc_cntr_ref::Cntr::PopR(this Cntr& cntr, size_t cnt,
+                                          Reader&& reader) {
+    using RawReader = meta::RemoveCVRef<Reader>;
+
+    if constexpr (meta::IsSame<RawReader, assoc_cntr::EmptyReader>) {
+        CallMethod(PopR, pop_l.empty, cnt, reader);
+    } else if constexpr (meta::IsSame<RawReader, assoc_cntr::LinSeqReader>) {
+        CallMethod(PopR, pop_l.lin_seq, cnt, reader);
+    } else {
+        CallMethod(PopR, pop_l.fn, cnt, reader);
+    }
 }
 
-constexpr void assoc_cntr_ref::Ref::Erase(this Ref& ref, void* pos_cursor) {
-    CallMethod(Erase, Erase, pos_cursor);
+template <assoc_cntr::IsReader Reader>
+constexpr void assoc_cntr_ref::Cntr::Erase(this Cntr& cntr, void* pos_cursor,
+                                           size_t cnt, Reader&& reader) {
+    using RawReader = meta::RemoveCVRef<Reader>;
+
+    if constexpr (meta::IsSame<RawReader, assoc_cntr::EmptyReader>) {
+        CallMethod(Erase, erase.empty, pos_cursor, cnt, reader);
+    } else if constexpr (meta::IsSame<RawReader, assoc_cntr::LinSeqReader>) {
+        CallMethod(Erase, erase.lin_seq, pos_cursor, cnt, reader);
+    } else {
+        CallMethod(Erase, erase.fn, pos_cursor, cnt, reader);
+    }
 }
 
-constexpr void assoc_cntr_ref::Ref::EraseAll(this Ref& ref) {
-    CallMethod(EraseAll, EraseAll);
+constexpr void assoc_cntr_ref::Cntr::EraseAll(this Cntr& cntr) {
+    CallMethod(EraseAll, erase_all);
 }
 
-constexpr void assoc_cntr_ref::Ref::CopyCursor(this Ref const& ref,
-                                               void* src_cursor,
-                                               void* dst_cursor) {
-    CallMethod(CopyCursor, CopyCursor, src_cursor, dst_cursor);
+constexpr void assoc_cntr_ref::Cntr::CopyCursor(this Cntr const& cntr,
+                                                void* src_cursor,
+                                                void* dst_cursor) {
+    CallMethod(CopyCursor, copy_cursor, src_cursor, dst_cursor);
 }
 
-constexpr bool assoc_cntr_ref::Ref::AreEqualCursor(this Ref const& ref,
-                                                   void const* cursor_a,
-                                                   void const* cursor_b) {
-    CallMethod(AreEqualCursor, AreEqualCursor, cursor_a, cursor_b);
+constexpr bool assoc_cntr_ref::Cntr::AreEqualCursor(this Cntr const& cntr,
+                                                    void* cursor_a,
+                                                    void* cursor_b) {
+    CallMethod(AreEqualCursor, are_equal_cursor, cursor_a, cursor_b);
 }
 
-constexpr comparison::Ordering assoc_cntr_ref::Ref::CompareCursor(
-    this Ref const& ref, void const* cursor_a, void const* cursor_b) {
-    CallMethod(CompareCursor, CompareCursor, cursor_a, cursor_b);
+constexpr comparison::Ordering assoc_cntr_ref::Cntr::CompareCursor(
+    this Cntr const& cntr, void* cursor_a, void* cursor_b) {
+    CallMethod(CompareCursor, compare_cursor, cursor_a, cursor_b);
 }
 
-constexpr size_t assoc_cntr_ref::Ref::GetCursorDist(this Ref const& ref,
-                                                    void const* cursor_a,
-                                                    void const* cursor_b) {
-    CallMethod(GetCursorDist, GetCursorDist, cursor_a, cursor_b);
+constexpr size_t assoc_cntr_ref::Cntr::GetCursorDist(this Cntr const& cntr,
+                                                     void* cursor_a,
+                                                     void* cursor_b) {
+    CallMethod(GetCursorDist, get_cursor_dist, cursor_a, cursor_b);
 }
 
-constexpr size_t assoc_cntr_ref::Ref::GetCursorIdx(this Ref const& ref,
-                                                   void const* cursor) {
-    CallMethod(GetCursorIdx, GetCursorIdx, cursor);
+constexpr size_t assoc_cntr_ref::Cntr::GetCursorIdx(this Cntr const& cntr,
+                                                    void* cursor) {
+    CallMethod(GetCursorIdx, get_cursor_idx, cursor);
 }
 
-constexpr void assoc_cntr_ref::Ref::CursorStepL(this Ref const& ref,
-                                                void* cursor) {
-    CallMethod(CursorStepL, CursorStepL, cursor);
+constexpr void assoc_cntr_ref::Cntr::CursorStepL(this Cntr const& cntr,
+                                                 void* cursor) {
+    CallMethod(CursorStepL, cursor_step_l, cursor);
 }
 
-constexpr void assoc_cntr_ref::Ref::CursorStepR(this Ref const& ref,
-                                                void* cursor) {
-    CallMethod(CursorStepR, CursorStepR, cursor);
+constexpr void assoc_cntr_ref::Cntr::CursorStepR(this Cntr const& cntr,
+                                                 void* cursor) {
+    CallMethod(CursorStepR, cursor_step_r, cursor);
 }
 
-constexpr void assoc_cntr_ref::Ref::CursorAdvanceL(this Ref const& ref,
-                                                   void* cursor, size_t step) {
-    CallMethod(CursorAdvanceL, CursorAdvanceL, cursor, step);
+constexpr void assoc_cntr_ref::Cntr::CursorAdvanceL(this Cntr const& cntr,
+                                                    void* cursor, size_t step) {
+    CallMethod(CursorAdvanceL, cursor_advance_l, cursor, step);
 }
 
-constexpr void assoc_cntr_ref::Ref::CursorAdvanceR(this Ref const& ref,
-                                                   void* cursor, size_t step) {
-    CallMethod(CursorAdvanceR, CursorAdvanceR, cursor, step);
+constexpr void assoc_cntr_ref::Cntr::CursorAdvanceR(this Cntr const& cntr,
+                                                    void* cursor, size_t step) {
+    CallMethod(CursorAdvanceR, cursor_advance_r, cursor, step);
 }
 
 #pragma pop_macro("CallMethod")
 
-constexpr void assoc_cntr_ref::Ref::Check(this Ref const& ref) {
-    ZETA_Core_DebugAssert(0 < ref.elem_size);
-    ZETA_Core_DebugAssert(ref.vtable != nullptr);
-    ZETA_Core_DebugAssert(ref.cntr != nullptr);
+constexpr void assoc_cntr_ref::Cntr::Check(this Cntr const& cntr) {
+    ZETA_Core_DebugAssert(0 < cntr.elem_size);
+    ZETA_Core_DebugAssert(cntr.vtable != nullptr);
+    ZETA_Core_DebugAssert(cntr.target_cntr != nullptr);
 
     assoc_cntr::capability::Flag enabled_capability_flag{
-        ref.dynamic_enabled_capability_flag
+        cntr.dynamic_enabled_capability_flag
     };
 
 #pragma push_macro("CheckMethod")
@@ -212,82 +277,95 @@ constexpr void assoc_cntr_ref::Ref::Check(this Ref const& ref) {
 #define CheckMethod(capability, method)                         \
     ZETA_Core_DebugAssert(                                      \
         !TestCapability(enabled_capability_flag, capability) || \
-        ref.vtable->method != nullptr);
+        cntr.vtable->method != nullptr);
 
-    CheckMethod(GetElemCnt, GetElemCnt);
-    CheckMethod(GetMaxElemCnt, GetMaxElemCnt);
+    CheckMethod(GetElemCnt, get_elem_cnt);
+    CheckMethod(GetMaxElemCnt, get_max_elem_cnt);
 
-    CheckMethod(GetLBCursor, GetLBCursor);
-    CheckMethod(GetRBCursor, GetRBCursor);
-    CheckMethod(PeekL, PeekL);
-    CheckMethod(PeekR, PeekR);
-    CheckMethod(Derefer, Derefer);
+    CheckMethod(GetLBCursor, get_lb_cursor);
+    CheckMethod(GetRBCursor, get_rb_cursor);
+    CheckMethod(PeekL, peek_l);
+    CheckMethod(PeekR, peek_r);
+    CheckMethod(Derefer, derefer);
 
-    CheckMethod(Find, Find_Fn);
+    CheckMethod(Find, find.with_elem.fn);
+    CheckMethod(Find, find.with_key.fn);
 
-    CheckMethod(Insert, Insert_Fn);
+    CheckMethod(Insert, insert.with_elem.empty);
+    CheckMethod(Insert, insert.with_elem.fn);
+    CheckMethod(Insert, insert.with_key.empty);
+    CheckMethod(Insert, insert.with_key.fn);
 
-    CheckMethod(PopL, PopL);
-    CheckMethod(PopR, PopR);
-    CheckMethod(Erase, Erase);
-    CheckMethod(EraseAll, EraseAll);
+    CheckMethod(PopL, pop_l.empty);
+    CheckMethod(PopL, pop_l.lin_seq);
+    CheckMethod(PopL, pop_l.fn);
 
-    CheckMethod(CopyCursor, CopyCursor);
-    CheckMethod(AreEqualCursor, AreEqualCursor);
-    CheckMethod(CompareCursor, CompareCursor);
-    CheckMethod(GetCursorDist, GetCursorDist);
-    CheckMethod(GetCursorIdx, GetCursorIdx);
-    CheckMethod(CursorStepL, CursorStepL);
-    CheckMethod(CursorStepR, CursorStepR);
-    CheckMethod(CursorAdvanceL, CursorAdvanceL);
-    CheckMethod(CursorAdvanceR, CursorAdvanceR);
+    CheckMethod(PopR, pop_r.empty);
+    CheckMethod(PopR, pop_r.lin_seq);
+    CheckMethod(PopR, pop_r.fn);
+
+    CheckMethod(Erase, erase.empty);
+    CheckMethod(Erase, erase.lin_seq);
+    CheckMethod(Erase, erase.fn);
+
+    CheckMethod(EraseAll, erase_all);
+
+    CheckMethod(CopyCursor, copy_cursor);
+    CheckMethod(AreEqualCursor, are_equal_cursor);
+    CheckMethod(CompareCursor, compare_cursor);
+    CheckMethod(GetCursorDist, get_cursor_dist);
+    CheckMethod(GetCursorIdx, get_cursor_idx);
+    CheckMethod(CursorStepL, cursor_step_l);
+    CheckMethod(CursorStepR, cursor_step_r);
+    CheckMethod(CursorAdvanceL, cursor_advance_l);
+    CheckMethod(CursorAdvanceR, cursor_advance_r);
 
 #pragma pop_macro("CheckMethod")
 }
 
 constexpr assoc_cntr::capability::Flag
-assoc_cntr::CntrTraits<assoc_cntr_ref::Ref>::GetStaticEnabledCapabilityFlag() {
-    return assoc_cntr::capability::empty_capability_flag;
-}
-
-constexpr assoc_cntr::capability::Flag
-assoc_cntr::CntrTraits<assoc_cntr_ref::Ref>::GetStaticDisabledCapabilityFlag() {
-    return assoc_cntr::capability::empty_capability_flag;
-}
-
-constexpr assoc_cntr::capability::Flag
-assoc_cntr::CntrTraits<assoc_cntr_ref::Ref>::GetDynamicEnabledCapabilityFlag(
-    assoc_cntr_ref::Ref& ref) {
-    return ref.dynamic_enabled_capability_flag;
-}
-
-constexpr assoc_cntr::capability::Flag
-assoc_cntr::CntrTraits<assoc_cntr_ref::Ref>::GetDynamicDisabledCapabilityFlag(
-    assoc_cntr_ref::Ref& ref) {
-    return ref.dynamic_disabled_capability_flag;
-}
-
-constexpr assoc_cntr::capability::Flag assoc_cntr::CntrTraits<
-    assoc_cntr_ref::Ref const>::GetStaticEnabledCapabilityFlag() {
+assoc_cntr::CntrTraits<assoc_cntr_ref::Cntr>::GetStaticEnabledCapabilityFlag() {
     return assoc_cntr::capability::empty_capability_flag;
 }
 
 constexpr assoc_cntr::capability::Flag assoc_cntr::CntrTraits<
-    assoc_cntr_ref::Ref const>::GetStaticDisabledCapabilityFlag() {
+    assoc_cntr_ref::Cntr>::GetStaticDisabledCapabilityFlag() {
+    return assoc_cntr::capability::empty_capability_flag;
+}
+
+constexpr assoc_cntr::capability::Flag
+assoc_cntr::CntrTraits<assoc_cntr_ref::Cntr>::GetDynamicEnabledCapabilityFlag(
+    assoc_cntr_ref::Cntr& cntr) {
+    return cntr.dynamic_enabled_capability_flag;
+}
+
+constexpr assoc_cntr::capability::Flag
+assoc_cntr::CntrTraits<assoc_cntr_ref::Cntr>::GetDynamicDisabledCapabilityFlag(
+    assoc_cntr_ref::Cntr& cntr) {
+    return cntr.dynamic_disabled_capability_flag;
+}
+
+constexpr assoc_cntr::capability::Flag assoc_cntr::CntrTraits<
+    assoc_cntr_ref::Cntr const>::GetStaticEnabledCapabilityFlag() {
+    return assoc_cntr::capability::empty_capability_flag;
+}
+
+constexpr assoc_cntr::capability::Flag assoc_cntr::CntrTraits<
+    assoc_cntr_ref::Cntr const>::GetStaticDisabledCapabilityFlag() {
     return assoc_cntr::capability::non_const_capability_flag;
 }
 
 constexpr assoc_cntr::capability::Flag assoc_cntr::
-    CntrTraits<assoc_cntr_ref::Ref const>::GetDynamicEnabledCapabilityFlag(
-        assoc_cntr_ref::Ref const& ref) {
-    return ref.dynamic_enabled_capability_flag &
+    CntrTraits<assoc_cntr_ref::Cntr const>::GetDynamicEnabledCapabilityFlag(
+        assoc_cntr_ref::Cntr const& cntr) {
+    return cntr.dynamic_enabled_capability_flag &
            assoc_cntr::capability::const_capability_flag;
 }
 
 constexpr assoc_cntr::capability::Flag assoc_cntr::
-    CntrTraits<assoc_cntr_ref::Ref const>::GetDynamicDisabledCapabilityFlag(
-        assoc_cntr_ref::Ref const& ref) {
-    return ref.dynamic_disabled_capability_flag |
+    CntrTraits<assoc_cntr_ref::Cntr const>::GetDynamicDisabledCapabilityFlag(
+        assoc_cntr_ref::Cntr const& cntr) {
+    return cntr.dynamic_disabled_capability_flag |
            assoc_cntr::capability::non_const_capability_flag;
 }
 

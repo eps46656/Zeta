@@ -78,6 +78,321 @@ constexpr bool seq_cntr::capability::CheckFlags(
     return true;
 }
 
+#pragma push_macro("TestCapability")
+
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define TestCapability(cap_flag, cap_name)           \
+    (((cap_flag) & (static_cast<capability::Flag>(1) \
+                    << meta::ToUnderlying(capability::Kind::cap_name))) != 0)
+
+#pragma push_macro("CallMethod")
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define CallMethod(cap_name, method_name, ...)                              \
+    if constexpr (!TestCapability((GetStaticEnabledCapabilityFlag<Cntr>)(), \
+                                  cap_name)) {                              \
+        ZETA_Core_StaticAssert(!TestCapability(                             \
+            (GetStaticDisabledCapabilityFlag<Cntr>)(), cap_name));          \
+                                                                            \
+        ZETA_Core_DebugAssert(TestCapability(                               \
+            (GetDynamicEnabledCapabilityFlag)(cntr), cap_name));            \
+    }                                                                       \
+                                                                            \
+    return CntrTraits<meta::RemoveRef<Cntr>>::method_name(__VA_ARGS__);     \
+                                                                            \
+    ZETA_Core_StaticAssert(true)
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::GetReferedInstPtr(Cntr& cntr) {
+    return CntrTraits<meta::RemoveRef<Cntr>>::GetReferedInstPtr(cntr);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::GetStaticEnabledCapabilityFlag() {
+    constexpr capability::Flag static_enabled_capability_flag{
+        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticEnabledCapabilityFlag()
+    };
+
+    constexpr capability::Flag static_disabled_capability_flag{
+        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticDisabledCapabilityFlag()
+    };
+
+    capability::CheckFlags(static_enabled_capability_flag,
+                           static_disabled_capability_flag);
+
+    return static_enabled_capability_flag;
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::GetStaticDisabledCapabilityFlag() {
+    constexpr capability::Flag static_enabled_capability_flag{
+        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticEnabledCapabilityFlag()
+    };
+
+    constexpr capability::Flag static_disabled_capability_flag{
+        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticDisabledCapabilityFlag()
+    };
+
+    capability::CheckFlags(static_enabled_capability_flag,
+                           static_disabled_capability_flag);
+
+    return static_disabled_capability_flag;
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::GetDynamicEnabledCapabilityFlag(Cntr& cntr) {
+    constexpr capability::Flag static_enabled_capability_flag{
+        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticEnabledCapabilityFlag()
+    };
+
+    constexpr capability::Flag static_disabled_capability_flag{
+        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticDisabledCapabilityFlag()
+    };
+
+    capability::CheckFlags(static_enabled_capability_flag,
+                           static_disabled_capability_flag);
+
+    capability::Flag dynamic_enabled_capability_flag{
+        CntrTraits<meta::RemoveRef<Cntr>>::GetDynamicEnabledCapabilityFlag(cntr)
+    };
+
+    capability::Flag dynamic_disabled_capability_flag{
+        CntrTraits<meta::RemoveRef<Cntr>>::GetDynamicDisabledCapabilityFlag(
+            cntr)
+    };
+
+    capability::CheckFlags(
+        static_enabled_capability_flag, static_disabled_capability_flag,
+        dynamic_enabled_capability_flag, dynamic_disabled_capability_flag);
+
+    return dynamic_enabled_capability_flag;
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::GetDynamicDisabledCapabilityFlag(
+    Cntr& cntr) {
+    constexpr capability::Flag static_enabled_capability_flag{
+        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticEnabledCapabilityFlag()
+    };
+
+    constexpr capability::Flag static_disabled_capability_flag{
+        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticDisabledCapabilityFlag()
+    };
+
+    capability::CheckFlags(static_enabled_capability_flag,
+                           static_disabled_capability_flag);
+
+    capability::Flag dynamic_enabled_capability_flag{
+        CntrTraits<meta::RemoveRef<Cntr>>::GetDynamicEnabledCapabilityFlag(cntr)
+    };
+
+    capability::Flag dynamic_disabled_capability_flag{
+        CntrTraits<meta::RemoveRef<Cntr>>::GetDynamicDisabledCapabilityFlag(
+            cntr)
+    };
+
+    capability::CheckFlags(
+        static_enabled_capability_flag, static_disabled_capability_flag,
+        dynamic_enabled_capability_flag, dynamic_disabled_capability_flag);
+
+    return dynamic_enabled_capability_flag;
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::GetCursorSize(Cntr& cntr) {
+    CallMethod(GetCursorSize, GetCursorSize, cntr);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::GetElemSize(Cntr& cntr) {
+    CallMethod(GetElemSize, GetElemSize, cntr);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::GetElemCnt(Cntr& cntr) {
+    CallMethod(GetElemCnt, GetElemCnt, cntr);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::GetMaxElemCnt(Cntr& cntr) {
+    CallMethod(GetMaxElemCnt, GetMaxElemCnt, cntr);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::GetLBCursor(Cntr& cntr, void* dst_cursor) {
+    CallMethod(GetLBCursor, GetLBCursor, cntr, dst_cursor);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::GetRBCursor(Cntr& cntr, void* dst_cursor) {
+    CallMethod(GetRBCursor, GetRBCursor, cntr, dst_cursor);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::PeekL(Cntr& cntr, bool lazy_copy_elem,
+                                         ElemPtrView* dst_elem_ptr_view,
+                                         void* dst_cursor, void* dst_elem) {
+    CallMethod(PeekL, PeekL, cntr, lazy_copy_elem, dst_elem_ptr_view,
+               dst_cursor, dst_elem);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::PeekR(Cntr& cntr, bool lazy_copy_elem,
+                                         ElemPtrView* dst_elem_ptr_view,
+                                         void* dst_cursor, void* dst_elem) {
+    CallMethod(PeekR, PeekR, cntr, lazy_copy_elem, dst_elem_ptr_view,
+               dst_cursor, dst_elem);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::Refer(Cntr& cntr, size_t idx,
+                                         bool lazy_copy_elem,
+                                         ElemPtrView* dst_elem_ptr_view,
+                                         void* dst_cursor, void* dst_elem) {
+    CallMethod(Refer, Refer, cntr, idx, lazy_copy_elem, dst_elem_ptr_view,
+               dst_cursor, dst_elem);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::Derefer(Cntr& cntr, void* pos_cursor,
+                                           bool lazy_copy_elem,
+                                           ElemPtrView* dst_elem_ptr_view,
+                                           void* dst_elem) {
+    CallMethod(Derefer, Derefer, cntr, pos_cursor, lazy_copy_elem,
+               dst_elem_ptr_view, dst_elem);
+}
+
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsReader Reader>
+constexpr decltype(auto) seq_cntr::Read(
+    Cntr& cntr, void* pos_cursor, size_t cnt,
+    Reader&& reader,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    CallMethod(Read, Read, cntr, pos_cursor, cnt, reader, dst_cursor);
+}
+
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsWriter Writer>
+constexpr decltype(auto) seq_cntr::Write(
+    Cntr& cntr, void* pos_cursor, size_t cnt,
+    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    CallMethod(Write, Write, cntr, pos_cursor, cnt, writer, dst_cursor);
+}
+
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsReaderWriter ReaderWriter>
+constexpr decltype(auto) seq_cntr::ReadWrite(
+    Cntr& cntr, void* pos_cursor, size_t cnt,
+    ReaderWriter&&
+        reader_writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    CallMethod(ReadWrite, ReadWrite, cntr, pos_cursor, cnt, reader_writer,
+               dst_cursor);
+}
+
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsWriter Writer>
+constexpr decltype(auto) seq_cntr::PushL(
+    Cntr& cntr, size_t cnt,
+    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    CallMethod(PushL, PushL, cntr, cnt, writer, dst_cursor);
+}
+
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsWriter Writer>
+constexpr decltype(auto) seq_cntr::PushR(
+    Cntr& cntr, size_t cnt,
+    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    CallMethod(PushR, PushR, cntr, cnt, writer, dst_cursor);
+}
+
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsWriter Writer>
+constexpr decltype(auto) seq_cntr::Insert(
+    Cntr& cntr, void* pos_cursor, size_t cnt,
+    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    void* dst_cursor) {
+    CallMethod(Insert, Insert, cntr, pos_cursor, cnt, writer, dst_cursor);
+}
+
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsReader Reader>
+constexpr decltype(auto) seq_cntr::PopL(
+    Cntr& cntr, size_t cnt,
+    Reader&& reader  // NOLINT(cppcoreguidelines-missing-std-forward)
+) {
+    CallMethod(PopL, PopL, cntr, cnt, reader);
+}
+
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsReader Reader>
+constexpr decltype(auto) seq_cntr::PopR(
+    Cntr& cntr, size_t cnt,
+    Reader&& reader  // NOLINT(cppcoreguidelines-missing-std-forward)
+) {
+    CallMethod(PopR, PopR, cntr, cnt, reader);
+}
+
+template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsReader Reader>
+constexpr decltype(auto) seq_cntr::Erase(
+    Cntr& cntr, void* pos_cursor, size_t cnt,
+    Reader&& reader  // NOLINT(cppcoreguidelines-missing-std-forward)
+) {
+    CallMethod(Erase, Erase, cntr, pos_cursor, cnt, reader);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::EraseAll(Cntr& cntr) {
+    CallMethod(EraseAll, EraseAll, cntr);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::CopyCursor(Cntr& cntr, void* src_cursor,
+                                              void* dst_cursor) {
+    CallMethod(CopyCursor, CopyCursor, cntr, src_cursor, dst_cursor);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::AreEqualCursor(Cntr& cntr, void* cursor_a,
+                                                  void* cursor_b) {
+    CallMethod(AreEqualCursor, AreEqualCursor, cntr, cursor_a, cursor_b);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::CompareCursor(Cntr& cntr, void* cursor_a,
+                                                 void* cursor_b) {
+    CallMethod(CompareCursor, CompareCursor, cntr, cursor_a, cursor_b);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::GetCursorDist(Cntr& cntr, void* cursor_a,
+                                                 void* cursor_b) {
+    CallMethod(GetCursorDist, GetCursorDist, cntr, cursor_a, cursor_b);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::GetCursorIdx(Cntr& cntr, void* cursor) {
+    CallMethod(GetCursorIdx, GetCursorIdx, cntr, cursor);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::CursorStepL(Cntr& cntr, void* cursor) {
+    CallMethod(CursorStepL, CursorStepL, cntr, cursor);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::CursorStepR(Cntr& cntr, void* cursor) {
+    CallMethod(CursorStepR, CursorStepR, cntr, cursor);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::CursorAdvanceL(Cntr& cntr, void* cursor,
+                                                  size_t step) {
+    CallMethod(CursorAdvanceL, CursorAdvanceL, cntr, cursor, step);
+}
+
+template <seq_cntr::IsSeqCntr Cntr>
+constexpr decltype(auto) seq_cntr::CursorAdvanceR(Cntr& cntr, void* cursor,
+                                                  size_t step) {
+    CallMethod(CursorAdvanceR, CursorAdvanceR, cntr, cursor, step);
+}
+
+#pragma pop_macro("CallMethod")
+
 template <typename Cntr, typename Cursor>
 constexpr decltype(auto)
 seq_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::GetReferedInstPtr(
@@ -350,319 +665,6 @@ seq_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::CursorAdvanceR(
     return cntr.CursorAdvanceR(static_cast<Cursor*>(cursor), step);
 }
 
-#pragma push_macro("TestCapability")
-
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define TestCapability(cap_flag, cap_name)           \
-    (((cap_flag) & (static_cast<capability::Flag>(1) \
-                    << meta::ToUnderlying(capability::Kind::cap_name))) != 0)
-
-#pragma push_macro("CallMethod")
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CallMethod(cap_name, method_name, ...)                              \
-    if constexpr (!TestCapability((GetStaticEnabledCapabilityFlag<Cntr>)(), \
-                                  cap_name)) {                              \
-        ZETA_Core_StaticAssert(!TestCapability(                             \
-            (GetStaticDisabledCapabilityFlag<Cntr>)(), cap_name));          \
-                                                                            \
-        ZETA_Core_DebugAssert(TestCapability(                               \
-            (GetDynamicEnabledCapabilityFlag)(cntr), cap_name));            \
-    }                                                                       \
-                                                                            \
-    return CntrTraits<Cntr>::method_name(__VA_ARGS__);                      \
-                                                                            \
-    ZETA_Core_StaticAssert(true)
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::GetReferedInstPtr(Cntr& cntr) {
-    return CntrTraits<Cntr>::GetReferedInstPtr(cntr);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::GetStaticEnabledCapabilityFlag() {
-    constexpr capability::Flag static_enabled_capability_flag{
-        CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag()
-    };
-
-    constexpr capability::Flag static_disabled_capability_flag{
-        CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag()
-    };
-
-    capability::CheckFlags(static_enabled_capability_flag,
-                           static_disabled_capability_flag);
-
-    return static_enabled_capability_flag;
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::GetStaticDisabledCapabilityFlag() {
-    constexpr capability::Flag static_enabled_capability_flag{
-        CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag()
-    };
-
-    constexpr capability::Flag static_disabled_capability_flag{
-        CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag()
-    };
-
-    capability::CheckFlags(static_enabled_capability_flag,
-                           static_disabled_capability_flag);
-
-    return static_disabled_capability_flag;
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::GetDynamicEnabledCapabilityFlag(Cntr& cntr) {
-    constexpr capability::Flag static_enabled_capability_flag{
-        CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag()
-    };
-
-    constexpr capability::Flag static_disabled_capability_flag{
-        CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag()
-    };
-
-    capability::CheckFlags(static_enabled_capability_flag,
-                           static_disabled_capability_flag);
-
-    capability::Flag dynamic_enabled_capability_flag{
-        CntrTraits<Cntr>::GetDynamicEnabledCapabilityFlag(cntr)
-    };
-
-    capability::Flag dynamic_disabled_capability_flag{
-        CntrTraits<Cntr>::GetDynamicDisabledCapabilityFlag(cntr)
-    };
-
-    capability::CheckFlags(
-        static_enabled_capability_flag, static_disabled_capability_flag,
-        dynamic_enabled_capability_flag, dynamic_disabled_capability_flag);
-
-    return dynamic_enabled_capability_flag;
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::GetDynamicDisabledCapabilityFlag(
-    Cntr& cntr) {
-    constexpr capability::Flag static_enabled_capability_flag{
-        CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag()
-    };
-
-    constexpr capability::Flag static_disabled_capability_flag{
-        CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag()
-    };
-
-    capability::CheckFlags(static_enabled_capability_flag,
-                           static_disabled_capability_flag);
-
-    capability::Flag dynamic_enabled_capability_flag{
-        CntrTraits<Cntr>::GetDynamicEnabledCapabilityFlag(cntr)
-    };
-
-    capability::Flag dynamic_disabled_capability_flag{
-        CntrTraits<Cntr>::GetDynamicDisabledCapabilityFlag(cntr)
-    };
-
-    capability::CheckFlags(
-        static_enabled_capability_flag, static_disabled_capability_flag,
-        dynamic_enabled_capability_flag, dynamic_disabled_capability_flag);
-
-    return dynamic_enabled_capability_flag;
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::GetCursorSize(Cntr& cntr) {
-    CallMethod(GetCursorSize, GetCursorSize, cntr);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::GetElemSize(Cntr& cntr) {
-    CallMethod(GetElemSize, GetElemSize, cntr);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::GetElemCnt(Cntr& cntr) {
-    CallMethod(GetElemCnt, GetElemCnt, cntr);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::GetMaxElemCnt(Cntr& cntr) {
-    CallMethod(GetMaxElemCnt, GetMaxElemCnt, cntr);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::GetLBCursor(Cntr& cntr, void* dst_cursor) {
-    CallMethod(GetLBCursor, GetLBCursor, cntr, dst_cursor);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::GetRBCursor(Cntr& cntr, void* dst_cursor) {
-    CallMethod(GetRBCursor, GetRBCursor, cntr, dst_cursor);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::PeekL(Cntr& cntr, bool lazy_copy_elem,
-                                         ElemPtrView* dst_elem_ptr_view,
-                                         void* dst_cursor, void* dst_elem) {
-    CallMethod(PeekL, PeekL, cntr, lazy_copy_elem, dst_elem_ptr_view,
-               dst_cursor, dst_elem);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::PeekR(Cntr& cntr, bool lazy_copy_elem,
-                                         ElemPtrView* dst_elem_ptr_view,
-                                         void* dst_cursor, void* dst_elem) {
-    CallMethod(PeekR, PeekR, cntr, lazy_copy_elem, dst_elem_ptr_view,
-               dst_cursor, dst_elem);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::Refer(Cntr& cntr, size_t idx,
-                                         bool lazy_copy_elem,
-                                         ElemPtrView* dst_elem_ptr_view,
-                                         void* dst_cursor, void* dst_elem) {
-    CallMethod(Refer, Refer, cntr, idx, lazy_copy_elem, dst_elem_ptr_view,
-               dst_cursor, dst_elem);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::Derefer(Cntr& cntr, void* pos_cursor,
-                                           bool lazy_copy_elem,
-                                           ElemPtrView* dst_elem_ptr_view,
-                                           void* dst_elem) {
-    CallMethod(Derefer, Derefer, cntr, pos_cursor, lazy_copy_elem,
-               dst_elem_ptr_view, dst_elem);
-}
-
-template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsReader Reader>
-constexpr decltype(auto) seq_cntr::Read(
-    Cntr& cntr, void* pos_cursor, size_t cnt,
-    Reader&& reader,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    void* dst_cursor) {
-    CallMethod(Read, Read, cntr, pos_cursor, cnt, reader, dst_cursor);
-}
-
-template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsWriter Writer>
-constexpr decltype(auto) seq_cntr::Write(
-    Cntr& cntr, void* pos_cursor, size_t cnt,
-    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    void* dst_cursor) {
-    CallMethod(Write, Write, cntr, pos_cursor, cnt, writer, dst_cursor);
-}
-
-template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsReaderWriter ReaderWriter>
-constexpr decltype(auto) seq_cntr::ReadWrite(
-    Cntr& cntr, void* pos_cursor, size_t cnt,
-    ReaderWriter&&
-        reader_writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    void* dst_cursor) {
-    CallMethod(ReadWrite, ReadWrite, cntr, pos_cursor, cnt, reader_writer,
-               dst_cursor);
-}
-
-template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsWriter Writer>
-constexpr decltype(auto) seq_cntr::PushL(
-    Cntr& cntr, size_t cnt,
-    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    void* dst_cursor) {
-    CallMethod(PushL, PushL, cntr, cnt, writer, dst_cursor);
-}
-
-template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsWriter Writer>
-constexpr decltype(auto) seq_cntr::PushR(
-    Cntr& cntr, size_t cnt,
-    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    void* dst_cursor) {
-    CallMethod(PushR, PushR, cntr, cnt, writer, dst_cursor);
-}
-
-template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsWriter Writer>
-constexpr decltype(auto) seq_cntr::Insert(
-    Cntr& cntr, void* pos_cursor, size_t cnt,
-    Writer&& writer,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    void* dst_cursor) {
-    CallMethod(Insert, Insert, cntr, pos_cursor, cnt, writer, dst_cursor);
-}
-
-template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsReader Reader>
-constexpr decltype(auto) seq_cntr::PopL(
-    Cntr& cntr, size_t cnt,
-    Reader&& reader  // NOLINT(cppcoreguidelines-missing-std-forward)
-) {
-    CallMethod(PopL, PopL, cntr, cnt, reader);
-}
-
-template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsReader Reader>
-constexpr decltype(auto) seq_cntr::PopR(
-    Cntr& cntr, size_t cnt,
-    Reader&& reader  // NOLINT(cppcoreguidelines-missing-std-forward)
-) {
-    CallMethod(PopR, PopR, cntr, cnt, reader);
-}
-
-template <seq_cntr::IsSeqCntr Cntr, seq_cntr::IsReader Reader>
-constexpr decltype(auto) seq_cntr::Erase(
-    Cntr& cntr, void* pos_cursor, size_t cnt,
-    Reader&& reader  // NOLINT(cppcoreguidelines-missing-std-forward)
-) {
-    CallMethod(Erase, Erase, cntr, pos_cursor, cnt, reader);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::EraseAll(Cntr& cntr) {
-    CallMethod(EraseAll, EraseAll, cntr);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::CopyCursor(Cntr& cntr, void* src_cursor,
-                                              void* dst_cursor) {
-    CallMethod(CopyCursor, CopyCursor, cntr, src_cursor, dst_cursor);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::AreEqualCursor(Cntr& cntr, void* cursor_a,
-                                                  void* cursor_b) {
-    CallMethod(AreEqualCursor, AreEqualCursor, cntr, cursor_a, cursor_b);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::CompareCursor(Cntr& cntr, void* cursor_a,
-                                                 void* cursor_b) {
-    CallMethod(CompareCursor, CompareCursor, cntr, cursor_a, cursor_b);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::GetCursorDist(Cntr& cntr, void* cursor_a,
-                                                 void* cursor_b) {
-    CallMethod(GetCursorDist, GetCursorDist, cntr, cursor_a, cursor_b);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::GetCursorIdx(Cntr& cntr, void* cursor) {
-    CallMethod(GetCursorIdx, GetCursorIdx, cntr, cursor);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::CursorStepL(Cntr& cntr, void* cursor) {
-    CallMethod(CursorStepL, CursorStepL, cntr, cursor);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::CursorStepR(Cntr& cntr, void* cursor) {
-    CallMethod(CursorStepR, CursorStepR, cntr, cursor);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::CursorAdvanceL(Cntr& cntr, void* cursor,
-                                                  size_t step) {
-    CallMethod(CursorAdvanceL, CursorAdvanceL, cntr, cursor, step);
-}
-
-template <seq_cntr::IsSeqCntr Cntr>
-constexpr decltype(auto) seq_cntr::CursorAdvanceR(Cntr& cntr, void* cursor,
-                                                  size_t step) {
-    CallMethod(CursorAdvanceR, CursorAdvanceR, cntr, cursor, step);
-}
-
-#pragma pop_macro("CallMethod")
-
 template <seq_cntr::IsSeqCntr Cntr>
 constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
     constexpr capability::Flag static_disabled_capability_flag{ (
@@ -683,29 +685,29 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
     constexpr VTable table{
         .custom_tags{ 0 },
 
-        .GetElemCnt = F(
+        .get_elem_cnt = F(  //
             GetElemCnt,
             [](void* cntr) { return (GetElemCnt)(*static_cast<Cntr*>(cntr)); }),
 
-        .GetMaxElemCnt =
-            F(GetMaxElemCnt,
-              [](void* cntr) {
-                  return (GetMaxElemCnt)(*static_cast<Cntr*>(cntr));
-              }),
+        .get_max_elem_cnt = F(  //
+            GetMaxElemCnt,
+            [](void* cntr) {
+                return (GetMaxElemCnt)(*static_cast<Cntr*>(cntr));
+            }),
 
-        .GetLBCursor = F(GetLBCursor,
-                         [](void* cntr, void* dst_cursor) {
-                             return (GetLBCursor)(*static_cast<Cntr*>(cntr),
-                                                  dst_cursor);
-                         }),
+        .get_lb_cursor = F(  //
+            GetLBCursor,
+            [](void* cntr, void* dst_cursor) {
+                return (GetLBCursor)(*static_cast<Cntr*>(cntr), dst_cursor);
+            }),
 
-        .GetRBCursor = F(GetRBCursor,
-                         [](void* cntr, void* dst_cursor) {
-                             return (GetRBCursor)(*static_cast<Cntr*>(cntr),
-                                                  dst_cursor);
-                         }),
+        .get_rb_cursor = F(  //
+            GetRBCursor,
+            [](void* cntr, void* dst_cursor) {
+                return (GetRBCursor)(*static_cast<Cntr*>(cntr), dst_cursor);
+            }),
 
-        .PeekL = F(
+        .peek_l = F(  //
             PeekL,
             [](void* cntr, bool lazy_copy_elem, ElemPtrView* dst_elem_ptr_view,
                void* dst_cursor, void* dst_elem) {
@@ -713,7 +715,7 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
                                dst_elem_ptr_view, dst_cursor, dst_elem);
             }),
 
-        .PeekR = F(
+        .peek_r = F(  //
             PeekR,
             [](void* cntr, bool lazy_copy_elem, ElemPtrView* dst_elem_ptr_view,
                void* dst_cursor, void* dst_elem) {
@@ -721,261 +723,273 @@ constexpr seq_cntr::VTable seq_cntr::BuildVTableBasic() {
                                dst_elem_ptr_view, dst_cursor, dst_elem);
             }),
 
-        .Refer = F(Refer,
-                   [](void* cntr, size_t idx, bool lazy_copy_elem,
-                      ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
-                      void* dst_elem) {
-                       return (Refer)(*static_cast<Cntr*>(cntr), idx,
-                                      lazy_copy_elem, dst_elem_ptr_view,
-                                      dst_cursor, dst_elem);
-                   }),
-
-        .Derefer = F(Derefer,
-                     [](void* cntr, void* pos_cursor, bool lazy_copy_elem,
-                        ElemPtrView* dst_elem_ptr_view, void* dst_elem) {
-                         return (Derefer)(*static_cast<Cntr*>(cntr), pos_cursor,
-                                          lazy_copy_elem, dst_elem_ptr_view,
-                                          dst_elem);
-                     }),
-
-        .Read_EmptyReader = F(Read,
-                              [](void* cntr, void* pos_cursor, size_t cnt,
-                                 EmptyReader reader, void* dst_cursor) {
-                                  return (Read)(*static_cast<Cntr*>(cntr),
-                                                pos_cursor, cnt, reader,
-                                                dst_cursor);
-                              }),
-
-        .Read_LinSeqReader = F(Read,
-                               [](void* cntr, void* pos_cursor, size_t cnt,
-                                  LinSeqReader& reader, void* dst_cursor) {
-                                   return (Read)(*static_cast<Cntr*>(cntr),
-                                                 pos_cursor, cnt, reader,
-                                                 dst_cursor);
-                               }),
-
-        .Read_FnReader = F(Read,
-                           [](void* cntr, void* pos_cursor, size_t cnt,
-                              FnReader reader, void* dst_cursor) {
-                               return (Read)(*static_cast<Cntr*>(cntr),
-                                             pos_cursor, cnt, reader,
-                                             dst_cursor);
-                           }),
-
-        .Write_EmptyWriter = F(Write,
-                               [](void* cntr, void* pos_cursor, size_t cnt,
-                                  EmptyWriter writer, void* dst_cursor) {
-                                   return (Write)(*static_cast<Cntr*>(cntr),
-                                                  pos_cursor, cnt, writer,
-                                                  dst_cursor);
-                               }),
-
-        .Write_LinSeqWriter = F(Write,
-                                [](void* cntr, void* pos_cursor, size_t cnt,
-                                   LinSeqWriter& writer, void* dst_cursor) {
-                                    return (Write)(*static_cast<Cntr*>(cntr),
-                                                   pos_cursor, cnt, writer,
-                                                   dst_cursor);
-                                }),
-
-        .Write_FnWriter = F(Write,
-                            [](void* cntr, void* pos_cursor, size_t cnt,
-                               FnWriter writer, void* dst_cursor) {
-                                return (Write)(*static_cast<Cntr*>(cntr),
-                                               pos_cursor, cnt, writer,
-                                               dst_cursor);
-                            }),
-
-        .ReadWrite_FnReaderWriter =
-            F(ReadWrite,
-              [](void* cntr, void* pos_cursor, size_t cnt,
-                 FnReaderWriter reader_writer, void* dst_cursor) {
-                  return (ReadWrite)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
-                                     reader_writer, dst_cursor);
-              }),
-
-        .PushL_EmptyWriter =
-            F(PushL,
-              [](void* cntr, size_t cnt, EmptyWriter writer, void* dst_cursor) {
-                  return (PushL)(*static_cast<Cntr*>(cntr), cnt, writer,
-                                 dst_cursor);
-              }),
-
-        .PushL_LinSeqWriter = F(
-            PushL,
-            [](void* cntr, size_t cnt, LinSeqWriter& writer, void* dst_cursor) {
-                return (PushL)(*static_cast<Cntr*>(cntr), cnt, writer,
-                               dst_cursor);
+        .refer = F(  //
+            Refer,
+            [](void* cntr, size_t idx, bool lazy_copy_elem,
+               ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+               void* dst_elem) {
+                return (Refer)(*static_cast<Cntr*>(cntr), idx, lazy_copy_elem,
+                               dst_elem_ptr_view, dst_cursor, dst_elem);
             }),
 
-        .PushL_FnWriter =
-            F(PushL,
-              [](void* cntr, size_t cnt, FnWriter writer, void* dst_cursor) {
-                  return (PushL)(*static_cast<Cntr*>(cntr), cnt, writer,
-                                 dst_cursor);
-              }),
-
-        .PushR_EmptyWriter =
-            F(PushR,
-              [](void* cntr, size_t cnt, EmptyWriter writer, void* dst_cursor) {
-                  return (PushR)(*static_cast<Cntr*>(cntr), cnt, writer,
-                                 dst_cursor);
-              }),
-
-        .PushR_LinSeqWriter = F(
-            PushR,
-            [](void* cntr, size_t cnt, LinSeqWriter& writer, void* dst_cursor) {
-                return (PushR)(*static_cast<Cntr*>(cntr), cnt, writer,
-                               dst_cursor);
+        .derefer = F(  //
+            Derefer,
+            [](void* cntr, void* pos_cursor, bool lazy_copy_elem,
+               ElemPtrView* dst_elem_ptr_view, void* dst_elem) {
+                return (Derefer)(*static_cast<Cntr*>(cntr), pos_cursor,
+                                 lazy_copy_elem, dst_elem_ptr_view, dst_elem);
             }),
 
-        .PushR_FnWriter =
-            F(PushR,
-              [](void* cntr, size_t cnt, FnWriter writer, void* dst_cursor) {
-                  return (PushR)(*static_cast<Cntr*>(cntr), cnt, writer,
-                                 dst_cursor);
-              }),
+        .read{
+            .empty = F(  //
+                Read,
+                [](void* cntr, void* pos_cursor, size_t cnt, EmptyReader reader,
+                   void* dst_cursor) {
+                    return (Read)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                  reader, dst_cursor);
+                }),
+            .lin_seq = F(  //
+                Read,
+                [](void* cntr, void* pos_cursor, size_t cnt,
+                   LinSeqReader& reader, void* dst_cursor) {
+                    return (Read)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                  reader, dst_cursor);
+                }),
+            .fn = F(  //
+                Read,
+                [](void* cntr, void* pos_cursor, size_t cnt, FnReader reader,
+                   void* dst_cursor) {
+                    return (Read)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                  reader, dst_cursor);
+                }),
+        },
 
-        .Insert_EmptyWriter = F(Insert,
-                                [](void* cntr, void* pos_cursor, size_t cnt,
-                                   EmptyWriter writer, void* dst_cursor) {
-                                    return (Insert)(*static_cast<Cntr*>(cntr),
-                                                    pos_cursor, cnt, writer,
-                                                    dst_cursor);
-                                }),
+        .write{
+            .empty = F(  //
+                Write,
+                [](void* cntr, void* pos_cursor, size_t cnt, EmptyWriter writer,
+                   void* dst_cursor) {
+                    return (Write)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                   writer, dst_cursor);
+                }),
+            .lin_seq = F(  //
+                Write,
+                [](void* cntr, void* pos_cursor, size_t cnt,
+                   LinSeqWriter& writer, void* dst_cursor) {
+                    return (Write)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                   writer, dst_cursor);
+                }),
+            .fn = F(  //
+                Write,
+                [](void* cntr, void* pos_cursor, size_t cnt, FnWriter writer,
+                   void* dst_cursor) {
+                    return (Write)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                   writer, dst_cursor);
+                }),
+        },
 
-        .Insert_LinSeqWriter = F(Insert,
-                                 [](void* cntr, void* pos_cursor, size_t cnt,
-                                    LinSeqWriter& writer, void* dst_cursor) {
-                                     return (Insert)(*static_cast<Cntr*>(cntr),
-                                                     pos_cursor, cnt, writer,
-                                                     dst_cursor);
-                                 }),
+        .read_write{
+            .fn = F(  //
+                ReadWrite,
+                [](void* cntr, void* pos_cursor, size_t cnt,
+                   FnReaderWriter reader_writer, void* dst_cursor) {
+                    return (ReadWrite)(*static_cast<Cntr*>(cntr), pos_cursor,
+                                       cnt, reader_writer, dst_cursor);
+                }),
+        },
 
-        .Insert_FnWriter = F(Insert,
-                             [](void* cntr, void* pos_cursor, size_t cnt,
-                                FnWriter writer, void* dst_cursor) {
-                                 return (Insert)(*static_cast<Cntr*>(cntr),
-                                                 pos_cursor, cnt, writer,
-                                                 dst_cursor);
-                             }),
+        .push_l{
+            .empty = F(  //
+                PushL,
+                [](void* cntr, size_t cnt, EmptyWriter writer,
+                   void* dst_cursor) {
+                    return (PushL)(*static_cast<Cntr*>(cntr), cnt, writer,
+                                   dst_cursor);
+                }),
+            .lin_seq = F(  //
+                PushL,
+                [](void* cntr, size_t cnt, LinSeqWriter& writer,
+                   void* dst_cursor) {
+                    return (PushL)(*static_cast<Cntr*>(cntr), cnt, writer,
+                                   dst_cursor);
+                }),
+            .fn = F(  //
+                PushL,
+                [](void* cntr, size_t cnt, FnWriter writer, void* dst_cursor) {
+                    return (PushL)(*static_cast<Cntr*>(cntr), cnt, writer,
+                                   dst_cursor);
+                }),
+        },
 
-        .PopL_EmptyReader = F(PopL,
-                              [](void* cntr, size_t cnt, EmptyReader reader) {
-                                  return (PopL)(*static_cast<Cntr*>(cntr), cnt,
-                                                reader);
-                              }),
+        .push_r{
+            .empty = F(  //
+                PushR,
+                [](void* cntr, size_t cnt, EmptyWriter writer,
+                   void* dst_cursor) {
+                    return (PushR)(*static_cast<Cntr*>(cntr), cnt, writer,
+                                   dst_cursor);
+                }),
+            .lin_seq = F(  //
+                PushR,
+                [](void* cntr, size_t cnt, LinSeqWriter& writer,
+                   void* dst_cursor) {
+                    return (PushR)(*static_cast<Cntr*>(cntr), cnt, writer,
+                                   dst_cursor);
+                }),
+            .fn = F(  //
+                PushR,
+                [](void* cntr, size_t cnt, FnWriter writer, void* dst_cursor) {
+                    return (PushR)(*static_cast<Cntr*>(cntr), cnt, writer,
+                                   dst_cursor);
+                }),
+        },
 
-        .PopL_LinSeqReader =
-            F(PopL,
-              [](void* cntr, size_t cnt, LinSeqReader& reader) {
-                  return (PopL)(*static_cast<Cntr*>(cntr), cnt, reader);
-              }),
+        .insert{
+            .empty = F(  //
+                Insert,
+                [](void* cntr, void* pos_cursor, size_t cnt, EmptyWriter writer,
+                   void* dst_cursor) {
+                    return (Insert)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                    writer, dst_cursor);
+                }),
+            .lin_seq = F(  //
+                Insert,
+                [](void* cntr, void* pos_cursor, size_t cnt,
+                   LinSeqWriter& writer, void* dst_cursor) {
+                    return (Insert)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                    writer, dst_cursor);
+                }),
+            .fn = F(  //
+                Insert,
+                [](void* cntr, void* pos_cursor, size_t cnt, FnWriter writer,
+                   void* dst_cursor) {
+                    return (Insert)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                    writer, dst_cursor);
+                }),
+        },
 
-        .PopL_FnReader = F(PopL,
-                           [](void* cntr, size_t cnt, FnReader reader) {
-                               return (PopL)(*static_cast<Cntr*>(cntr), cnt,
-                                             reader);
-                           }),
+        .pop_l{
+            .empty = F(  //
+                PopL,
+                [](void* cntr, size_t cnt, EmptyReader reader) {
+                    return (PopL)(*static_cast<Cntr*>(cntr), cnt, reader);
+                }),
+            .lin_seq = F(  //
+                PopL,
+                [](void* cntr, size_t cnt, LinSeqReader& reader) {
+                    return (PopL)(*static_cast<Cntr*>(cntr), cnt, reader);
+                }),
+            .fn = F(  //
+                PopL,
+                [](void* cntr, size_t cnt, FnReader reader) {
+                    return (PopL)(*static_cast<Cntr*>(cntr), cnt, reader);
+                }),
+        },
 
-        .PopR_EmptyReader = F(PopR,
-                              [](void* cntr, size_t cnt, EmptyReader reader) {
-                                  return (PopR)(*static_cast<Cntr*>(cntr), cnt,
-                                                reader);
-                              }),
+        .pop_r{
+            .empty = F(  //
+                PopR,
+                [](void* cntr, size_t cnt, EmptyReader reader) {
+                    return (PopR)(*static_cast<Cntr*>(cntr), cnt, reader);
+                }),
+            .lin_seq = F(  //
+                PopR,
+                [](void* cntr, size_t cnt, LinSeqReader& reader) {
+                    return (PopR)(*static_cast<Cntr*>(cntr), cnt, reader);
+                }),
+            .fn = F(  //
+                PopR,
+                [](void* cntr, size_t cnt, FnReader reader) {
+                    return (PopR)(*static_cast<Cntr*>(cntr), cnt, reader);
+                }),
+        },
 
-        .PopR_LinSeqReader =
-            F(PopR,
-              [](void* cntr, size_t cnt, LinSeqReader& reader) {
-                  return (PopR)(*static_cast<Cntr*>(cntr), cnt, reader);
-              }),
+        .erase{
+            .empty = F(  //
+                Erase,
+                [](void* cntr, void* pos_cursor, size_t cnt,
+                   EmptyReader reader) {
+                    return (Erase)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                   reader);
+                }),
+            .lin_seq = F(  //
+                Erase,
+                [](void* cntr, void* pos_cursor, size_t cnt,
+                   LinSeqReader& reader) {
+                    return (Erase)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                   reader);
+                }),
+            .fn = F(  //
+                Erase,
+                [](void* cntr, void* pos_cursor, size_t cnt, FnReader reader) {
+                    return (Erase)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
+                                   reader);
+                }),
+        },
 
-        .PopR_FnReader = F(PopR,
-                           [](void* cntr, size_t cnt, FnReader reader) {
-                               return (PopR)(*static_cast<Cntr*>(cntr), cnt,
-                                             reader);
-                           }),
-        .Erase_EmptyReader =
-            F(Erase,
-              [](void* cntr, void* pos_cursor, size_t cnt, EmptyReader reader) {
-                  return (Erase)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
-                                 reader);
-              }),
+        .erase_all = F(  //
+            EraseAll,
+            [](void* cntr) { return (EraseAll)(*static_cast<Cntr*>(cntr)); }),
 
-        .Erase_LinSeqReader = F(
-            Erase,
-            [](void* cntr, void* pos_cursor, size_t cnt, LinSeqReader& reader) {
-                return (Erase)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
-                               reader);
+        .copy_cursor = F(  //
+            CopyCursor,
+            [](void* cntr, void* src_cursor, void* dst_cursor) {
+                return (CopyCursor)(*static_cast<Cntr*>(cntr), src_cursor,
+                                    dst_cursor);
             }),
 
-        .Erase_FnReader =
-            F(Erase,
-              [](void* cntr, void* pos_cursor, size_t cnt, FnReader reader) {
-                  return (Erase)(*static_cast<Cntr*>(cntr), pos_cursor, cnt,
-                                 reader);
-              }),
+        .are_equal_cursor = F(  //
+            AreEqualCursor,
+            [](void* cntr, void* cursor_a, void* cursor_b) {
+                return (AreEqualCursor)(*static_cast<Cntr*>(cntr), cursor_a,
+                                        cursor_b);
+            }),
 
-        .EraseAll =
-            F(EraseAll,
-              [](void* cntr) { return (EraseAll)(*static_cast<Cntr*>(cntr)); }),
+        .compare_cursor = F(  //
+            CompareCursor,
+            [](void* cntr, void* cursor_a, void* cursor_b) {
+                return (CompareCursor)(*static_cast<Cntr*>(cntr), cursor_a,
+                                       cursor_b);
+            }),
 
-        .CopyCursor = F(CopyCursor,
-                        [](void* cntr, void* src_cursor, void* dst_cursor) {
-                            return (CopyCursor)(*static_cast<Cntr*>(cntr),
-                                                src_cursor, dst_cursor);
-                        }),
+        .get_cursor_dist = F(  //
+            GetCursorDist,
+            [](void* cntr, void* cursor_a, void* cursor_b) {
+                return (GetCursorDist)(*static_cast<Cntr*>(cntr), cursor_a,
+                                       cursor_b);
+            }),
 
-        .AreEqualCursor =
-            F(AreEqualCursor,
-              [](void* cntr, void* cursor_a, void* cursor_b) {
-                  return (AreEqualCursor)(*static_cast<Cntr*>(cntr), cursor_a,
-                                          cursor_b);
-              }),
+        .get_cursor_idx = F(  //
+            GetCursorIdx,
+            [](void* cntr, void* cursor) {
+                return (GetCursorIdx)(*static_cast<Cntr*>(cntr), cursor);
+            }),
 
-        .CompareCursor = F(CompareCursor,
-                           [](void* cntr, void* cursor_a, void* cursor_b) {
-                               return (CompareCursor)(*static_cast<Cntr*>(cntr),
-                                                      cursor_a, cursor_b);
-                           }),
+        .cursor_step_l = F(  //
+            CursorStepL,
+            [](void* cntr, void* cursor) {
+                return (CursorStepL)(*static_cast<Cntr*>(cntr), cursor);
+            }),
 
-        .GetCursorDist = F(GetCursorDist,
-                           [](void* cntr, void* cursor_a, void* cursor_b) {
-                               return (GetCursorDist)(*static_cast<Cntr*>(cntr),
-                                                      cursor_a, cursor_b);
-                           }),
+        .cursor_step_r = F(  //
+            CursorStepR,
+            [](void* cntr, void* cursor) {
+                return (CursorStepR)(*static_cast<Cntr*>(cntr), cursor);
+            }),
 
-        .GetCursorIdx = F(GetCursorIdx,
-                          [](void* cntr, void* cursor) {
-                              return (GetCursorIdx)(*static_cast<Cntr*>(cntr),
-                                                    cursor);
-                          }),
+        .cursor_advance_l = F(  //
+            CursorAdvanceL,
+            [](void* cntr, void* cursor, size_t step) {
+                return (CursorAdvanceL)(*static_cast<Cntr*>(cntr), cursor,
+                                        step);
+            }),
 
-        .CursorStepL = F(CursorStepL,
-                         [](void* cntr, void* cursor) {
-                             return (CursorStepL)(*static_cast<Cntr*>(cntr),
-                                                  cursor);
-                         }),
-
-        .CursorStepR = F(CursorStepR,
-                         [](void* cntr, void* cursor) {
-                             return (CursorStepR)(*static_cast<Cntr*>(cntr),
-                                                  cursor);
-                         }),
-
-        .CursorAdvanceL =
-            F(CursorAdvanceL,
-              [](void* cntr, void* cursor, size_t step) {
-                  return (CursorAdvanceL)(*static_cast<Cntr*>(cntr), cursor,
-                                          step);
-              }),
-
-        .CursorAdvanceR =
-            F(CursorAdvanceR,
-              [](void* cntr, void* cursor, size_t step) {
-                  return (CursorAdvanceR)(*static_cast<Cntr*>(cntr), cursor,
-                                          step);
-              }),
+        .cursor_advance_r = F(  //
+            CursorAdvanceR,
+            [](void* cntr, void* cursor, size_t step) {
+                return (CursorAdvanceR)(*static_cast<Cntr*>(cntr), cursor,
+                                        step);
+            }),
 
         .CustomMethods{ nullptr },
     };

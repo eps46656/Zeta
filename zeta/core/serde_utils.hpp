@@ -10,15 +10,16 @@ namespace zeta::core::serde_utils {
 
 struct VariableOctetCntTag {};
 
-enum struct Endianness : unsigned char {
+enum struct EndiannessEnum : unsigned char {
     Little = 0,
     Big = 1,
 };
 
 template <typename T>
 concept IsEndiannessType =
-    meta::IsAnySame<T, Endianness, meta::AutoValueWrapper<Endianness::Little>,
-                    meta::AutoValueWrapper<Endianness::Big>>;
+    meta::IsAnySame<T, EndiannessEnum,
+                    meta::AutoValueWrapper<EndiannessEnum::Little>,
+                    meta::AutoValueWrapper<EndiannessEnum::Big>>;
 
 struct ErrorMessage {
     static constexpr unsigned char

@@ -23,7 +23,7 @@
 
 namespace zeta::core_test {
 
-using AssocCntrRef = core::assoc_cntr_ref::Ref;
+using AssocCntrRef = core::assoc_cntr_ref::Cntr;
 
 inline void main1() {
     unsigned random_seed{ static_cast<unsigned>(time(nullptr)) };
@@ -50,8 +50,11 @@ inline void main1() {
 
     std::vector<AssocCntrRef*> assoc_cntrs{ &assoc_cntr_a, &assoc_cntr_b };
 
-    std::unordered_set<Elem, core::hash::CppStdBasicHash<Elem>,
-                       core::comparison::CppStdBasicEqualTo<Elem, Elem>>
+    std::unordered_set<
+        Elem, core::hash::CppStdBasicHash<Elem>,
+        core::comparison::CppStdBasicComparator<
+            core::meta::AutoValueWrapper<core::comparison::OpEnum::Equal>, Elem,
+            Elem>>
         elems_s;
     std::vector<Elem> elems_v;
 

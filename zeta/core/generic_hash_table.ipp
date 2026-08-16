@@ -46,7 +46,7 @@
         .level = static_cast<unsigned>(                               \
             integral_math::CeilLog(cur_bucket_size, branch_num)),     \
         .branch_nums = branch_nums.elems,                             \
-        .size = ght.cur_table_size,                                   \
+        .elem_cnt = ght.cur_table_node_cnt,                           \
         .root = ght.cur_table_root,                                   \
         .nav_node_alctr = meta::GetInstPtr(                           \
             const_cast<Cntr<CntrTplArgList>&>(ght).table_node_alctr), \
@@ -61,7 +61,7 @@
                 ? 1                                                     \
                 : integral_math::CeilLog(nxt_bucket_size, branch_num)), \
         .branch_nums = branch_nums.elems,                               \
-        .size = ght.nxt_table_size,                                     \
+        .elem_cnt = ght.nxt_table_node_cnt,                             \
         .root = ght.nxt_table_root,                                     \
         .nav_node_alctr = meta::GetInstPtr(                             \
             const_cast<Cntr<CntrTplArgList>&>(ght).table_node_alctr),   \
@@ -70,11 +70,11 @@
 
 namespace zeta::core {
 
-inline void generic_hash_table::Node::Init() { this->tn.Init(); }
+constexpr void generic_hash_table::Node::Init() { this->tn.Init(); }
 
 namespace generic_hash_table::detail {
 
-inline size_t GetBucketIdx_  // NOLINT(misc-use-internal-linkage)
+constexpr size_t GetBucketIdx_  // NOLINT(misc-use-internal-linkage)
     (unsigned long long hash_code, size_t bucket_size) {
     return utils::SimpleUnsignedIntegralHash(hash_code, 0ULL) % bucket_size;
 }
@@ -96,7 +96,7 @@ struct BranchIdxesSource_ {
     }
 };
 
-inline size_t BranchIdxesToBucketIdx_  // NOLINT(misc-use-internal-linkage)
+constexpr size_t BranchIdxesToBucketIdx_  // NOLINT(misc-use-internal-linkage)
     (unsigned level, size_t const* branch_idxes) {
     size_t bucket_idx{ 0 };
 
@@ -107,7 +107,7 @@ inline size_t BranchIdxesToBucketIdx_  // NOLINT(misc-use-internal-linkage)
     return bucket_idx;
 }
 
-inline size_t FindPrvBucketSize_  // NOLINT(misc-use-internal-linkage)
+constexpr size_t FindPrvBucketSize_  // NOLINT(misc-use-internal-linkage)
     (size_t bucket_size) {
     bucket_size = comparison_utils::BasicMax(bucket_size, min_bucket_size);
 
@@ -132,7 +132,7 @@ inline size_t FindPrvBucketSize_  // NOLINT(misc-use-internal-linkage)
                                       percent_prime_table::table[lb]);
 }
 
-inline size_t FindNxtBucketSize_  // NOLINT(misc-use-internal-linkage)
+constexpr size_t FindNxtBucketSize_  // NOLINT(misc-use-internal-linkage)
     (size_t bucket_size) {
     bucket_size = comparison_utils::BasicMin(bucket_size, max_bucket_size);
 
@@ -159,12 +159,13 @@ inline size_t FindNxtBucketSize_  // NOLINT(misc-use-internal-linkage)
                                       max_bucket_size);
 }
 
-template <typename TableNodeAllocatorLike, hash::CanHash<void const*> KeyHasher,
-          comparison::CanCompare<void const*, void const*> KeyElemComparator>
+template <typename TableNodeAllocatorLike, typename Key,
+          hash::CanHash<Key const*> KeyHasher,
+          comparison::CanCompare<Key const*, Node const*> KeyElemComparator>
 Node* FindInTable_  // NOLINT(misc-use-internal-linkage)
     (unsigned long long salt,
      multi_level_ptr_table::Cntr<ActiveMap, TableNodeAllocatorLike>& table,
-     size_t bucket_size, void const* key, KeyHasher& key_hasher,
+     size_t bucket_size, Key const* key, KeyHasher& key_hasher,
      KeyElemComparator& key_elem_cmptr) {
     unsigned long long key_hash_code{ hash::Hash(key_hasher, key, salt) };
 
@@ -191,7 +192,7 @@ Node* FindInTable_  // NOLINT(misc-use-internal-linkage)
         }
 
         comparison::Ordering cmp{ comparison::Compare(
-            meta::AutoValueWrapper<comparison::Op::Order>{}, key_elem_cmptr,
+            key_elem_cmptr, meta::AutoValueWrapper<comparison::OpEnum::Order>{},
             key, ZETA_Core_MemberToStruct(Node, tn, tn)) };
 
         if (cmp == comparison::Ordering::Greater) {
@@ -208,12 +209,11 @@ Node* FindInTable_  // NOLINT(misc-use-internal-linkage)
 }
 
 template <typename MultiLevelPtrTable, typename Key,
-          hash::CanHash<void const*> KeyHasher,
-          comparison::CanCompare<void const*, void const*> KeyElemComparator>
-void InsertToTable_  // NOLINT(misc-use-internal-linkage)
-    (unsigned long long salt, MultiLevelPtrTable& table, size_t bucket_size,
-     Key const* key, KeyHasher& key_hasher, KeyElemComparator& key_elem_cmptr,
-     Node* n) {
+          hash::CanHash<Key const*> KeyHasher,
+          comparison::CanCompare<Key const*, Node const*> KeyElemComparator>
+void InsertToTable_(unsigned long long salt, MultiLevelPtrTable& table,
+                    size_t bucket_size, Key const* key, KeyHasher& key_hasher,
+                    KeyElemComparator& key_elem_cmptr, Node* n) {
     unsigned long long key_hash_code{ hash::Hash(key_hasher, key, salt) };
 
     n->hash_code = key_hash_code;
@@ -251,7 +251,8 @@ void InsertToTable_  // NOLINT(misc-use-internal-linkage)
         }
 
         comparison::Ordering cmp{ comparison::Compare(
-            key_elem_cmptr, n, ZETA_Core_MemberToStruct(Node, tn, tn)) };
+            key_elem_cmptr, meta::AutoValueWrapper<comparison::OpEnum::Order>{},
+            n, ZETA_Core_MemberToStruct(Node, tn, tn)) };
 
         if (cmp == comparison::Ordering::Less) {
             gt_tn = tn;
@@ -289,7 +290,7 @@ bool TryExtractFromTable_  // NOLINT(misc-use-internal-linkage)
             detail::GetBucketIdx_(hash::Hash(hasher, n, salt), bucket_size),
     };
 
-    void** root_entry{ static_cast<void**>(table.Acess(branch_idxes_src)) };
+    void** root_entry{ static_cast<void**>(table.Access(branch_idxes_src)) };
 
     if (root_entry == nullptr || *root_entry != n_root) { return false; }
 
@@ -314,7 +315,7 @@ void TryRunPending_(Cntr<CntrTplArgList> const& ght_, MLPT_CNTR& cur_table,
     size_t nxt_bucket_size{ ght.nxt_bucket_size };
 
     if (nxt_bucket_size == 0) {
-        ght.cur_table_size = cur_table.elem_cnt;
+        ght.cur_table_node_cnt = cur_table.elem_cnt;
         ght.cur_table_root = cur_table.root;
 
         auto center_capacity{ fixed_point::FromIntegral(cur_bucket_size) *
@@ -376,10 +377,10 @@ void TryRunPending_(Cntr<CntrTplArgList> const& ght_, MLPT_CNTR& cur_table,
     }
 
     if (0 < cur_table.elem_cnt) {
-        ght.cur_table_size = cur_table.elem_cnt;
+        ght.cur_table_node_cnt = cur_table.elem_cnt;
         ght.cur_table_root = cur_table.root;
 
-        ght.nxt_table_size = nxt_table.elem_cnt;
+        ght.nxt_table_node_cnt = nxt_table.elem_cnt;
         ght.nxt_table_root = nxt_table.root;
 
         return;
@@ -388,22 +389,22 @@ void TryRunPending_(Cntr<CntrTplArgList> const& ght_, MLPT_CNTR& cur_table,
     if (nxt_table.elem_cnt == 0) {
         ght.cur_salt = random::GetRandomInt<unsigned long long>(
             meta::GetInstRef(ght.salt_random_engine));
-        ght.cur_table_size = 0;
+        ght.cur_table_node_cnt = 0;
         ght.cur_bucket_size = min_bucket_size;
         ght.cur_table_root = nullptr;
     } else {
         ght.cur_salt = ght.nxt_salt;
-        ght.cur_table_size = nxt_table.elem_cnt;
+        ght.cur_table_node_cnt = nxt_table.elem_cnt;
         ght.cur_bucket_size = nxt_bucket_size;
         ght.cur_table_root = nxt_table.root;
     }
 
-    ght.nxt_table_size = 0;
+    ght.nxt_table_node_cnt = 0;
     ght.nxt_bucket_size = 0;
     ght.nxt_table_root = nullptr;
 }
 
-inline void CheckRehasingConfig_(RehashingConfig const& rehashing_config) {
+constexpr void CheckRehasingConfig_(RehashingConfig const& rehashing_config) {
     ZETA_Core_DebugAssert(rehashing_config.center_load_ratio >=
                           min_center_load_ratio);
     ZETA_Core_DebugAssert(rehashing_config.center_load_ratio <=
@@ -413,7 +414,7 @@ inline void CheckRehasingConfig_(RehashingConfig const& rehashing_config) {
 }
 
 template <CntrTplParamList>
-void CheckCntr_(Cntr<CntrTplArgList> const& ght) {
+constexpr void CheckCntr_(Cntr<CntrTplArgList> const& ght) {
     size_t cur_bucket_size{ ght.cur_bucket_size };
 
     ZETA_Core_DebugAssert(cur_bucket_size != 0);
@@ -424,7 +425,7 @@ void CheckCntr_(Cntr<CntrTplArgList> const& ght) {
 template <CntrTplParamList>
 template <typename NodeHashLikeInitArg, typename ComparatorInitArg,
           typename TableNodeAllocatorInitArg, typename SaltRandomEngineInitArg>
-void generic_hash_table::Cntr<CntrTplArgList>::Init(
+constexpr void generic_hash_table::Cntr<CntrTplArgList>::Init(
     this Cntr& ght, RehashingConfig const& rehashing_config,
     NodeHashLikeInitArg&& hasher_init_arg, ComparatorInitArg&& cmptr_init_arg,
     SaltRandomEngineInitArg&& salt_random_engine_init_arg,
@@ -454,8 +455,8 @@ void generic_hash_table::Cntr<CntrTplArgList>::Init(
     ght.cur_table_root = nullptr;
     ght.nxt_table_root = nullptr;
 
-    ght.cur_table_size = 0;
-    ght.nxt_table_size = 0;
+    ght.cur_table_node_cnt = 0;
+    ght.nxt_table_node_cnt = 0;
 
     ght.cur_bucket_size = min_bucket_size;
     ght.nxt_bucket_size = 0;
@@ -464,12 +465,13 @@ void generic_hash_table::Cntr<CntrTplArgList>::Init(
 }
 
 template <CntrTplParamList>
-void generic_hash_table::Cntr<CntrTplArgList>::Deinit(this Cntr& ght) {
+constexpr void generic_hash_table::Cntr<CntrTplArgList>::Deinit(
+    this Cntr& ght) {
     ght.ExtractAll();
 }
 
 template <CntrTplParamList>
-size_t generic_hash_table::Cntr<CntrTplArgList>::GetNodeCnt(
+constexpr size_t generic_hash_table::Cntr<CntrTplArgList>::GetNodeCnt(
     this Cntr const& ght) {
     detail::CheckCntr_(ght);
 
@@ -477,8 +479,8 @@ size_t generic_hash_table::Cntr<CntrTplArgList>::GetNodeCnt(
 }
 
 template <CntrTplParamList>
-bool generic_hash_table::Cntr<CntrTplArgList>::Contain(this Cntr const& ght,
-                                                       Node const* n) {
+constexpr bool generic_hash_table::Cntr<CntrTplArgList>::Contain(
+    this Cntr const& ght, Node const* n) {
     detail::CheckCntr_(ght);
 
     if (n == nullptr) { return false; }
@@ -492,17 +494,15 @@ bool generic_hash_table::Cntr<CntrTplArgList>::Contain(this Cntr const& ght,
     TreeNode const* root{ bin_tree::GetMostP(&n->tn).first };
 
     void** root_entry{ static_cast<void**>(
-        cur_table.Access(detail::BranchIdxesSource_{ detail::GetBucketIdx_(
-            hash::Hash(meta::GetInstRef(ght.hasher), n, ght.cur_salt),
-            cur_bucket_size) })) };
+        cur_table.Access(detail::BranchIdxesSource_{
+            detail::GetBucketIdx_(n->hash_code, cur_bucket_size) })) };
 
     bool ret{ root_entry != nullptr && *root_entry == root };
 
     if (!ret && 0 < nxt_bucket_size) {
-        root_entry = static_cast<void**>(
-            nxt_table.Access(detail::BranchIdxesSource_{ detail::GetBucketIdx_(
-                hash::Hash(meta::GetInstRef(ght.hasher), n, ght.nxt_salt),
-                nxt_bucket_size) }));
+        root_entry =
+            static_cast<void**>(nxt_table.Access(detail::BranchIdxesSource_{
+                detail::GetBucketIdx_(n->hash_code, nxt_bucket_size) }));
 
         ret = root_entry != nullptr && *root_entry == root;
     }
@@ -511,10 +511,12 @@ bool generic_hash_table::Cntr<CntrTplArgList>::Contain(this Cntr const& ght,
 }
 
 template <CntrTplParamList>
-template <hash::CanHash<void const*> KeyHasher,
-          comparison::CanCompare<void const*, void const*> KeyElemComparator>
-generic_hash_table::Node* generic_hash_table::Cntr<CntrTplArgList>::Find(
-    this Cntr const& ght, void const* key, KeyHasher const& key_hasher,
+template <typename Key, hash::CanHash<Key const*> KeyHasher,
+          comparison::CanCompare<Key const*, generic_hash_table::Node const*>
+              KeyElemComparator>
+constexpr generic_hash_table::Node*
+generic_hash_table::Cntr<CntrTplArgList>::Find(
+    this Cntr const& ght, Key const* key, KeyHasher const& key_hasher,
     KeyElemComparator const& key_elem_cmptr) {
     detail::CheckCntr_(ght);
 
@@ -539,10 +541,11 @@ generic_hash_table::Node* generic_hash_table::Cntr<CntrTplArgList>::Find(
 }
 
 template <CntrTplParamList>
-template <hash::CanHash<void const*> KeyHasher,
-          comparison::CanCompare<void const*, void const*> KeyElemComparator>
-void generic_hash_table::Cntr<CntrTplArgList>::Insert(
-    this Cntr& ght, void const* key, KeyHasher const& key_hasher,
+template <typename Key, hash::CanHash<Key const*> KeyHasher,
+          comparison::CanCompare<Key const*, generic_hash_table::Node const*>
+              KeyElemComparator>
+constexpr void generic_hash_table::Cntr<CntrTplArgList>::Insert(
+    this Cntr& ght, Key const* key, KeyHasher const& key_hasher,
     KeyElemComparator const& key_elem_cmptr, Node* n) {
     detail::CheckCntr_(ght);
 
@@ -558,7 +561,7 @@ void generic_hash_table::Cntr<CntrTplArgList>::Insert(
         detail::InsertToTable_(ght.nxt_salt, nxt_table, nxt_bucket_size, key,
                                key_hasher, key_elem_cmptr, n);
     } else {
-        detail::InsertToTable_(ght.cur_salt, cur_table, cur_bucket_size,
+        detail::InsertToTable_(ght.cur_salt, cur_table, cur_bucket_size, key,
                                key_hasher, key_elem_cmptr, n);
     }
 
@@ -568,8 +571,8 @@ void generic_hash_table::Cntr<CntrTplArgList>::Insert(
 }
 
 template <CntrTplParamList>
-void generic_hash_table::Cntr<CntrTplArgList>::Extract(this Cntr& ght,
-                                                       Node* n) {
+constexpr void generic_hash_table::Cntr<CntrTplArgList>::Extract(this Cntr& ght,
+                                                                 Node* n) {
     detail::CheckCntr_(ght);
 
     ZETA_Core_DebugAssert(n != nullptr);
@@ -597,8 +600,8 @@ void generic_hash_table::Cntr<CntrTplArgList>::Extract(this Cntr& ght,
 }
 
 template <CntrTplParamList>
-generic_hash_table::Node* generic_hash_table::Cntr<CntrTplArgList>::ExtractAny(
-    this Cntr& ght) {
+constexpr generic_hash_table::Node*
+generic_hash_table::Cntr<CntrTplArgList>::ExtractAny(this Cntr& ght) {
     detail::CheckCntr_(ght);
 
     if (ght.node_cnt == 0) { return nullptr; }
@@ -629,7 +632,8 @@ generic_hash_table::Node* generic_hash_table::Cntr<CntrTplArgList>::ExtractAny(
 }
 
 template <CntrTplParamList>
-void generic_hash_table::Cntr<CntrTplArgList>::ExtractAll(this Cntr& ght) {
+constexpr void generic_hash_table::Cntr<CntrTplArgList>::ExtractAll(
+    this Cntr& ght) {
     detail::CheckCntr_(ght);
 
     size_t cur_bucket_size{ ght.cur_bucket_size };
@@ -648,8 +652,8 @@ void generic_hash_table::Cntr<CntrTplArgList>::ExtractAll(this Cntr& ght) {
     ght.cur_table_root = nullptr;
     ght.nxt_table_root = nullptr;
 
-    ght.cur_table_size = 0;
-    ght.nxt_table_size = 0;
+    ght.cur_table_node_cnt = 0;
+    ght.nxt_table_node_cnt = 0;
 
     ght.cur_bucket_size = min_bucket_size;
 
@@ -657,8 +661,8 @@ void generic_hash_table::Cntr<CntrTplArgList>::ExtractAll(this Cntr& ght) {
 }
 
 template <CntrTplParamList>
-bool generic_hash_table::Cntr<CntrTplArgList>::RunPending(this Cntr& ght,
-                                                          size_t quata) {
+constexpr bool generic_hash_table::Cntr<CntrTplArgList>::RunPending(
+    this Cntr& ght, size_t quata) {
     detail::CheckCntr_(ght);
 
     size_t cur_bucket_size{ ght.cur_bucket_size };
@@ -677,7 +681,7 @@ bool generic_hash_table::Cntr<CntrTplArgList>::RunPending(this Cntr& ght,
 
 namespace generic_hash_table::detail {
 
-inline pair::Pair<unsigned long long, unsigned long long>
+constexpr pair::Pair<unsigned long long, unsigned long long>
 GetNodeCntAndDepthSum_(TreeNode* root) {
     constexpr size_t buffer_capacity{ rbtree::max_height + 8 };
 
@@ -730,7 +734,7 @@ GetNodeCntAndDepthSum_(TreeNode* root) {
 }  // namespace generic_hash_table::detail
 
 template <CntrTplParamList>
-auto generic_hash_table::Cntr<CntrTplArgList>::GetEffFactor(
+constexpr auto generic_hash_table::Cntr<CntrTplArgList>::GetEffFactor(
     this Cntr const& ght) {
     detail::CheckCntr_(ght);
 
@@ -787,7 +791,7 @@ struct SanitizeTreeRet_ {
 };
 
 template <CntrTplParamList>
-SanitizeTreeRet_ SanitizeTree_  // NOLINT(misc-use-internal-linkage)
+constexpr SanitizeTreeRet_ SanitizeTree_  // NOLINT(misc-use-internal-linkage)
     (Cntr<CntrTplArgList> const& ght, mem_recorder::MemRecorder* dst_node,
      unsigned long long salt, size_t bucket_size, size_t bucket_idx,
      TreeNode* tn) {
@@ -819,21 +823,23 @@ SanitizeTreeRet_ SanitizeTree_  // NOLINT(misc-use-internal-linkage)
     };
 
     if (tnl != nullptr) {
-        int cmp{ comparison::Compare(
+        comparison::Ordering cmp{ comparison::Compare(
             meta::GetInstRef(ght.cmptr),
+            meta::AutoValueWrapper<comparison::OpEnum::Order>{},
             ZETA_Core_MemberToStruct(Node, tn, l_ret.most_r_tn), n) };
 
-        ZETA_Core_DebugAssert(cmp <= 0);
+        ZETA_Core_DebugAssert(cmp != comparison::Ordering::Greater);
 
         ret.most_l_tn = l_ret.most_l_tn;
     }
 
     if (tnr != nullptr) {
-        int cmp{ comparison::Compare(
-            meta::GetInstRef(ght.cmptr), n,
+        comparison::Ordering cmp{ comparison::Compare(
+            meta::GetInstRef(ght.cmptr),
+            meta::AutoValueWrapper<comparison::OpEnum::Order>{}, n,
             ZETA_Core_MemberToStruct(Node, tn, r_ret.most_l_tn)) };
 
-        ZETA_Core_DebugAssert(cmp <= 0);
+        ZETA_Core_DebugAssert(cmp != comparison::Ordering::Greater);
 
         ret.most_r_tn = r_ret.most_r_tn;
     }
@@ -844,7 +850,7 @@ SanitizeTreeRet_ SanitizeTree_  // NOLINT(misc-use-internal-linkage)
 }  // namespace generic_hash_table::detail
 
 template <CntrTplParamList>
-void generic_hash_table::Cntr<CntrTplArgList>::Sanitize(
+constexpr void generic_hash_table::Cntr<CntrTplArgList>::Sanitize(
     this Cntr const& ght, mem_recorder::MemRecorder* dst_table_node,
     mem_recorder::MemRecorder* dst_node) {
     detail::CheckCntr_(ght);

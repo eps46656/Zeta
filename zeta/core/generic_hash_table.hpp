@@ -98,7 +98,7 @@ move quata per op / (move quata per op - 1) < drift ratio
 
 */
 
-inline RehashingConfig constexpr default_rehashing_config{
+RehashingConfig constexpr default_rehashing_config{
     .move_quata_per_op = 4,
     .center_load_ratio = UFP::FromIntegral(8U),
     .drift_ratio = UFP::FromIntegral(4U),
@@ -113,7 +113,7 @@ struct Node {
 
     ZETA_Core_DebugStructPadding;
 
-    void Init();
+    constexpr void Init();
 };
 
 template <CntrTplParamList(_)>
@@ -129,8 +129,8 @@ struct Cntr {
     void* cur_table_root;
     void* nxt_table_root;
 
-    size_t cur_table_size;
-    size_t nxt_table_size;
+    size_t cur_table_node_cnt;
+    size_t nxt_table_node_cnt;
 
     size_t cur_bucket_size;
     size_t nxt_bucket_size;
@@ -150,43 +150,43 @@ struct Cntr {
     template <typename NodeHashLikeInitArg, typename ComparatorInitArg,
               typename TableNodeAllocatorInitArg,
               typename SaltRandomEngineInitArg>
-    void Init(this Cntr& ght, RehashingConfig const& rehashing_config,
-              NodeHashLikeInitArg&& hasher_init_arg,
-              ComparatorInitArg&& cmptr_init_arg,
-              SaltRandomEngineInitArg&& salt_random_engine_init_arg,
-              TableNodeAllocatorInitArg&& table_node_alctr_init_arg);
+    constexpr void Init(this Cntr& ght, RehashingConfig const& rehashing_config,
+                        NodeHashLikeInitArg&& hasher_init_arg,
+                        ComparatorInitArg&& cmptr_init_arg,
+                        SaltRandomEngineInitArg&& salt_random_engine_init_arg,
+                        TableNodeAllocatorInitArg&& table_node_alctr_init_arg);
 
-    void Deinit(this Cntr& ght);
+    constexpr void Deinit(this Cntr& ght);
 
-    size_t GetNodeCnt(this Cntr const& ght);
+    constexpr size_t GetNodeCnt(this Cntr const& ght);
 
-    bool Contain(this Cntr const& ght, Node const* node);
+    constexpr bool Contain(this Cntr const& ght, Node const* node);
 
-    template <
-        hash::CanHash<void const*> KeyHasher,
-        comparison::CanCompare<void const*, void const*> KeyElemComparator>
-    Node* Find(this Cntr const& ght, void const* key,
-               KeyHasher const& key_hasher,
-               KeyElemComparator const& key_elem_cmptr);
+    template <typename Key, hash::CanHash<Key const*> KeyHasher,
+              comparison::CanCompare<Key const*, Node const*> KeyElemComparator>
+    constexpr Node* Find(this Cntr const& ght, Key const* key,
+                         KeyHasher const& key_hasher,
+                         KeyElemComparator const& key_elem_cmptr);
 
-    template <
-        hash::CanHash<void const*> KeyHasher,
-        comparison::CanCompare<void const*, void const*> KeyElemComparator>
-    void Insert(this Cntr& ght, void const* key, KeyHasher const& key_hasher,
-                KeyElemComparator const& key_elem_cmptr, Node* node);
+    template <typename Key, hash::CanHash<Key const*> KeyHasher,
+              comparison::CanCompare<Key const*, Node const*> KeyElemComparator>
+    constexpr void Insert(this Cntr& ght, Key const* key,
+                          KeyHasher const& key_hasher,
+                          KeyElemComparator const& key_elem_cmptr, Node* node);
 
-    void Extract(this Cntr& ght, Node* node);
+    constexpr void Extract(this Cntr& ght, Node* node);
 
-    Node* ExtractAny(this Cntr& ght);
+    constexpr Node* ExtractAny(this Cntr& ght);
 
-    void ExtractAll(this Cntr& ght);
+    constexpr void ExtractAll(this Cntr& ght);
 
-    bool RunPending(this Cntr& ght, size_t quata);
+    constexpr bool RunPending(this Cntr& ght, size_t quata);
 
-    auto GetEffFactor(this Cntr const& ght);
+    constexpr auto GetEffFactor(this Cntr const& ght);
 
-    void Sanitize(this Cntr const& ght, mem_recorder::MemRecorder* dst_table,
-                  mem_recorder::MemRecorder* dst_node);
+    constexpr void Sanitize(this Cntr const& ght,
+                            mem_recorder::MemRecorder* dst_table,
+                            mem_recorder::MemRecorder* dst_node);
 };
 
 }  // namespace zeta::core::generic_hash_table

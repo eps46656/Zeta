@@ -618,7 +618,7 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
     --self.depth;
 
     if (self.depth == 0) {
-        self.state = StateEnum::Completed;
+        self.state = StateEnum::Finished;
         return true;
     }
 

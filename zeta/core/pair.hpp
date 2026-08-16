@@ -16,18 +16,21 @@ struct Pair {
 namespace zeta::core {
 
 template <typename First, typename Second>
-struct hash::BasicHasher<pair::Pair<First, Second>> {
-    constexpr unsigned long long operator()(
-        pair::Pair<First, Second> const& value, unsigned long long salt) const;
+struct hash::HasherTraits<hash::BasicHasher<pair::Pair<First, Second>>> {
+    static constexpr unsigned long long Hash(
+        hash::BasicHasher<pair::Pair<First, Second>>,
+        pair::Pair<First, Second> const& value, unsigned long long salt);
 };
 
 template <typename AFirst, typename ASecond, typename BFirst, typename BSecond>
 struct comparison::ComparatorTraits<comparison::BasicComparator<
     pair::Pair<AFirst, ASecond>, pair::Pair<BFirst, BSecond>>> {
     template <IsOpType OpType>
-    static constexpr auto Compare(auto const&, OpType,
-                                  pair::Pair<AFirst, ASecond> const& a,
-                                  pair::Pair<BFirst, BSecond> const& b);
+    static constexpr auto Compare(
+        comparison::BasicComparator<pair::Pair<AFirst, ASecond>,
+                                    pair::Pair<BFirst, BSecond>>,
+        OpType, pair::Pair<AFirst, ASecond> const& a,
+        pair::Pair<BFirst, BSecond> const& b);
 };
 
 template <typename AFirst, typename ASecond, typename BFirst, typename BSecond>

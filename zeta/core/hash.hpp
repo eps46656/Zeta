@@ -10,9 +10,10 @@ struct HasherTraits;
 template <typename Hasher, typename Value>
 concept CanHash = requires(Hasher const& hasher, Value const& value,
                            unsigned long long salt) {
-    requires meta::IsSame<meta::RemoveCVRef<decltype(HasherTraits<Hasher>::Hash(
-                              hasher, value, salt))>,
-                          unsigned long long>;
+    requires meta::IsSame<
+        meta::RemoveCVRef<decltype(HasherTraits<meta::RemoveCVRef<Hasher>>::
+                                       Hash(hasher, value, salt))>,
+        unsigned long long>;
 };
 
 template <typename Hasher, typename Value>
@@ -24,25 +25,28 @@ template <typename Hasher>
 struct MemberFuncHasherTraitsAdapter {
     template <typename Value>
     static constexpr decltype(auto) Hash(Hasher const& hasher,
-                                         Value const& value);
+                                         Value const& value,
+                                         unsigned long long salt);
 };
 
+struct EmptyHasher {
+    template <typename Value>
+    static constexpr unsigned long long Hash(Value const&, unsigned long long);
+};
+
+using ArchetHasher = EmptyHasher;
+
+template <>
+struct HasherTraits<hash::EmptyHasher>
+    : public hash::MemberFuncHasherTraitsAdapter<hash::EmptyHasher> {};
+
 template <typename Value>
-struct BasicHasher;
+struct BasicHasher {};
 
 template <typename Value>
 unsigned long long BasicHash(Value const& value, unsigned long long salt);
 
-struct UniversalBasicHasher;
-
-struct EmptyHasher {
-    template <typename Value>
-    static constexpr unsigned long long Hash(Value const&, unsigned long long) {
-        return 0;
-    }
-};
-
-using ArchetHasher = EmptyHasher;
+struct UniversalBasicHasher {};
 
 template <typename Value>
 unsigned long long TypeErasedBasicHash(void const* value,

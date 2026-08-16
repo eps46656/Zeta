@@ -49,8 +49,6 @@ inline void allocator_ref::CheckRef(Ref& ref) {
 template <typename Allocator>
 allocator_ref::Ref allocator_ref::MakeRef  // NOLINT(misc-use-internal-linkage)
     (Allocator& alctr) {
-    allocator::CheckContract(alctr);
-
     return {
         .align = allocator::GetAlign(alctr),
         .vtable = &allocator::GetVTable<Allocator>(),

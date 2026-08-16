@@ -1,8 +1,7 @@
 #pragma once
 
 #include <zeta/core/assoc_cntr.hpp>
-#include <zeta/core/debug_utils.ipp>
-#include <zeta/core/define.hpp>
+#include <zeta/core/hash.ipp>
 #include <zeta/core/meta.hpp>
 
 namespace zeta::core {
@@ -167,6 +166,15 @@ assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::Derefer(
 }
 
 template <typename Cntr, typename Cursor>
+constexpr decltype(auto)
+assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::Find(
+    Cntr& cntr, void const* elem, bool lazy_copy_elem,
+    ElemPtrView* dst_elem_ptr_view, void* dst_cursor, void* dst_elem) {
+    return cntr.Find(elem, lazy_copy_elem, dst_elem_ptr_view,
+                     static_cast<Cursor*>(dst_cursor), dst_elem);
+}
+
+template <typename Cntr, typename Cursor>
 template <hash::CanHash<void const*> KeyHasher,
           comparison::CanCompare<void const*, void const*> KeyElemComparator>
 constexpr decltype(auto)
@@ -189,6 +197,14 @@ assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::Read(Cntr& cntr,
                                                             void* dst_cursor) {
     return cntr.Read(static_cast<Cursor*>(pos_cursor), cnt, reader,
                      static_cast<Cursor*>(dst_cursor));
+}
+
+template <typename Cntr, typename Cursor>
+template <assoc_cntr::IsWriter Writer>
+constexpr decltype(auto)
+assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::Insert(
+    Cntr& cntr, void const* elem, Writer&& writer, void* dst_cursor) {
+    return cntr.Insert(elem, writer, static_cast<Cursor*>(dst_cursor));
 }
 
 template <typename Cntr, typename Cursor>
@@ -323,23 +339,23 @@ assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::CursorAdvanceR(
             (GetDynamicEnabledCapabilityFlag)(cntr), cap_name));            \
     }                                                                       \
                                                                             \
-    return CntrTraits<Cntr>::method_name(__VA_ARGS__);                      \
+    return CntrTraits<meta::RemoveRef<Cntr>>::method_name(__VA_ARGS__);     \
                                                                             \
     ZETA_Core_StaticAssert(true)
 
 template <typename Cntr>
 constexpr decltype(auto) assoc_cntr::GetReferedInstPtr(Cntr& cntr) {
-    return CntrTraits<Cntr>::GetReferedInstPtr(cntr);
+    return CntrTraits<meta::RemoveRef<Cntr>>::GetReferedInstPtr(cntr);
 }
 
 template <typename Cntr>
 constexpr decltype(auto) assoc_cntr::GetStaticEnabledCapabilityFlag() {
     constexpr capability::Flag static_enabled_capability_flag{
-        CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag()
+        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticEnabledCapabilityFlag()
     };
 
     constexpr capability::Flag static_disabled_capability_flag{
-        CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag()
+        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticDisabledCapabilityFlag()
     };
 
     capability::CheckFlags(static_enabled_capability_flag,
@@ -351,11 +367,11 @@ constexpr decltype(auto) assoc_cntr::GetStaticEnabledCapabilityFlag() {
 template <typename Cntr>
 constexpr decltype(auto) assoc_cntr::GetStaticDisabledCapabilityFlag() {
     constexpr capability::Flag static_enabled_capability_flag{
-        CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag()
+        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticEnabledCapabilityFlag()
     };
 
     constexpr capability::Flag static_disabled_capability_flag{
-        CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag()
+        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticDisabledCapabilityFlag()
     };
 
     capability::CheckFlags(static_enabled_capability_flag,
@@ -368,22 +384,23 @@ template <typename Cntr>
 constexpr decltype(auto) assoc_cntr::GetDynamicEnabledCapabilityFlag(
     Cntr& cntr) {
     constexpr capability::Flag static_enabled_capability_flag{
-        CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag()
+        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticEnabledCapabilityFlag()
     };
 
     constexpr capability::Flag static_disabled_capability_flag{
-        CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag()
+        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticDisabledCapabilityFlag()
     };
 
     capability::CheckFlags(static_enabled_capability_flag,
                            static_disabled_capability_flag);
 
     capability::Flag dynamic_enabled_capability_flag{
-        CntrTraits<Cntr>::GetDynamicEnabledCapabilityFlag(cntr)
+        CntrTraits<meta::RemoveRef<Cntr>>::GetDynamicEnabledCapabilityFlag(cntr)
     };
 
     capability::Flag dynamic_disabled_capability_flag{
-        CntrTraits<Cntr>::GetDynamicDisabledCapabilityFlag(cntr)
+        CntrTraits<meta::RemoveRef<Cntr>>::GetDynamicDisabledCapabilityFlag(
+            cntr)
     };
 
     capability::CheckFlags(
@@ -397,22 +414,23 @@ template <typename Cntr>
 constexpr decltype(auto) assoc_cntr::GetDynamicDisabledCapabilityFlag(
     Cntr& cntr) {
     constexpr capability::Flag static_enabled_capability_flag{
-        CntrTraits<Cntr>::GetStaticEnabledCapabilityFlag()
+        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticEnabledCapabilityFlag()
     };
 
     constexpr capability::Flag static_disabled_capability_flag{
-        CntrTraits<Cntr>::GetStaticDisabledCapabilityFlag()
+        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticDisabledCapabilityFlag()
     };
 
     capability::CheckFlags(static_enabled_capability_flag,
                            static_disabled_capability_flag);
 
     capability::Flag dynamic_enabled_capability_flag{
-        CntrTraits<Cntr>::GetDynamicEnabledCapabilityFlag(cntr)
+        CntrTraits<meta::RemoveRef<Cntr>>::GetDynamicEnabledCapabilityFlag(cntr)
     };
 
     capability::Flag dynamic_disabled_capability_flag{
-        CntrTraits<Cntr>::GetDynamicDisabledCapabilityFlag(cntr)
+        CntrTraits<meta::RemoveRef<Cntr>>::GetDynamicDisabledCapabilityFlag(
+            cntr)
     };
 
     capability::CheckFlags(
@@ -456,16 +474,16 @@ template <typename Cntr>
 constexpr decltype(auto) assoc_cntr::PeekL(Cntr& cntr, bool lazy_copy_elem,
                                            ElemPtrView* dst_elem_ptr_view,
                                            void* dst_cursor, void* dst_elem) {
-    CallMethod(PeekL, PeekL, cntr, lazy_copy_elem, dst_cursor,
-               dst_elem_ptr_view, dst_elem);
+    CallMethod(PeekL, PeekL, cntr, lazy_copy_elem, dst_elem_ptr_view,
+               dst_cursor, dst_elem);
 }
 
 template <typename Cntr>
 constexpr decltype(auto) assoc_cntr::PeekR(Cntr& cntr, bool lazy_copy_elem,
                                            ElemPtrView* dst_elem_ptr_view,
                                            void* dst_cursor, void* dst_elem) {
-    CallMethod(PeekR, PeekR, cntr, lazy_copy_elem, dst_cursor,
-               dst_elem_ptr_view, dst_elem);
+    CallMethod(PeekR, PeekR, cntr, lazy_copy_elem, dst_elem_ptr_view,
+               dst_cursor, dst_elem);
 }
 
 template <typename Cntr>
@@ -477,16 +495,29 @@ constexpr decltype(auto) assoc_cntr::Derefer(Cntr& cntr, void* pos_cursor,
                dst_elem_ptr_view, dst_elem);
 }
 
-template <typename Cntr, hash::CanHash<void const*> KeyHasher,
-          comparison::CanCompare<void const*, void const*> KeyElemComparator>
-constexpr decltype(auto) assoc_cntr::Find(Cntr& cntr, void const* key,
-                                          KeyHasher key_hasher,
-                                          KeyElemComparator key_elem_cmptr,
+template <typename Cntr>
+constexpr decltype(auto) assoc_cntr::Find(Cntr& cntr, void const* elem,
                                           bool lazy_copy_elem,
                                           ElemPtrView* dst_elem_ptr_view,
                                           void* dst_cursor, void* dst_elem) {
+    CallMethod(Find, Find, cntr, elem, lazy_copy_elem, dst_elem_ptr_view,
+               dst_cursor, dst_elem);
+}
+
+template <typename Cntr, hash::CanHash<void const*> KeyHasher,
+          comparison::CanCompare<void const*, void const*> KeyElemComparator>
+constexpr decltype(auto) assoc_cntr::Find(
+    Cntr& cntr, void const* key, KeyHasher const& key_hasher,
+    KeyElemComparator const& key_elem_cmptr, bool lazy_copy_elem,
+    ElemPtrView* dst_elem_ptr_view, void* dst_cursor, void* dst_elem) {
     CallMethod(Find, Find, cntr, key, key_hasher, key_elem_cmptr,
                lazy_copy_elem, dst_elem_ptr_view, dst_cursor, dst_elem);
+}
+
+template <typename Cntr, assoc_cntr::IsWriter Writer>
+constexpr decltype(auto) assoc_cntr::Insert(Cntr& cntr, void const* elem,
+                                            Writer&& writer, void* dst_cursor) {
+    CallMethod(Insert, Insert, cntr, elem, writer, dst_cursor);
 }
 
 template <typename Cntr, hash::CanHash<void const*> KeyHasher,
@@ -500,19 +531,22 @@ constexpr decltype(auto) assoc_cntr::Insert(Cntr& cntr, void const* key,
                dst_cursor);
 }
 
-template <typename Cntr>
-constexpr decltype(auto) assoc_cntr::PopL(Cntr& cntr, size_t cnt) {
-    CallMethod(PopL, PopL, cntr, cnt);
+template <typename Cntr, assoc_cntr::IsReader Reader>
+constexpr decltype(auto) assoc_cntr::PopL(Cntr& cntr, size_t cnt,
+                                          Reader&& reader) {
+    CallMethod(PopL, PopL, cntr, cnt, reader);
 }
 
-template <typename Cntr>
-constexpr decltype(auto) assoc_cntr::PopR(Cntr& cntr, size_t cnt) {
-    CallMethod(PopR, PopR, cntr, cnt);
+template <typename Cntr, assoc_cntr::IsReader Reader>
+constexpr decltype(auto) assoc_cntr::PopR(Cntr& cntr, size_t cnt,
+                                          Reader&& reader) {
+    CallMethod(PopR, PopR, cntr, cnt, reader);
 }
 
-template <typename Cntr>
-constexpr decltype(auto) assoc_cntr::Erase(Cntr& cntr, void* pos_cursor) {
-    CallMethod(Erase, Erase, cntr, pos_cursor);
+template <typename Cntr, assoc_cntr::IsReader Reader>
+constexpr decltype(auto) assoc_cntr::Erase(Cntr& cntr, void* pos_cursor,
+                                           size_t cnt, Reader&& reader) {
+    CallMethod(Erase, Erase, cntr, pos_cursor, cnt, reader);
 }
 
 template <typename Cntr>
@@ -527,29 +561,25 @@ constexpr decltype(auto) assoc_cntr::CopyCursor(Cntr& cntr, void* src_cursor,
 }
 
 template <typename Cntr>
-constexpr decltype(auto) assoc_cntr::AreEqualCursor(Cntr& cntr,
-                                                    void const* cursor_a,
-                                                    void const* cursor_b) {
+constexpr decltype(auto) assoc_cntr::AreEqualCursor(Cntr& cntr, void* cursor_a,
+                                                    void* cursor_b) {
     CallMethod(AreEqualCursor, AreEqualCursor, cntr, cursor_a, cursor_b);
 }
 
 template <typename Cntr>
-constexpr decltype(auto) assoc_cntr::CompareCursor(Cntr& cntr,
-                                                   void const* cursor_a,
-                                                   void const* cursor_b) {
+constexpr decltype(auto) assoc_cntr::CompareCursor(Cntr& cntr, void* cursor_a,
+                                                   void* cursor_b) {
     CallMethod(CompareCursor, CompareCursor, cntr, cursor_a, cursor_b);
 }
 
 template <typename Cntr>
-constexpr decltype(auto) assoc_cntr::GetCursorDist(Cntr& cntr,
-                                                   void const* cursor_a,
-                                                   void const* cursor_b) {
+constexpr decltype(auto) assoc_cntr::GetCursorDist(Cntr& cntr, void* cursor_a,
+                                                   void* cursor_b) {
     CallMethod(GetCursorDist, GetCursorDist, cntr, cursor_a, cursor_b);
 }
 
 template <typename Cntr>
-constexpr decltype(auto) assoc_cntr::GetCursorIdx(Cntr& cntr,
-                                                  void const* cursor) {
+constexpr decltype(auto) assoc_cntr::GetCursorIdx(Cntr& cntr, void* cursor) {
     CallMethod(GetCursorIdx, GetCursorIdx, cntr, cursor);
 }
 
@@ -596,134 +626,239 @@ constexpr assoc_cntr::VTable assoc_cntr::BuildVTableBasic() {
     }()
 
     constexpr VTable table{
-        .GetElemCnt = F(
+        .get_elem_cnt = F(  //
             GetElemCnt,
             [](void* cntr) { return (GetElemCnt)(*static_cast<Cntr*>(cntr)); }),
 
-        .GetMaxElemCnt =
-            F(GetMaxElemCnt,
-              [](void* cntr) {
-                  return (GetMaxElemCnt)(*static_cast<Cntr*>(cntr));
-              }),
+        .get_max_elem_cnt = F(  //
+            GetMaxElemCnt,
+            [](void* cntr) {
+                return (GetMaxElemCnt)(*static_cast<Cntr*>(cntr));
+            }),
 
-        .GetLBCursor = F(GetLBCursor,
-                         [](void* cntr, void* dst_cursor) {
-                             (GetLBCursor)(*static_cast<Cntr*>(cntr),
-                                           dst_cursor);
-                         }),
+        .get_lb_cursor = F(  //
+            GetLBCursor,
+            [](void* cntr, void* dst_cursor) {
+                (GetLBCursor)(*static_cast<Cntr*>(cntr), dst_cursor);
+            }),
 
-        .GetRBCursor = F(GetRBCursor,
-                         [](void* cntr, void* dst_cursor) {
-                             (GetRBCursor)(*static_cast<Cntr*>(cntr),
-                                           dst_cursor);
-                         }),
+        .get_rb_cursor = F(  //
+            GetRBCursor,
+            [](void* cntr, void* dst_cursor) {
+                (GetRBCursor)(*static_cast<Cntr*>(cntr), dst_cursor);
+            }),
 
-        .PeekL = F(PeekL,
-                   [](void* cntr, bool lazy_copy_elem, void* dst_cursor,
-                      void* dst_elem) {
-                       return (PeekL)(*static_cast<Cntr*>(cntr), lazy_copy_elem,
+        .peek_l = F(  //
+            PeekL,
+            [](void* cntr, bool lazy_copy_elem,
+               assoc_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+               void* dst_elem) {
+                return (PeekL)(*static_cast<Cntr*>(cntr), lazy_copy_elem,
+                               dst_elem_ptr_view, dst_cursor, dst_elem);
+            }),
+
+        .peek_r = F(  //
+            PeekR,
+            [](void* cntr, bool lazy_copy_elem,
+               assoc_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+               void* dst_elem) {
+                return (PeekR)(*static_cast<Cntr*>(cntr), lazy_copy_elem,
+                               dst_elem_ptr_view, dst_cursor, dst_elem);
+            }),
+
+        .derefer = F(  //
+            Derefer,
+            [](void* cntr, void* pos_cursor, bool lazy_copy_elem,
+               assoc_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_elem) {
+                return (Derefer)(*static_cast<Cntr*>(cntr), pos_cursor,
+                                 lazy_copy_elem, dst_elem_ptr_view, dst_elem);
+            }),
+
+        .find{
+            .with_elem{
+                .fn = F(  //
+                    Find,
+                    [](void* cntr, void const* elem, bool lazy_copy_elem,
+                       ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+                       void* dst_elem) {
+                        return (Find)(*static_cast<Cntr*>(cntr), elem,
+                                      lazy_copy_elem, dst_elem_ptr_view,
                                       dst_cursor, dst_elem);
-                   }),
-
-        .PeekR = F(PeekR,
-                   [](void* cntr, bool lazy_copy_elem, void* dst_cursor,
-                      void* dst_elem) {
-                       return (PeekR)(*static_cast<Cntr*>(cntr), lazy_copy_elem,
+                    }),
+            },
+            .with_key{
+                .fn = F(  //
+                    Find,
+                    [](void* cntr, void const* key,
+                       hash_ref::Hasher const& key_hasher,
+                       comparison_ref::Comparator const& key_elem_cmptr,
+                       bool lazy_copy_elem, ElemPtrView* dst_elem_ptr_view,
+                       void* dst_cursor, void* dst_elem) {
+                        return (Find)(*static_cast<Cntr*>(cntr), key,
+                                      key_hasher, key_elem_cmptr,
+                                      lazy_copy_elem, dst_elem_ptr_view,
                                       dst_cursor, dst_elem);
-                   }),
+                    }),
+            },
+        },
 
-        .Derefer = F(Derefer,
-                     [](void* cntr, void* pos_cursor, bool lazy_copy_elem,
-                        void* dst_elem) {
-                         return (Derefer)(*static_cast<Cntr*>(cntr), pos_cursor,
-                                          lazy_copy_elem, dst_elem);
-                     }),
+        .insert{
+            .with_elem{
+                .empty = F(  //
+                    Insert,
+                    [](void* cntr, void const* elem, EmptyWriter writer,
+                       void* dst_cursor) {
+                        return (Insert)(*static_cast<Cntr*>(cntr), elem, writer,
+                                        dst_cursor);
+                    }),
+                .fn = F(  //
+                    Insert,
+                    [](void* cntr, void const* elem, FnWriter writer,
+                       void* dst_cursor) {
+                        return (Insert)(*static_cast<Cntr*>(cntr), elem, writer,
+                                        dst_cursor);
+                    }),
+            },
+            .with_key{
+                .empty = F(  //
+                    Insert,
+                    [](void* cntr, void const* key,
+                       hash_ref::Hasher const& key_hasher,
+                       comparison_ref::Comparator const& key_elem_cmptr,
+                       EmptyWriter writer, void* dst_cursor) {
+                        return (Insert)(*static_cast<Cntr*>(cntr), key,
+                                        key_hasher, key_elem_cmptr, writer,
+                                        dst_cursor);
+                    }),
+                .fn = F(  //
+                    Insert,
+                    [](void* cntr, void const* key,
+                       hash_ref::Hasher const& key_hasher,
+                       comparison_ref::Comparator const& key_elem_cmptr,
+                       FnWriter writer, void* dst_cursor) {
+                        return (Insert)(*static_cast<Cntr*>(cntr), key,
+                                        key_hasher, key_elem_cmptr, writer,
+                                        dst_cursor);
+                    }),
+            },
+        },
 
-        .Find_ConstVoidPtr =
-            F(Find,
-              [](void* cntr, void const* key, bool lazy_copy_elem,
-                 void* dst_cursor, void* dst_elem) {
-                  return (Find)(*static_cast<Cntr*>(cntr), key, lazy_copy_elem,
-                                dst_cursor, dst_elem);
-              }),
+        .pop_l{
+            .empty = F(  //
+                PopL,
+                [](void* cntr, size_t cnt, EmptyReader reader) {
+                    (PopL)(*static_cast<Cntr*>(cntr), cnt, reader);
+                }),
+            .lin_seq = F(  //
+                PopL,
+                [](void* cntr, size_t cnt, LinSeqReader& reader) {
+                    (PopL)(*static_cast<Cntr*>(cntr), cnt, reader);
+                }),
+            .fn = F(  //
+                PopL,
+                [](void* cntr, size_t cnt, FnReader reader) {
+                    (PopL)(*static_cast<Cntr*>(cntr), cnt, reader);
+                }),
+        },
 
-        .FnInsert = F(Insert,
-                      [](void* cntr, void const* elem, void* dst_cursor) {
-                          return (Insert)(*static_cast<Cntr*>(cntr), elem,
-                                          dst_cursor);
-                      }),
+        .pop_r{
+            .empty = F(  //
+                PopR,
+                [](void* cntr, size_t cnt, EmptyReader reader) {
+                    (PopR)(*static_cast<Cntr*>(cntr), cnt, reader);
+                }),
+            .lin_seq = F(  //
+                PopR,
+                [](void* cntr, size_t cnt, LinSeqReader& reader) {
+                    (PopR)(*static_cast<Cntr*>(cntr), cnt, reader);
+                }),
+            .fn = F(  //
+                PopR,
+                [](void* cntr, size_t cnt, FnReader reader) {
+                    (PopR)(*static_cast<Cntr*>(cntr), cnt, reader);
+                }),
+        },
 
-        .PopL =
-            F(PopL, [](void* cntr,
-                       size_t cnt) { (PopL)(*static_cast<Cntr*>(cntr), cnt); }),
+        .erase{
+            .empty = F(  //
+                Erase,
+                [](void* cntr, void* pos_cursor, size_t cnt,
+                   EmptyReader reader) {
+                    (Erase)(*static_cast<Cntr*>(cntr), pos_cursor, cnt, reader);
+                }),
+            .lin_seq = F(  //
+                Erase,
+                [](void* cntr, void* pos_cursor, size_t cnt,
+                   LinSeqReader& reader) {
+                    (Erase)(*static_cast<Cntr*>(cntr), pos_cursor, cnt, reader);
+                }),
+            .fn = F(  //
+                Erase,
+                [](void* cntr, void* pos_cursor, size_t cnt, FnReader reader) {
+                    (Erase)(*static_cast<Cntr*>(cntr), pos_cursor, cnt, reader);
+                }),
+        },
 
-        .PopR =
-            F(PopR, [](void* cntr,
-                       size_t cnt) { (PopR)(*static_cast<Cntr*>(cntr), cnt); }),
+        .erase_all = F(  //
+            EraseAll,
+            [](void* cntr) { (EraseAll)(*static_cast<Cntr*>(cntr)); }),
 
-        .Erase = F(Erase,
-                   [](void* cntr, void* pos_cursor) {
-                       (Erase)(*static_cast<Cntr*>(cntr), pos_cursor);
-                   }),
+        .copy_cursor = F(  //
+            CopyCursor,
+            [](void* cntr, void* src_cursor, void* dst_cursor) {
+                (CopyCursor)(*static_cast<Cntr*>(cntr), src_cursor, dst_cursor);
+            }),
 
-        .EraseAll =
-            F(EraseAll,
-              [](void* cntr) { (EraseAll)(*static_cast<Cntr*>(cntr)); }),
+        .are_equal_cursor = F(  //
+            AreEqualCursor,
+            [](void* cntr, void* cursor_a, void* cursor_b) {
+                return (AreEqualCursor)(*static_cast<Cntr*>(cntr), cursor_a,
+                                        cursor_b);
+            }),
 
-        .CopyCursor = F(CopyCursor,
-                        [](void* cntr, void* src_cursor, void* dst_cursor) {
-                            (CopyCursor)(*static_cast<Cntr*>(cntr), src_cursor,
-                                         dst_cursor);
-                        }),
+        .compare_cursor = F(  //
+            CompareCursor,
+            [](void* cntr, void* cursor_a, void* cursor_b) {
+                return (CompareCursor)(*static_cast<Cntr*>(cntr), cursor_a,
+                                       cursor_b);
+            }),
 
-        .AreEqualCursor =
-            F(AreEqualCursor,
-              [](void* cntr, void const* cursor_a, void const* cursor_b) {
-                  return (AreEqualCursor)(*static_cast<Cntr*>(cntr), cursor_a,
-                                          cursor_b);
-              }),
+        .get_cursor_dist = F(  //
+            GetCursorDist,
+            [](void* cntr, void* cursor_a, void* cursor_b) {
+                return (GetCursorDist)(*static_cast<Cntr*>(cntr), cursor_a,
+                                       cursor_b);
+            }),
 
-        .CompareCursor =
-            F(CompareCursor,
-              [](void* cntr, void const* cursor_a, void const* cursor_b) {
-                  return (CompareCursor)(*static_cast<Cntr*>(cntr), cursor_a,
-                                         cursor_b);
-              }),
+        .get_cursor_idx = F(  //
+            GetCursorIdx,
+            [](void* cntr, void* cursor) {
+                return (GetCursorIdx)(*static_cast<Cntr*>(cntr), cursor);
+            }),
 
-        .GetCursorDist =
-            F(GetCursorDist,
-              [](void* cntr, void const* cursor_a, void const* cursor_b) {
-                  return (GetCursorDist)(*static_cast<Cntr*>(cntr), cursor_a,
-                                         cursor_b);
-              }),
+        .cursor_step_l = F(  //
+            CursorStepL,
+            [](void* cntr, void* cursor) {
+                (CursorStepL)(*static_cast<Cntr*>(cntr), cursor);
+            }),
 
-        .GetCursorIdx = F(GetCursorIdx,
-                          [](void* cntr, void const* cursor) {
-                              return (GetCursorIdx)(*static_cast<Cntr*>(cntr),
-                                                    cursor);
-                          }),
+        .cursor_step_r = F(  //
+            CursorStepR,
+            [](void* cntr, void* cursor) {
+                (CursorStepR)(*static_cast<Cntr*>(cntr), cursor);
+            }),
 
-        .CursorStepL = F(CursorStepL,
-                         [](void* cntr, void* cursor) {
-                             (CursorStepL)(*static_cast<Cntr*>(cntr), cursor);
-                         }),
+        .cursor_advance_l = F(  //
+            CursorAdvanceL,
+            [](void* cntr, void* cursor, size_t step) {
+                (CursorAdvanceL)(*static_cast<Cntr*>(cntr), cursor, step);
+            }),
 
-        .CursorStepR = F(CursorStepR,
-                         [](void* cntr, void* cursor) {
-                             (CursorStepR)(*static_cast<Cntr*>(cntr), cursor);
-                         }),
-
-        .CursorAdvanceL = F(CursorAdvanceL,
-                            [](void* cntr, void* cursor, size_t step) {
-                                (CursorAdvanceL)(*static_cast<Cntr*>(cntr),
-                                                 cursor, step);
-                            }),
-
-        .CursorAdvanceR = F(CursorAdvanceR,
-                            [](void* cntr, void* cursor, size_t step) {
-                                (CursorAdvanceR)(*static_cast<Cntr*>(cntr),
-                                                 cursor, step);
-                            }),
+        .cursor_advance_r = F(  //
+            CursorAdvanceR,
+            [](void* cntr, void* cursor, size_t step) {
+                (CursorAdvanceR)(*static_cast<Cntr*>(cntr), cursor, step);
+            }),
     };
 
 #pragma pop_macro("F")

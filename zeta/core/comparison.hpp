@@ -8,7 +8,7 @@ constexpr unsigned less_bit{ 0b001 };
 constexpr unsigned equal_bit{ 0b010 };
 constexpr unsigned greater_bit{ 0b100 };
 
-enum struct Op : unsigned char {
+enum struct OpEnum : unsigned char {
     Order = 0b1000,
     Equal = equal_bit,
     NotEqual = less_bit | greater_bit,
@@ -19,11 +19,14 @@ enum struct Op : unsigned char {
 };
 
 template <typename T>
-concept IsOpType = meta::IsAnySame<
-    T, Op, meta::AutoValueWrapper<Op::Order>, meta::AutoValueWrapper<Op::Equal>,
-    meta::AutoValueWrapper<Op::NotEqual>, meta::AutoValueWrapper<Op::Less>,
-    meta::AutoValueWrapper<Op::LessEqual>, meta::AutoValueWrapper<Op::Greater>,
-    meta::AutoValueWrapper<Op::GreaterEqual>>;
+concept IsOpType =
+    meta::IsAnySame<T, OpEnum, meta::AutoValueWrapper<OpEnum::Order>,
+                    meta::AutoValueWrapper<OpEnum::Equal>,
+                    meta::AutoValueWrapper<OpEnum::NotEqual>,
+                    meta::AutoValueWrapper<OpEnum::Less>,
+                    meta::AutoValueWrapper<OpEnum::LessEqual>,
+                    meta::AutoValueWrapper<OpEnum::Greater>,
+                    meta::AutoValueWrapper<OpEnum::GreaterEqual>>;
 
 enum struct Ordering : unsigned char {
     Less = less_bit,
@@ -37,38 +40,45 @@ struct ComparatorTraits;
 template <typename Comparator, typename A, typename B>
 concept CanCompare = requires(Comparator const& cmptr, A const& a, B const& b) {
     requires meta::IsSame<
-        meta::RemoveCVRef<decltype(ComparatorTraits<Comparator>::Compare(
-            cmptr, meta::AutoValueWrapper<Op::Order>{}, a, b))>,
+        meta::RemoveCVRef<
+            decltype(ComparatorTraits<meta::RemoveCVRef<Comparator>>::Compare(
+                cmptr, meta::AutoValueWrapper<OpEnum::Order>{}, a, b))>,
         Ordering>;
 
     requires meta::IsSame<
-        meta::RemoveCVRef<decltype(ComparatorTraits<Comparator>::Compare(
-            cmptr, meta::AutoValueWrapper<Op::Equal>{}, a, b))>,
+        meta::RemoveCVRef<
+            decltype(ComparatorTraits<meta::RemoveCVRef<Comparator>>::Compare(
+                cmptr, meta::AutoValueWrapper<OpEnum::Equal>{}, a, b))>,
         bool>;
 
     requires meta::IsSame<
-        meta::RemoveCVRef<decltype(ComparatorTraits<Comparator>::Compare(
-            cmptr, meta::AutoValueWrapper<Op::NotEqual>{}, a, b))>,
+        meta::RemoveCVRef<
+            decltype(ComparatorTraits<meta::RemoveCVRef<Comparator>>::Compare(
+                cmptr, meta::AutoValueWrapper<OpEnum::NotEqual>{}, a, b))>,
         bool>;
 
     requires meta::IsSame<
-        meta::RemoveCVRef<decltype(ComparatorTraits<Comparator>::Compare(
-            cmptr, meta::AutoValueWrapper<Op::Less>{}, a, b))>,
+        meta::RemoveCVRef<
+            decltype(ComparatorTraits<meta::RemoveCVRef<Comparator>>::Compare(
+                cmptr, meta::AutoValueWrapper<OpEnum::Less>{}, a, b))>,
         bool>;
 
     requires meta::IsSame<
-        meta::RemoveCVRef<decltype(ComparatorTraits<Comparator>::Compare(
-            cmptr, meta::AutoValueWrapper<Op::LessEqual>{}, a, b))>,
+        meta::RemoveCVRef<
+            decltype(ComparatorTraits<meta::RemoveCVRef<Comparator>>::Compare(
+                cmptr, meta::AutoValueWrapper<OpEnum::LessEqual>{}, a, b))>,
         bool>;
 
     requires meta::IsSame<
-        meta::RemoveCVRef<decltype(ComparatorTraits<Comparator>::Compare(
-            cmptr, meta::AutoValueWrapper<Op::Greater>{}, a, b))>,
+        meta::RemoveCVRef<
+            decltype(ComparatorTraits<meta::RemoveCVRef<Comparator>>::Compare(
+                cmptr, meta::AutoValueWrapper<OpEnum::Greater>{}, a, b))>,
         bool>;
 
     requires meta::IsSame<
-        meta::RemoveCVRef<decltype(ComparatorTraits<Comparator>::Compare(
-            cmptr, meta::AutoValueWrapper<Op::GreaterEqual>{}, a, b))>,
+        meta::RemoveCVRef<
+            decltype(ComparatorTraits<meta::RemoveCVRef<Comparator>>::Compare(
+                cmptr, meta::AutoValueWrapper<OpEnum::GreaterEqual>{}, a, b))>,
         bool>;
 };
 
@@ -87,32 +97,40 @@ struct MemberFuncComparatorTraitsAdapter {
 template <typename A, typename B>
 struct NativeOperatorComparatorTraitsAdapter {
     static constexpr Ordering Compare(auto const&,
-                                      meta::AutoValueWrapper<Op::Order>,
+                                      meta::AutoValueWrapper<OpEnum::Order>,
                                       A const& a, B const& b);
 
     static constexpr bool Compare(auto const&,
-                                  meta::AutoValueWrapper<Op::Equal>, A const& a,
-                                  B const& b);
-
-    static constexpr bool Compare(auto const&,
-                                  meta::AutoValueWrapper<Op::NotEqual>,
-                                  A const& a, B const& b);
-
-    static constexpr bool Compare(auto const&, meta::AutoValueWrapper<Op::Less>,
+                                  meta::AutoValueWrapper<OpEnum::Equal>,
                                   A const& a, B const& b);
 
     static constexpr bool Compare(auto const&,
-                                  meta::AutoValueWrapper<Op::LessEqual>,
+                                  meta::AutoValueWrapper<OpEnum::NotEqual>,
                                   A const& a, B const& b);
 
     static constexpr bool Compare(auto const&,
-                                  meta::AutoValueWrapper<Op::Greater>,
+                                  meta::AutoValueWrapper<OpEnum::Less>,
                                   A const& a, B const& b);
 
     static constexpr bool Compare(auto const&,
-                                  meta::AutoValueWrapper<Op::GreaterEqual>,
+                                  meta::AutoValueWrapper<OpEnum::LessEqual>,
+                                  A const& a, B const& b);
+
+    static constexpr bool Compare(auto const&,
+                                  meta::AutoValueWrapper<OpEnum::Greater>,
+                                  A const& a, B const& b);
+
+    static constexpr bool Compare(auto const&,
+                                  meta::AutoValueWrapper<OpEnum::GreaterEqual>,
                                   A const& a, B const& b);
 };
+
+struct EmptyComparator {
+    template <IsOpType OpType, typename A, typename B>
+    static constexpr auto Compare(OpType, A const&, B const&);
+};
+
+using ArchetComparator = EmptyComparator;
 
 template <typename A, typename B>
 struct BasicComparator {};
@@ -132,25 +150,25 @@ struct EnableNativeOperatorByBasicComparison {
 
 struct UniversalBasicComparator {};
 
-struct EmptyComparator {
-    template <IsOpType CompareType, typename A, typename B>
-    static constexpr Ordering Compare(CompareType, A const&, B const&) {
-        return Ordering::Equal;
-    }
-};
-
-using ArchetComparator = EmptyComparator;
-
 template <typename CompareType, typename A, typename B>
 constexpr auto TypeErasedBasicCompare(CompareType, void const* a,
                                       void const* b);
 
-template <IsOpType OpType, typename A, typename B>
+template <meta::IsValueWrapperT<OpEnum> Op, typename A, typename B>
 struct CppStdBasicComparator {
     constexpr decltype(auto) operator()(A const& a, B const& b) const;
 };
 
 }  // namespace zeta::core::comparison
+
+namespace zeta::core {
+
+template <>
+struct comparison::ComparatorTraits<comparison::EmptyComparator>
+    : public comparison::MemberFuncComparatorTraitsAdapter<
+          comparison::EmptyComparator> {};
+
+}  // namespace zeta::core
 
 template <typename A, typename B>
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<

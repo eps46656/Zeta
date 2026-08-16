@@ -41,7 +41,7 @@ concept IsNode = requires(Node* n, size_t acc_size) {
 
     requires !NodeTraits<Node>::HasAccSize() ||
                  meta::IsSame<meta::RemoveCVRef<
-                                  decltype(NodeTraits<Node>::GetAccSize())>,
+                                  decltype(NodeTraits<Node>::GetAccSize(n))>,
                               size_t>;
 
     requires !NodeTraits<Node>::HasAccSize() ||

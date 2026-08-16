@@ -1518,7 +1518,7 @@ template <CntrTplParamList>
 int multi_level_circular_array::CompareCursor(Cntr<CntrTplArgList> const& cntr,
                                               Cursor const* cursor_a,
                                               Cursor const* cursor_b) {
-    return comparison::BasicCompare(comparison::Op::Order,
+    return comparison::BasicCompare(comparison::OpEnum::Order,
                                     (GetCursorIdx)(cntr, cursor_a) + 1,
                                     (GetCursorIdx)(cntr, cursor_b) + 1);
 }
