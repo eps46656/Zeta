@@ -35,8 +35,8 @@ struct FormatConfig {
     } indent;
 
     struct String {
+        bool prefer_unicode_escape;
         bool prefer_uppercase_hex;
-        bool prefer_escape_unicode;
     } string;
 };
 
@@ -45,17 +45,17 @@ struct FormatContext {
     unsigned int indent_level;
 };
 
-template <elem_stream::provider::IsProvider CodepointProvider>
-constexpr void MakeNewline(CodepointProvider&& cpp, FormatConfig const& config);
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void MakeNewline(CodepointAcceptor&& cpa, FormatConfig const& config);
 
-template <elem_stream::provider::IsProvider CodepointProvider>
-constexpr void MakeColon(CodepointProvider&& cpp, FormatConfig const& config);
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void MakeColon(CodepointAcceptor&& cpa, FormatConfig const& config);
 
-template <elem_stream::provider::IsProvider CodepointProvider>
-constexpr void MakeComma(CodepointProvider&& cpp, FormatConfig const& config);
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void MakeComma(CodepointAcceptor&& cpa, FormatConfig const& config);
 
-template <elem_stream::provider::IsProvider CodepointProvider>
-constexpr void MakeIndent(CodepointProvider&& cpp, FormatConfig const& config,
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void MakeIndent(CodepointAcceptor&& cpa, FormatConfig const& config,
                           unsigned indent_level);
 
 }  // namespace zeta::core::json_utils::format_utils

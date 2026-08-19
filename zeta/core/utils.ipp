@@ -51,7 +51,7 @@ pair::Pair<Node*, size_t> utils::GetMostLink(Node* n,
     }
 }
 
-inline int utils::MemCompare(void const* a, void const* b, size_t size) {
+constexpr int utils::MemCompare(void const* a, void const* b, size_t size) {
     if (a == b || size == 0) { return 0; }
 
     ZETA_Core_DebugAssert(a != nullptr);
@@ -60,7 +60,7 @@ inline int utils::MemCompare(void const* a, void const* b, size_t size) {
     return __builtin_memcmp(a, b, size);
 }
 
-inline void utils::MemSwap(void* x_, void* y_, size_t size) {
+constexpr void utils::MemSwap(void* x_, void* y_, size_t size) {
     auto* x{ static_cast<char*>(x_) };
     auto* y{ static_cast<char*>(y_) };
 
@@ -72,7 +72,7 @@ inline void utils::MemSwap(void* x_, void* y_, size_t size) {
     for (size_t i{ 0 }; i < size; ++i) { Swap(x[i], y[i]); }
 }
 
-inline void utils::MemCopy(void* dst, void const* src, size_t size) {
+constexpr void utils::MemCopy(void* dst, void const* src, size_t size) {
     if (dst == src || size == 0) { return; }
 
     ZETA_Core_DebugAssert(dst != nullptr);
@@ -81,7 +81,7 @@ inline void utils::MemCopy(void* dst, void const* src, size_t size) {
     __builtin_memcpy(dst, src, size);
 }
 
-inline void utils::MemMove(void* dst, void const* src, size_t size) {
+constexpr void utils::MemMove(void* dst, void const* src, size_t size) {
     if (dst == src || size == 0) { return; }
 
     ZETA_Core_DebugAssert(dst != nullptr);
@@ -90,7 +90,7 @@ inline void utils::MemMove(void* dst, void const* src, size_t size) {
     __builtin_memmove(dst, src, size);
 }
 
-inline void* utils::MemRotate(void* data_, size_t l_size, size_t r_size) {
+constexpr void* utils::MemRotate(void* data_, size_t l_size, size_t r_size) {
     auto* data{ static_cast<char*>(data_) };
 
     if (l_size == 0 && r_size == 0) { return data; }
@@ -113,9 +113,9 @@ inline void* utils::MemRotate(void* data_, size_t l_size, size_t r_size) {
     return ret;
 }
 
-inline int utils::ElemCompare(void const* a_, void const* b_, size_t elem_size,
-                              size_t a_elem_stride, size_t b_elem_stride,
-                              size_t cnt) {
+constexpr int utils::ElemCompare(void const* a_, void const* b_,
+                                 size_t elem_size, size_t a_elem_stride,
+                                 size_t b_elem_stride, size_t cnt) {
     auto const* a{ static_cast<char const*>(a_) };
     auto const* b{ static_cast<char const*>(b_) };
 
@@ -142,9 +142,9 @@ inline int utils::ElemCompare(void const* a_, void const* b_, size_t elem_size,
     return 0;
 }
 
-inline void utils::ElemCopy(void* dst_, void const* src_, size_t elem_size,
-                            size_t dst_elem_stride, size_t src_elem_stride,
-                            size_t cnt) {
+constexpr void utils::ElemCopy(void* dst_, void const* src_, size_t elem_size,
+                               size_t dst_elem_stride, size_t src_elem_stride,
+                               size_t cnt) {
     auto* dst{ static_cast<char*>(dst_) };
     auto const* src{ static_cast<char const*>(src_) };
 
@@ -177,9 +177,9 @@ inline void utils::ElemCopy(void* dst_, void const* src_, size_t elem_size,
     }
 }
 
-inline void utils::ElemMove(void* dst_, void const* src_, size_t elem_size,
-                            size_t dst_elem_stride, size_t src_elem_stride,
-                            size_t cnt) {
+constexpr void utils::ElemMove(void* dst_, void const* src_, size_t elem_size,
+                               size_t dst_elem_stride, size_t src_elem_stride,
+                               size_t cnt) {
     auto* dst{ static_cast<char*>(dst_) };
     auto const* src{ static_cast<char const*>(src_) };
 
@@ -294,8 +294,8 @@ inline void utils::ElemMove(void* dst_, void const* src_, size_t elem_size,
     }
 }
 
-inline void* utils::ElemRotate(void* data_, size_t width, size_t stride,
-                               size_t l_size, size_t r_size) {
+constexpr void* utils::ElemRotate(void* data_, size_t width, size_t stride,
+                                  size_t l_size, size_t r_size) {
     auto* data{ static_cast<char*>(data_) };
 
     if (width == 0 || stride == 0) { return data; }
@@ -329,7 +329,7 @@ inline void* utils::ElemRotate(void* data_, size_t width, size_t stride,
 }
 
 template <typename XIterator, typename YIterator>
-int utils::SeqCompare(XIterator x, YIterator y, size_t size) {
+constexpr int utils::SeqCompare(XIterator x, YIterator y, size_t size) {
     if (x == y) { return 0; }
 
     for (size_t i{ 0 }; i < size; ++i, ++x, ++y) {
@@ -341,14 +341,14 @@ int utils::SeqCompare(XIterator x, YIterator y, size_t size) {
 }
 
 template <typename DstIterator, typename SrcIterator>
-void utils::SeqCopy(DstIterator dst, SrcIterator src, size_t size) {
+constexpr void utils::SeqCopy(DstIterator dst, SrcIterator src, size_t size) {
     if (dst == src) { return; }
 
     for (size_t i{ 0 }; i < size; ++i, ++dst, ++src) { *dst = *src; }
 }
 
 template <typename DstIterator, typename SrcIterator>
-void utils::SeqMove(DstIterator dst, SrcIterator src, size_t size) {
+constexpr void utils::SeqMove(DstIterator dst, SrcIterator src, size_t size) {
     if (dst == src) { return; }
 
     if (dst < src) {
@@ -369,7 +369,7 @@ void utils::SeqMove(DstIterator dst, SrcIterator src, size_t size) {
 }
 
 template <typename Iterator>
-Iterator utils::SeqRotate(Iterator beg, Iterator mid, Iterator end) {
+constexpr Iterator utils::SeqRotate(Iterator beg, Iterator mid, Iterator end) {
     // TODO
 
     ZETA_Core_Unused(beg);
@@ -378,8 +378,8 @@ Iterator utils::SeqRotate(Iterator beg, Iterator mid, Iterator end) {
 }
 
 template <typename UnsignedIntegral>
-UnsignedIntegral utils::SimpleUnsignedIntegralHash(UnsignedIntegral x,
-                                                   UnsignedIntegral salt) {
+constexpr UnsignedIntegral utils::SimpleUnsignedIntegralHash(
+    UnsignedIntegral x, UnsignedIntegral salt) {
     ZETA_Core_StaticAssert(integral::IsUnsignedIntegral<UnsignedIntegral>);
 
     x ^= salt;
@@ -401,7 +401,7 @@ UnsignedIntegral utils::SimpleUnsignedIntegralHash(UnsignedIntegral x,
     return x;
 }
 
-inline unsigned long long utils::SimpleRandomRotate(
+constexpr unsigned long long utils::SimpleRandomRotate(
     unsigned long long* random_seed) {
 #if 64 <= ZETA_Core_ullong_width
     constexpr unsigned long long lcg_mul{ 0x1010101ULL };
@@ -418,7 +418,7 @@ inline unsigned long long utils::SimpleRandomRotate(
                                         0ULL);
 }
 
-inline unsigned long long utils::GetRandom() {
+constexpr unsigned long long utils::GetRandom() {
     static unsigned long long seed{ 0x114514 };
 
     // unsigned long long time{ __builtin_readcyclecounter() };
@@ -429,8 +429,8 @@ inline unsigned long long utils::GetRandom() {
     return (SimpleRandomRotate)(&seed);
 }
 
-inline int utils::Choose2(bool cond0, bool cond1,
-                          unsigned long long* random_seed) {
+constexpr int utils::Choose2(bool cond0, bool cond1,
+                             unsigned long long* random_seed) {
     switch (static_cast<int>(cond1) * 0b10 + static_cast<int>(cond0) * 0b01) {
     case 0b00: return -1;
     case 0b01: return 0;
@@ -440,8 +440,8 @@ inline int utils::Choose2(bool cond0, bool cond1,
     }
 }
 
-inline int utils::Choose3(bool cond0, bool cond1, bool cond2,
-                          unsigned long long* random_seed) {
+constexpr int utils::Choose3(bool cond0, bool cond1, bool cond2,
+                             unsigned long long* random_seed) {
     switch (static_cast<int>(cond2) * 0b100 +  //
             static_cast<int>(cond1) * 0b010 +  //
             static_cast<int>(cond0) * 0b001) {
@@ -457,42 +457,6 @@ inline int utils::Choose3(bool cond0, bool cond1, bool cond2,
     case 0b111: return static_cast<int>((SimpleRandomRotate)(random_seed) % 3);
     default: ZETA_Core_Unreachable();
     }
-}
-
-template <size_t N>
-unsigned _BitInt(8 * N) utils::ReadLittleEndian(void const* data) {
-    unsigned _BitInt(8 * N) ret{ 0 };
-
-    unsigned char const* iter{ static_cast<unsigned char const*>(data) + N };
-
-    for (size_t i{ 0 }; i < N; ++i) { ret = ret << 8 + *(--iter); }
-
-    return ret;
-}
-
-template <size_t N>
-unsigned _BitInt(8 * N) utils::ReadBigEndian(void const* data) {
-    unsigned _BitInt(8 * N) ret{ 0 };
-
-    unsigned char const* iter{ static_cast<unsigned char const*>(data) };
-
-    for (size_t i{ 0 }; i < N; ++i) { ret = ret << 8 + *(iter++); }
-
-    return ret;
-}
-
-template <size_t N>
-void utils::WriteLittleEndian(void* data, unsigned _BitInt(8 * N) value) {
-    unsigned char* iter{ static_cast<unsigned char*>(data) };
-
-    for (size_t i{ 0 }; i < N; ++i, value >>= 8) { *(iter++) = value % 0xFF; }
-}
-
-template <size_t N>
-void utils::WriteBigEndian(void* data, unsigned _BitInt(8 * N) value) {
-    unsigned char* iter{ static_cast<unsigned char*>(data) + N };
-
-    for (size_t i{ 0 }; i < N; ++i, value >>= 8) { *(--iter) = value % 0xFF; }
 }
 
 }  // namespace zeta::core

@@ -52,7 +52,7 @@ constexpr bool serde_utils::SerializeIntegral(
         }
     }())::Type;
 
-    EndiannessEnum endianness_value{ [=]() {
+    EndiannessEnum endianness_value{ [=]() -> EndiannessEnum {
         if constexpr (meta::IsValueWrapperT<EndiannessType, EndiannessEnum>) {
             return EndiannessType::value;
         } else if constexpr (meta::IsSame<EndiannessType, EndiannessEnum>) {
@@ -62,7 +62,7 @@ constexpr bool serde_utils::SerializeIntegral(
         }
     }() };
 
-    size_t digit_cnt{ [=]() {
+    size_t digit_cnt{ [=]() -> size_t {
         if constexpr (meta::IsValueWrapperT<DigitCntLike, size_t>) {
             ZETA_Core_StaticAssert(0 < DigitCntLike::value);
             return DigitCntLike::value;
@@ -104,8 +104,8 @@ constexpr bool serde_utils::SerializeIntegral(
 
     bool no_lossy{ true };
 
-    auto proc_highest_eff_digit{ [is_neg, eff_digit_cnt,
-                                  &no_lossy](DigitIntegral highest_eff_digit) {
+    auto proc_highest_eff_digit{ [is_neg, eff_digit_cnt, &no_lossy](
+                                     DigitIntegral highest_eff_digit) -> void {
         ZETA_Core_Unused(is_neg);
         ZETA_Core_Unused(eff_digit_cnt);
         ZETA_Core_Unused(no_lossy);
@@ -232,7 +232,7 @@ constexpr bool serde_utils::DeserializeIntegral(
         }
     }())::Type;
 
-    EndiannessEnum endianness_value{ [=]() {
+    EndiannessEnum endianness_value{ [=]() -> EndiannessEnum {
         if constexpr (meta::IsValueWrapperT<EndiannessType, EndiannessEnum>) {
             return EndiannessType::value;
         } else if constexpr (meta::IsSame<EndiannessType, EndiannessEnum>) {
@@ -251,7 +251,7 @@ constexpr bool serde_utils::DeserializeIntegral(
     constexpr size_t op_un_int_digit_cnt{ integral_math::CeilDiv(
         integral::WidthOf<OpUnsignedIntegral>, DigitWidth) };
 
-    size_t digit_cnt{ [=]() {
+    size_t digit_cnt{ [=]() -> size_t {
         if constexpr (meta::IsSame<DigitCntLike,
                                    serde_utils::VariableOctetCntTag>) {
             return 0;
@@ -280,7 +280,8 @@ constexpr bool serde_utils::DeserializeIntegral(
     bool no_lossy{ true };
 
     auto proc_digits_from_buffer{ [digit_range_max, &no_lossy](
-                                      DigitIntegral* buffer, size_t digit_cnt) {
+                                      DigitIntegral* buffer,
+                                      size_t digit_cnt) -> void {
         for (DigitIntegral* buffer_end{ buffer + digit_cnt };
              buffer < buffer_end; ++buffer) {
             auto [canon_digit, cur_no_lossy]{ (
@@ -293,7 +294,7 @@ constexpr bool serde_utils::DeserializeIntegral(
 
     auto discard_digits_from_buffer{ [digit_range_max, &no_lossy, &see0, &see1](
                                          DigitIntegral* buffer,
-                                         size_t digit_cnt) {
+                                         size_t digit_cnt) -> void {
         for (DigitIntegral* buffer_end{ buffer + digit_cnt };
              buffer < buffer_end; ++buffer) {
             DigitIntegral d{ *buffer };
@@ -307,7 +308,7 @@ constexpr bool serde_utils::DeserializeIntegral(
 
     auto discard_digits_from_provider{ [&provider, &proc_digits_from_buffer,
                                         &discard_digits_from_buffer](
-                                           size_t res_digit_cnt) {
+                                           size_t res_digit_cnt) -> void {
         DigitIntegral buffer[buffer_digit_cnt];
 
         for (; buffer_digit_cnt <= res_digit_cnt;
@@ -331,7 +332,7 @@ constexpr bool serde_utils::DeserializeIntegral(
     } };
 
     auto proc_highest_eff_digit{ [digit_range_max, &see0, &see1,
-                                  &eff_digit_cnt](DigitIntegral d) {
+                                  &eff_digit_cnt](DigitIntegral d) -> void {
         ZETA_Core_Unused(digit_range_max);
         ZETA_Core_Unused(see0);
         ZETA_Core_Unused(see1);

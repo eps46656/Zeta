@@ -11,8 +11,9 @@
 
 namespace zeta::core {
 
-inline void seg_utils::SegShoveL(circular_array::Cntr& l_ca,
-                                 circular_array::Cntr& r_ca, size_t shove_cnt) {
+constexpr void seg_utils::SegShoveL(circular_array::Cntr& l_ca,
+                                    circular_array::Cntr& r_ca,
+                                    size_t shove_cnt) {
     ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
     size_t l_vac{ l_ca.slot_cnt - l_ca.elem_cnt };
@@ -32,8 +33,9 @@ inline void seg_utils::SegShoveL(circular_array::Cntr& l_ca,
     seq_cntr::PopL(r_ca, shove_cnt, elem_stream::acceptor::EmptyAcceptor{});
 }
 
-inline void seg_utils::SegShoveR(circular_array::Cntr& l_ca,
-                                 circular_array::Cntr& r_ca, size_t shove_cnt) {
+constexpr void seg_utils::SegShoveR(circular_array::Cntr& l_ca,
+                                    circular_array::Cntr& r_ca,
+                                    size_t shove_cnt) {
     ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
     size_t r_vac{ r_ca.slot_cnt - r_ca.elem_cnt };
@@ -54,10 +56,10 @@ inline void seg_utils::SegShoveR(circular_array::Cntr& l_ca,
 }
 
 template <typename Writer>
-void seg_utils::SegInsertShoveL(circular_array::Cntr& l_ca,
-                                circular_array::Cntr& r_ca, size_t rl_cnt,
-                                size_t ins_cnt, size_t shove_cnt,
-                                Writer& writer) {
+constexpr void seg_utils::SegInsertShoveL(circular_array::Cntr& l_ca,
+                                          circular_array::Cntr& r_ca,
+                                          size_t rl_cnt, size_t ins_cnt,
+                                          size_t shove_cnt, Writer& writer) {
     ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
     size_t l_vac{ l_ca.slot_cnt - l_ca.elem_cnt };
@@ -96,10 +98,10 @@ void seg_utils::SegInsertShoveL(circular_array::Cntr& l_ca,
 }
 
 template <typename Writer>
-void seg_utils::SegInsertShoveR(circular_array::Cntr& l_ca,
-                                circular_array::Cntr& r_ca, size_t lr_cnt,
-                                size_t ins_cnt, size_t shove_cnt,
-                                Writer& writer) {
+constexpr void seg_utils::SegInsertShoveR(circular_array::Cntr& l_ca,
+                                          circular_array::Cntr& r_ca,
+                                          size_t lr_cnt, size_t ins_cnt,
+                                          size_t shove_cnt, Writer& writer) {
     ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
     size_t l_vac{ l_ca.slot_cnt - l_ca.elem_cnt };
@@ -141,10 +143,10 @@ void seg_utils::SegInsertShoveR(circular_array::Cntr& l_ca,
 }
 
 template <typename Reader>
-void seg_utils::SegEraseShoveL(circular_array::Cntr& l_ca,
-                               circular_array::Cntr& r_ca, size_t rl_cnt,
-                               size_t ers_cnt, size_t shove_cnt,
-                               Reader& reader) {
+constexpr void seg_utils::SegEraseShoveL(circular_array::Cntr& l_ca,
+                                         circular_array::Cntr& r_ca,
+                                         size_t rl_cnt, size_t ers_cnt,
+                                         size_t shove_cnt, Reader&& reader) {
     ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
     size_t l_vac{ l_ca.slot_cnt - l_ca.elem_cnt };
@@ -182,10 +184,10 @@ void seg_utils::SegEraseShoveL(circular_array::Cntr& l_ca,
 }
 
 template <typename Reader>
-void seg_utils::SegEraseShoveR(circular_array::Cntr& l_ca,
-                               circular_array::Cntr& r_ca, size_t lr_cnt,
-                               size_t ers_cnt, size_t shove_cnt,
-                               Reader& reader) {
+constexpr void seg_utils::SegEraseShoveR(circular_array::Cntr& l_ca,
+                                         circular_array::Cntr& r_ca,
+                                         size_t lr_cnt, size_t ers_cnt,
+                                         size_t shove_cnt, Reader&& reader) {
     ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
 
     size_t r_vac{ r_ca.slot_cnt - r_ca.elem_cnt };

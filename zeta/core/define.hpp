@@ -22,7 +22,7 @@
 
 #define ZETA_Core_StaticAssert(...) static_assert((__VA_ARGS__), "")
 
-#define ZETA_Core_ImmPrint 0
+#define ZETA_Core_ImmPrint 1
 
 #define ZETA_Core_PtrToAddr(x) (reinterpret_cast<uintptr_t>(x))
 

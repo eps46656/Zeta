@@ -8,59 +8,45 @@
 
 namespace zeta::core::json_utils::string_serde {
 
-struct Serializer {
-    enum struct StateEnum : unsigned char {
-        ReceivingCharOrFinish = 0,
-        Finished = 127,
-    };
+namespace serialize {
 
-    StateEnum state;
-
-    template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
-    constexpr void Init(this Serializer& self, CodepointAcceptor&& cpa);
-
-    template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
-    constexpr bool SendChar(this Serializer& self, CodepointAcceptor&& cpa,
-                            unicode::unichar_t cp, bool prefer_unicode_escape,
-                            bool prefer_capital_hex);
-
-    template <elem_stream::acceptor::IsAcceptor CodepointAcceptor,
-              elem_stream::provider::IsProvider CodepointProvider>
-    constexpr pair::Pair<size_t, unicode::unichar_t> SendChar(
-        this Serializer& self, CodepointAcceptor&& cpa, CodepointProvider&& cpp,
-        unicode::unichar_t max_cnt, bool prefer_unicode_escape,
-        bool prefer_capital_hex);
-
-    template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
-    constexpr void SendFinish(this Serializer& self, CodepointAcceptor&& cpa);
+enum struct StateEnum : unsigned char {
+    ReceivingCharOrFinish =
+        BaseSerializeStateCodeTable::ReceivingStringCharOrFinish,
+    Finished = BaseSerializeStateCodeTable::Finished,
 };
 
-struct Deserializer {
-    enum StateEnum : BaseDeserializerStateCodeTable::Type {
-        SendingChar = BaseDeserializerStateCodeTable::SendingStringChar,
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void SendStart(CodepointAcceptor&& cpa, StateEnum& state);
 
-        Finished = BaseDeserializerStateCodeTable::SendingStringFinish,
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr bool SendChar(CodepointAcceptor&& cpa, StateEnum& state,
+                        unicode::unichar_t cp, bool prefer_unicode_escape,
+                        bool prefer_uppercase_hex);
 
-        Corrupted = BaseDeserializerStateCodeTable::Corrupted,
-    };
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void SendFinish(CodepointAcceptor&& cpa, StateEnum& state);
 
-    StateEnum state;
+}  // namespace serialize
 
-    template <elem_stream::provider::IsProvider CodepointProvider>
-    constexpr void Init(this Deserializer& self,
-                        BufferedCodepointProvider<CodepointProvider>& bcpp);
+namespace deserialize {
 
-    template <elem_stream::provider::IsProvider CodepointProvider>
-    constexpr unicode::unichar_t ReceiveChar(
-        this Deserializer& self,
-        BufferedCodepointProvider<CodepointProvider>& bcpp);
+enum StateEnum : BaseDeserializeStateCodeTable::Type {
+    SendingChar = BaseDeserializeStateCodeTable::SendingStringChar,
 
-    template <elem_stream::provider::IsProvider CodepointProvider,
-              elem_stream::provider::IsProvider CodepointAcceptor>
-    constexpr size_t ReceiveChar(
-        this Deserializer& self,
-        BufferedCodepointProvider<CodepointProvider>& bcpp,
-        CodepointAcceptor&& acceptor, size_t max_cnt);
+    Finished = BaseDeserializeStateCodeTable::SendingStringFinish,
+
+    Corrupted = BaseDeserializeStateCodeTable::Corrupted,
 };
+
+template <elem_stream::provider::IsProvider CodepointProvider>
+constexpr void ReceiveStart(BufferedCodepointProvider<CodepointProvider>& bcpp,
+                            StateEnum& state);
+
+template <elem_stream::provider::IsProvider CodepointProvider>
+constexpr unicode::unichar_t ReceiveChar(
+    BufferedCodepointProvider<CodepointProvider>& bcpp, StateEnum& state);
+
+}  // namespace deserialize
 
 }  // namespace zeta::core::json_utils::string_serde

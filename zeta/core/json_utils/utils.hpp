@@ -36,20 +36,54 @@ struct BufferedCodepointProvider {
     constexpr void Revert(this BufferedCodepointProvider& self);
 };
 
-struct BaseSerializerStateCodeTable {
+struct BaseSerializeStateCodeTable {
     using Type = unsigned char;
 
-    static constexpr Type ReceivingValue{ 10 };
+    static constexpr Type ReceivingValue{ 0 };
 
-    static constexpr Type ReceivingArrayElemOrFinish{ 20 };
+    static constexpr Type ReceivingNumericSign{ 30 };
+    // SendSign -> ReceivingNumericIntPartDigit
 
-    static constexpr Type ReceivingObjectKeyOrFinish{ 10 };
-    static constexpr Type ReceivingObjectValue{ 10 };
+    static constexpr Type ReceivingNumericIntPartDigit{ 31 };
+    // SendIntPartDigit
+    //   if 0: -> ReceivingNumericFracPartDigitOrNext
+    //   else: -> ReceivingNumericIntPartDigitOrNext
+
+    static constexpr Type ReceivingNumericIntPartDigitOrNext{ 32 };
+    // SendIntPartDigit -> ReceivingNumericIntPartDigitOrNext
+    // SendFracPartDigit -> ReceivingNumericFracPartDigitOrNext
+    // SendExpPartE -> ReceivingNumericExpPartSignOrNext
+    // SendFinish -> Finished
+
+    static constexpr Type ReceivingNumericFracPartDigitOrNext{ 33 };
+    // SendFracPartDigit -> ReceivingNumericFracPartDigitOrNext
+    // SendExpPartE -> ReceivingNumericExpPartSignOrNext
+    // SendFinish -> Finished
+
+    static constexpr Type ReceivingNumericExpPartSignOrNext{ 34 };
+    // SendExpPartSign -> ReceivingNumericExpPartDigit
+    // SendExpPartDigit -> ReceivingNumericExpPartDigitOrNext
+
+    static constexpr Type ReceivingNumericExpPartDigit{ 35 };
+    // SendExpPartDigit -> ReceivingNumericExpPartDigitOrNext
+
+    static constexpr Type ReceivingNumericExpPartDigitOrNext{ 36 };
+    // SendExpPartDigit -> ReceivingNumericExpPartDigitOrNext
+    // SendFinish -> Finished
+
+    static constexpr Type ReceivingStringCharOrFinish{ 40 };
+
+    static constexpr Type ReceivingArrayElemOrFinishLead{ 50 };
+    static constexpr Type ReceivingArrayElemOrFinishTail{ 51 };
+
+    static constexpr Type ReceivingObjectKeyOrFinishLead{ 60 };
+    static constexpr Type ReceivingObjectKeyOrFinishTail{ 61 };
+    static constexpr Type ReceivingObjectValue{ 62 };
 
     static constexpr Type Finished{ 127 };
 };
 
-struct BaseDeserializerStateCodeTable {
+struct BaseDeserializeStateCodeTable {
     using Type = unsigned char;
 
     static constexpr Type SendingNull{ 10 };

@@ -1,62 +1,160 @@
 #pragma once
 
+#include <zeta/core/json_utils/format_utils.hpp>
 #include <zeta/core/json_utils/utils.hpp>
 #include <zeta/core/pair.hpp>
 
 namespace zeta::core::json_utils::value_serde {
 
-enum struct DeserializerStateEnum : BaseDeserializerStateCodeTable::Type {
-    SendingNull = BaseDeserializerStateCodeTable::SendingNull,
+enum struct SerializerStateEnum : BaseSerializeStateCodeTable::Type {
+    ReceivingValue = BaseSerializeStateCodeTable::ReceivingValue,
 
-    SendingBoolean = BaseDeserializerStateCodeTable::SendingBoolean,
+    ReceivingNumericSign = BaseSerializeStateCodeTable::ReceivingNumericSign,
 
-    SendingNumericStart = BaseDeserializerStateCodeTable::SendingNumericStart,
+    ReceivingNumericIntPartDigit =
+        BaseSerializeStateCodeTable::ReceivingNumericIntPartDigit,
 
-    SendingNumericSign = BaseDeserializerStateCodeTable::SendingNumericSign,
+    ReceivingNumericIntPartDigitOrNext =
+        BaseSerializeStateCodeTable::ReceivingNumericIntPartDigitOrNext,
+
+    ReceivingNumericFracPartDigitOrNext =
+        BaseSerializeStateCodeTable::ReceivingNumericFracPartDigitOrNext,
+
+    ReceivingNumericExpPartSignOrNext =
+        BaseSerializeStateCodeTable::ReceivingNumericExpPartSignOrNext,
+
+    ReceivingNumericExpPartDigit =
+        BaseSerializeStateCodeTable::ReceivingNumericExpPartDigit,
+
+    ReceivingNumericExpPartDigitOrNext =
+        BaseSerializeStateCodeTable::ReceivingNumericExpPartDigitOrNext,
+
+    ReceivingStringCharOrFinish =
+        BaseSerializeStateCodeTable::ReceivingStringCharOrFinish,
+
+    ReceivingArrayElemOrFinishLead =
+        BaseSerializeStateCodeTable::ReceivingArrayElemOrFinishLead,
+
+    ReceivingArrayElemOrFinishTail =
+        BaseSerializeStateCodeTable::ReceivingArrayElemOrFinishTail,
+
+    ReceivingObjectKeyOrFinishLead =
+        BaseSerializeStateCodeTable::ReceivingObjectKeyOrFinishLead,
+
+    ReceivingObjectKeyOrFinishTail =
+        BaseSerializeStateCodeTable::ReceivingObjectKeyOrFinishTail,
+
+    ReceivingObjectValue = BaseSerializeStateCodeTable::ReceivingObjectValue,
+
+    Finished = BaseSerializeStateCodeTable::Finished,
+};
+
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+struct Serializer {
+    static constexpr size_t max_depth{ 64 };
+
+    SerializerStateEnum states[max_depth];
+
+    size_t depth;
+
+    CodepointAcceptor& cpa;
+
+    format_utils::FormatContext fmt_ctx;
+
+    constexpr Serializer(CodepointAcceptor& cpa,
+                         format_utils::FormatConfig const& fmt_config);
+
+    constexpr void SendNull(this Serializer& self);
+
+    constexpr void SendBoolean(this Serializer& self, bool value);
+
+    constexpr void SendNumericStart(this Serializer& self);
+
+    constexpr void SendNumericSign(this Serializer& self, bool is_neg);
+
+    constexpr bool SendNumericIntPartDigit(this Serializer& self,
+                                           unsigned digit);
+
+    constexpr bool SendNumericFracPartDigit(this Serializer& self,
+                                            unsigned digit);
+
+    constexpr bool SendNumericExpPartE(this Serializer& self, unsigned char e);
+
+    constexpr bool SendNumericExpPartSign(this Serializer& self,
+                                          unsigned char sign);
+
+    constexpr bool SendNumericExpPartDigit(this Serializer& self,
+                                           unsigned digit);
+
+    constexpr void SendNumericFinish(this Serializer& self);
+
+    constexpr void SendStringStart(this Serializer& self);
+
+    constexpr bool SendStringChar(this Serializer& self, unicode::unichar_t cp);
+
+    constexpr void SendStringFinish(this Serializer& self);
+
+    constexpr void SendArrayStart(this Serializer& self);
+
+    constexpr void SendArrayFinish(this Serializer& self);
+
+    constexpr void SendObjectStart(this Serializer& self);
+
+    constexpr void SendObjectFinish(this Serializer& self);
+};
+
+enum struct DeserializerStateEnum : BaseDeserializeStateCodeTable::Type {
+    SendingNull = BaseDeserializeStateCodeTable::SendingNull,
+
+    SendingBoolean = BaseDeserializeStateCodeTable::SendingBoolean,
+
+    SendingNumericStart = BaseDeserializeStateCodeTable::SendingNumericStart,
+
+    SendingNumericSign = BaseDeserializeStateCodeTable::SendingNumericSign,
 
     SendingNumericIntPartDigitLead =
-        BaseDeserializerStateCodeTable::SendingNumericIntPartDigitLead,
+        BaseDeserializeStateCodeTable::SendingNumericIntPartDigitLead,
 
     SendingNumericIntPartDigitTail =
-        BaseDeserializerStateCodeTable::SendingNumericIntPartDigitTail,
+        BaseDeserializeStateCodeTable::SendingNumericIntPartDigitTail,
 
     SendingNumericFracPartDigit =
-        BaseDeserializerStateCodeTable::SendingNumericFracPartDigit,
+        BaseDeserializeStateCodeTable::SendingNumericFracPartDigit,
 
     SendingNumericExpPartE =
-        BaseDeserializerStateCodeTable::SendingNumericExpPartE,
+        BaseDeserializeStateCodeTable::SendingNumericExpPartE,
 
     SendingNumericExpPartSign =
-        BaseDeserializerStateCodeTable::SendingNumericExpPartSign,
+        BaseDeserializeStateCodeTable::SendingNumericExpPartSign,
 
     SendingNumericExpPartDigit =
-        BaseDeserializerStateCodeTable::SendingNumericExpPartDigit,
+        BaseDeserializeStateCodeTable::SendingNumericExpPartDigit,
 
-    SendingNumericFinish = BaseDeserializerStateCodeTable::SendingNumericFinish,
+    SendingNumericFinish = BaseDeserializeStateCodeTable::SendingNumericFinish,
 
-    SendingStringStart = BaseDeserializerStateCodeTable::SendingStringStart,
+    SendingStringStart = BaseDeserializeStateCodeTable::SendingStringStart,
 
-    SendingStringChar = BaseDeserializerStateCodeTable::SendingStringChar,
+    SendingStringChar = BaseDeserializeStateCodeTable::SendingStringChar,
 
-    SendingStringFinish = BaseDeserializerStateCodeTable::SendingStringFinish,
+    SendingStringFinish = BaseDeserializeStateCodeTable::SendingStringFinish,
 
-    SendingArrayStart = BaseDeserializerStateCodeTable::SendingArrayStart,
+    SendingArrayStart = BaseDeserializeStateCodeTable::SendingArrayStart,
 
-    SendingArrayElem = BaseDeserializerStateCodeTable::SendingArrayElem,
+    SendingArrayElem = BaseDeserializeStateCodeTable::SendingArrayElem,
 
-    SendingArrayFinish = BaseDeserializerStateCodeTable::SendingArrayFinish,
+    SendingArrayFinish = BaseDeserializeStateCodeTable::SendingArrayFinish,
 
-    SendingObjectStart = BaseDeserializerStateCodeTable::SendingObjectStart,
+    SendingObjectStart = BaseDeserializeStateCodeTable::SendingObjectStart,
 
-    SendingObjectKey = BaseDeserializerStateCodeTable::SendingObjectKey,
+    SendingObjectKey = BaseDeserializeStateCodeTable::SendingObjectKey,
 
-    SendingObjectValue = BaseDeserializerStateCodeTable::SendingObjectValue,
+    SendingObjectValue = BaseDeserializeStateCodeTable::SendingObjectValue,
 
-    SendingObjectFinish = BaseDeserializerStateCodeTable::SendingObjectFinish,
+    SendingObjectFinish = BaseDeserializeStateCodeTable::SendingObjectFinish,
 
-    Finished = BaseDeserializerStateCodeTable::Finished,
+    Finished = BaseDeserializeStateCodeTable::Finished,
 
-    Corrupted = BaseDeserializerStateCodeTable::Corrupted,
+    Corrupted = BaseDeserializeStateCodeTable::Corrupted,
 };
 
 template <elem_stream::provider::IsProvider CodepointProvider>

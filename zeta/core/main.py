@@ -254,6 +254,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
     add_c_cpp_module("integral_utils")
     add_c_cpp_module("integral")
     add_c_cpp_module("json_utils/array_serde")
+    add_c_cpp_module("json_utils/format_utils")
     add_c_cpp_module("json_utils/main")
     add_c_cpp_module("json_utils/numeric_serde")
     add_c_cpp_module("json_utils/object_serde")

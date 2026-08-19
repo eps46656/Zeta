@@ -6,23 +6,23 @@
 namespace zeta::core::json_utils {
 
 template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
-constexpr void string_serde::Serializer::Init(this Serializer& self,
-                                              CodepointAcceptor&& cpa) {
-    unicode::unichar_t cp{ ascii::CharCodeTable::double_quote };
+constexpr void string_serde::serialize::SendStart(CodepointAcceptor&& cpa,
+                                                  StateEnum& state) {
+    constexpr unicode::unichar_t cp{ ascii::CharCodeTable::double_quote };
 
     elem_stream::acceptor::Transfer(cpa, &cp, sizeof(unicode::unichar_t),
                                     sizeof(unicode::unichar_t), 1);
 
-    self.state = StateEnum::ReceivingCharOrFinish;
+    state = StateEnum::ReceivingCharOrFinish;
 }
 
 template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
-constexpr bool string_serde::Serializer::SendChar(this Serializer& self,
-                                                  CodepointAcceptor&& cpa,
-                                                  unicode::unichar_t cp,
-                                                  bool prefer_unicode_escape,
-                                                  bool prefer_capital_hex) {
-    ZETA_Core_DebugAssert(self.state == StateEnum::ReceivingCharOrFinish);
+constexpr bool string_serde::serialize::SendChar(CodepointAcceptor&& cpa,
+                                                 StateEnum& state,
+                                                 unicode::unichar_t cp,
+                                                 bool prefer_unicode_escape,
+                                                 bool prefer_uppercase_hex) {
+    ZETA_Core_DebugAssert(state == StateEnum::ReceivingCharOrFinish);
 
     if (0x10FFFF < cp || (0xD800 <= cp && cp <= 0xDFFF)) { return false; }
 
@@ -72,8 +72,8 @@ constexpr bool string_serde::Serializer::SendChar(this Serializer& self,
         return true;
     }
 
-    auto to_hex_4{ [prefer_capital_hex](unicode::unichar_t* dst,
-                                        unicode::unichar_t cp) {
+    auto to_hex_4{ [prefer_uppercase_hex](unicode::unichar_t* dst,
+                                          unicode::unichar_t cp) {
         dst += 4;
 
         for (int i{ 0 }; i < 4; ++i, cp /= 16) {
@@ -83,7 +83,7 @@ constexpr bool string_serde::Serializer::SendChar(this Serializer& self,
 
             if (digit < 10) {
                 *dst = ascii::CharCodeTable::num_0 + (cp % 16);
-            } else if (prefer_capital_hex) {
+            } else if (prefer_uppercase_hex) {
                 *dst = ascii::CharCodeTable::A + (digit - 10);
             } else {
                 *dst = ascii::CharCodeTable::a + (digit - 10);
@@ -91,7 +91,7 @@ constexpr bool string_serde::Serializer::SendChar(this Serializer& self,
         }
     } };
 
-    if (cp <= 0x1F) { goto SINGLE_U_ESCAPE; }
+    if (cp <= 0x1F || cp == 0x7F) { goto SINGLE_U_ESCAPE; }
     if (cp <= 0x7F) { goto DIRECT; }
     if (!prefer_unicode_escape) { goto DIRECT; }
     if (cp <= 0xFFFF) { goto SINGLE_U_ESCAPE; }
@@ -137,71 +137,41 @@ DOUBLE_U_ESCAPE: {
 }
 }
 
-template <elem_stream::acceptor::IsAcceptor CodepointAcceptor,
-          elem_stream::provider::IsProvider CodepointProvider>
-constexpr pair::Pair<size_t, unicode::unichar_t>
-string_serde::Serializer::SendChar(this Serializer& self,
-                                   CodepointAcceptor&& cpa,
-                                   CodepointProvider&& cpp,
-                                   unicode::unichar_t max_cnt,
-                                   bool prefer_unicode_escape,
-                                   bool prefer_capital_hex) {
-    unicode::unichar_t cp;
-
-    size_t cnt{ 0 };
-
-    for (; cnt < max_cnt;) {
-        elem_stream::provider::Transfer(cpp, &cp, sizeof(unicode::unichar_t),
-                                        sizeof(unicode::unichar_t), 1);
-
-        if (!self.SendChar(cpa, cp, prefer_unicode_escape,
-                           prefer_capital_hex)) {
-            return { cnt, cp };
-        }
-
-        ++cnt;
-    }
-
-    return { cnt, null_cp };
-}
-
 template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
-constexpr void string_serde::Serializer::SendFinish(this Serializer& self,
-                                                    CodepointAcceptor&& cpa) {
-    ZETA_Core_DebugAssert(self.state == StateEnum::ReceivingCharOrFinish);
+constexpr void string_serde::serialize::SendFinish(CodepointAcceptor&& cpa,
+                                                   StateEnum& state) {
+    ZETA_Core_DebugAssert(state == StateEnum::ReceivingCharOrFinish);
 
-    unicode::unichar_t cp{ ascii::CharCodeTable::double_quote };
+    constexpr unicode::unichar_t cp{ ascii::CharCodeTable::double_quote };
 
     elem_stream::acceptor::Transfer(cpa, &cp, sizeof(unicode::unichar_t),
                                     sizeof(unicode::unichar_t), 1);
 
-    self.state = StateEnum::Finished;
+    state = StateEnum::Finished;
 }
 
 template <elem_stream::provider::IsProvider CodepointProvider>
-constexpr void string_serde::Deserializer::Init(
-    this Deserializer& self,
-    BufferedCodepointProvider<CodepointProvider>& bcpp) {
+constexpr void string_serde::deserialize::ReceiveStart(
+    BufferedCodepointProvider<CodepointProvider>& bcpp, StateEnum& state) {
     if (bcpp.IsEnd()) {
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
     } else if (bcpp.Fetch() != ascii::CharCodeTable::double_quote) {
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
         bcpp.Revert();
     } else if (bcpp.IsEnd()) {
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
     } else if (bcpp.Fetch() == ascii::CharCodeTable::double_quote) {
-        self.state = StateEnum::Finished;
+        state = StateEnum::Finished;
     } else {
-        self.state = StateEnum::SendingChar;
+        state = StateEnum::SendingChar;
         bcpp.Revert();
     }
 }
 
 template <elem_stream::provider::IsProvider CodepointProvider>
-constexpr unicode::unichar_t string_serde::Deserializer::ReceiveChar(
-    this Deserializer& self,
-    BufferedCodepointProvider<CodepointProvider>& bcpp) {
-    ZETA_Core_DebugAssert(self.state == StateEnum::SendingChar);
+constexpr unicode::unichar_t string_serde::deserialize::ReceiveChar(
+    BufferedCodepointProvider<CodepointProvider>& bcpp, StateEnum& state) {
+    ZETA_Core_DebugAssert(state == StateEnum::SendingChar);
 
     ZETA_Core_DebugAssert(!bcpp.IsEnd());
 
@@ -213,17 +183,16 @@ constexpr unicode::unichar_t string_serde::Deserializer::ReceiveChar(
 
     auto look_ahead{ [&]() {
         if (bcpp.IsEnd()) {
-            ZETA_Core_Debug_PrintCurPos;
-            self.state = StateEnum::Corrupted;
+            state = StateEnum::Corrupted;
         } else if (bcpp.Fetch() == ascii::CharCodeTable::double_quote) {
-            self.state = StateEnum::Finished;
+            state = StateEnum::Finished;
         } else {
             bcpp.Revert();
         }
     } };
 
     if (cp < 0x0020 || 0x10FFFF < cp) {
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
         bcpp.Revert();
         return null_cp;
     }
@@ -234,16 +203,14 @@ constexpr unicode::unichar_t string_serde::Deserializer::ReceiveChar(
     }
 
     if (bcpp.IsEnd()) {
-        ZETA_Core_Debug_PrintCurPos;
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
         return null_cp;
     }
 
     cp = bcpp.Fetch();
 
     if (cp < 0x0020 || 0x10FFFF < cp) {
-        ZETA_Core_Debug_PrintCurPos;
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
         bcpp.Revert();
         return null_cp;
     }
@@ -285,8 +252,8 @@ constexpr unicode::unichar_t string_serde::Deserializer::ReceiveChar(
             break;
 
         default:
-            ZETA_Core_Debug_PrintCurPos;
-            self.state = StateEnum::Corrupted;
+
+            state = StateEnum::Corrupted;
             bcpp.Revert();
             return null_cp;
         }
@@ -296,13 +263,12 @@ constexpr unicode::unichar_t string_serde::Deserializer::ReceiveChar(
         return ret;
     }
 
-    auto from_hex_4{ [&self, &bcpp]() {
+    auto from_hex_4{ [&state, &bcpp]() {
         unicode::unichar_t ret{ 0 };
 
         for (int i{ 0 }; i < 4; ++i) {
             if (bcpp.IsEnd()) {
-                ZETA_Core_Debug_PrintCurPos;
-                self.state = StateEnum::Corrupted;
+                state = StateEnum::Corrupted;
                 return null_cp;
             }
 
@@ -320,8 +286,7 @@ constexpr unicode::unichar_t string_serde::Deserializer::ReceiveChar(
                        cp <= ascii::CharCodeTable::F) {
                 k = cp - ascii::CharCodeTable::A + 10;
             } else {
-                ZETA_Core_Debug_PrintCurPos;
-                self.state = StateEnum::Corrupted;
+                state = StateEnum::Corrupted;
                 bcpp.Revert();
                 return null_cp;
             }
@@ -334,7 +299,7 @@ constexpr unicode::unichar_t string_serde::Deserializer::ReceiveChar(
 
     unicode::unichar_t unichar_buffer_h{ from_hex_4() };
 
-    if (self.state == StateEnum::Corrupted) { return null_cp; }
+    if (state == StateEnum::Corrupted) { return null_cp; }
 
     if (unichar_buffer_h < unicode::surrogate_range_min ||
         unicode::surrogate_range_max < unichar_buffer_h) {
@@ -344,27 +309,24 @@ constexpr unicode::unichar_t string_serde::Deserializer::ReceiveChar(
 
     if (unichar_buffer_h < unicode::surrogate_h_range_min ||
         unicode::surrogate_h_range_max < unichar_buffer_h || bcpp.IsEnd()) {
-        ZETA_Core_Debug_PrintCurPos;
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
         return null_cp;
     }
 
     if (bcpp.Fetch() != ascii::CharCodeTable::backslash ||
         bcpp.Fetch() != ascii::CharCodeTable::u) {
-        ZETA_Core_Debug_PrintCurPos;
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
         bcpp.Revert();
         return null_cp;
     }
 
     unicode::unichar_t unichar_buffer_l{ from_hex_4() };
 
-    if (self.state == StateEnum::Corrupted) { return null_cp; }
+    if (state == StateEnum::Corrupted) { return null_cp; }
 
     if (unichar_buffer_l < unicode::surrogate_l_range_min ||
         unicode::surrogate_l_range_max < unichar_buffer_l) {
-        ZETA_Core_Debug_PrintCurPos;
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
         bcpp.Revert();
         return null_cp;
     }
@@ -374,26 +336,6 @@ constexpr unicode::unichar_t string_serde::Deserializer::ReceiveChar(
     return 0x10000 +
            ((unichar_buffer_h - unicode::surrogate_h_range_min) << 10) +
            (unichar_buffer_l - unicode::surrogate_l_range_min);
-}
-
-template <elem_stream::provider::IsProvider CodepointProvider,
-          elem_stream::provider::IsProvider CodepointAcceptor>
-constexpr size_t string_serde::Deserializer::ReceiveChar(
-    this Deserializer& self, BufferedCodepointProvider<CodepointProvider>& bcpp,
-    CodepointAcceptor&& acceptor, size_t max_cnt) {
-    size_t cnt{ 0 };
-
-    for (; cnt < max_cnt; ++cnt) {
-        unicode::unichar_t cp{ self.ReceiveChar(bcpp) };
-
-        if (cp == null_cp) { return cnt; }
-
-        elem_stream::provider::Transfer(acceptor, &cp,
-                                        sizeof(unicode::unichar_t),
-                                        sizeof(unicode::unichar_t), 1);
-    }
-
-    return cnt;
 }
 
 }  // namespace zeta::core::json_utils

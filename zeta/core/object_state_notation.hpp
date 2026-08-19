@@ -190,7 +190,7 @@ struct DeserializationStateMachineBase {
         SendingListElemCnt = 6,
         SendingIntegral = 7,
         SendingTermination = 9,
-        Completed = 10,
+        Finished = 10,
         Corrupted = static_cast<unsigned char>(-1),
     };
 

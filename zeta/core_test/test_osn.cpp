@@ -257,7 +257,7 @@ inline void main1(int num) {
 
     while (deserializer.state !=
            zeta::core::object_state_notation::state_machine::
-               DeserializationStateMachineBase::StateEnum::Completed) {
+               DeserializationStateMachineBase::StateEnum::Finished) {
         ZETA_Core_Debug_PrintCurPos;
 
         ZETA_Core_Debug_PrintVar(
@@ -442,12 +442,12 @@ inline void main1(int num) {
     ZETA_Core_DebugAssert(
         serializer.state ==
         zeta::core::object_state_notation::state_machine::
-            SerializationStateMachineBase::StateEnum::Completed);
+            SerializationStateMachineBase::StateEnum::Finished);
 
     ZETA_Core_DebugAssert(
         deserializer.state ==
         zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::Completed);
+            DeserializationStateMachineBase::StateEnum::Finished);
 
     {
         ZETA_Core_DebugAssert(!bin_fs.eof());

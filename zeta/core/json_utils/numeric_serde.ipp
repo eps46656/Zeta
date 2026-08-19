@@ -5,15 +5,159 @@
 
 namespace zeta::core::json_utils {
 
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void numeric_serde::serialize::SendStart(CodepointAcceptor&&,
+                                                   StateEnum& state) {
+    state = StateEnum::ReceivingSign;
+}
+
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void numeric_serde::serialize::SendSign(CodepointAcceptor&& cpa,
+                                                  StateEnum& state,
+                                                  bool is_neg) {
+    ZETA_Core_DebugAssert(state == StateEnum::ReceivingSign);
+
+    constexpr unicode::unichar_t minus{ ascii::CharCodeTable::minus };
+
+    if (is_neg) {
+        elem_stream::acceptor::Transfer(cpa, &minus, sizeof(unicode::unichar_t),
+                                        sizeof(unicode::unichar_t), 1);
+    }
+
+    state = StateEnum::ReceivingIntPartDigit;
+}
+
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr bool numeric_serde::serialize::SendIntPartDigit(
+    CodepointAcceptor&& cpa, StateEnum& state, unsigned digit) {
+    ZETA_Core_DebugAssert(state == StateEnum::ReceivingIntPartDigit ||
+                          state == StateEnum::ReceivingIntPartDigitOrNext);
+
+    if (!(0 <= digit && digit <= 9)) { return false; }
+
+    unicode::unichar_t cp{ static_cast<unicode::unichar_t>(
+        static_cast<unsigned char>(ascii::CharCodeTable::num_0 + digit)) };
+
+    elem_stream::acceptor::Transfer(cpa, &cp, sizeof(unicode::unichar_t),
+                                    sizeof(unicode::unichar_t), 1);
+
+    if (state == StateEnum::ReceivingIntPartDigit) {
+        state = digit == 0 ? StateEnum::ReceivingFracPartDigitOrNext
+                           : StateEnum::ReceivingIntPartDigitOrNext;
+    }
+
+    return true;
+}
+
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr bool numeric_serde::serialize::SendFracPartDigit(
+    CodepointAcceptor&& cpa, StateEnum& state, unsigned digit) {
+    ZETA_Core_DebugAssert(state == StateEnum::ReceivingIntPartDigitOrNext ||
+                          state == StateEnum::ReceivingFracPartDigitOrNext);
+
+    if (!(0 <= digit && digit <= 9)) { return false; }
+
+    unicode::unichar_t digit_cp{ static_cast<unicode::unichar_t>(
+        static_cast<unsigned char>(ascii::CharCodeTable::num_0 + digit)) };
+
+    if (state == StateEnum::ReceivingIntPartDigitOrNext) {
+        unicode::unichar_t cp[]{ ascii::CharCodeTable::point, digit_cp };
+
+        elem_stream::acceptor::Transfer(cpa, cp, sizeof(unicode::unichar_t),
+                                        sizeof(unicode::unichar_t), 2);
+
+        state = StateEnum::ReceivingFracPartDigitOrNext;
+    } else {
+        elem_stream::acceptor::Transfer(cpa, &digit_cp,
+                                        sizeof(unicode::unichar_t),
+                                        sizeof(unicode::unichar_t), 1);
+    }
+
+    return true;
+}
+
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr bool numeric_serde::serialize::SendExpPartE(CodepointAcceptor&& cpa,
+                                                      StateEnum& state,
+                                                      unsigned char e) {
+    ZETA_Core_DebugAssert(state == StateEnum::ReceivingIntPartDigitOrNext ||
+                          state == StateEnum::ReceivingFracPartDigitOrNext);
+
+    if (!(e == ascii::CharCodeTable::e || e == ascii::CharCodeTable::E)) {
+        return false;
+    }
+
+    unicode::unichar_t cp{ static_cast<unicode::unichar_t>(e) };
+
+    elem_stream::acceptor::Transfer(cpa, &cp, sizeof(unicode::unichar_t),
+                                    sizeof(unicode::unichar_t), 1);
+
+    state = StateEnum::ReceivingExpPartSignOrNext;
+
+    return true;
+}
+
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr bool numeric_serde::serialize::SendExpPartSign(
+    CodepointAcceptor&& cpa, StateEnum& state, unsigned char sign) {
+    ZETA_Core_DebugAssert(state == StateEnum::ReceivingExpPartSignOrNext);
+
+    if (!(sign == ascii::CharCodeTable::empty ||
+          sign == ascii::CharCodeTable::minus ||
+          sign == ascii::CharCodeTable::plus)) {
+        return false;
+    }
+
+    if (sign != ascii::CharCodeTable::empty) {
+        unicode::unichar_t cp{ static_cast<unicode::unichar_t>(sign) };
+
+        elem_stream::acceptor::Transfer(cpa, &cp, sizeof(unicode::unichar_t),
+                                        sizeof(unicode::unichar_t), 1);
+    }
+
+    state = StateEnum::ReceivingExpPartDigit;
+
+    return true;
+}
+
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr bool numeric_serde::serialize::SendExpPartDigit(
+    CodepointAcceptor&& cpa, StateEnum& state, unsigned digit) {
+    ZETA_Core_DebugAssert(state == StateEnum::ReceivingExpPartSignOrNext ||
+                          state == StateEnum::ReceivingExpPartDigit ||
+                          state == StateEnum::ReceivingExpPartDigitOrNext);
+
+    if (!(0 <= digit && digit <= 9)) { return false; }
+
+    unicode::unichar_t cp{ static_cast<unicode::unichar_t>(
+        static_cast<unsigned char>(ascii::CharCodeTable::num_0 + digit)) };
+
+    elem_stream::acceptor::Transfer(cpa, &cp, sizeof(unicode::unichar_t),
+                                    sizeof(unicode::unichar_t), 1);
+
+    state = StateEnum::ReceivingExpPartDigitOrNext;
+
+    return true;
+}
+
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void numeric_serde::serialize::SendFinish(CodepointAcceptor&&,
+                                                    StateEnum& state) {
+    ZETA_Core_DebugAssert(state == StateEnum::ReceivingIntPartDigitOrNext ||
+                          state == StateEnum::ReceivingFracPartDigitOrNext ||
+                          state == StateEnum::ReceivingExpPartDigitOrNext);
+
+    state = StateEnum::Finished;
+}
+
 template <elem_stream::provider::IsProvider CodepointProvider>
-constexpr void numeric_serde::Deserializer::Init(
-    this Deserializer& self,
-    BufferedCodepointProvider<CodepointProvider>& bcpp) {
+constexpr void numeric_serde::deserialize::ReceiveStart(
+    BufferedCodepointProvider<CodepointProvider>& bcpp, StateEnum& state) {
     unicode::unichar_t cp;
 
     do {
         if (bcpp.IsEnd()) {
-            self.state = StateEnum::Corrupted;
+            state = StateEnum::Corrupted;
             return;
         }
 
@@ -23,24 +167,23 @@ constexpr void numeric_serde::Deserializer::Init(
     if (cp != ascii::CharCodeTable::minus &&
         !(ascii::CharCodeTable::num_0 <= cp &&
           cp <= ascii::CharCodeTable::num_9)) {
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
     } else {
-        self.state = StateEnum::SendingSign;
+        state = StateEnum::SendingSign;
     }
 
     bcpp.Revert();
 }
 
 template <elem_stream::provider::IsProvider CodepointProvider>
-constexpr bool numeric_serde::Deserializer::ReceiveSign(
-    this Deserializer& self,
-    BufferedCodepointProvider<CodepointProvider>& bcpp) {
-    ZETA_Core_DebugAssert(self.state == StateEnum::SendingSign);
+constexpr bool numeric_serde::deserialize::ReceiveSign(
+    BufferedCodepointProvider<CodepointProvider>& bcpp, StateEnum& state) {
+    ZETA_Core_DebugAssert(state == StateEnum::SendingSign);
 
     unicode::unichar_t cp;
 
     if (bcpp.IsEnd()) {
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
         return false;
     }
 
@@ -52,7 +195,7 @@ constexpr bool numeric_serde::Deserializer::ReceiveSign(
         ret = true;
 
         if (bcpp.IsEnd()) {
-            self.state = StateEnum::Corrupted;
+            state = StateEnum::Corrupted;
             return false;
         }
 
@@ -63,9 +206,9 @@ constexpr bool numeric_serde::Deserializer::ReceiveSign(
 
     if (ascii::CharCodeTable::num_0 <= cp &&
         cp <= ascii::CharCodeTable::num_9) {
-        self.state = StateEnum::SendingIntPartDigitLead;
+        state = StateEnum::SendingIntPartDigitLead;
     } else {
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
     }
 
     bcpp.Revert();
@@ -74,11 +217,10 @@ constexpr bool numeric_serde::Deserializer::ReceiveSign(
 }
 
 template <elem_stream::provider::IsProvider CodepointProvider>
-constexpr unsigned numeric_serde::Deserializer::ReceiveIntPartDigit(
-    this Deserializer& self,
-    BufferedCodepointProvider<CodepointProvider>& bcpp) {
-    ZETA_Core_DebugAssert(self.state == StateEnum::SendingIntPartDigitLead ||
-                          self.state == StateEnum::SendingIntPartDigitTail);
+constexpr unsigned numeric_serde::deserialize::ReceiveIntPartDigit(
+    BufferedCodepointProvider<CodepointProvider>& bcpp, StateEnum& state) {
+    ZETA_Core_DebugAssert(state == StateEnum::SendingIntPartDigitLead ||
+                          state == StateEnum::SendingIntPartDigitTail);
 
     unicode::unichar_t cp;
 
@@ -92,15 +234,15 @@ constexpr unsigned numeric_serde::Deserializer::ReceiveIntPartDigit(
     unsigned ret{ cp - ascii::CharCodeTable::num_0 };
 
     if (bcpp.IsEnd()) {
-        self.state = StateEnum::Finished;
+        state = StateEnum::Finished;
         return ret;
     }
 
     bool first_digit_zero;
 
-    if (self.state == StateEnum::SendingIntPartDigitLead) {
+    if (state == StateEnum::SendingIntPartDigitLead) {
         first_digit_zero = ret == 0;
-        self.state = StateEnum::SendingIntPartDigitTail;
+        state = StateEnum::SendingIntPartDigitTail;
     } else {
         first_digit_zero = false;
     }
@@ -109,7 +251,7 @@ constexpr unsigned numeric_serde::Deserializer::ReceiveIntPartDigit(
 
     if (ascii::CharCodeTable::num_0 <= cp &&
         cp <= ascii::CharCodeTable::num_9) {
-        if (first_digit_zero) { self.state = StateEnum::Corrupted; }
+        if (first_digit_zero) { state = StateEnum::Corrupted; }
 
         bcpp.Revert();
 
@@ -118,7 +260,7 @@ constexpr unsigned numeric_serde::Deserializer::ReceiveIntPartDigit(
 
     if (cp == ascii::CharCodeTable::point) {
         if (bcpp.IsEnd()) {
-            self.state = StateEnum::Corrupted;
+            state = StateEnum::Corrupted;
             return ret;
         }
 
@@ -126,9 +268,9 @@ constexpr unsigned numeric_serde::Deserializer::ReceiveIntPartDigit(
 
         if (ascii::CharCodeTable::num_0 <= cp &&
             cp <= ascii::CharCodeTable::num_9) {
-            self.state = StateEnum::SendingFracPartDigit;
+            state = StateEnum::SendingFracPartDigit;
         } else {
-            self.state = StateEnum::Corrupted;
+            state = StateEnum::Corrupted;
         }
 
         bcpp.Revert();
@@ -137,15 +279,15 @@ constexpr unsigned numeric_serde::Deserializer::ReceiveIntPartDigit(
     }
 
     if (cp == ascii::CharCodeTable::e || cp == ascii::CharCodeTable::E) {
-        self.state = StateEnum::SendingExpPartE;
+        state = StateEnum::SendingExpPartE;
         bcpp.Revert();
         return ret;
     }
 
     if ((IsTokenEnd)(cp)) {
-        self.state = StateEnum::Finished;
+        state = StateEnum::Finished;
     } else {
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
     }
 
     bcpp.Revert();
@@ -154,15 +296,14 @@ constexpr unsigned numeric_serde::Deserializer::ReceiveIntPartDigit(
 }
 
 template <elem_stream::provider::IsProvider CodepointProvider>
-constexpr unsigned numeric_serde::Deserializer::ReceiveFracPartDigit(
-    this Deserializer& self,
-    BufferedCodepointProvider<CodepointProvider>& bcpp) {
-    ZETA_Core_DebugAssert(self.state == StateEnum::SendingFracPartDigit);
+constexpr unsigned numeric_serde::deserialize::ReceiveFracPartDigit(
+    BufferedCodepointProvider<CodepointProvider>& bcpp, StateEnum& state) {
+    ZETA_Core_DebugAssert(state == StateEnum::SendingFracPartDigit);
 
     unicode::unichar_t cp;
 
     if (bcpp.IsEnd()) {
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
         return 0;
     }
 
@@ -174,7 +315,7 @@ constexpr unsigned numeric_serde::Deserializer::ReceiveFracPartDigit(
     unsigned ret{ cp - ascii::CharCodeTable::num_0 };
 
     if (bcpp.IsEnd()) {
-        self.state = StateEnum::Finished;
+        state = StateEnum::Finished;
         return ret;
     }
 
@@ -187,15 +328,15 @@ constexpr unsigned numeric_serde::Deserializer::ReceiveFracPartDigit(
     }
 
     if (cp == ascii::CharCodeTable::e || cp == ascii::CharCodeTable::E) {
-        self.state = StateEnum::SendingExpPartE;
+        state = StateEnum::SendingExpPartE;
         bcpp.Revert();
         return ret;
     }
 
     if ((IsTokenEnd)(cp)) {
-        self.state = StateEnum::Finished;
+        state = StateEnum::Finished;
     } else {
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
     }
 
     bcpp.Revert();
@@ -204,10 +345,9 @@ constexpr unsigned numeric_serde::Deserializer::ReceiveFracPartDigit(
 }
 
 template <elem_stream::provider::IsProvider CodepointProvider>
-constexpr unsigned char numeric_serde::Deserializer::ReceiveExpPartE(
-    this Deserializer& self,
-    BufferedCodepointProvider<CodepointProvider>& bcpp) {
-    ZETA_Core_DebugAssert(self.state == StateEnum::SendingExpPartE);
+constexpr unsigned char numeric_serde::deserialize::ReceiveExpPartE(
+    BufferedCodepointProvider<CodepointProvider>& bcpp, StateEnum& state) {
+    ZETA_Core_DebugAssert(state == StateEnum::SendingExpPartE);
 
     unicode::unichar_t cp;
 
@@ -218,22 +358,21 @@ constexpr unsigned char numeric_serde::Deserializer::ReceiveExpPartE(
     ZETA_Core_DebugAssert(cp == ascii::CharCodeTable::e ||
                           cp == ascii::CharCodeTable::E);
 
-    self.state = StateEnum::SendingExpPartSign;
+    state = StateEnum::SendingExpPartSign;
 
     return static_cast<unsigned char>(cp);
 }
 
 template <elem_stream::provider::IsProvider CodepointProvider>
 constexpr pair::Pair<unsigned char, bool>
-numeric_serde::Deserializer::ReceiveExpPartSign(
-    this Deserializer& self,
-    BufferedCodepointProvider<CodepointProvider>& bcpp) {
-    ZETA_Core_DebugAssert(self.state == StateEnum::SendingExpPartSign);
+numeric_serde::deserialize::ReceiveExpPartSign(
+    BufferedCodepointProvider<CodepointProvider>& bcpp, StateEnum& state) {
+    ZETA_Core_DebugAssert(state == StateEnum::SendingExpPartSign);
 
     unicode::unichar_t cp;
 
     if (bcpp.IsEnd()) {
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
         return { ascii::CharCodeTable::empty, false };
     }
 
@@ -246,7 +385,7 @@ numeric_serde::Deserializer::ReceiveExpPartSign(
         ret.second = true;
 
         if (bcpp.IsEnd()) {
-            self.state = StateEnum::Corrupted;
+            state = StateEnum::Corrupted;
             return ret;
         }
 
@@ -256,7 +395,7 @@ numeric_serde::Deserializer::ReceiveExpPartSign(
         ret.second = false;
 
         if (bcpp.IsEnd()) {
-            self.state = StateEnum::Corrupted;
+            state = StateEnum::Corrupted;
             return ret;
         }
 
@@ -268,9 +407,9 @@ numeric_serde::Deserializer::ReceiveExpPartSign(
 
     if (ascii::CharCodeTable::num_0 <= cp &&
         cp <= ascii::CharCodeTable::num_9) {
-        self.state = StateEnum::SendingExpPartDigit;
+        state = StateEnum::SendingExpPartDigit;
     } else {
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
     }
 
     bcpp.Revert();
@@ -279,10 +418,9 @@ numeric_serde::Deserializer::ReceiveExpPartSign(
 }
 
 template <elem_stream::provider::IsProvider CodepointProvider>
-constexpr unsigned numeric_serde::Deserializer::ReceiveExpPartDigit(
-    this Deserializer& self,
-    BufferedCodepointProvider<CodepointProvider>& bcpp) {
-    ZETA_Core_DebugAssert(self.state == StateEnum::SendingExpPartDigit);
+constexpr unsigned numeric_serde::deserialize::ReceiveExpPartDigit(
+    BufferedCodepointProvider<CodepointProvider>& bcpp, StateEnum& state) {
+    ZETA_Core_DebugAssert(state == StateEnum::SendingExpPartDigit);
 
     unicode::unichar_t cp;
 
@@ -296,7 +434,7 @@ constexpr unsigned numeric_serde::Deserializer::ReceiveExpPartDigit(
     unsigned ret{ cp - ascii::CharCodeTable::num_0 };
 
     if (bcpp.IsEnd()) {
-        self.state = StateEnum::Finished;
+        state = StateEnum::Finished;
         return ret;
     }
 
@@ -309,9 +447,9 @@ constexpr unsigned numeric_serde::Deserializer::ReceiveExpPartDigit(
     }
 
     if ((IsTokenEnd)(cp)) {
-        self.state = StateEnum::Finished;
+        state = StateEnum::Finished;
     } else {
-        self.state = StateEnum::Corrupted;
+        state = StateEnum::Corrupted;
     }
 
     bcpp.Revert();

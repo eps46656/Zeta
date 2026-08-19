@@ -15,7 +15,7 @@ constexpr bool json_utils::IsInvisible(unicode::unichar_t cp) {
 }
 
 constexpr bool json_utils::IsTokenEnd(unicode::unichar_t cp) {
-    return IsInvisible(cp) || cp == ascii::CharCodeTable::comma ||
+    return (IsInvisible)(cp) || cp == ascii::CharCodeTable::comma ||
            cp == ascii::CharCodeTable::bracket_r ||
            cp == ascii::CharCodeTable::brace_r;
 }

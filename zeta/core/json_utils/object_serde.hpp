@@ -6,54 +6,56 @@
 
 namespace zeta::core::json_utils::object_serde {
 
-struct Serializer {
-    enum struct StateEnum : unsigned char {
-        ReceivingKeyOrFinish =
-            BaseSerializerStateCodeTable::ReceivingObjectKeyOrFinish,
-        ReceivingValue = BaseSerializerStateCodeTable::ReceivingObjectValue,
-    };
-
-    StateEnum state;
-
-    template <elem_stream::provider::IsProvider CodepointProvider>
-    constexpr void Init(this Serializer& self, CodepointProvider&& cpp,
-                        format_utils::FormatContext const& fmt_ctx);
-
-    template <elem_stream::provider::IsProvider CodepointProvider>
-    constexpr void SendKey(this Serializer& self, CodepointProvider&& cpp);
-
-    template <elem_stream::provider::IsProvider CodepointProvider>
-    constexpr void SendValue(this Serializer& self, CodepointProvider&& cpp);
-
-    template <elem_stream::provider::IsProvider CodepointProvider>
-    constexpr void SendFinish(this Serializer& self, CodepointProvider&& cpp);
+namespace serialize {
+enum struct StateEnum : unsigned char {
+    ReceivingKeyOrFinishLead =
+        BaseSerializeStateCodeTable::ReceivingObjectKeyOrFinishLead,
+    ReceivingKeyOrFinishTail =
+        BaseSerializeStateCodeTable::ReceivingObjectKeyOrFinishTail,
+    ReceivingValue = BaseSerializeStateCodeTable::ReceivingObjectValue,
+    Finished = BaseSerializeStateCodeTable::Finished,
 };
 
-struct Deserializer {
-    enum struct StateEnum : BaseDeserializerStateCodeTable::Type {
-        SendingKey = BaseDeserializerStateCodeTable::SendingObjectKey,
-        SendingValue = BaseDeserializerStateCodeTable::SendingObjectValue,
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void SendStart(CodepointAcceptor&& cpa, StateEnum& state,
+                         format_utils::FormatContext& fmt_ctx);
 
-        Finished = BaseDeserializerStateCodeTable::Finished,
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void SendKey(CodepointAcceptor&& cpa, StateEnum& state,
+                       format_utils::FormatContext& fmt_ctx);
 
-        Corrupted = BaseDeserializerStateCodeTable::Corrupted,
-    };
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void SendValue(CodepointAcceptor&& cpa, StateEnum& state,
+                         format_utils::FormatContext& fmt_ctx);
 
-    StateEnum state;
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void SendFinish(CodepointAcceptor&& cpa, StateEnum& state,
+                          format_utils::FormatContext& fmt_ctx);
 
-    template <elem_stream::provider::IsProvider CodepointProvider>
-    constexpr void Init(this Deserializer& self,
-                        BufferedCodepointProvider<CodepointProvider>& bcpp);
+}  // namespace serialize
 
-    template <elem_stream::provider::IsProvider CodepointProvider>
-    constexpr void ReceivedKey(
-        this Deserializer& self,
-        BufferedCodepointProvider<CodepointProvider>& bcpp);
+namespace deserialize {
+enum struct StateEnum : BaseDeserializeStateCodeTable::Type {
+    SendingKey = BaseDeserializeStateCodeTable::SendingObjectKey,
+    SendingValue = BaseDeserializeStateCodeTable::SendingObjectValue,
 
-    template <elem_stream::provider::IsProvider CodepointProvider>
-    constexpr void ReceivedValue(
-        this Deserializer& self,
-        BufferedCodepointProvider<CodepointProvider>& bcpp);
+    Finished = BaseDeserializeStateCodeTable::Finished,
+
+    Corrupted = BaseDeserializeStateCodeTable::Corrupted,
 };
+
+template <elem_stream::provider::IsProvider CodepointProvider>
+constexpr void ReceiveStart(BufferedCodepointProvider<CodepointProvider>& bcpp,
+                            StateEnum& state);
+
+template <elem_stream::provider::IsProvider CodepointProvider>
+constexpr void ReceivedKey(BufferedCodepointProvider<CodepointProvider>& bcpp,
+                           StateEnum& state);
+
+template <elem_stream::provider::IsProvider CodepointProvider>
+constexpr void ReceivedValue(BufferedCodepointProvider<CodepointProvider>& bcpp,
+                             StateEnum& state);
+
+}  // namespace deserialize
 
 }  // namespace zeta::core::json_utils::object_serde

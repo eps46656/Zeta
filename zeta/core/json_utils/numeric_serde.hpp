@@ -5,68 +5,134 @@
 
 namespace zeta::core::json_utils::numeric_serde {
 
-struct Deserializer {
-    enum StateEnum : BaseDeserializerStateCodeTable::Type {
-        SendingSign = BaseDeserializerStateCodeTable::SendingNumericSign,
+namespace serialize {
 
-        SendingIntPartDigitLead =
-            BaseDeserializerStateCodeTable::SendingNumericIntPartDigitLead,
+enum struct StateEnum : unsigned char {
+    ReceivingSign = BaseSerializeStateCodeTable::ReceivingNumericSign,
+    // SendSign -> ReceivingNumericIntPartDigit
 
-        SendingIntPartDigitTail =
-            BaseDeserializerStateCodeTable::SendingNumericIntPartDigitTail,
+    ReceivingIntPartDigit =
+        BaseSerializeStateCodeTable::ReceivingNumericIntPartDigit,
+    // SendIntPartDigit
+    //   if 0: -> ReceivingNumericFracPartDigitOrNext
+    //   else: -> ReceivingNumericIntPartDigitOrNext
 
-        SendingFracPartDigit =
-            BaseDeserializerStateCodeTable::SendingNumericFracPartDigit,
+    ReceivingIntPartDigitOrNext =
+        BaseSerializeStateCodeTable::ReceivingNumericIntPartDigitOrNext,
+    // SendIntPartDigit -> ReceivingNumericIntPartDigitOrNext
+    // SendFracPartDigit -> ReceivingNumericFracPartDigitOrNext
+    // SendExpPartE -> ReceivingNumericExpPartSignOrNext
+    // SendFinish -> Finished
 
-        SendingExpPartE =
-            BaseDeserializerStateCodeTable::SendingNumericExpPartE,
+    ReceivingFracPartDigitOrNext =
+        BaseSerializeStateCodeTable::ReceivingNumericFracPartDigitOrNext,
+    // SendFracPartDigit -> ReceivingNumericFracPartDigitOrNext
+    // SendExpPartE -> ReceivingNumericExpPartSignOrNext
+    // SendFinish -> Finished
 
-        SendingExpPartSign =
-            BaseDeserializerStateCodeTable::SendingNumericExpPartSign,
+    ReceivingExpPartSignOrNext =
+        BaseSerializeStateCodeTable::ReceivingNumericExpPartSignOrNext,
+    // SendExpPartSign -> ReceivingNumericExpPartDigit
+    // SendExpPartDigit -> ReceivingNumericExpPartDigitOrNext
 
-        SendingExpPartDigit =
-            BaseDeserializerStateCodeTable::SendingNumericExpPartDigit,
+    ReceivingExpPartDigit =
+        BaseSerializeStateCodeTable::ReceivingNumericExpPartDigit,
+    // SendExpPartDigit -> ReceivingNumericExpPartDigitOrNext
 
-        Finished = BaseDeserializerStateCodeTable::SendingNumericFinish,
+    ReceivingExpPartDigitOrNext =
+        BaseSerializeStateCodeTable::ReceivingNumericExpPartDigitOrNext,
+    // SendExpPartDigit -> ReceivingNumericExpPartDigitOrNext
+    // SendFinish -> Finished
 
-        Corrupted = BaseDeserializerStateCodeTable::Corrupted,
-    };
-
-    StateEnum state;
-
-    template <elem_stream::provider::IsProvider CodepointProvider>
-    constexpr void Init(this Deserializer& self,
-                        BufferedCodepointProvider<CodepointProvider>& bcpp);
-
-    template <elem_stream::provider::IsProvider CodepointProvider>
-    constexpr bool ReceiveSign(
-        this Deserializer& self,
-        BufferedCodepointProvider<CodepointProvider>& bcpp);
-
-    template <elem_stream::provider::IsProvider CodepointProvider>
-    constexpr unsigned ReceiveIntPartDigit(
-        this Deserializer& self,
-        BufferedCodepointProvider<CodepointProvider>& bcpp);
-
-    template <elem_stream::provider::IsProvider CodepointProvider>
-    constexpr unsigned ReceiveFracPartDigit(
-        this Deserializer& self,
-        BufferedCodepointProvider<CodepointProvider>& bcpp);
-
-    template <elem_stream::provider::IsProvider CodepointProvider>
-    constexpr unsigned char ReceiveExpPartE(
-        this Deserializer& self,
-        BufferedCodepointProvider<CodepointProvider>& bcpp);
-
-    template <elem_stream::provider::IsProvider CodepointProvider>
-    constexpr pair::Pair<unsigned char, bool> ReceiveExpPartSign(
-        this Deserializer& self,
-        BufferedCodepointProvider<CodepointProvider>& bcpp);
-
-    template <elem_stream::provider::IsProvider CodepointProvider>
-    constexpr unsigned ReceiveExpPartDigit(
-        this Deserializer& self,
-        BufferedCodepointProvider<CodepointProvider>& bcpp);
+    Finished = BaseSerializeStateCodeTable::Finished,
 };
+
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void SendStart(CodepointAcceptor&& cpa, StateEnum& state);
+
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void SendSign(CodepointAcceptor&& cpa, StateEnum& state, bool is_neg);
+
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr bool SendIntPartDigit(CodepointAcceptor&& cpa, StateEnum& state,
+                                unsigned digit);
+
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr bool SendFracPartDigit(CodepointAcceptor&& cpa, StateEnum& state,
+                                 unsigned digit);
+
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr bool SendExpPartE(CodepointAcceptor&& cpa, StateEnum& state,
+                            unsigned char e);
+
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr bool SendExpPartSign(CodepointAcceptor&& cpa, StateEnum& state,
+                               unsigned char sign);
+
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr bool SendExpPartDigit(CodepointAcceptor&& cpa, StateEnum& state,
+                                unsigned digit);
+
+template <elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void SendFinish(CodepointAcceptor&& cpa, StateEnum& state);
+
+}  // namespace serialize
+
+namespace deserialize {
+
+enum StateEnum : BaseDeserializeStateCodeTable::Type {
+    SendingSign = BaseDeserializeStateCodeTable::SendingNumericSign,
+
+    SendingIntPartDigitLead =
+        BaseDeserializeStateCodeTable::SendingNumericIntPartDigitLead,
+
+    SendingIntPartDigitTail =
+        BaseDeserializeStateCodeTable::SendingNumericIntPartDigitTail,
+
+    SendingFracPartDigit =
+        BaseDeserializeStateCodeTable::SendingNumericFracPartDigit,
+
+    SendingExpPartE = BaseDeserializeStateCodeTable::SendingNumericExpPartE,
+
+    SendingExpPartSign =
+        BaseDeserializeStateCodeTable::SendingNumericExpPartSign,
+
+    SendingExpPartDigit =
+        BaseDeserializeStateCodeTable::SendingNumericExpPartDigit,
+
+    Finished = BaseDeserializeStateCodeTable::SendingNumericFinish,
+
+    Corrupted = BaseDeserializeStateCodeTable::Corrupted,
+};
+
+template <elem_stream::provider::IsProvider CodepointProvider>
+constexpr void ReceiveStart(BufferedCodepointProvider<CodepointProvider>& bcpp,
+                            StateEnum& state);
+
+template <elem_stream::provider::IsProvider CodepointProvider>
+constexpr bool ReceiveSign(BufferedCodepointProvider<CodepointProvider>& bcpp,
+                           StateEnum& state);
+
+template <elem_stream::provider::IsProvider CodepointProvider>
+constexpr unsigned ReceiveIntPartDigit(
+    BufferedCodepointProvider<CodepointProvider>& bcpp, StateEnum& state);
+
+template <elem_stream::provider::IsProvider CodepointProvider>
+constexpr unsigned ReceiveFracPartDigit(
+    BufferedCodepointProvider<CodepointProvider>& bcpp, StateEnum& state);
+
+template <elem_stream::provider::IsProvider CodepointProvider>
+constexpr unsigned char ReceiveExpPartE(
+    BufferedCodepointProvider<CodepointProvider>& bcpp, StateEnum& state);
+
+template <elem_stream::provider::IsProvider CodepointProvider>
+constexpr pair::Pair<unsigned char, bool> ReceiveExpPartSign(
+    BufferedCodepointProvider<CodepointProvider>& bcpp, StateEnum& state);
+
+template <elem_stream::provider::IsProvider CodepointProvider>
+constexpr unsigned ReceiveExpPartDigit(
+    BufferedCodepointProvider<CodepointProvider>& bcpp, StateEnum& state);
+
+}  // namespace deserialize
 
 }  // namespace zeta::core::json_utils::numeric_serde

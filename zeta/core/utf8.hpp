@@ -22,79 +22,44 @@ constexpr unicode::unichar_t range_maxs[]{
 };
 
 struct Encoder {
-    struct EncodeResultEnum {
-        using Value = unsigned char;
-
-        struct Success {
-            static constexpr Value value{ 0 };
-        };
-
-        struct CodepointOutOfRange {
-            static constexpr Value value{ 1 };
-        };
-
-        struct CodepointIsSurrogate {
-            static constexpr Value value{ 2 };
-        };
+    enum struct ResultEnum : unsigned char {
+        Success = 0,
+        ProviderExhausted = 1,
+        InsufficientEncodedBuffer = 2,
+        CodepointOutOfRange = 3,
+        CodepointIsSurrogate = 4,
     };
 
-    bool has_pulled_codepoint;
-    unsigned char encoded_octet_cnt;
+    unsigned char encoded_octet_cnt : 3;
+    bool has_pulled_codepoint : 1;
 
+    unsigned char encoded_octets[7];
     unicode::unichar_t pulled_codepoint;
-    unsigned char encoded_octets[4];
-
-    size_t acc_pulled_codepoint_cnt;
-    size_t acc_encoded_octet_cnt;
 
     constexpr Encoder();
 
     template <elem_stream::provider::IsProvider Provider>
-    Encoder::EncodeResultEnum::Value Encode(this Encoder& self,
-                                            Provider&& provider);
+    constexpr ResultEnum Encode(this Encoder& self, Provider&& provider);
 
     template <elem_stream::acceptor::IsAcceptor Acceptor>
-    bool Push(this Encoder& self, Acceptor&& acceptor,
-              size_t max_pushed_octet_cnt);
+    constexpr size_t Push(this Encoder& self, Acceptor&& acceptor);
 
     template <elem_stream::provider::IsProvider Provider,
               elem_stream::acceptor::IsAcceptor Acceptor>
-    bool EncodeAndPush(this Encoder& self, Provider&& provider,
-                       Acceptor&& acceptor, size_t max_pulled_codepoint_cnt,
-                       size_t max_pushed_octet_cnt);
+    constexpr bool EncodeAndPush(this Encoder& self, Provider&& provider,
+                                 Acceptor&& acceptor);
 };
 
 struct Decoder {
-    struct DecodeResultEnum {
-        using Value = unsigned char;
-
-        struct Success {
-            static constexpr Value value{ 0 };
-        };
-
-        struct ProviderExhausted {
-            static constexpr Value value{ 1 };
-        };
-
-        struct OctetOutOfRange {
-            static constexpr Value value{ 2 };
-        };
-
-        struct LeadingOctetPatternMismatch {
-            static constexpr Value value{ 3 };
-        };
-
-        struct TrailingOctetPatternMismatch {
-            static constexpr Value value{ 4 };
-        };
-
-        struct OverlongEncoding {
-            static constexpr Value value{ 5 };
-        };
-
-        struct CodepointIsSurrogate {
-            static constexpr Value value{ 6 };
-        };
+    enum struct ResultEnum : unsigned char {
+        Success = 0,
+        InsufficientOctet = 1,
+        HasDecodedCodepoint = 2,
+        OctetOutOfRange = 3,
+        LeadingOctetPatternMismatch = 4,
+        TrailingOctetPatternMismatch = 5,
+        OverlongEncoding = 6,
+        CodepointIsSurrogate = 7,
     };
 
     unsigned char pulled_octet_cnt;
@@ -103,23 +68,18 @@ struct Decoder {
     unsigned char pulled_octets[4];
     unicode::unichar_t decoded_codepoint;
 
-    size_t acc_pulled_octet_cnt;
-    size_t acc_decoded_codepoint_cnt;
-
     constexpr Decoder();
 
     template <elem_stream::provider::IsProvider Provider>
-    DecodeResultEnum::Value Decode(this Decoder& self, Provider&& provider,
-                                   size_t max_pulled_octet_cnt);
+    constexpr ResultEnum Decode(this Decoder& self, Provider&& provider);
 
     template <elem_stream::acceptor::IsAcceptor Acceptor>
-    bool Push(this Decoder& self, Acceptor&& acceptor);
+    constexpr bool Push(this Decoder& self, Acceptor&& acceptor);
 
     template <elem_stream::provider::IsProvider Provider,
               elem_stream::acceptor::IsAcceptor Acceptor>
-    bool DecodeAndPush(this Decoder& self, Provider&& provider,
-                       Acceptor&& acceptor, size_t max_pulled_octet_cnt,
-                       size_t max_pushed_codepoint_cnt);
+    constexpr bool DecodeAndPush(this Decoder& self, Provider&& provider,
+                                 Acceptor&& acceptor);
 };
 
 }  // namespace zeta::core::utf8
