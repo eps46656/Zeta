@@ -5,6 +5,7 @@
 #include <zeta/core/integral.hpp>
 #include <zeta/core/integral_utils.hpp>
 #include <zeta/core/lifecycle.hpp>
+#include <zeta/core/lin_seq_elem_stream.ipp>
 #include <zeta/core/multi_level_data_table.ipp>
 #include <zeta/core/multi_level_ptr_table.ipp>
 #include <zeta/core_test/pod_value.hpp>
@@ -20,23 +21,14 @@ struct MultiLevelPtrTableMap {
 
     MLPT::Cntr<unsigned short, zeta::core_test::std_allocator::Allocator> mlpt;
 
-    MultiLevelPtrTableMap() {
-        ZETA_Core_PrintCurPos;
+    using K =
+        zeta::core::static_seq::MakeLinearStaticIntegralSeq<size_t, 0, 1, 0>;
 
-        unsigned level{ 8 };
-
-        this->branch_nums[0] = 5;
-        this->branch_nums[1] = 6;
-        this->branch_nums[2] = 7;
-        this->branch_nums[3] = 8;
-        this->branch_nums[4] = 9;
-        this->branch_nums[5] = 10;
-        this->branch_nums[6] = 11;
-        this->branch_nums[7] = 12;
-
-        this->mlpt.Init(zeta::core::lifecycle::SkipInitTag{}, level,
-                        this->branch_nums);
-
+    MultiLevelPtrTableMap()
+        : branch_nums{ 5, 6, 7, 8, 9, 10, 11, 12, },
+          mlpt{
+            ZETA_Core_Lifecycle_PackInitArgs()
+            , 8, this->branch_nums } {
         ZETA_Core_PrintCurPos;
 
         this->Sanitize();
@@ -58,13 +50,11 @@ struct MultiLevelPtrTableMap {
         return idx;
     }
 
-    template <typename Idx>
-    void SetIdxes_(size_t idx, Idx* dst_idxes) const {
-        int level{ static_cast<int>(this->mlpt.level) };
+    void SetIdxes_(size_t idx, MLPT::BranchNum* dst_idxes) const {
+        unsigned level{ this->mlpt.level };
 
-        for (int level_i{ 0 }; level_i < level; ++level_i) {
-            dst_idxes[level_i] =
-                static_cast<Idx>(idx % this->mlpt.branch_nums[level_i]);
+        for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
+            dst_idxes[level_i] = idx % this->mlpt.branch_nums[level_i];
 
             idx /= this->mlpt.branch_nums[level_i];
         }
@@ -76,17 +66,22 @@ struct MultiLevelPtrTableMap {
         this->mlpt.Sanitize(&nav_node_mem_recorder);
 
         zeta::core::mem_recorder::MatchRecords(
-            this->mlpt.nav_node_alctr.mem_recorder, nav_node_mem_recorder);
+            this->mlpt.nav_node_alctr_like.mem_recorder, nav_node_mem_recorder);
     }
 
-    size_t GetCapacity() { return this->mlpt.GetCapacity(); }
+    size_t GetCapacity() { return this->mlpt.GetMaxElemCnt(); }
 
     void** Access(size_t idx) {
-        long long idxes[MLPT::max_level];
+        MLPT::BranchNum idxes[MLPT::max_level];
 
         this->SetIdxes_(idx, idxes);
 
-        void* n{ this->mlpt.Access(idxes) };
+        void* n{ this->mlpt.Access(zeta::core::lin_seq_elem_stream::Provider{
+            .data = idxes + (this->mlpt.level - 1),
+            .elem_size = sizeof(MLPT::BranchNum),
+            .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
+            .elem_cnt = MLPT::max_level,
+        }) };
 
         this->Sanitize();
 
@@ -94,11 +89,19 @@ struct MultiLevelPtrTableMap {
     }
 
     void Insert(size_t idx, void* val) {
-        int idxes[MLPT::max_level];
+        MLPT::BranchNum idxes[MLPT::max_level];
 
         this->SetIdxes_(idx, idxes);
 
-        void* n{ this->mlpt.Insert(idxes).first };
+        void* n{ this->mlpt
+                     .Insert(zeta::core::lin_seq_elem_stream::Provider{
+                         .data = idxes + (this->mlpt.level - 1),
+                         .elem_size = sizeof(MLPT::BranchNum),
+                         .elem_stride =
+                             -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
+                         .elem_cnt = MLPT::max_level,
+                     })
+                     .first };
 
         ZETA_Core_DebugAssert(n != nullptr);
 
@@ -108,20 +111,38 @@ struct MultiLevelPtrTableMap {
     }
 
     void Erase(size_t idx) {
-        unsigned idxes[MLPT::max_level];
+        MLPT::BranchNum idxes[MLPT::max_level];
 
         this->SetIdxes_(idx, idxes);
 
-        this->mlpt.Erase(idxes);
+        this->mlpt.Erase(zeta::core::lin_seq_elem_stream::Provider{
+            .data = idxes + (this->mlpt.level - 1),
+            .elem_size = sizeof(MLPT::BranchNum),
+            .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
+            .elem_cnt = MLPT::max_level,
+        });
 
         this->Sanitize();
     }
 
     size_t FindPrev(size_t idx) {
-        _BitInt(8) idxes[MLPT::max_level];
-        SetIdxes_(idx, idxes);
+        MLPT::BranchNum idxes[MLPT::max_level];
 
-        void* n{ this->mlpt.FindPrevIncl(idxes, idxes) };
+        this->SetIdxes_(idx, idxes);
+
+        void* n{ this->mlpt.FindPrevIncl(
+            zeta::core::lin_seq_elem_stream::Provider{
+                .data = idxes + (this->mlpt.level - 1),
+                .elem_size = sizeof(MLPT::BranchNum),
+                .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
+                .elem_cnt = MLPT::max_level,
+            },
+            zeta::core::lin_seq_elem_stream::Acceptor{
+                .data = idxes + (this->mlpt.level - 1),
+                .elem_size = sizeof(MLPT::BranchNum),
+                .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
+                .elem_cnt = MLPT::max_level,
+            }) };
 
         this->Sanitize();
 
@@ -129,10 +150,22 @@ struct MultiLevelPtrTableMap {
     }
 
     size_t FindNext(size_t idx) {
-        unsigned _BitInt(15) idxes[MLPT::max_level];
+        MLPT::BranchNum idxes[MLPT::max_level];
         SetIdxes_(idx, idxes);
 
-        void* n{ this->mlpt.FindNextIncl(idxes, idxes) };
+        void* n{ this->mlpt.FindNextIncl(
+            zeta::core::lin_seq_elem_stream::Provider{
+                .data = idxes + (this->mlpt.level - 1),
+                .elem_size = sizeof(MLPT::BranchNum),
+                .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
+                .elem_cnt = MLPT::max_level,
+            },
+            zeta::core::lin_seq_elem_stream::Acceptor{
+                .data = idxes + (this->mlpt.level - 1),
+                .elem_size = sizeof(MLPT::BranchNum),
+                .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
+                .elem_cnt = MLPT::max_level,
+            }) };
 
         this->Sanitize();
 
@@ -140,17 +173,43 @@ struct MultiLevelPtrTableMap {
     }
 
     std::vector<std::pair<size_t, void*>> Dump() {
-        size_t idxes[MLPT::max_level];
+        MLPT::BranchNum idxes[MLPT::max_level];
         SetIdxes_(0, idxes);
 
         std::vector<std::pair<size_t, void*>> ret;
 
-        void* n{ this->mlpt.FindNextIncl(idxes, idxes) };
+        void* n{ this->mlpt.FindNextIncl(
+            zeta::core::lin_seq_elem_stream::Provider{
+                .data = idxes + (this->mlpt.level - 1),
+                .elem_size = sizeof(MLPT::BranchNum),
+                .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
+                .elem_cnt = MLPT::max_level,
+            },
+            zeta::core::lin_seq_elem_stream::Acceptor{
+                .data = idxes + (this->mlpt.level - 1),
+                .elem_size = sizeof(MLPT::BranchNum),
+                .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
+                .elem_cnt = MLPT::max_level,
+            }) };
 
         while (n != nullptr) {
             ret.emplace_back(GetIdx_(idxes), *static_cast<void**>(n));
 
-            n = this->mlpt.FindNextExcl(idxes, idxes);
+            n = this->mlpt.FindNextExcl(
+                zeta::core::lin_seq_elem_stream::Provider{
+                    .data = idxes + (this->mlpt.level - 1),
+                    .elem_size = sizeof(MLPT::BranchNum),
+                    .elem_stride =
+                        -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
+                    .elem_cnt = MLPT::max_level,
+                },
+                zeta::core::lin_seq_elem_stream::Acceptor{
+                    .data = idxes + (this->mlpt.level - 1),
+                    .elem_size = sizeof(MLPT::BranchNum),
+                    .elem_stride =
+                        -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
+                    .elem_cnt = MLPT::max_level,
+                });
         }
 
         return ret;
@@ -165,22 +224,10 @@ struct MultiLevelDataTableMap {
                zeta::core_test::std_allocator::Allocator>
         mldt;
 
-    MultiLevelDataTableMap() {
-        unsigned level{ 8 };
-
-        this->branch_nums[0] = 5;
-        this->branch_nums[1] = 6;
-        this->branch_nums[2] = 7;
-        this->branch_nums[3] = 8;
-        this->branch_nums[4] = 9;
-        this->branch_nums[5] = 10;
-        this->branch_nums[6] = 11;
-        this->branch_nums[7] = 12;
-
-        this->mldt.Init(zeta::core::lifecycle::SkipInitTag{},
-                        zeta::core::lifecycle::SkipInitTag{}, level,
-                        this->branch_nums, sizeof(T));
-
+    MultiLevelDataTableMap(): branch_nums{ 5, 6, 7, 8, 9, 10, 11, 12, },
+        mldt{ ZETA_Core_Lifecycle_PackInitArgs(),ZETA_Core_Lifecycle_PackInitArgs()
+               , 8, this->branch_nums, sizeof(T) }
+    {
         this->Sanitize();
     }
 
@@ -200,13 +247,11 @@ struct MultiLevelDataTableMap {
         return idx;
     }
 
-    template <typename Idx>
-    void SetIdxes_(size_t idx, Idx* dst_idxes) const {
+    void SetIdxes_(size_t idx, MLDT::BranchNum* dst_idxes) const {
         int level{ static_cast<int>(this->mldt.level) };
 
         for (int level_i{ 0 }; level_i < level; ++level_i) {
-            dst_idxes[level_i] =
-                static_cast<Idx>(idx % this->mldt.branch_nums[level_i]);
+            dst_idxes[level_i] = idx % this->mldt.branch_nums[level_i];
 
             idx /= this->mldt.branch_nums[level_i];
         }
@@ -220,20 +265,26 @@ struct MultiLevelDataTableMap {
         this->mldt.Sanitize(&nav_node_mem_recorder, &data_node_mem_recorder);
 
         zeta::core::mem_recorder::MatchRecords(
-            this->mldt.nav_node_alctr.mem_recorder, nav_node_mem_recorder);
+            this->mldt.nav_node_alctr_like.mem_recorder, nav_node_mem_recorder);
 
         zeta::core::mem_recorder::MatchRecords(
-            this->mldt.data_node_alctr.mem_recorder, data_node_mem_recorder);
+            this->mldt.data_node_alctr_like.mem_recorder,
+            data_node_mem_recorder);
     }
 
-    size_t GetCapacity() { return this->mldt.GetCapacity(); }
+    size_t GetCapacity() { return this->mldt.GetMaxElemCnt(); }
 
     T* Access(size_t idx) {
-        size_t idxes[MLDT::max_level];
+        MLDT::BranchNum idxes[MLDT::max_level];
 
         this->SetIdxes_(idx, idxes);
 
-        void* n = this->mldt.Access(idxes);
+        void* n = this->mldt.Access(zeta::core::lin_seq_elem_stream::Provider{
+            .data = idxes + (this->mldt.level - 1),
+            .elem_size = sizeof(MLDT::BranchNum),
+            .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
+            .elem_cnt = MLDT::max_level,
+        });
 
         this->Sanitize();
 
@@ -241,11 +292,19 @@ struct MultiLevelDataTableMap {
     }
 
     void Insert(size_t idx, T const& val) {
-        size_t idxes[MLDT::max_level];
+        MLDT::BranchNum idxes[MLDT::max_level];
 
         this->SetIdxes_(idx, idxes);
 
-        void* n{ this->mldt.Insert(idxes).first };
+        void* n{ this->mldt
+                     .Insert(zeta::core::lin_seq_elem_stream::Provider{
+                         .data = idxes + (this->mldt.level - 1),
+                         .elem_size = sizeof(MLDT::BranchNum),
+                         .elem_stride =
+                             -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
+                         .elem_cnt = MLDT::max_level,
+                     })
+                     .first };
 
         ZETA_Core_DebugAssert(n != nullptr);
 
@@ -255,20 +314,38 @@ struct MultiLevelDataTableMap {
     }
 
     void Erase(size_t idx) {
-        size_t idxes[MLDT::max_level];
+        MLDT::BranchNum idxes[MLDT::max_level];
 
         this->SetIdxes_(idx, idxes);
 
-        this->mldt.Erase(idxes);
+        this->mldt.Erase(zeta::core::lin_seq_elem_stream::Provider{
+            .data = idxes + (this->mldt.level - 1),
+            .elem_size = sizeof(MLDT::BranchNum),
+            .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
+            .elem_cnt = MLDT::max_level,
+        });
 
         this->Sanitize();
     }
 
     size_t FindPrev(size_t idx) {
-        size_t idxes[MLDT::max_level];
-        SetIdxes_(idx, idxes);
+        MLDT::BranchNum idxes[MLDT::max_level];
 
-        void* n{ this->mldt.FindPrevIncl(idxes, idxes) };
+        this->SetIdxes_(idx, idxes);
+
+        void* n{ this->mldt.FindPrevIncl(
+            zeta::core::lin_seq_elem_stream::Provider{
+                .data = idxes + (this->mldt.level - 1),
+                .elem_size = sizeof(MLDT::BranchNum),
+                .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
+                .elem_cnt = MLDT::max_level,
+            },
+            zeta::core::lin_seq_elem_stream::Acceptor{
+                .data = idxes + (this->mldt.level - 1),
+                .elem_size = sizeof(MLDT::BranchNum),
+                .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
+                .elem_cnt = MLDT::max_level,
+            }) };
 
         this->Sanitize();
 
@@ -276,10 +353,22 @@ struct MultiLevelDataTableMap {
     }
 
     size_t FindNext(size_t idx) {
-        size_t idxes[MLDT::max_level];
-        SetIdxes_(idx, idxes);
+        MLDT::BranchNum idxes[MLDT::max_level];
+        this->SetIdxes_(idx, idxes);
 
-        void* n{ this->mldt.FindNextIncl(idxes, idxes) };
+        void* n{ this->mldt.FindNextIncl(
+            zeta::core::lin_seq_elem_stream::Provider{
+                .data = idxes + (this->mldt.level - 1),
+                .elem_size = sizeof(MLDT::BranchNum),
+                .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
+                .elem_cnt = MLDT::max_level,
+            },
+            zeta::core::lin_seq_elem_stream::Acceptor{
+                .data = idxes + (this->mldt.level - 1),
+                .elem_size = sizeof(MLDT::BranchNum),
+                .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
+                .elem_cnt = MLDT::max_level,
+            }) };
 
         this->Sanitize();
 
@@ -287,17 +376,44 @@ struct MultiLevelDataTableMap {
     }
 
     std::vector<std::pair<size_t, T>> Dump() {
-        size_t idxes[MLDT::max_level];
-        SetIdxes_(0, idxes);
+        MLDT::BranchNum idxes[MLDT::max_level];
+
+        this->SetIdxes_(0, idxes);
 
         std::vector<std::pair<size_t, T>> ret;
 
-        void* n{ this->mldt.FindNextIncl(idxes, idxes) };
+        void* n{ this->mldt.FindNextIncl(
+            zeta::core::lin_seq_elem_stream::Provider{
+                .data = idxes + (this->mldt.level - 1),
+                .elem_size = sizeof(MLDT::BranchNum),
+                .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
+                .elem_cnt = MLDT::max_level,
+            },
+            zeta::core::lin_seq_elem_stream::Acceptor{
+                .data = idxes + (this->mldt.level - 1),
+                .elem_size = sizeof(MLDT::BranchNum),
+                .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
+                .elem_cnt = MLDT::max_level,
+            }) };
 
         while (n != nullptr) {
             ret.push_back({ GetIdx_(idxes), *static_cast<T*>(n) });
 
-            n = this->mldt.FindNextExcl(idxes, idxes);
+            n = this->mldt.FindNextExcl(
+                zeta::core::lin_seq_elem_stream::Provider{
+                    .data = idxes + (this->mldt.level - 1),
+                    .elem_size = sizeof(MLDT::BranchNum),
+                    .elem_stride =
+                        -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
+                    .elem_cnt = MLDT::max_level,
+                },
+                zeta::core::lin_seq_elem_stream::Acceptor{
+                    .data = idxes + (this->mldt.level - 1),
+                    .elem_size = sizeof(MLDT::BranchNum),
+                    .elem_stride =
+                        -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
+                    .elem_cnt = MLDT::max_level,
+                });
         }
 
         return ret;

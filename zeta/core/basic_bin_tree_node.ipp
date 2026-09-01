@@ -46,34 +46,57 @@ void InitLinks_(Node<NodeTplArgList>* n) {
 }  // namespace basic_bin_tree_node::detail
 
 template <NodeTplParamList>
-template <typename _>
-    requires requires {
-        requires meta::IsSame<_, void>;
-        requires !AccSizeTag::value;
-    }
-constexpr void basic_bin_tree_node::Node<NodeTplArgList>::Init() {
+constexpr void basic_bin_tree_node::Node<NodeTplArgList>::Init()
+    requires(!AccSizeTag::value)
+{
     detail::InitLinks_(this);
 }
 
 template <NodeTplParamList>
-template <typename _>
-    requires requires {
-        requires meta::IsSame<_, void>;
-        requires AccSizeTag::value;
-    }
-constexpr void basic_bin_tree_node::Node<NodeTplArgList>::Init(
-    size_t acc_size) {
+constexpr void basic_bin_tree_node::Node<NodeTplArgList>::Init(size_t acc_size)
+    requires AccSizeTag::value
+{
     detail::InitLinks_(this);
     this->acc_size = acc_size;
 }
 
 template <NodeTplParamList>
-template <typename _>
-    requires requires {
-        requires meta::IsSame<_, void>;
-        requires AccSizeTag::value;
-    }
-constexpr size_t basic_bin_tree_node::Node<NodeTplArgList>::GetNullAccSize() {
+constexpr bool basic_bin_tree_node::Node<NodeTplArgList>::IsConst(
+    bin_tree::Tag, meta::TypeWrapper<Node>) {
+    return false;
+}
+
+template <NodeTplParamList>
+constexpr bool basic_bin_tree_node::Node<NodeTplArgList>::IsConst(
+    bin_tree::Tag, meta::TypeWrapper<Node const>) {
+    return true;
+}
+
+template <NodeTplParamList>
+constexpr bool basic_bin_tree_node::Node<NodeTplArgList>::HasAccSize(
+    bin_tree::Tag, meta::TypeWrapper<Node>) {
+    return AccSizeTag::value;
+}
+
+template <NodeTplParamList>
+constexpr bool basic_bin_tree_node::Node<NodeTplArgList>::HasAccSize(
+    bin_tree::Tag, meta::TypeWrapper<Node const>) {
+    return AccSizeTag::value;
+}
+
+template <NodeTplParamList>
+constexpr size_t basic_bin_tree_node::Node<NodeTplArgList>::GetNullAccSize(
+    bin_tree::Tag, meta::TypeWrapper<Node>)
+    requires AccSizeTag::value
+{
+    return 0;
+}
+
+template <NodeTplParamList>
+constexpr size_t basic_bin_tree_node::Node<NodeTplArgList>::GetNullAccSize(
+    bin_tree::Tag, meta::TypeWrapper<Node const>)
+    requires AccSizeTag::value
+{
     return 0;
 }
 
@@ -114,6 +137,24 @@ basic_bin_tree_node::Node<NodeTplArgList>::GetRPtr() {
 }
 
 template <NodeTplParamList>
+constexpr basic_bin_tree_node::Node<NodeTplArgList>*
+basic_bin_tree_node::Node<NodeTplArgList>::GetP(bin_tree::Tag) {
+    return this->GetPPtr();
+}
+
+template <NodeTplParamList>
+constexpr basic_bin_tree_node::Node<NodeTplArgList>*
+basic_bin_tree_node::Node<NodeTplArgList>::GetL(bin_tree::Tag) {
+    return this->GetLPtr();
+}
+
+template <NodeTplParamList>
+constexpr basic_bin_tree_node::Node<NodeTplArgList>*
+basic_bin_tree_node::Node<NodeTplArgList>::GetR(bin_tree::Tag) {
+    return this->GetRPtr();
+}
+
+template <NodeTplParamList>
 constexpr basic_bin_tree_node::Node<NodeTplArgList> const*
 basic_bin_tree_node::Node<NodeTplArgList>::GetPPtr() const {
     return const_cast<Node*>(this)->GetPPtr();
@@ -129,6 +170,24 @@ template <NodeTplParamList>
 constexpr basic_bin_tree_node::Node<NodeTplArgList> const*
 basic_bin_tree_node::Node<NodeTplArgList>::GetRPtr() const {
     return const_cast<Node*>(this)->GetRPtr();
+}
+
+template <NodeTplParamList>
+constexpr basic_bin_tree_node::Node<NodeTplArgList> const*
+basic_bin_tree_node::Node<NodeTplArgList>::GetP(bin_tree::Tag) const {
+    return this->GetPPtr();
+}
+
+template <NodeTplParamList>
+constexpr basic_bin_tree_node::Node<NodeTplArgList> const*
+basic_bin_tree_node::Node<NodeTplArgList>::GetL(bin_tree::Tag) const {
+    return this->GetLPtr();
+}
+
+template <NodeTplParamList>
+constexpr basic_bin_tree_node::Node<NodeTplArgList> const*
+basic_bin_tree_node::Node<NodeTplArgList>::GetR(bin_tree::Tag) const {
+    return this->GetRPtr();
 }
 
 template <NodeTplParamList>
@@ -150,7 +209,8 @@ constexpr unsigned basic_bin_tree_node::Node<NodeTplArgList>::GetRColor()
 }
 
 template <NodeTplParamList>
-constexpr unsigned basic_bin_tree_node::Node<NodeTplArgList>::GetColor() const {
+constexpr unsigned basic_bin_tree_node::Node<NodeTplArgList>::GetColor(
+    rbtree::Tag) const {
     ZETA_Core_StaticAssert(PrimaryColorTag == PrimaryColorTagEnum::P ||
                            PrimaryColorTag == PrimaryColorTagEnum::L ||
                            PrimaryColorTag == PrimaryColorTagEnum::R);
@@ -169,7 +229,8 @@ constexpr unsigned basic_bin_tree_node::Node<NodeTplArgList>::GetColor() const {
 }
 
 template <NodeTplParamList>
-constexpr void basic_bin_tree_node::Node<NodeTplArgList>::SetPPtr(Node* m) {
+constexpr void basic_bin_tree_node::Node<NodeTplArgList>::SetP(bin_tree::Tag,
+                                                               Node* m) {
     if constexpr (IsRelLink || PColorTag::value) {
         m = m == nullptr ? this : m;
     }
@@ -178,7 +239,8 @@ constexpr void basic_bin_tree_node::Node<NodeTplArgList>::SetPPtr(Node* m) {
 }
 
 template <NodeTplParamList>
-constexpr void basic_bin_tree_node::Node<NodeTplArgList>::SetLPtr(Node* m) {
+constexpr void basic_bin_tree_node::Node<NodeTplArgList>::SetL(bin_tree::Tag,
+                                                               Node* m) {
     if constexpr (IsRelLink || LColorTag::value) {
         m = m == nullptr ? this : m;
     }
@@ -187,7 +249,8 @@ constexpr void basic_bin_tree_node::Node<NodeTplArgList>::SetLPtr(Node* m) {
 }
 
 template <NodeTplParamList>
-constexpr void basic_bin_tree_node::Node<NodeTplArgList>::SetRPtr(Node* m) {
+constexpr void basic_bin_tree_node::Node<NodeTplArgList>::SetR(bin_tree::Tag,
+                                                               Node* m) {
     if constexpr (IsRelLink || RColorTag::value) {
         m = m == nullptr ? this : m;
     }
@@ -215,11 +278,11 @@ constexpr void basic_bin_tree_node::Node<NodeTplArgList>::SetRColor(
 
 template <NodeTplParamList>
 constexpr void basic_bin_tree_node::Node<NodeTplArgList>::SetColor(
-    unsigned color) {
-    ZETA_Core_StaticAssert(PrimaryColorTag == PrimaryColorTagEnum::P ||
-                           PrimaryColorTag == PrimaryColorTagEnum::L ||
-                           PrimaryColorTag == PrimaryColorTagEnum::R);
-
+    rbtree::Tag, unsigned color)
+    requires(PrimaryColorTag == PrimaryColorTagEnum::P ||
+             PrimaryColorTag == PrimaryColorTagEnum::L ||
+             PrimaryColorTag == PrimaryColorTagEnum::R)
+{
     if constexpr (PrimaryColorTag == PrimaryColorTagEnum::P) {
         this->SetPColor(color);
     }
@@ -234,40 +297,19 @@ constexpr void basic_bin_tree_node::Node<NodeTplArgList>::SetColor(
 }
 
 template <NodeTplParamList>
-template <typename, typename>
-constexpr size_t basic_bin_tree_node::Node<NodeTplArgList>::GetAccSize() const {
+constexpr size_t basic_bin_tree_node::Node<NodeTplArgList>::GetAccSize(
+    bin_tree::Tag) const
+    requires AccSizeTag::value
+{
     return this->acc_size;
 }
 
 template <NodeTplParamList>
-template <typename, typename>
 constexpr void basic_bin_tree_node::Node<NodeTplArgList>::SetAccSize(
-    size_t acc_size) {
+    bin_tree::Tag, size_t acc_size)
+    requires AccSizeTag::value
+{
     this->acc_size = acc_size;
-}
-
-template <NodeTplParamList>
-constexpr bool
-bin_tree::NodeTraits<basic_bin_tree_node::Node<NodeTplArgList>>::IsConst() {
-    return false;
-}
-
-template <NodeTplParamList>
-constexpr bool
-bin_tree::NodeTraits<basic_bin_tree_node::Node<NodeTplArgList>>::HasAccSize() {
-    return AccSizeTag::value;
-}
-
-template <NodeTplParamList>
-constexpr bool bin_tree::NodeTraits<
-    basic_bin_tree_node::Node<NodeTplArgList> const>::IsConst() {
-    return true;
-}
-
-template <NodeTplParamList>
-constexpr bool bin_tree::NodeTraits<
-    basic_bin_tree_node::Node<NodeTplArgList> const>::HasAccSize() {
-    return AccSizeTag::value;
 }
 
 }  // namespace zeta::core

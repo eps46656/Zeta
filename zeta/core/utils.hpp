@@ -39,8 +39,24 @@ constexpr int ElemCompare(void const* a, void const* b, size_t elem_size,
                           size_t cnt);
 
 constexpr void ElemCopy(void* dst, void const* src, size_t elem_size,
-                        size_t dst_elem_stride, size_t src_elem_stride,
+                        ptrdiff_t dst_elem_stride, ptrdiff_t src_elem_stride,
                         size_t cnt);
+
+constexpr void EquistrideLinSeqCopy(void* dst, void const* src,
+                                    size_t elem_size, size_t elem_stride,
+                                    size_t cnt);
+
+constexpr void EquistrideLinSeqCopy(void* dst, void const* src,
+                                    size_t elem_size, ptrdiff_t elem_stride,
+                                    size_t cnt);
+
+constexpr void EquistrideLinSeqMove(void* dst, void const* src,
+                                    size_t elem_size, size_t elem_stride,
+                                    size_t cnt);
+
+constexpr void EquistrideLinSeqMove(void* dst, void const* src,
+                                    size_t elem_size, ptrdiff_t elem_stride,
+                                    size_t cnt);
 
 constexpr void ElemMove(void* dst, void const* src, size_t elem_size,
                         size_t dst_elem_stride, size_t src_stride, size_t cnt);
@@ -76,5 +92,52 @@ constexpr int Choose3(bool cond0, bool cond1, bool cond2,
 
 constexpr int Choose4(bool cond0, bool cond1, bool cond2, bool cond3,
                       unsigned long long* random_seed);
+
+enum struct TryResultType : unsigned char {
+    Value,
+    Reason,
+};
+
+using TryResultValueTag = meta::AutoValueWrapper<TryResultType::Value>;
+using TryResultReasonTag = meta::AutoValueWrapper<TryResultType::Reason>;
+
+template <typename Value_, typename Reason_>
+struct [[nodiscard]] TryResult {
+    using Value = Value_;
+    using Reason = Reason_;
+
+    TryResultType type;
+
+    union {
+        Value value;
+        Reason reason;
+    };
+
+    template <typename... Args>
+    constexpr TryResult(TryResultValueTag, Args&&... args);
+
+    template <typename... Args>
+    constexpr TryResult(TryResultReasonTag, Args&&... args);
+
+    constexpr TryResultType GetType(this TryResult const& self);
+
+    constexpr bool HasValue(this TryResult const& self);
+
+    constexpr bool HasReason(this TryResult const& self);
+
+    constexpr void CheckHasValue(this TryResult const& self);
+
+    constexpr void CheckHasError(this TryResult const& self);
+
+    constexpr Value& GetValue(this TryResult& self);
+
+    constexpr Value const& GetValue(this TryResult const& self);
+
+    constexpr Reason& GetReason(this TryResult& self);
+
+    constexpr Reason const& GetReason(this TryResult const& self);
+
+    constexpr void Discard(this TryResult const& self);
+};
 
 }  // namespace zeta::core::utils

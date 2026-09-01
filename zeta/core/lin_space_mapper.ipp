@@ -419,19 +419,6 @@ void lin_space_mapper::Sanitize(Mapper<MapperTplArgList> const& mapper,
     }
 }
 
-template <MapperTplParamList>
-template <typename... Args>
-void lifecycle::Traits<lin_space_mapper::Mapper<MapperTplArgList>>::Init(
-    lin_space_mapper::Mapper<MapperTplArgList>& mapper, Args&&... args) {
-    lin_space_mapper::Init(mapper, meta::Forward<Args>(args)...);
-}
-
-template <MapperTplParamList>
-void lifecycle::Traits<lin_space_mapper::Mapper<MapperTplArgList>>::Deinit(
-    lin_space_mapper::Mapper<MapperTplArgList>& mapper) {
-    lin_space_mapper::Deinit(mapper);
-}
-
 }  // namespace zeta::core
 
 #pragma pop_macro("MapperTplArgList")

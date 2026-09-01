@@ -9,20 +9,20 @@
 
 namespace zeta::core_test::circular_array_utils {
 
-using SeqCntrRef = core::seq_cntr_ref::Ref;
+using PolySeqCntr = core::poly_seq_cntr::Cntr;
 
 namespace CircularArrayNS = core::circular_array;
 using CircularArray = CircularArrayNS::Cntr;
 
 template <typename Elem>
-SeqCntrRef Create(size_t stride, size_t capacity);
+constexpr PolySeqCntr Create(size_t stride, size_t capacity);
 
-void Destroy(void* ca);
+constexpr void Destroy(void* ca);
 
-void Sanitize(void const* ca);
+constexpr void Sanitize(void const* ca);
 
 template <typename Elem>
-SeqCntrRef Create(size_t stride, size_t slot_cnt) {
+constexpr PolySeqCntr Create(size_t stride, size_t slot_cnt) {
     ZETA_Core_DebugAssert(sizeof(Elem) <= stride);
     ZETA_Core_DebugAssert(stride % alignof(Elem) == 0);
 
@@ -35,29 +35,23 @@ SeqCntrRef Create(size_t stride, size_t slot_cnt) {
     ca->slot_cnt = slot_cnt;
     ca->rot = 0;
 
-    core::seq_cntr::CntrTraits<CircularArray>::Read(
-        *ca, nullptr, 0, core::elem_stream::acceptor::EmptyAcceptor{});
-
-    // SeqCntrRef seq_cntr_ref{ *ca };
-    SeqCntrRef seq_cntr_ref;
-
     seq_cntr_utils::AddSanitizeFunc(ca, Sanitize);
 
     seq_cntr_utils::AddDestroyFunc(ca, Destroy);
 
-    return seq_cntr_ref;
+    ZETA_Core_StaticAssert(core::seq_cntr::IsSeqCntr<CircularArray>);
+
+    return *ca;
 }
 
-inline void Destroy(void* ca_) {
+constexpr void Destroy(void* ca_) {
     CircularArray* ca{ static_cast<CircularArray*>(ca_) };
 
     if (ca == nullptr) { return; }
 
-    // CircularArrayNS::Deinit(*ca);
-
     delete ca;
 }
 
-inline void Sanitize(void const*) {}
+constexpr void Sanitize(void const*) {}
 
 }  // namespace zeta::core_test::circular_array_utils

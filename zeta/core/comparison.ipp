@@ -8,104 +8,82 @@
 
 namespace zeta::core {
 
-template <typename Comparator, comparison::IsOpType OpType, typename A,
+template <typename Comparator, comparison::IsOpTag OpTag, typename A,
           typename B>
     requires comparison::CanCompare<Comparator, A, B>
-constexpr decltype(auto) comparison::Compare(Comparator const& cmptr, OpType op,
+constexpr decltype(auto) comparison::Compare(Comparator const& cmptr, OpTag op,
                                              A const& a, B const& b) {
-    return ComparatorTraits<meta::RemoveCVRef<Comparator>>::Compare(cmptr, op,
-                                                                    a, b);
-}
-
-template <typename Comparator>
-template <comparison::IsOpType OpType, typename A, typename B>
-constexpr decltype(auto)
-comparison::MemberFuncComparatorTraitsAdapter<Comparator>::Compare(
-    Comparator const& cmptr, OpType op, A const& a, B const& b) {
-    return cmptr.Compare(op, a, b);
+    return cmptr.Compare(Tag{}, op, a, b);
 }
 
 template <typename A, typename B>
 constexpr comparison::Ordering
-comparison::NativeOperatorComparatorTraitsAdapter<A, B>::Compare(
-    auto const&, meta::AutoValueWrapper<OpEnum::Order>, A const& a,
-    B const& b) {
-    if (a < b) { return Ordering::Less; }
-    if (a > b) { return Ordering::Greater; }
-    return Ordering::Equal;
+comparison::NativeOperatorComparatorAdapter<A, B>::Compare(Tag, OpTag::Order,
+                                                           A const& a,
+                                                           B const& b) {
+    return static_cast<comparison::Ordering>(
+        (a < b ? comparison::less_bit
+               : (comparison::equal_bit | comparison::greater_bit)) &
+        (a > b ? comparison::greater_bit
+               : (comparison::equal_bit | comparison::less_bit)));
 }
 
 template <typename A, typename B>
-constexpr bool comparison::NativeOperatorComparatorTraitsAdapter<A, B>::Compare(
-    auto const&, meta::AutoValueWrapper<OpEnum::Equal>, A const& a,
-    B const& b) {
+constexpr bool comparison::NativeOperatorComparatorAdapter<A, B>::Compare(
+    Tag, OpTag::Equal, A const& a, B const& b) {
     return a == b;
 }
 
 template <typename A, typename B>
-constexpr bool comparison::NativeOperatorComparatorTraitsAdapter<A, B>::Compare(
-    auto const&, meta::AutoValueWrapper<OpEnum::NotEqual>, A const& a,
-    B const& b) {
+constexpr bool comparison::NativeOperatorComparatorAdapter<A, B>::Compare(
+    Tag, OpTag::NotEqual, A const& a, B const& b) {
     return a != b;
 }
 
 template <typename A, typename B>
-constexpr bool comparison::NativeOperatorComparatorTraitsAdapter<A, B>::Compare(
-    auto const&, meta::AutoValueWrapper<OpEnum::Less>, A const& a, B const& b) {
+constexpr bool comparison::NativeOperatorComparatorAdapter<A, B>::Compare(
+    Tag, OpTag::Less, A const& a, B const& b) {
     return a < b;
 }
 
 template <typename A, typename B>
-constexpr bool comparison::NativeOperatorComparatorTraitsAdapter<A, B>::Compare(
-    auto const&, meta::AutoValueWrapper<OpEnum::LessEqual>, A const& a,
-    B const& b) {
+constexpr bool comparison::NativeOperatorComparatorAdapter<A, B>::Compare(
+    Tag, OpTag::LessEqual, A const& a, B const& b) {
     return a <= b;
 }
 
 template <typename A, typename B>
-constexpr bool comparison::NativeOperatorComparatorTraitsAdapter<A, B>::Compare(
-    auto const&, meta::AutoValueWrapper<OpEnum::Greater>, A const& a,
-    B const& b) {
+constexpr bool comparison::NativeOperatorComparatorAdapter<A, B>::Compare(
+    Tag, OpTag::Greater, A const& a, B const& b) {
     return a > b;
 }
 
 template <typename A, typename B>
-constexpr bool comparison::NativeOperatorComparatorTraitsAdapter<A, B>::Compare(
-    auto const&, meta::AutoValueWrapper<OpEnum::GreaterEqual>, A const& a,
-    B const& b) {
+constexpr bool comparison::NativeOperatorComparatorAdapter<A, B>::Compare(
+    Tag, OpTag::GreaterEqual, A const& a, B const& b) {
     return a >= b;
 }
 
-template <typename A, typename B>
-    requires(integral::IsIntegral<A> || meta::IsPointer<A> ||
-             meta::IsArray<A>) &&
-            (integral::IsIntegral<B> || meta::IsPointer<B> || meta::IsArray<B>)
-struct comparison::ComparatorTraits<comparison::BasicComparator<A, B>>
-    : public NativeOperatorComparatorTraitsAdapter<A, B> {};
-
-template <comparison::IsOpType OpType, typename A, typename B>
-constexpr auto comparison::EmptyComparator::Compare(OpType, A const&,
-                                                    B const&) {
-    if constexpr (meta::IsSame<OpType, meta::AutoValueWrapper<OpEnum::Order>>) {
+template <comparison::IsOpTag OpTag, typename A, typename B>
+constexpr auto comparison::EmptyComparator::Compare(OpTag, A const&, B const&) {
+    if constexpr (meta::IsSame<OpTag, comparison::OpTag::Order>) {
         return Ordering::Equal;
     } else {
-        return (meta::ToUnderlying(OpType::value) & equal_bit) != 0;
+        return (meta::ToUnderlying(OpTag::value) & equal_bit) != 0;
     }
 }
 
-template <typename OpType, typename A, typename B>
-constexpr auto comparison::BasicCompare(OpType op, A const& a, B const& b) {
+template <typename OpTag, typename A, typename B>
+constexpr auto comparison::BasicCompare(OpTag op, A const& a, B const& b) {
     return (Compare)(BasicComparator<A, B>{}, op, a, b);
 }
 
-template <>
-struct comparison::ComparatorTraits<comparison::UniversalBasicComparator> {
-    template <IsOpType OpType, typename A, typename B>
-    static constexpr auto Compare(UniversalBasicComparator, OpType op,
-                                  A const& a, B const& b) {
-        return (BasicCompare)(op, a, b);
-    }
-};
+template <comparison::IsOpTag OpTag, typename A, typename B>
+constexpr auto comparison::UniversalBasicComparator::Compare(Tag, OpTag op,
+                                                             A const& a,
+                                                             B const& b) {
+    return (BasicCompare)(op, a, b);
+}
 
 template <typename CompareType, typename A, typename B>
 constexpr auto comparison::TypeErasedBasicCompare(CompareType, void const* a,
@@ -114,7 +92,7 @@ constexpr auto comparison::TypeErasedBasicCompare(CompareType, void const* a,
                           *static_cast<B const*>(b));
 }
 
-template <meta::IsValueWrapperT<comparison::OpEnum> Op, typename A, typename B>
+template <comparison::IsOpTag Op, typename A, typename B>
 constexpr decltype(auto)
 comparison::CppStdBasicComparator<Op, A, B>::operator()(A const& a,
                                                         B const& b) const {
@@ -129,9 +107,7 @@ template <typename A, typename B>
         zeta::core::meta::RemoveCVRef<B>>::enable_equal
 constexpr bool operator==(A const& a, B const& b) {
     return zeta::core::comparison::BasicCompare(
-        zeta::core::meta::AutoValueWrapper<
-            zeta::core::comparison::OpEnum::Equal>{},
-        a, b);
+        zeta::core::comparison::OpTag::Equal{}, a, b);
 }
 
 template <typename A, typename B>
@@ -140,9 +116,7 @@ template <typename A, typename B>
         zeta::core::meta::RemoveCVRef<B>>::enable_not_equal
 constexpr bool operator!=(A const& a, B const& b) {
     return zeta::core::comparison::BasicCompare(
-        zeta::core::meta::AutoValueWrapper<
-            zeta::core::comparison::OpEnum::NotEqual>{},
-        a, b);
+        zeta::core::comparison::OpTag::NotEqual{}, a, b);
 }
 
 template <typename A, typename B>
@@ -151,9 +125,7 @@ template <typename A, typename B>
         zeta::core::meta::RemoveCVRef<B>>::enable_less
 constexpr bool operator<(A const& a, B const& b) {
     return zeta::core::comparison::BasicCompare(
-        zeta::core::meta::AutoValueWrapper<
-            zeta::core::comparison::OpEnum::Less>{},
-        a, b);
+        zeta::core::comparison::OpTag::Less{}, a, b);
 }
 
 template <typename A, typename B>
@@ -162,9 +134,7 @@ template <typename A, typename B>
         zeta::core::meta::RemoveCVRef<B>>::enable_less_equal
 constexpr bool operator<=(A const& a, B const& b) {
     return zeta::core::comparison::BasicCompare(
-        zeta::core::meta::AutoValueWrapper<
-            zeta::core::comparison::OpEnum::LessEqual>{},
-        a, b);
+        zeta::core::comparison::OpTag::LessEqual{}, a, b);
 }
 
 template <typename A, typename B>
@@ -173,9 +143,7 @@ template <typename A, typename B>
         zeta::core::meta::RemoveCVRef<B>>::enable_greater
 constexpr bool operator>(A const& a, B const& b) {
     return zeta::core::comparison::BasicCompare(
-        zeta::core::meta::AutoValueWrapper<
-            zeta::core::comparison::OpEnum::Greater>{},
-        a, b);
+        zeta::core::comparison::OpTag::Greater{}, a, b);
 }
 
 template <typename A, typename B>
@@ -184,7 +152,5 @@ template <typename A, typename B>
         zeta::core::meta::RemoveCVRef<B>>::enable_greater_equal
 constexpr bool operator>=(A const& a, B const& b) {
     return zeta::core::comparison::BasicCompare(
-        zeta::core::meta::AutoValueWrapper<
-            zeta::core::comparison::OpEnum::GreaterEqual>{},
-        a, b);
+        zeta::core::comparison::OpTag::GreaterEqual{}, a, b);
 }

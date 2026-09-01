@@ -10,29 +10,16 @@
 
 namespace zeta::core {
 
-template <typename Node>
-constexpr decltype(auto) rbtree::MemberFuncNodeTraitsAdapter<Node>::GetColor(
-    Node* n) {
-    return n->GetColor();
-}
-
-template <typename Node>
-template <typename _>
-    requires meta::IsSame<_, void>
-constexpr decltype(auto) rbtree::MemberFuncNodeTraitsAdapter<Node>::SetColor(
-    Node* n, unsigned color) {
-    n->SetColor(color);
-}
-
 template <rbtree::IsNode Node>
 constexpr unsigned rbtree::GetColor(Node* n) {
-    return NodeTraits<Node>::GetColor(n);
+    return n->GetColor(Tag{});
 }
 
 template <rbtree::IsNode Node>
 constexpr void rbtree::SetColor(Node* n, unsigned color) {
     ZETA_Core_StaticAssert(!bin_tree::IsConst<Node>());
-    NodeTraits<Node>::SetColor(n, color);
+
+    n->SetColor(Tag{}, color);
 }
 
 namespace rbtree::detail {

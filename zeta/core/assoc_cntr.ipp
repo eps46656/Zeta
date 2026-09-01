@@ -67,260 +67,6 @@ constexpr bool assoc_cntr::capability::CheckFlags(
     return true;
 }
 
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::GetReferedInstPtr(
-    Cntr& cntr) {
-    return cntr.GetReferedInstPtr();
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto) assoc_cntr::MemberFuncCntrTraitsAdapter<
-    Cntr, Cursor>::GetStaticEnabledCapabilityFlag() {
-    return Cntr::GetStaticEnabledCapabilityFlag();
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto) assoc_cntr::MemberFuncCntrTraitsAdapter<
-    Cntr, Cursor>::GetStaticDisabledCapabilityFlag() {
-    return Cntr::GetStaticDisabledCapabilityFlag();
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto) assoc_cntr::MemberFuncCntrTraitsAdapter<
-    Cntr, Cursor>::GetDynamicEnabledCapabilityFlag(Cntr& cntr) {
-    return cntr.GetDynamicEnabledCapabilityFlag();
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto) assoc_cntr::MemberFuncCntrTraitsAdapter<
-    Cntr, Cursor>::GetDynamicDisabledCapabilityFlag(Cntr& cntr) {
-    return cntr.GetDynamicDisabledCapabilityFlag();
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::GetCursorSize(
-    Cntr& cntr) {
-    return cntr.GetCursorSize();
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::GetElemSize(Cntr& cntr) {
-    return cntr.GetElemSize();
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::GetElemCnt(Cntr& cntr) {
-    return cntr.GetElemCnt();
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::GetMaxElemCnt(
-    Cntr& cntr) {
-    return cntr.GetMaxElemCnt();
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::GetLBCursor(
-    Cntr& cntr, void* dst_cursor) {
-    return cntr.GetLBCursor(static_cast<Cursor*>(dst_cursor));
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::GetRBCursor(
-    Cntr& cntr, void* dst_cursor) {
-    return cntr.GetRBCursor(static_cast<Cursor*>(dst_cursor));
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::PeekL(
-    Cntr& cntr, bool lazy_copy_elem, ElemPtrView* dst_elem_ptr_view,
-    void* dst_cursor, void* dst_elem) {
-    return cntr.PeekL(lazy_copy_elem, dst_elem_ptr_view,
-                      static_cast<Cursor*>(dst_cursor), dst_elem);
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::PeekR(
-    Cntr& cntr, bool lazy_copy_elem, ElemPtrView* dst_elem_ptr_view,
-    void* dst_cursor, void* dst_elem) {
-    return cntr.PeekR(lazy_copy_elem, dst_elem_ptr_view,
-                      static_cast<Cursor*>(dst_cursor), dst_elem);
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::Derefer(
-    Cntr& cntr, void* pos_cursor, bool lazy_copy_elem,
-    ElemPtrView* dst_elem_ptr_view, void* dst_elem) {
-    return cntr.Derefer(static_cast<Cursor*>(pos_cursor), lazy_copy_elem,
-                        dst_elem_ptr_view, dst_elem);
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::Find(
-    Cntr& cntr, void const* elem, bool lazy_copy_elem,
-    ElemPtrView* dst_elem_ptr_view, void* dst_cursor, void* dst_elem) {
-    return cntr.Find(elem, lazy_copy_elem, dst_elem_ptr_view,
-                     static_cast<Cursor*>(dst_cursor), dst_elem);
-}
-
-template <typename Cntr, typename Cursor>
-template <hash::CanHash<void const*> KeyHasher,
-          comparison::CanCompare<void const*, void const*> KeyElemComparator>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::Find(
-    Cntr& cntr, void const* key, KeyHasher const& key_hasher,
-    KeyElemComparator const& key_elem_cmptr, bool lazy_copy_elem,
-    ElemPtrView* dst_elem_ptr_view, void* dst_cursor, void* dst_elem) {
-    return cntr.Find(key, key_hasher, key_elem_cmptr, lazy_copy_elem,
-                     dst_elem_ptr_view, static_cast<Cursor*>(dst_cursor),
-                     dst_elem);
-}
-
-template <typename Cntr, typename Cursor>
-template <assoc_cntr::IsReader Reader>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::Read(Cntr& cntr,
-                                                            void* pos_cursor,
-                                                            size_t cnt,
-                                                            Reader&& reader,
-                                                            void* dst_cursor) {
-    return cntr.Read(static_cast<Cursor*>(pos_cursor), cnt, reader,
-                     static_cast<Cursor*>(dst_cursor));
-}
-
-template <typename Cntr, typename Cursor>
-template <assoc_cntr::IsWriter Writer>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::Insert(
-    Cntr& cntr, void const* elem, Writer&& writer, void* dst_cursor) {
-    return cntr.Insert(elem, writer, static_cast<Cursor*>(dst_cursor));
-}
-
-template <typename Cntr, typename Cursor>
-template <hash::CanHash<void const*> KeyHasher,
-          comparison::CanCompare<void const*, void const*> KeyElemComparator,
-          assoc_cntr::IsWriter Writer>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::Insert(
-    Cntr& cntr, void const* key, KeyHasher const& key_hasher,
-    KeyElemComparator const& key_elem_cmptr, Writer&& writer,
-    void* dst_cursor) {
-    return cntr.Insert(key, key_hasher, key_elem_cmptr, writer,
-                       static_cast<Cursor*>(dst_cursor));
-}
-
-template <typename Cntr, typename Cursor>
-template <assoc_cntr::IsReader Reader>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::PopL(Cntr& cntr,
-                                                            size_t cnt,
-                                                            Reader&& reader) {
-    return cntr.PopL(cnt, reader);
-}
-
-template <typename Cntr, typename Cursor>
-template <assoc_cntr::IsReader Reader>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::PopR(Cntr& cntr,
-                                                            size_t cnt,
-                                                            Reader&& reader) {
-    return cntr.PopR(cnt, reader);
-}
-
-template <typename Cntr, typename Cursor>
-template <assoc_cntr::IsReader Reader>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::Erase(Cntr& cntr,
-                                                             void* pos_cursor,
-                                                             size_t cnt,
-                                                             Reader&& reader) {
-    return cntr.Erase(static_cast<Cursor*>(pos_cursor), cnt, reader);
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::EraseAll(Cntr& cntr) {
-    return cntr.EraseAll();
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::CopyCursor(
-    Cntr& cntr, void* src_cursor, void* dst_cursor) {
-    return cntr.CopyCursor(static_cast<Cursor*>(src_cursor),
-                           static_cast<Cursor*>(dst_cursor));
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::AreEqualCursor(
-    Cntr& cntr, void* cursor_a, void* cursor_b) {
-    return cntr.AreEqualCursor(static_cast<Cursor*>(cursor_a),
-                               static_cast<Cursor*>(cursor_b));
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::CompareCursor(
-    Cntr& cntr, void* cursor_a, void* cursor_b) {
-    return cntr.CompareCursor(static_cast<Cursor*>(cursor_a),
-                              static_cast<Cursor*>(cursor_b));
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::GetCursorDist(
-    Cntr& cntr, void* cursor_a, void* cursor_b) {
-    return cntr.GetCursorDist(static_cast<Cursor*>(cursor_a),
-                              static_cast<Cursor*>(cursor_b));
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::GetCursorIdx(
-    Cntr& cntr, void* cursor) {
-    return cntr.GetCursorIdx(static_cast<Cursor*>(cursor));
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::CursorStepL(
-    Cntr& cntr, void* cursor) {
-    return cntr.CursorStepL(static_cast<Cursor*>(cursor));
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::CursorStepR(
-    Cntr& cntr, void* cursor) {
-    return cntr.CursorStepR(static_cast<Cursor*>(cursor));
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::CursorAdvanceL(
-    Cntr& cntr, void* cursor, size_t step) {
-    return cntr.CursorAdvanceL(static_cast<Cursor*>(cursor), step);
-}
-
-template <typename Cntr, typename Cursor>
-constexpr decltype(auto)
-assoc_cntr::MemberFuncCntrTraitsAdapter<Cntr, Cursor>::CursorAdvanceR(
-    Cntr& cntr, void* cursor, size_t step) {
-    return cntr.CursorAdvanceR(static_cast<Cursor*>(cursor), step);
-}
-
 #pragma push_macro("TestCapability")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define TestCapability(cap_flag, cap_name)           \
@@ -691,7 +437,7 @@ constexpr assoc_cntr::VTable assoc_cntr::BuildVTableBasic() {
                     Find,
                     [](void* cntr, void const* key,
                        hash_ref::Hasher const& key_hasher,
-                       comparison_ref::Comparator const& key_elem_cmptr,
+                       poly_comparison::Comparator const& key_elem_cmptr,
                        bool lazy_copy_elem, ElemPtrView* dst_elem_ptr_view,
                        void* dst_cursor, void* dst_elem) {
                         return (Find)(*static_cast<Cntr*>(cntr), key,
@@ -724,7 +470,7 @@ constexpr assoc_cntr::VTable assoc_cntr::BuildVTableBasic() {
                     Insert,
                     [](void* cntr, void const* key,
                        hash_ref::Hasher const& key_hasher,
-                       comparison_ref::Comparator const& key_elem_cmptr,
+                       poly_comparison::Comparator const& key_elem_cmptr,
                        EmptyWriter writer, void* dst_cursor) {
                         return (Insert)(*static_cast<Cntr*>(cntr), key,
                                         key_hasher, key_elem_cmptr, writer,
@@ -734,7 +480,7 @@ constexpr assoc_cntr::VTable assoc_cntr::BuildVTableBasic() {
                     Insert,
                     [](void* cntr, void const* key,
                        hash_ref::Hasher const& key_hasher,
-                       comparison_ref::Comparator const& key_elem_cmptr,
+                       poly_comparison::Comparator const& key_elem_cmptr,
                        FnWriter writer, void* dst_cursor) {
                         return (Insert)(*static_cast<Cntr*>(cntr), key,
                                         key_hasher, key_elem_cmptr, writer,

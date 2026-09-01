@@ -4,12 +4,12 @@
 
 #include <cstdlib>
 #include <zeta/core/assoc_cntr.hpp>
-#include <zeta/core/comparison_ref.ipp>
 #include <zeta/core/debug_hash_table.hpp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/function_ref.ipp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/poly_comparison.ipp>
 #include <zeta/core/utils.ipp>
 
 #pragma push_macro("CntrTplParamList")
@@ -82,8 +82,7 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::Init(this Cntr& cntr) {
         return comparison::Compare(
             *static_cast<meta::RemoveRef<decltype(meta::GetInstRef(
                 cntr.eq_proxy.elem_cmptr))> const*>(elem_cmptr),
-            meta::AutoValueWrapper<comparison::OpEnum::Equal>{}, elem_a,
-            elem_b);
+            comparison::OpTag::Equal{}, elem_a, elem_b);
     };
 
     cntr.hash_table =
@@ -314,7 +313,7 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::Find(
                                      void const* key, void const* elem) {
         return comparison::Compare(
             *static_cast<KeyElemComparator const*>(key_elem_cmptr),
-            meta::AutoValueWrapper<comparison::OpEnum::Equal>{}, key, elem);
+            comparison::OpTag::Equal{}, key, elem);
     };
 
     eq_wrapper.cur_key = key;
@@ -397,7 +396,7 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::Insert(
                                      void const* elem_wrapper) {
         return comparison::Compare(
             *static_cast<KeyElemComparator const*>(key_elem_cmptr),
-            meta::AutoValueWrapper<comparison::OpEnum::Equal>{}, key,
+            comparison::OpTag::Equal{}, key,
             static_cast<ObjWrapper const*>(elem_wrapper)->obj);
     };
 

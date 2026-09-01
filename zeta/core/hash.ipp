@@ -12,14 +12,7 @@ template <typename Hasher, typename Value>
 constexpr unsigned long long hash::Hash(Hasher const& hasher,
                                         Value const& value,
                                         unsigned long long salt) {
-    return HasherTraits<meta::RemoveCVRef<Hasher>>::Hash(hasher, value, salt);
-}
-
-template <typename Hasher>
-template <typename Value>
-constexpr decltype(auto) hash::MemberFuncHasherTraitsAdapter<Hasher>::Hash(
-    Hasher const& hasher, Value const& value, unsigned long long salt) {
-    return hasher.Hash(value, salt);
+    return hasher.Hash(Tag{}, value, salt);
 }
 
 template <typename Value>
@@ -35,60 +28,50 @@ unsigned long long hash::BasicHash(Value const& value,
 }
 
 template <integral::IsIntegral Integral>
-struct hash::HasherTraits<hash::BasicHasher<Integral>> {
-    static unsigned long long Hash(hash::BasicHasher<Integral>,
-                                   Integral integral, unsigned long long salt) {
-        auto unsigned_integral{ integral::MakeUnsignedOf<Integral>{
-            integral } };
+constexpr unsigned long long hash::BasicHasher<Integral>::Hash(
+    Tag, Integral integral, unsigned long long salt) {
+    auto unsigned_integral{ integral::MakeUnsignedOf<Integral>{ integral } };
 
-        unsigned long long value{ salt ^ static_cast<unsigned long long>(
-                                             unsigned_integral) };
+    unsigned long long value{ salt ^ static_cast<unsigned long long>(
+                                         unsigned_integral) };
 
-        if constexpr (integral::WidthOf<unsigned long long> <
-                      integral::WidthOf<Integral>) {
-            for (; 0 < unsigned_integral;
-                 unsigned_integral >>= integral::WidthOf<unsigned long long>) {
-                value *= 23;
-                value += static_cast<unsigned long long>(integral);
-            }
+    if constexpr (integral::WidthOf<unsigned long long> <
+                  integral::WidthOf<Integral>) {
+        for (; 0 < unsigned_integral;
+             unsigned_integral >>= integral::WidthOf<unsigned long long>) {
+            value *= 23;
+            value += static_cast<unsigned long long>(integral);
         }
+    }
 
 #if ZETA_Core_ullong_width == 32
-        value = (value ^ (value >> 16)) * 0x45d9f3bULL;
-        value = (value ^ (value >> 16)) * 0x45d9f3bULL;
-        value = value ^ (value >> 16);
+    value = (value ^ (value >> 16)) * 0x45d9f3bULL;
+    value = (value ^ (value >> 16)) * 0x45d9f3bULL;
+    value = value ^ (value >> 16);
 #elif ZETA_Core_ullong_width == 64
-        value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9ULL;
-        value = (value ^ (value >> 27)) * 0x94d049bb133111ebULL;
-        value = value ^ (value >> 31);
+    value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    value = (value ^ (value >> 27)) * 0x94d049bb133111ebULL;
+    value = value ^ (value >> 31);
 #else
 #error "Unsupported architecture."
 #endif
 
-        value ^= salt;
+    value ^= salt;
 
-        return value;
-    }
-};
+    return value;
+}
 
 template <meta::IsPointer Pointer>
-struct hash::HasherTraits<hash::BasicHasher<Pointer>> {
-    static unsigned long long Hash(hash::BasicHasher<Pointer>,
-                                   void* const pointer,
-                                   unsigned long long salt) {
-        return (BasicHash)(reinterpret_cast<uintptr_t>(pointer), salt);
-    }
-};
+constexpr unsigned long long hash::BasicHasher<Pointer>::Hash(
+    Tag, void* const pointer, unsigned long long salt) {
+    return (BasicHash)(reinterpret_cast<uintptr_t>(pointer), salt);
+}
 
-template <>
-struct hash::HasherTraits<hash::UniversalBasicHasher> {
-    template <typename Value>
-    static constexpr unsigned long long Hash(hash::UniversalBasicHasher,
-                                             Value const& value,
-                                             unsigned long long salt) {
-        return (BasicHash)(value, salt);
-    }
-};
+template <typename Value>
+constexpr unsigned long long hash::UniversalBasicHasher::Hash(
+    Tag, Value const& value, unsigned long long salt) {
+    return (BasicHash)(value, salt);
+}
 
 template <typename Value>
 unsigned long long hash::TypeErasedBasicHash(void const* value,

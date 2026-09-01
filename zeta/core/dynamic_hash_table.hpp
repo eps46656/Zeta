@@ -50,24 +50,6 @@ struct NodeHasherWrapper {
                                       unsigned long long salt) const;
 };
 
-}  // namespace zeta::core::dynamic_hash_table
-
-namespace zeta::core {
-
-template <typename ElemHasherLike>
-struct lifecycle::Traits<dynamic_hash_table::NodeHasherWrapper<ElemHasherLike>>
-    : public lifecycle::MemberFuncTraitsAdapter<
-          dynamic_hash_table::NodeHasherWrapper<ElemHasherLike>> {};
-
-template <typename ElemHasherLike>
-struct hash::HasherTraits<dynamic_hash_table::NodeHasherWrapper<ElemHasherLike>>
-    : public hash::MemberFuncHasherTraitsAdapter<
-          dynamic_hash_table::NodeHasherWrapper<ElemHasherLike>> {};
-
-}  // namespace zeta::core
-
-namespace zeta::core::dynamic_hash_table {
-
 template <typename ElemComparatorLike>
 struct NodeComparatorWrapper {
     ElemComparatorLike elem_cmptr;
@@ -77,53 +59,19 @@ struct NodeComparatorWrapper {
 
     constexpr void Deinit();
 
-    template <comparison::IsOpType OpType>
-    constexpr auto Compare(OpType, generic_hash_table::Node const* ghtn_a,
+    template <comparison::IsOpTag OpTag>
+    constexpr auto Compare(OpTag, generic_hash_table::Node const* ghtn_a,
                            generic_hash_table::Node const* ghtn_b) const;
 };
-
-}  // namespace zeta::core::dynamic_hash_table
-
-namespace zeta::core {
-
-template <typename ComparatorLike>
-struct lifecycle::Traits<
-    dynamic_hash_table::NodeComparatorWrapper<ComparatorLike>>
-    : public lifecycle::MemberFuncTraitsAdapter<
-          dynamic_hash_table::NodeComparatorWrapper<ComparatorLike>> {};
-
-template <typename ComparatorLike>
-struct comparison::ComparatorTraits<
-    dynamic_hash_table::NodeComparatorWrapper<ComparatorLike>>
-    : public comparison::MemberFuncComparatorTraitsAdapter<
-          dynamic_hash_table::NodeComparatorWrapper<ComparatorLike>> {};
-
-}  // namespace zeta::core
-
-namespace zeta::core::dynamic_hash_table {
 
 template <typename KeyElemComparatorLike>
 struct KeyNodeComparatorWrapper {
     KeyElemComparatorLike key_elem_cmptr;
 
-    template <comparison::IsOpType OpType>
-    constexpr auto Compare(OpType, void const* key_a,
+    template <comparison::IsOpTag OpTag>
+    constexpr auto Compare(OpTag, void const* key_a,
                            generic_hash_table::Node const* ghtn_b) const;
 };
-
-}  // namespace zeta::core::dynamic_hash_table
-
-namespace zeta::core {
-
-template <typename ComparatorLike>
-struct comparison::ComparatorTraits<
-    dynamic_hash_table::KeyNodeComparatorWrapper<ComparatorLike>>
-    : public comparison::MemberFuncComparatorTraitsAdapter<
-          dynamic_hash_table::KeyNodeComparatorWrapper<ComparatorLike>> {};
-
-}  // namespace zeta::core
-
-namespace zeta::core::dynamic_hash_table {
 
 struct Cursor {
     void const* cntr;
@@ -248,48 +196,6 @@ struct Cntr {
 };
 
 }  // namespace zeta::core::dynamic_hash_table
-
-namespace zeta::core {
-
-template <CntrTplParamList()>
-struct assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList>>
-    : public assoc_cntr::MemberFuncCntrTraitsAdapter<
-          dynamic_hash_table::Cntr<CntrTplArgList>,
-          dynamic_hash_table::Cursor> {
-    static constexpr assoc_cntr::capability::Flag
-    GetStaticEnabledCapabilityFlag();
-
-    static constexpr assoc_cntr::capability::Flag
-    GetStaticDisabledCapabilityFlag();
-
-    static constexpr assoc_cntr::capability::Flag
-    GetDynamicEnabledCapabilityFlag(dynamic_hash_table::Cntr<CntrTplArgList>&);
-
-    static constexpr assoc_cntr::capability::Flag
-    GetDynamicDisabledCapabilityFlag(dynamic_hash_table::Cntr<CntrTplArgList>&);
-};
-
-template <CntrTplParamList()>
-struct assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList> const>
-    : public assoc_cntr::MemberFuncCntrTraitsAdapter<
-          dynamic_hash_table::Cntr<CntrTplArgList> const,
-          dynamic_hash_table::Cursor> {
-    static constexpr assoc_cntr::capability::Flag
-    GetStaticEnabledCapabilityFlag();
-
-    static constexpr assoc_cntr::capability::Flag
-    GetStaticDisabledCapabilityFlag();
-
-    static constexpr assoc_cntr::capability::Flag
-    GetDynamicEnabledCapabilityFlag(
-        dynamic_hash_table::Cntr<CntrTplArgList> const&);
-
-    static constexpr assoc_cntr::capability::Flag
-    GetDynamicDisabledCapabilityFlag(
-        dynamic_hash_table::Cntr<CntrTplArgList> const&);
-};
-
-}  // namespace zeta::core
 
 #pragma pop_macro("CntrTplParamList")
 #pragma pop_macro("CntrTplArgList")

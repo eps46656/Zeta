@@ -1,10 +1,14 @@
 #pragma once
 
 #include <zeta/core/debug_utils.ipp>
+#include <zeta/core/elem_stream.ipp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/integral_endec.ipp>
 #include <zeta/core/integral_math.ipp>
+#include <zeta/core/lin_seq_elem_stream.ipp>
 #include <zeta/core/object_state_notation.hpp>
-#include <zeta/core/serde_utils.ipp>
+#include <zeta/core/pair.ipp>
+#include <zeta/core/unicode.hpp>
 #include <zeta/core/vlq_utils.ipp>
 
 namespace zeta::core {
@@ -76,11 +80,11 @@ object_state_notation::Config::ToHeader(this Config const& self) {
 }
 
 constexpr bool object_state_notation::NodeTag::Check(this NodeTag const& self) {
-    if (!(self.node_type == NodeTypeEnum::Null ||
-          self.node_type == NodeTypeEnum::Integral ||
-          self.node_type == NodeTypeEnum::IntegralList ||
-          self.node_type == NodeTypeEnum::NodeList ||
-          self.node_type == NodeTypeEnum::Terminator)) {
+    if (!(self.node_type == NodeType::Null ||
+          self.node_type == NodeType::Integral ||
+          self.node_type == NodeType::IntegralList ||
+          self.node_type == NodeType::NodeList ||
+          self.node_type == NodeType::Terminator)) {
         return false;
     }
 
@@ -90,7 +94,7 @@ constexpr bool object_state_notation::NodeTag::Check(this NodeTag const& self) {
 constexpr pair::Pair<bool, object_state_notation::NodeTag>
 object_state_notation::NodeTag::FromEncodedValue(unsigned char encoded_value) {
     NodeTag node_tag{
-        .node_type = static_cast<NodeTypeEnum>(encoded_value & NodeTypeMask),
+        .node_type = static_cast<NodeType>(encoded_value & NodeTypeMask),
         .has_name = (encoded_value & HasName) != 0,
         .has_obj_type = (encoded_value & HasObjType) != 0,
         .has_region = (encoded_value & HasRegion) != 0,
@@ -136,49 +140,52 @@ object_state_notation::IntegralDescriptor::ToEncodedValue(
 
 namespace object_state_notation::detail {
 
-template <typename Integral, typename DigitCntLike,
-          elem_stream::acceptor::IsAcceptor Acceptor>
-bool NormalSerializeIntegral_(Integral src_value, DigitCntLike digit_cnt_like,
-                              Acceptor&& acceptor) {
-    return serde_utils::SerializeIntegral(
-        src_value, meta::AutoValueWrapper<serde_utils::Endianness::Little>{},
+template <elem_stream::acceptor::IsAcceptor Acceptor, typename DigitCntLike,
+          typename SrcIntegral>
+constexpr integral_endec::EncodeResult NormalEncodeIntegral_(
+    Acceptor&& acceptor, DigitCntLike digit_cnt_like,
+    SrcIntegral const& src_value) {
+    return integral_endec::Encode(
+        acceptor, meta::AutoValueWrapper<integral_endec::Endianness::Little>{},
         meta::TypeWrapper<unsigned char>{}, meta::ValueWrapper<size_t, 8>{},
-        digit_cnt_like, false, acceptor, nullptr);
+        digit_cnt_like, src_value);
 }
 
-template <typename Integral, typename DigitCntLike,
-          elem_stream::provider::IsProvider Provider>
-bool NormalDeserializeIntegral_(Integral& dst_value,
-                                DigitCntLike digit_cnt_like,
-                                Provider&& provider) {
-    return serde_utils::DeserializeIntegral(
-        dst_value, meta::AutoValueWrapper<serde_utils::Endianness::Little>{},
+template <elem_stream::provider::IsProvider Provider, typename DigitCntLike,
+          typename DstIntegral>
+constexpr integral_endec::DecodeResult<DstIntegral> NormalDecodeIntegral_(
+    Provider&& provider, DigitCntLike digit_cnt_like,
+    meta::TypeWrapper<DstIntegral>) {
+    return integral_endec::Decode(
+        provider, meta::AutoValueWrapper<integral_endec::Endianness::Little>{},
         meta::TypeWrapper<unsigned char>{}, meta::ValueWrapper<size_t, 8>{},
-        digit_cnt_like, false, provider, nullptr);
+        digit_cnt_like, meta::TypeWrapper<DstIntegral>{});
 }
 
-template <typename Integral, elem_stream::acceptor::IsAcceptor Acceptor>
-bool LEB128SerializeIntegral_(Integral src_value, Acceptor&& acceptor) {
-    return vlq_utils::SerializeIntegral(
-        src_value, meta::AutoValueWrapper<serde_utils::Endianness::Little>{},
+template <elem_stream::acceptor::IsAcceptor Acceptor, typename SrcIntegral>
+constexpr void LEB128EncodeIntegral_(Acceptor&& acceptor,
+                                     SrcIntegral const& src_value) {
+    return vlq_utils::Encode(
+        acceptor, meta::AutoValueWrapper<integral_endec::Endianness::Little>{},
         meta::TypeWrapper<unsigned char>{}, meta::ValueWrapper<size_t, 8>{},
-        false, acceptor, nullptr);
+        src_value);
 }
 
-template <typename Integral, elem_stream::provider::IsProvider Provider>
-bool LEB128DeserializeIntegral_(Integral& dst_value, Provider&& provider) {
-    return vlq_utils::DeserializeIntegral(
-        dst_value, meta::AutoValueWrapper<serde_utils::Endianness::Little>{},
+template <elem_stream::provider::IsProvider Provider, typename DstIntegral>
+constexpr vlq_utils::DecodeResult<DstIntegral> LEB128DecodeIntegral_(
+    Provider&& provider, meta::TypeWrapper<DstIntegral>) {
+    return vlq_utils::Decode(
+        provider, meta::AutoValueWrapper<integral_endec::Endianness::Little>{},
         meta::TypeWrapper<unsigned char>{}, meta::ValueWrapper<size_t, 8>{},
-        false, provider, nullptr);
+        meta::TypeWrapper<DstIntegral>{});
 }
 
 }  // namespace object_state_notation::detail
 
 template <elem_stream::acceptor::IsAcceptor Acceptor>
-bool object_state_notation::SerializeHeaderToOctets(
+constexpr bool object_state_notation::EncodeHeaderToOctets(
     Acceptor&& acceptor, object_state_notation::Header const& src_header) {
-    if (!src_header.Check()) { return false; }
+    ZETA_Core_DebugAssert(src_header.Check());
 
     elem_stream::acceptor::Transfer(acceptor, src_header.magic, 1, 1,
                                     sizeof(src_header.magic));
@@ -190,8 +197,10 @@ bool object_state_notation::SerializeHeaderToOctets(
     elem_stream::acceptor::Transfer(acceptor, &src_header.version.patch, 1, 1,
                                     2);
 
-    detail::NormalSerializeIntegral_(src_header.region_attr_size,
-                                     meta::ValueWrapper<size_t, 1>{}, acceptor);
+    src_header.region_attr_size =
+        detail::NormalEncodeIntegral_(acceptor, meta::ValueWrapper<size_t, 1>{},
+                                      meta::TypeWrapper<unsigned char>{})
+            .value;
 
     elem_stream::acceptor::Transfer(acceptor, src_header.reserved, 1, 1,
                                     sizeof(src_header.reserved));
@@ -200,7 +209,7 @@ bool object_state_notation::SerializeHeaderToOctets(
 }
 
 template <elem_stream::provider::IsProvider Provider>
-bool object_state_notation::DeserializeHeaderFromOctets(
+constexpr bool object_state_notation::DecodeHeaderFromOctets(
     Provider&& provider, object_state_notation::Header& dst_header) {
     elem_stream::provider::Transfer(provider, dst_header.magic, 1, 1,
                                     sizeof(dst_header.magic));
@@ -212,8 +221,8 @@ bool object_state_notation::DeserializeHeaderFromOctets(
     elem_stream::provider::Transfer(provider, &dst_header.version.patch, 1, 1,
                                     2);
 
-    detail::NormalDeserializeIntegral_(
-        dst_header.region_attr_size, meta::ValueWrapper<size_t, 1>{}, provider);
+    detail::NormalDecodeIntegral_(dst_header.region_attr_size,
+                                  meta::ValueWrapper<size_t, 1>{}, provider);
 
     elem_stream::provider::Transfer(provider, dst_header.reserved, 1, 1,
                                     sizeof(dst_header.reserved));
@@ -221,54 +230,63 @@ bool object_state_notation::DeserializeHeaderFromOctets(
     return true;
 }
 
-constexpr object_state_notation::state_machine::SerializationStateMachineBase::
-    StateEnum
-    object_state_notation::state_machine::SerializationStateMachineBase::
-        SerializationStateMachineBase::FindNextState_(StateEnum cur_state,
-                                                      NodeTag const& node_tag) {
+namespace object_state_notation::detail {
+
+constexpr EncoderState FindNextState_(EncoderState cur_state,
+                                      NodeTag const& node_tag) {
     switch (cur_state) {
-    case StateEnum::ReceivingNodeTagOrTermination:
-    case StateEnum::ReceivingNodeTag:
-        if (node_tag.has_name) { return StateEnum::ReceivingNameString; }
+    case EncoderState::ReceivingNodeTag:
+    case EncoderState::ReceivingNodeTagOrFinish:
+        if (node_tag.has_name) { return EncoderState::ReceivingNameString; }
 
         [[fallthrough]];
 
-    case StateEnum::ReceivingNameString:
-        if (node_tag.has_obj_type) { return StateEnum::ReceivingObjTypeString; }
-
-        [[fallthrough]];
-
-    case StateEnum::ReceivingObjTypeString:
-        if (node_tag.has_region) { return StateEnum::ReceivingRegionAttr; }
-
-        [[fallthrough]];
-
-    case StateEnum::ReceivingRegionAttr:
-        switch (node_tag.node_type) {
-        case NodeTypeEnum::Null: return StateEnum::ReceivingTermination;
-
-        case NodeTypeEnum::Integral:
-        case NodeTypeEnum::IntegralList:
-            return StateEnum::ReceivingIntegralDescriptor;
-
-        case NodeTypeEnum::NodeList: return StateEnum::ReceivingListElemCnt;
-
-        default: ZETA_Core_Unreachable();
+    case EncoderState::ReceivingNameString:
+        if (node_tag.has_obj_type) {
+            return EncoderState::ReceivingObjTypeString;
         }
 
-        break;
+        [[fallthrough]];
 
-    default: ZETA_Core_Unreachable();
+    case EncoderState::ReceivingObjTypeString:
+        if (node_tag.has_region) { return EncoderState::ReceivingRegionAttr; }
+
+        [[fallthrough]];
+
+    case EncoderState::ReceivingRegionAttr: break;
+
+    case EncoderState::ReceivingIntegralDescriptor:
+    case EncoderState::ReceivingListElemCnt:
+    case EncoderState::ReceivingIntegral:
+    case EncoderState::ReceivingIntegralOrFinish:
+    case EncoderState::ReceivingFinish:
+    case EncoderState::Finished:
+    case EncoderState::Corrupted: ZETA_Core_Unreachable();
+    }
+
+    // when after ReceivingRegionAttr
+
+    switch (node_tag.node_type) {
+    case NodeType::Null: return EncoderState::ReceivingFinish;
+
+    case NodeType::Integral:
+    case NodeType::IntegralList:
+        return EncoderState::ReceivingIntegralDescriptor;
+
+    case NodeType::NodeList: return EncoderState::ReceivingListElemCnt;
+
+    case NodeType::Terminator: ZETA_Core_Unreachable();
     }
 }
 
+}  // namespace object_state_notation::detail
+
 template <elem_stream::acceptor::IsAcceptor Acceptor>
-constexpr object_state_notation::state_machine::
-    SerializeToOctetsStateMachine<Acceptor>::SerializeToOctetsStateMachine(
-        Config const& config, unsigned char* integral_chunk_buffer_data,
-        unsigned short integral_chunk_buffer_max_octet_cnt, Acceptor& acceptor)
+constexpr object_state_notation::Encoder<Acceptor>::Encoder(
+    Config const& config, unsigned char* integral_chunk_buffer_data,
+    unsigned short integral_chunk_buffer_max_octet_cnt, Acceptor& acceptor)
     : config{ config },
-      state{ StateEnum::ReceivingNodeTag },
+      state{ EncoderState::ReceivingNodeTag },
       depth{ 0 },
       integral_chunk_buffer{
           .data = integral_chunk_buffer_data,
@@ -279,34 +297,32 @@ constexpr object_state_notation::state_machine::
       acceptor{ acceptor } {}
 
 template <elem_stream::acceptor::IsAcceptor Acceptor>
-bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
-    Acceptor>::SerializeNodeTag(this SerializeToOctetsStateMachine& self,
-                                NodeTag const& src_node_tag) {
-    if (!(self.state == StateEnum::ReceivingNodeTag ||
-          self.state == StateEnum::ReceivingNodeTagOrTermination)) {
-        return false;
-    }
+constexpr utils::TryResult<meta::Monostate, meta::Monostate>
+object_state_notation::Encoder<Acceptor>::SendNodeTag(
+    this Encoder& self, NodeTag const& src_node_tag) {
+    ZETA_Core_DebugAssert(self.state == EncoderState::ReceivingNodeTag ||
+                          self.state == EncoderState::ReceivingNodeTagOrFinish);
 
-    if (!src_node_tag.Check()) { return false; }
+    if (!src_node_tag.Check()) { return utils::TryResultReasonTag{}; }
 
-    if (!(self.depth < max_depth)) { return false; }
+    ZETA_Core_DebugAssert(self.depth < max_depth);
 
-    if (!(src_node_tag.node_type != NodeTypeEnum::Terminator)) { return false; }
+    ZETA_Core_DebugAssert(src_node_tag.node_type != NodeType::Terminator);
 
-    if (0 < self.depth) {
-        if (self.res_elem_cnts[self.depth - 1] != static_cast<size_t>(-1)) {
-            --self.res_elem_cnts[self.depth - 1];
-        }
+    if (0 < self.depth &&
+        self.res_elem_cnts[self.depth - 1] != static_cast<size_t>(-1)) {
+        --self.res_elem_cnts[self.depth - 1];
     }
 
     auto [is_valid, node_tag_encoded_value]{ src_node_tag.ToEncodedValue() };
 
-    if (!is_valid) { return false; }
+    if (!is_valid) { return utils::TryResultReasonTag{}; }
 
-    if (!detail::NormalSerializeIntegral_(node_tag_encoded_value,
-                                          meta::ValueWrapper<size_t, 1>{},
-                                          self.acceptor)) {
-        return false;
+    if (detail::NormalEncodeIntegral_(self.acceptor,
+                                      meta::ValueWrapper<size_t, 1>{},
+                                      node_tag_encoded_value)
+            .value_out_of_range) {
+        return utils::TryResultReasonTag{};
     }
 
     ++self.depth;
@@ -314,27 +330,26 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
     self.node_tag_buffer = src_node_tag;
 
     switch (self.node_tag_buffer.node_type) {
-    case NodeTypeEnum::Null: self.res_elem_cnts[self.depth - 1] = 0; break;
-    case NodeTypeEnum::Integral: self.res_elem_cnts[self.depth - 1] = 1; break;
-    case NodeTypeEnum::IntegralList:
-    case NodeTypeEnum::NodeList:
-    case NodeTypeEnum::Terminator:
+    case NodeType::Null: self.res_elem_cnts[self.depth - 1] = 0; break;
+    case NodeType::Integral: self.res_elem_cnts[self.depth - 1] = 1; break;
+    case NodeType::IntegralList:
+    case NodeType::NodeList:
+    case NodeType::Terminator:
     }
 
-    self.state = (FindNextState_)(self.state, self.node_tag_buffer);
+    self.state = detail::FindNextState_(self.state, self.node_tag_buffer);
 
-    return true;
+    return utils::TryResultValueTag{};
 }
 
 template <elem_stream::acceptor::IsAcceptor Acceptor>
 template <elem_stream::provider::IsProvider Provider>
-bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
-    Acceptor>::SerializeString(this SerializeToOctetsStateMachine& self,
-                               Provider&& provider, size_t size) {
-    if (!(self.state == StateEnum::ReceivingNameString ||
-          self.state == StateEnum::ReceivingObjTypeString)) {
-        return false;
-    }
+constexpr utils::TryResult<meta::Monostate, meta::Monostate>
+object_state_notation::Encoder<Acceptor>::SendStringOctet(this Encoder& self,
+                                                          Provider&& provider,
+                                                          size_t size) {
+    ZETA_Core_DebugAssert(self.state == EncoderState::ReceivingNameString ||
+                          self.state == EncoderState::ReceivingObjTypeString);
 
     constexpr size_t buffer_size{ 256 };
     unsigned char buffer[256];
@@ -350,159 +365,136 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
         elem_stream::acceptor::Transfer(self.acceptor, buffer, 1, 1, size);
     }
 
-    return true;
-}
-
-template <elem_stream::acceptor::IsAcceptor Acceptor>
-bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
-    Acceptor>::TerminateSerializeString(this SerializeToOctetsStateMachine&
-                                            self) {
-    if (!(self.state == StateEnum::ReceivingNameString ||
-          self.state == StateEnum::ReceivingObjTypeString)) {
-        return false;
-    }
-
-    unsigned char zero_octet{ 0 };
-
-    elem_stream::acceptor::Transfer(self.acceptor, &zero_octet, 1, 1, 1);
-
-    self.state = (FindNextState_)(self.state, self.node_tag_buffer);
-
-    return true;
+    return utils::TryResultValueTag{};
 }
 
 template <elem_stream::acceptor::IsAcceptor Acceptor>
 template <integral::IsIntegral Integral>
-bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
-    Acceptor>::SerializeRegionAttr(this SerializeToOctetsStateMachine& self,
-                                   Integral region_beg, Integral region_size) {
-    if (!(self.state == StateEnum::ReceivingRegionAttr)) { return false; }
+constexpr utils::TryResult<meta::Monostate, meta::Monostate>
+object_state_notation::Encoder<Acceptor>::SendRegionAttr(this Encoder& self,
+                                                         Integral region_beg,
+                                                         Integral region_size) {
+    ZETA_Core_DebugAssert(self.state == EncoderState::ReceivingRegionAttr);
 
-    detail::NormalSerializeIntegral_(
-        region_beg, static_cast<size_t>(self.config.region_attr_size),
-        self.acceptor);
+    detail::NormalEncodeIntegral_(
+        self.acceptor, static_cast<size_t>(self.config.region_attr_size),
+        region_beg);
 
-    detail::NormalSerializeIntegral_(
-        region_size, static_cast<size_t>(self.config.region_attr_size),
-        self.acceptor);
+    detail::NormalEncodeIntegral_(
+        self.acceptor, static_cast<size_t>(self.config.region_attr_size),
+        region_size);
 
-    self.state = (FindNextState_)(self.state, self.node_tag_buffer);
+    self.state = detail::FindNextState_(self.state, self.node_tag_buffer);
 
-    return true;
+    return utils::TryResultValueTag{};
 }
 
 template <elem_stream::acceptor::IsAcceptor Acceptor>
-bool object_state_notation::state_machine::
-    SerializeToOctetsStateMachine<Acceptor>::SerializeIntegralDescriptor(
-        this SerializeToOctetsStateMachine& self,
-        IntegralDescriptor const& src_integral_descriptor) {
-    if (!(self.state == StateEnum::ReceivingIntegralDescriptor)) {
-        return false;
-    }
+constexpr utils::TryResult<meta::Monostate, meta::Monostate>
+object_state_notation::Encoder<Acceptor>::SendIntegralDescriptor(
+    this Encoder& self, IntegralDescriptor const& src_integral_descriptor) {
+    ZETA_Core_DebugAssert(self.state ==
+                          EncoderState::ReceivingIntegralDescriptor);
 
     auto [is_valid, integral_descriptor_encoded_value]{
         src_integral_descriptor.ToEncodedValue()
     };
 
-    if (!is_valid) { return false; }
+    if (!is_valid) { return utils::TryResultReasonTag{}; }
 
-    if (!detail::LEB128SerializeIntegral_(integral_descriptor_encoded_value,
-                                          self.acceptor)) {
-        return false;
-    }
+    detail::LEB128EncodeIntegral_(integral_descriptor_encoded_value,
+                                  self.acceptor);
 
     self.integral_descriptor_buffer = src_integral_descriptor;
 
     switch (self.node_tag_buffer.node_type) {
-    case NodeTypeEnum::Integral:
-        self.state = StateEnum::ReceivingIntegral;
+    case NodeType::Integral:
+        self.state = EncoderState::ReceivingIntegral;
         break;
 
-    case NodeTypeEnum::IntegralList:
-        self.state = StateEnum::ReceivingListElemCnt;
+    case NodeType::IntegralList:
+        self.state = EncoderState::ReceivingListElemCnt;
         break;
 
-    default: ZETA_Core_Unreachable();
+    case NodeType::Null:
+    case NodeType::NodeList:
+    case NodeType::Terminator: ZETA_Core_Unreachable();
     }
 
-    return true;
+    return utils::TryResultValueTag{};
 }
 
 template <elem_stream::acceptor::IsAcceptor Acceptor>
-bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
-    Acceptor>::SerializeListElemCnt(this SerializeToOctetsStateMachine& self,
-                                    size_t list_elem_cnt) {
-    if (!(self.state == StateEnum::ReceivingListElemCnt)) { return false; }
+constexpr utils::TryResult<meta::Monostate, meta::Monostate>
+object_state_notation::Encoder<Acceptor>::SendListElemCnt(
+    this Encoder& self, size_t list_elem_cnt) {
+    ZETA_Core_DebugAssert(self.state == EncoderState::ReceivingListElemCnt);
 
-    ZETA_Core_Debug_PrintVar(list_elem_cnt);
-
-    detail::LEB128SerializeIntegral_(list_elem_cnt + static_cast<size_t>(1),
-                                     self.acceptor);
+    detail::LEB128EncodeIntegral_(list_elem_cnt + static_cast<size_t>(1),
+                                  self.acceptor);
 
     self.res_elem_cnts[self.depth - 1] = list_elem_cnt;
 
     if (list_elem_cnt == 0) {
-        self.state = StateEnum::ReceivingTermination;
-        return true;
+        self.state = EncoderState::ReceivingFinish;
+        return utils::TryResultValueTag{};
     }
 
     switch (self.node_tag_buffer.node_type) {
-    case NodeTypeEnum::IntegralList:
+    case NodeType::IntegralList:
         self.state = list_elem_cnt == static_cast<size_t>(-1)
-                         ? StateEnum::ReceivingIntegralOrTermination
-                         : StateEnum::ReceivingIntegral;
+                         ? EncoderState::ReceivingIntegralOrFinish
+                         : EncoderState::ReceivingIntegral;
         break;
 
-    case NodeTypeEnum::NodeList:
+    case NodeType::NodeList:
         self.state = list_elem_cnt == static_cast<size_t>(-1)
-                         ? StateEnum::ReceivingNodeTagOrTermination
-                         : StateEnum::ReceivingNodeTag;
+                         ? EncoderState::ReceivingNodeTagOrFinish
+                         : EncoderState::ReceivingNodeTag;
         break;
 
-    default: ZETA_Core_Unreachable();
+    case NodeType::Null:
+    case NodeType::Integral:
+    case NodeType::Terminator: ZETA_Core_Unreachable();
     }
 
-    return true;
+    return utils::TryResultValueTag{};
 }
 
 template <elem_stream::acceptor::IsAcceptor Acceptor>
 template <integral::IsIntegral Integral>
-bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
-    Acceptor>::SerializeIntegral(this SerializeToOctetsStateMachine& self,
-                                 Integral src_integral) {
-    if (!(self.state == StateEnum::ReceivingIntegral ||
-          self.state == StateEnum::ReceivingIntegralOrTermination)) {
-        return false;
-    }
+constexpr utils::TryResult<meta::Monostate, meta::Monostate>
+object_state_notation::Encoder<Acceptor>::SendIntegral(this Encoder& self,
+                                                       Integral src_integral) {
+    ZETA_Core_DebugAssert(self.state == EncoderState::ReceivingIntegral ||
+                          self.state ==
+                              EncoderState::ReceivingIntegralOrFinish);
 
     if (self.integral_descriptor_buffer.is_signed !=
         integral::IsSignedIntegral<Integral>) {
-        return false;
+        return utils::TryResultReasonTag{};
     }
-
-    ZETA_Core_Debug_PrintVar(src_integral);
-    ZETA_Core_Debug_PrintVar(self.res_elem_cnts[self.depth - 1]);
 
     size_t integral_size{ self.integral_descriptor_buffer.size };
 
     if (self.res_elem_cnts[self.depth - 1] != static_cast<size_t>(-1)) {
         if (integral_size == 0) {
-            detail::LEB128SerializeIntegral_(src_integral, self.acceptor);
+            detail::LEB128EncodeIntegral_(self.acceptor, src_integral);
         } else {
-            detail::NormalSerializeIntegral_(src_integral,
-                                             static_cast<size_t>(integral_size),
-                                             self.acceptor);
+            detail::NormalEncodeIntegral_(self.acceptor,
+                                          static_cast<size_t>(integral_size),
+                                          src_integral);
         }
 
         if (--self.res_elem_cnts[self.depth - 1] == 0) {
-            self.state = StateEnum::ReceivingTermination;
+            self.state = EncoderState::ReceivingFinish;
         }
 
-        return true;
+        return utils::TryResultValueTag{};
     }
 
     size_t est_integral_size{
-        integral_size == 0 ? vlq_utils::EstimateSerializedUnitCnt(
+        integral_size == 0 ? vlq_utils::EstimateEncodedUnitCnt(
                                  src_integral, meta::ValueWrapper<size_t, 8>{})
                            : integral_size
     };
@@ -510,9 +502,9 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
     if (self.integral_chunk_buffer.elem_cnt + 1 == 255 ||
         self.integral_chunk_buffer.max_octet_cnt <
             self.integral_chunk_buffer.octet_cnt + est_integral_size) {
-        detail::NormalSerializeIntegral_(
-            self.integral_chunk_buffer.elem_cnt + 1,
-            meta::ValueWrapper<size_t, 1>{}, self.acceptor);
+        detail::NormalEncodeIntegral_(self.acceptor,
+                                      meta::ValueWrapper<size_t, 1>{},
+                                      self.integral_chunk_buffer.elem_cnt + 1);
 
         if (0 < self.integral_chunk_buffer.elem_cnt) {
             elem_stream::acceptor::Transfer(
@@ -524,17 +516,14 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
         }
 
         if (integral_size == 0) {
-            detail::LEB128SerializeIntegral_(src_integral, self.acceptor);
+            detail::LEB128EncodeIntegral_(self.acceptor, src_integral);
         } else {
-            ZETA_Core_Debug_PrintVar(src_integral);
-            ZETA_Core_Debug_PrintVar(integral_size);
-
-            detail::NormalSerializeIntegral_(src_integral,
-                                             static_cast<size_t>(integral_size),
-                                             self.acceptor);
+            detail::NormalEncodeIntegral_(self.acceptor,
+                                          static_cast<size_t>(integral_size),
+                                          src_integral);
         }
 
-        return true;
+        return utils::TryResultValueTag{};
     }
 
     lin_seq_elem_stream::Acceptor integral_chunk_elem_stream_acceptor{
@@ -546,40 +535,52 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
     };
 
     if (integral_size == 0) {
-        detail::LEB128SerializeIntegral_(src_integral,
-                                         integral_chunk_elem_stream_acceptor);
+        detail::LEB128EncodeIntegral_(integral_chunk_elem_stream_acceptor,
+                                      src_integral);
     } else {
-        detail::NormalSerializeIntegral_(src_integral,
-                                         static_cast<size_t>(integral_size),
-                                         integral_chunk_elem_stream_acceptor);
+        detail::NormalEncodeIntegral_(integral_chunk_elem_stream_acceptor,
+                                      static_cast<size_t>(integral_size),
+                                      src_integral);
     }
 
     ++self.integral_chunk_buffer.elem_cnt;
     self.integral_chunk_buffer.octet_cnt += est_integral_size;
 
-    return true;
+    return utils::TryResultValueTag{};
 }
 
 template <elem_stream::acceptor::IsAcceptor Acceptor>
-bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
-    Acceptor>::TerminateNode(this SerializeToOctetsStateMachine& self) {
-    if (!(self.state == StateEnum::ReceivingNodeTagOrTermination ||
-          self.state == StateEnum::ReceivingIntegralOrTermination ||
-          self.state == StateEnum::ReceivingTermination)) {
-        return false;
+constexpr utils::TryResult<meta::Monostate, meta::Monostate>
+object_state_notation::Encoder<Acceptor>::SendFinish(this Encoder& self) {
+    ZETA_Core_DebugAssert(
+        self.state == EncoderState::ReceivingNodeTagOrFinish ||
+        self.state == EncoderState::ReceivingNameString ||
+        self.state == EncoderState::ReceivingObjTypeString ||
+        self.state == EncoderState::ReceivingIntegralOrFinish ||
+        self.state == EncoderState::ReceivingFinish);
+
+    if (self.state == EncoderState::ReceivingNameString ||
+        self.state == EncoderState::ReceivingObjTypeString) {
+        constexpr unsigned char zero_octet{ 0 };
+
+        elem_stream::acceptor::Transfer(self.acceptor, &zero_octet, 1, 1, 1);
+
+        self.state = detail::FindNextState_(self.state, self.node_tag_buffer);
+
+        return utils::TryResultValueTag{};
     }
 
     switch (self.node_tag_buffer.node_type) {
-    case NodeTypeEnum::Null: break;
+    case NodeType::Null: break;
 
-    case NodeTypeEnum::Integral: break;
+    case NodeType::Integral: break;
 
-    case NodeTypeEnum::IntegralList:
+    case NodeType::IntegralList:
         if (self.res_elem_cnts[self.depth - 1] == static_cast<size_t>(-1)) {
             if (0 < self.integral_chunk_buffer.elem_cnt) {
-                detail::NormalSerializeIntegral_(
-                    self.integral_chunk_buffer.elem_cnt,
-                    meta::ValueWrapper<size_t, 1>{}, self.acceptor);
+                detail::NormalEncodeIntegral_(
+                    self.acceptor, meta::ValueWrapper<size_t, 1>{},
+                    self.integral_chunk_buffer.elem_cnt);
 
                 elem_stream::acceptor::Transfer(
                     self.acceptor, self.integral_chunk_buffer.data, 1, 1,
@@ -589,17 +590,16 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
                 self.integral_chunk_buffer.octet_cnt = 0;
             }
 
-            detail::NormalSerializeIntegral_(0, meta::ValueWrapper<size_t, 1>{},
-                                             self.acceptor);
+            detail::NormalEncodeIntegral_(self.acceptor,
+                                          meta::ValueWrapper<size_t, 1>{}, 0);
         }
 
         break;
 
-    case NodeTypeEnum::NodeList:
-
+    case NodeType::NodeList:
         if (self.res_elem_cnts[self.depth - 1] == static_cast<size_t>(-1)) {
             unsigned char node_tag{ NodeTag{
-                .node_type = NodeTypeEnum::Terminator,
+                .node_type = NodeType::Terminator,
                 .has_name = false,
                 .has_obj_type = false,
                 .has_region = false,
@@ -612,115 +612,126 @@ bool object_state_notation::state_machine::SerializeToOctetsStateMachine<
 
         break;
 
-    default: ZETA_Core_Unreachable();
+    case NodeType::Terminator: ZETA_Core_Unreachable();
     }
 
     --self.depth;
 
     if (self.depth == 0) {
-        self.state = StateEnum::Finished;
-        return true;
+        self.state = EncoderState::Finished;
+        return utils::TryResultValueTag{};
     }
 
     self.node_tag_buffer = NodeTag{
-        .node_type = NodeTypeEnum::NodeList,
+        .node_type = NodeType::NodeList,
         .has_name = false,
         .has_obj_type = false,
         .has_region = false,
     };
 
     switch (self.res_elem_cnts[self.depth - 1]) {
-    case 0: self.state = StateEnum::ReceivingTermination; break;
+    case 0: self.state = EncoderState::ReceivingFinish; break;
 
     case static_cast<size_t>(-1):
-        self.state = StateEnum::ReceivingNodeTagOrTermination;
+        self.state = EncoderState::ReceivingNodeTagOrFinish;
         break;
 
-    default: self.state = StateEnum::ReceivingNodeTag; break;
+    default: self.state = EncoderState::ReceivingNodeTag; break;
     }
 
-    return true;
+    return utils::TryResultValueTag{};
 }
 
-constexpr object_state_notation::state_machine::
-    DeserializationStateMachineBase::StateEnum
-    object_state_notation::state_machine::DeserializationStateMachineBase::
-        FindNextState_(StateEnum cur_state, NodeTag const& node_tag) {
+namespace object_state_notation::detail {
+
+constexpr DecoderState FindNextState_(DecoderState cur_state,
+                                      NodeTag const& node_tag) {
     switch (cur_state) {
-    case StateEnum::SendingNodeTag:
-        if (node_tag.has_name) { return StateEnum::SendingNameString; }
+    case DecoderState::SendingNodeTag:
+        if (node_tag.has_name) { return DecoderState::SendingNameString; }
 
         [[fallthrough]];
 
-    case StateEnum::SendingNameString:
-        if (node_tag.has_obj_type) { return StateEnum::SendingObjTypeString; }
-
-        [[fallthrough]];
-
-    case StateEnum::SendingObjTypeString:
-        if (node_tag.has_region) { return StateEnum::SendingRegionAttr; }
-
-        [[fallthrough]];
-
-    case StateEnum::SendingRegionAttr:
-        switch (node_tag.node_type) {
-        case NodeTypeEnum::Null: return StateEnum::SendingTermination;
-
-        case NodeTypeEnum::Integral:
-        case NodeTypeEnum::IntegralList:
-            return StateEnum::SendingIntegralDescriptor;
-
-        case NodeTypeEnum::NodeList: return StateEnum::SendingListElemCnt;
-
-        default: ZETA_Core_Unreachable();
+    case DecoderState::SendingNameString:
+        if (node_tag.has_obj_type) {
+            return DecoderState::SendingObjTypeString;
         }
 
-        break;
+        [[fallthrough]];
 
-    default: ZETA_Core_Unreachable();
+    case DecoderState::SendingObjTypeString:
+        if (node_tag.has_region) { return DecoderState::SendingRegionAttr; }
+
+        [[fallthrough]];
+
+    case DecoderState::SendingRegionAttr: break;
+
+    case DecoderState::SendingIntegralDescriptor:
+    case DecoderState::SendingListElemCnt:
+    case DecoderState::SendingIntegral:
+    case DecoderState::SendingFinish:
+    case DecoderState::Finished:
+    case DecoderState::Corrupted: ZETA_Core_Unreachable();
+    }
+
+    // when after SendingRegionAttr
+
+    switch (node_tag.node_type) {
+    case NodeType::Null: return DecoderState::SendingFinish;
+
+    case NodeType::Integral:
+    case NodeType::IntegralList: return DecoderState::SendingIntegralDescriptor;
+
+    case NodeType::NodeList: return DecoderState::SendingListElemCnt;
+
+    case NodeType::Terminator: ZETA_Core_Unreachable();
+    }
+}
+
+}  // namespace object_state_notation::detail
+
+template <elem_stream::provider::IsProvider Provider>
+constexpr object_state_notation::Decoder<Provider>::Decoder(
+    Config const& config, Provider& provider)
+    : config{ config },
+      depth{ 0 },
+      has_buffer_node_tag{ false },
+      provider{ provider } {
+    if (elem_stream::provider::IsEnd(this->provider)) {
+        state = DecoderState::Finished;
+    } else {
+        state = DecoderState::SendingNodeTag;
     }
 }
 
 template <elem_stream::provider::IsProvider Provider>
-constexpr object_state_notation::state_machine::
-    DeserializeFromOctetsStateMachine<
-        Provider>::DeserializeFromOctetsStateMachine(Config const& config,
-                                                     Provider& provider)
-    : config{ config },
-      state{ StateEnum::SendingNodeTag },
-      depth{ 0 },
-      node_tag_buffer_store_nxt{ false },
-      provider{ provider } {}
+constexpr utils::TryResult<object_state_notation::NodeTag, meta::Monostate>
+object_state_notation::Decoder<Provider>::ReceiveNodeTag(this Decoder& self) {
+    ZETA_Core_DebugAssert(self.state == DecoderState::SendingNodeTag);
 
-template <elem_stream::provider::IsProvider Provider>
-bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
-    Provider>::DeserializeNodeTag(this DeserializeFromOctetsStateMachine& self,
-                                  NodeTag& dst_node_tag) {
-    if (!(self.state == StateEnum::SendingNodeTag)) { return false; }
+    ZETA_Core_DebugAssert(self.depth < max_depth);
 
-    if (!(self.depth < max_depth)) { return false; }
-
-    if (self.node_tag_buffer_store_nxt) {
-        self.node_tag_buffer_store_nxt = false;
+    if (self.has_buffer_node_tag) {
+        self.has_buffer_node_tag = false;
     } else {
         unsigned char node_tag_encoded_value;
 
-        if (!detail::NormalDeserializeIntegral_(node_tag_encoded_value,
-                                                meta::ValueWrapper<size_t, 1>{},
-                                                self.provider)) {
-            self.state = StateEnum::Corrupted;
-            return false;
+        if (!detail::NormalDecodeIntegral_(node_tag_encoded_value,
+                                           meta::ValueWrapper<size_t, 1>{},
+                                           self.provider)) {
+            self.state = DecoderState::Corrupted;
+            return utils::TryResultReasonTag{};
         }
 
         auto [is_valid,
               node_tag]{ NodeTag::FromEncodedValue(node_tag_encoded_value) };
 
         if (!is_valid) {
-            self.state = StateEnum::Corrupted;
-            return false;
+            self.state = DecoderState::Corrupted;
+            return utils::TryResultReasonTag{};
         }
 
-        self.node_tag_buffer = node_tag;
+        self.buffer_node_tag = node_tag;
     }
 
     if (0 < self.depth &&
@@ -730,36 +741,34 @@ bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
 
     ++self.depth;
 
-    dst_node_tag = self.node_tag_buffer;
-
-    if (!(self.node_tag_buffer.Check() &&
-          self.node_tag_buffer.node_type != NodeTypeEnum::Terminator)) {
-        self.state = StateEnum::Corrupted;
-        return false;
+    if (!self.buffer_node_tag.Check() ||
+        self.buffer_node_tag.node_type == NodeType::Terminator) {
+        self.state = DecoderState::Corrupted;
+        return utils::TryResultReasonTag{};
     }
 
-    switch (self.node_tag_buffer.node_type) {
-    case NodeTypeEnum::Null: self.res_elem_cnts[self.depth - 1] = 0; break;
-    case NodeTypeEnum::Integral: self.res_elem_cnts[self.depth - 1] = 1; break;
-    case NodeTypeEnum::IntegralList:
-    case NodeTypeEnum::NodeList:
-    case NodeTypeEnum::Terminator:
+    switch (self.buffer_node_tag.node_type) {
+    case NodeType::Null: self.res_elem_cnts[self.depth - 1] = 0; break;
+    case NodeType::Integral: self.res_elem_cnts[self.depth - 1] = 1; break;
+    case NodeType::IntegralList:
+    case NodeType::NodeList:
+    case NodeType::Terminator: break;
     }
 
-    self.state = self.FindNextState_(self.state, self.node_tag_buffer);
+    self.state = detail::FindNextState_(self.state, self.buffer_node_tag);
 
-    return true;
+    return { utils::TryResultValueTag{}, self.buffer_node_tag };
 }
 
 template <elem_stream::provider::IsProvider Provider>
 template <elem_stream::acceptor::IsAcceptor Acceptor>
-size_t object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
-    Provider>::DeserializeString(this DeserializeFromOctetsStateMachine& self,
-                                 Acceptor&& acceptor, size_t max_str_size) {
-    if (!(self.state == StateEnum::SendingObjTypeString ||
-          self.state == StateEnum::SendingNameString)) {
-        return false;
-    }
+constexpr utils::TryResult<unicode::unichar_t, meta::Monostate>
+object_state_notation::Decoder<Provider>::ReceiveStringChar(
+    this Decoder& self) {
+    ZETA_Core_DebugAssert(self.state == DecoderState::SendingObjTypeString ||
+                          self.state == DecoderState::SendingNameString);
+
+    //
 
     constexpr unsigned buffer_size{ 256 };
 
@@ -793,242 +802,257 @@ size_t object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
     }
 
     if (string_is_terminated) {
-        self.state = self.FindNextState_(self.state, self.node_tag_buffer);
+        self.state = detail::FindNextState_(self.state, self.buffer_node_tag);
     }
 
-    return acc_str_size;
+    return { utils::TryResultValueTag{}, acc_str_size };
 }
 
 template <elem_stream::provider::IsProvider Provider>
 template <integral::IsIntegral Integral>
-bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
-    Provider>::DeserializeRegionAttr(this DeserializeFromOctetsStateMachine&
-                                         self,
-                                     Integral& region_beg,
-                                     Integral& region_size) {
-    if (!(self.state == StateEnum::SendingRegionAttr)) { return false; }
+constexpr utils::TryResult<pair::Pair<Integral, Integral>, meta::Monostate>
+object_state_notation::Decoder<Provider>::ReceiveRegionAttr(
+    this Decoder& self) {
+    ZETA_Core_DebugAssert(self.state == DecoderState::SendingRegionAttr);
 
-    detail::NormalDeserializeIntegral_(
+    Integral region_beg;
+    Integral region_size;
+
+    detail::NormalDecodeIntegral_(
         region_beg, static_cast<size_t>(self.config.region_attr_size),
         self.provider);
 
-    detail::NormalDeserializeIntegral_(
+    detail::NormalDecodeIntegral_(
         region_size, static_cast<size_t>(self.config.region_attr_size),
         self.provider);
 
-    self.state = self.FindNextState_(self.state, self.node_tag_buffer);
+    self.state = detail::FindNextState_(self.state, self.buffer_node_tag);
 
-    return true;
+    return { utils::TryResultValueTag{},
+             pair::Pair<Integral, Integral>{ .first = region_beg,
+                                             .second = region_size } };
 }
 
 template <elem_stream::provider::IsProvider Provider>
-bool object_state_notation::state_machine::
-    DeserializeFromOctetsStateMachine<Provider>::DeserializeIntegralDescriptor(
-        this DeserializeFromOctetsStateMachine& self,
-        IntegralDescriptor& dst_integral_descriptor) {
-    if (!(self.state == StateEnum::SendingIntegralDescriptor)) { return false; }
+constexpr utils::TryResult<object_state_notation::IntegralDescriptor,
+                           meta::Monostate>
+object_state_notation::Decoder<Provider>::ReceiveIntegralDescriptor(
+    this Decoder& self) {
+    ZETA_Core_DebugAssert(self.state ==
+                          DecoderState::SendingIntegralDescriptor);
 
-    size_t integral_descriptor_encoded_value;
+    size_t integral_descriptor_encoded_value{ ({
+        vlq_utils::DecodeResult<size_t> tmp{ detail::LEB128DecodeIntegral_(
+            self.provider, integral_descriptor_encoded_value) };
 
-    if (!detail::LEB128DeserializeIntegral_(integral_descriptor_encoded_value,
-                                            self.provider)) {
-        self.state = StateEnum::Corrupted;
-        return false;
-    }
+        if (tmp.digit_out_of_range || tmp.value_out_of_range) {
+            self.state = DecoderState::Corrupted;
+            return utils::TryResultReasonTag{};
+        }
 
-    IntegralDescriptor integral_descriptor{
-        IntegralDescriptor::FromEncodedValue(integral_descriptor_encoded_value)
-    };
+        tmp.value;
+    }) };
 
-    self.integral_descriptor_buffer = integral_descriptor;
+    self.integral_descriptor_buffer =
+        IntegralDescriptor::FromEncodedValue(integral_descriptor_encoded_value);
 
-    dst_integral_descriptor = integral_descriptor;
+    switch (self.buffer_node_tag.node_type) {
+    case NodeType::Integral: self.state = DecoderState::SendingIntegral; break;
 
-    switch (self.node_tag_buffer.node_type) {
-    case NodeTypeEnum::Integral: self.state = StateEnum::SendingIntegral; break;
-
-    case NodeTypeEnum::IntegralList:
-        self.state = StateEnum::SendingListElemCnt;
+    case NodeType::IntegralList:
+        self.state = DecoderState::SendingListElemCnt;
         break;
 
-    default: ZETA_Core_Unreachable();
+    case NodeType::Null:
+    case NodeType::NodeList:
+    case NodeType::Terminator: ZETA_Core_Unreachable();
     }
 
-    return true;
+    return { utils::TryResultValueTag{}, self.integral_descriptor_buffer };
 }
 
 template <elem_stream::provider::IsProvider Provider>
-bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
-    Provider>::DeserializeListElemCnt(this DeserializeFromOctetsStateMachine&
-                                          self,
-                                      size_t& dst_list_elem_cnt) {
-    if (!(self.state == StateEnum::SendingListElemCnt)) { return false; }
+constexpr utils::TryResult<size_t, meta::Monostate>
+object_state_notation::Decoder<Provider>::ReceiveListElemCnt(
+    this Decoder& self) {
+    ZETA_Core_DebugAssert(self.state == DecoderState::SendingListElemCnt);
 
-    size_t list_elem_cnt_encoded_value;
+    size_t list_elem_cnt_encoded_value{ ({
+        vlq_utils::DecodeResult<size_t> tmp{ detail::LEB128DecodeIntegral_(
+            self.provider, list_elem_cnt_encoded_value) };
 
-    if (!detail::LEB128DeserializeIntegral_(list_elem_cnt_encoded_value,
-                                            self.provider)) {
-        self.state = StateEnum::Corrupted;
-        return false;
-    }
+        if (tmp.digit_out_of_range || tmp.value_out_of_range) {
+            self.state = DecoderState::Corrupted;
+            return utils::TryResultReasonTag{};
+        }
+
+        tmp.value;
+    }) };
 
     size_t list_elem_cnt{ list_elem_cnt_encoded_value - 1 };
 
-    dst_list_elem_cnt = list_elem_cnt;
-
     self.res_elem_cnts[self.depth - 1] = list_elem_cnt;
 
-    if (self.node_tag_buffer.node_type == NodeTypeEnum::IntegralList &&
+    if (self.buffer_node_tag.node_type == NodeType::IntegralList &&
         list_elem_cnt == static_cast<size_t>(-1)) {
-        if (!detail::NormalDeserializeIntegral_(
-                self.integral_chunk_res_elem_cnt,
-                meta::ValueWrapper<size_t, 1>{}, self.provider)) {
-            self.state = StateEnum::Corrupted;
-            return false;
+        if (detail::NormalDecodeIntegral_(self.integral_chunk_res_elem_cnt,
+                                          meta::ValueWrapper<size_t, 1>{},
+                                          self.provider)) {
+            self.state = self.integral_chunk_res_elem_cnt == 0
+                             ? DecoderState::SendingFinish
+                             : DecoderState::SendingIntegral;
+        } else {
+            self.state = DecoderState::Corrupted;
         }
 
-        self.state = self.integral_chunk_res_elem_cnt == 0
-                         ? StateEnum::SendingTermination
-                         : StateEnum::SendingIntegral;
-
-        return true;
+        return { utils::TryResultValueTag{}, list_elem_cnt };
     }
 
     if (list_elem_cnt == 0) {
-        self.state = StateEnum::SendingTermination;
-        return true;
+        self.state = DecoderState::SendingFinish;
+        return { utils::TryResultValueTag{}, list_elem_cnt };
     }
 
-    if (self.node_tag_buffer.node_type == NodeTypeEnum::IntegralList) {
-        self.state = StateEnum::SendingIntegral;
-        return true;
+    if (self.buffer_node_tag.node_type == NodeType::IntegralList) {
+        self.state = DecoderState::SendingIntegral;
+        return { utils::TryResultValueTag{}, list_elem_cnt };
     }
 
     unsigned char node_tag_encoded_value;
 
-    if (!detail::NormalDeserializeIntegral_(node_tag_encoded_value,
-                                            meta::ValueWrapper<size_t, 1>{},
-                                            self.provider)) {
-        self.state = StateEnum::Corrupted;
-        return false;
+    if (!detail::NormalDecodeIntegral_(node_tag_encoded_value,
+                                       meta::ValueWrapper<size_t, 1>{},
+                                       self.provider)) {
+        self.state = DecoderState::Corrupted;
+        return { utils::TryResultValueTag{}, list_elem_cnt };
     }
 
     auto [is_valid,
           node_tag]{ NodeTag::FromEncodedValue(node_tag_encoded_value) };
 
     if (!is_valid) {
-        self.state = StateEnum::Corrupted;
-        return false;
+        self.state = DecoderState::Corrupted;
+        return { utils::TryResultValueTag{}, list_elem_cnt };
     }
 
-    if (node_tag.node_type == NodeTypeEnum::Terminator) {
-        self.state = StateEnum::SendingTermination;
+    if (node_tag.node_type == NodeType::Terminator) {
+        self.state = DecoderState::SendingFinish;
     } else {
-        self.node_tag_buffer_store_nxt = true;
-        self.node_tag_buffer = node_tag;
+        self.has_buffer_node_tag = true;
+        self.buffer_node_tag = node_tag;
 
-        self.state = StateEnum::SendingNodeTag;
+        self.state = DecoderState::SendingNodeTag;
     }
 
-    return true;
+    return { utils::TryResultValueTag{}, list_elem_cnt };
 }
 
 template <elem_stream::provider::IsProvider Provider>
 template <integral::IsIntegral Integral>
-bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
-    Provider>::DeserializeIntegral(this DeserializeFromOctetsStateMachine& self,
-                                   Integral& dst_integral) {
-    if (!(self.state == StateEnum::SendingIntegral)) { return false; }
+constexpr utils::TryResult<Integral, meta::Monostate>
+object_state_notation::Decoder<Provider>::ReceiveIntegral(this Decoder& self) {
+    ZETA_Core_DebugAssert(self.state == DecoderState::SendingIntegral);
 
     if (self.integral_descriptor_buffer.is_signed !=
         integral::IsSignedIntegral<Integral>) {
-        return false;
+        return utils::TryResultReasonTag{};
     }
 
-    if (self.integral_descriptor_buffer.size == 0) {
-        detail::LEB128DeserializeIntegral_(dst_integral, self.provider);
-    } else {
-        detail::NormalDeserializeIntegral_(
-            dst_integral,
-            static_cast<size_t>(self.integral_descriptor_buffer.size),
-            self.provider);
-    }
-
-    ZETA_Core_Debug_PrintVar(self.integral_descriptor_buffer.is_signed);
-    ZETA_Core_Debug_PrintVar(self.integral_descriptor_buffer.size);
-    ZETA_Core_Debug_PrintVar(dst_integral);
+    Integral integral{ self.integral_descriptor_buffer.size == 0
+                           ? detail::LEB128DecodeIntegral_(
+                                 self.provider, meta::TypeWrapper<Integral>{})
+                                 .value
+                           : detail::NormalDecodeIntegral_(
+                                 self.provider,
+                                 static_cast<size_t>(
+                                     self.integral_descriptor_buffer.size),
+                                 meta::TypeWrapper<Integral>{})
+                                 .value };
 
     if (self.res_elem_cnts[self.depth - 1] != static_cast<size_t>(-1)) {
         --self.res_elem_cnts[self.depth - 1];
 
         if (self.res_elem_cnts[self.depth - 1] == 0) {
-            self.state = StateEnum::SendingTermination;
+            self.state = DecoderState::SendingFinish;
         }
 
-        return true;
+        return { utils::TryResultValueTag{}, integral };
     }
 
-    if (0 < --self.integral_chunk_res_elem_cnt) { return true; }
-
-    if (!detail::NormalDeserializeIntegral_(self.integral_chunk_res_elem_cnt,
-                                            meta::ValueWrapper<size_t, 1>{},
-                                            self.provider)) {
-        self.state = StateEnum::Corrupted;
-        return false;
+    if (0 < --self.integral_chunk_res_elem_cnt) {
+        return { utils::TryResultValueTag{}, integral };
     }
+
+    self.integral_chunk_res_elem_cnt = ({
+        integral_endec::DecodeResult<size_t> tmp{ detail::LEB128DecodeIntegral_(
+            self.provider, meta::ValueWrapper<size_t, 1>{}) };
+
+        if (tmp.digit_out_of_range || tmp.value_out_of_range) {
+            self.state = DecoderState::Corrupted;
+            return utils::TryResultReasonTag{};
+        }
+
+        tmp.value;
+    });
 
     if (self.integral_chunk_res_elem_cnt == 0) {
-        self.state = StateEnum::SendingTermination;
+        self.state = DecoderState::SendingFinish;
     }
 
-    return true;
+    return { utils::TryResultValueTag{}, integral };
 }
 
 template <elem_stream::provider::IsProvider Provider>
-bool object_state_notation::state_machine::DeserializeFromOctetsStateMachine<
-    Provider>::TerminateNode(this DeserializeFromOctetsStateMachine& self) {
-    if (!(self.state == StateEnum::SendingTermination)) { return false; }
+constexpr utils::TryResult<meta::Monostate, meta::Monostate>
+object_state_notation::Decoder<Provider>::ReceiveFinish(this Decoder& self) {
+    ZETA_Core_DebugAssert(self.state == DecoderState::SendingFinish);
 
     --self.depth;
 
     if (self.depth == 0) {
-        self.state = StateEnum::Completed;
-        return true;
+        self.state = DecoderState::Finished;
+        return utils::TryResultValueTag{};
     }
 
     if (self.res_elem_cnts[self.depth - 1] != static_cast<size_t>(-1)) {
         if (0 < self.res_elem_cnts[self.depth - 1]) {
-            self.state = StateEnum::SendingNodeTag;
+            self.state = DecoderState::SendingNodeTag;
         }
 
-        return true;
+        return utils::TryResultValueTag{};
     }
 
-    unsigned char node_tag_encoded_value;
+    unsigned char node_tag_encoded_value{ ({
+        integral_endec::DecodeResult<unsigned char> tmp{
+            detail::LEB128DecodeIntegral_(self.provider,
+                                          meta::ValueWrapper<size_t, 1>{},
+                                          meta::TypeWrapper<unsigned char>{})
+        };
 
-    if (!detail::NormalDeserializeIntegral_(node_tag_encoded_value,
-                                            meta::ValueWrapper<size_t, 1>{},
-                                            self.provider)) {
-        self.state = StateEnum::Corrupted;
-        return false;
-    }
+        if (tmp.digit_out_of_range || tmp.value_out_of_range) {
+            self.state = DecoderState::Corrupted;
+            return utils::TryResultReasonTag{};
+        }
+
+        tmp.value;
+    }) };
 
     auto [is_valid,
           node_tag]{ NodeTag::FromEncodedValue(node_tag_encoded_value) };
 
     if (!is_valid) {
-        self.state = StateEnum::Corrupted;
-        return false;
+        self.state = DecoderState::Corrupted;
+        return utils::TryResultValueTag{};
     }
 
-    if (node_tag.node_type != NodeTypeEnum::Terminator) {
-        self.node_tag_buffer_store_nxt = true;
-        self.node_tag_buffer = node_tag;
+    if (node_tag.node_type != NodeType::Terminator) {
+        self.has_buffer_node_tag = true;
+        self.buffer_node_tag = node_tag;
 
-        self.state = StateEnum::SendingNodeTag;
+        self.state = DecoderState::SendingNodeTag;
     }
 
-    return true;
+    return utils::TryResultValueTag{};
 }
 
 }  // namespace zeta::core

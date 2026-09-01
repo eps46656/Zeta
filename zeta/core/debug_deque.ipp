@@ -34,47 +34,135 @@ constexpr void CheckCursor_  // NOLINT(misc-use-internal-linkage)
 
 }  // namespace debug_deque::detail
 
-constexpr void debug_deque::Cntr::Init(this Cntr& cntr) {
-    ZETA_Core_DebugAssert(0 < cntr.elem_size);
+constexpr debug_deque::Cntr::Cntr(size_t elem_size) {
+    ZETA_Core_DebugAssert(0 < elem_size);
 
-    cntr.deque = new std::deque<void*>;
+    this->elem_size = elem_size;
+
+    this->deque = new std::deque<void*>;
 }
 
-constexpr void debug_deque::Cntr::Deinit(this Cntr& cntr) {
-    detail::CheckCntr_(cntr);
+constexpr debug_deque::Cntr::~Cntr() { delete this->deque; }
 
-    delete cntr.deque;
+constexpr seq_cntr::capability::Flag
+debug_deque::Cntr::GetStaticEnabledCapabilityFlag(seq_cntr::Tag,
+                                                  meta::TypeWrapper<Cntr>) {
+    return seq_cntr::capability::FlagBuilder{
+        .GetCursorSize = true,
+
+        .GetElemSize = true,
+        .GetElemCnt = true,
+        .GetMaxElemCnt = true,
+
+        .GetLBCursor = true,
+        .GetRBCursor = true,
+
+        .PeekL = true,
+        .PeekR = true,
+
+        .Refer = true,
+        .Derefer = true,
+
+        .Read = true,
+        .Write = true,
+        .ReadWrite = true,
+
+        .PushL = true,
+        .PushR = true,
+        .Insert = true,
+
+        .PopL = true,
+        .PopR = true,
+        .Erase = true,
+        .EraseAll = true,
+
+        .CopyCursor = true,
+
+        .AreEqualCursor = true,
+        .CompareCursor = true,
+        .GetCursorDist = true,
+        .GetCursorIdx = true,
+
+        .CursorStepL = true,
+        .CursorStepR = true,
+
+        .CursorAdvanceL = true,
+        .CursorAdvanceR = true,
+    }();
 }
 
-constexpr void* debug_deque::Cntr::GetReferedInstPtr(this Cntr const& cntr) {
+constexpr seq_cntr::capability::Flag
+debug_deque::Cntr::GetStaticEnabledCapabilityFlag(
+    seq_cntr::Tag, meta::TypeWrapper<Cntr const>) {
+    return (GetStaticEnabledCapabilityFlag)(seq_cntr::Tag{},
+                                            meta::TypeWrapper<Cntr>{}) &
+           seq_cntr::capability::const_capability_flag;
+}
+
+constexpr seq_cntr::capability::Flag
+debug_deque::Cntr::GetStaticDisabledCapabilityFlag(seq_cntr::Tag,
+                                                   meta::TypeWrapper<Cntr>) {
+    return seq_cntr::capability::empty_capability_flag;
+}
+
+constexpr seq_cntr::capability::Flag
+debug_deque::Cntr::GetStaticDisabledCapabilityFlag(
+    seq_cntr::Tag, meta::TypeWrapper<Cntr const>) {
+    return seq_cntr::capability::non_const_capability_flag;
+}
+
+constexpr seq_cntr::capability::Flag
+debug_deque::Cntr::GetDynamicEnabledCapabilityFlag(seq_cntr::Tag) {
+    return seq_cntr::capability::empty_capability_flag;
+}
+
+constexpr seq_cntr::capability::Flag
+debug_deque::Cntr::GetDynamicDisabledCapabilityFlag(seq_cntr::Tag) {
+    return seq_cntr::capability::empty_capability_flag;
+}
+
+constexpr void* debug_deque::Cntr::GetReferedInstPtr(this Cntr const& cntr,
+                                                     seq_cntr::Tag) {
     return const_cast<void*>(static_cast<void const*>(&cntr));
 }
 
-constexpr size_t debug_deque::Cntr::GetCursorSize(this Cntr const& cntr) {
-    detail::CheckCntr_(cntr);
+constexpr meta::TypeWrapper<debug_deque::Cursor>
+debug_deque::Cntr::GetCursorType(seq_cntr::Tag, meta::TypeWrapper<Cntr>) {
+    return {};
+}
 
+constexpr meta::TypeWrapper<debug_deque::Cursor>
+debug_deque::Cntr::GetCursorType(seq_cntr::Tag, meta::TypeWrapper<Cntr const>) {
+    return {};
+}
+
+constexpr size_t debug_deque::Cntr::GetCursorSize(seq_cntr::Tag) {
     return sizeof(Cursor);
 }
 
-constexpr size_t debug_deque::Cntr::GetElemSize(this Cntr const& cntr) {
+constexpr size_t debug_deque::Cntr::GetElemSize(this Cntr const& cntr,
+                                                seq_cntr::Tag) {
     detail::CheckCntr_(cntr);
 
     return cntr.elem_size;
 }
 
-constexpr size_t debug_deque::Cntr::GetElemCnt(this Cntr const& cntr) {
+constexpr size_t debug_deque::Cntr::GetElemCnt(this Cntr const& cntr,
+                                               seq_cntr::Tag) {
     detail::CheckCntr_(cntr);
 
     return cntr.deque->size();
 }
 
-constexpr size_t debug_deque::Cntr::GetMaxElemCnt(this Cntr const& cntr) {
+constexpr size_t debug_deque::Cntr::GetMaxElemCnt(this Cntr const& cntr,
+                                                  seq_cntr::Tag) {
     detail::CheckCntr_(cntr);
 
     return cntr.deque->max_size();
 }
 
 constexpr void debug_deque::Cntr::GetLBCursor(this Cntr const& cntr,
+                                              seq_cntr::Tag,
                                               Cursor* dst_cursor) {
     detail::CheckCntr_(cntr);
 
@@ -85,6 +173,7 @@ constexpr void debug_deque::Cntr::GetLBCursor(this Cntr const& cntr,
 }
 
 constexpr void debug_deque::Cntr::GetRBCursor(this Cntr const& cntr,
+                                              seq_cntr::Tag,
                                               Cursor* dst_cursor) {
     detail::CheckCntr_(cntr);
 
@@ -97,7 +186,7 @@ constexpr void debug_deque::Cntr::GetRBCursor(this Cntr const& cntr,
 }
 
 constexpr void debug_deque::Cntr::PeekL(
-    this auto& cntr, bool lazy_copy_elem,
+    this auto& cntr, seq_cntr::Tag, bool lazy_copy_elem,
     seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
     void* dst_elem) {
     detail::CheckCntr_(cntr);
@@ -136,7 +225,7 @@ constexpr void debug_deque::Cntr::PeekL(
 }
 
 constexpr void debug_deque::Cntr::PeekR(
-    this auto& cntr, bool lazy_copy_elem,
+    this auto& cntr, seq_cntr::Tag, bool lazy_copy_elem,
     seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
     void* dst_elem) {
     detail::CheckCntr_(cntr);
@@ -175,7 +264,7 @@ constexpr void debug_deque::Cntr::PeekR(
 }
 
 constexpr void debug_deque::Cntr::Refer(
-    this auto& cntr, size_t idx, bool lazy_copy_elem,
+    this auto& cntr, seq_cntr::Tag, size_t idx, bool lazy_copy_elem,
     seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
     void* dst_elem) {
     detail::CheckCntr_(cntr);
@@ -217,8 +306,9 @@ constexpr void debug_deque::Cntr::Refer(
 }
 
 constexpr void debug_deque::Cntr::Derefer(
-    this auto& cntr, Cursor const* pos_cursor, bool lazy_copy_elem,
-    seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_elem) {
+    this auto& cntr, seq_cntr::Tag, Cursor const* pos_cursor,
+    bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
+    void* dst_elem) {
     detail::CheckCursor_(cntr, pos_cursor);
 
     auto* deque{ cntr.deque };
@@ -291,7 +381,7 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
 }  // namespace debug_deque::detail
 
 template <typename Reader>
-constexpr void debug_deque::Cntr::Read(this Cntr const& cntr,
+constexpr void debug_deque::Cntr::Read(this Cntr const& cntr, seq_cntr::Tag,
                                        Cursor const* pos_cursor, size_t cnt,
                                        Reader&& reader, Cursor* dst_cursor) {
     detail::ReadWrite_<false>(const_cast<Cntr&>(cntr), pos_cursor, cnt, reader,
@@ -299,14 +389,14 @@ constexpr void debug_deque::Cntr::Read(this Cntr const& cntr,
 }
 
 template <typename Writer>
-constexpr void debug_deque::Cntr::Write(this Cntr& cntr,
+constexpr void debug_deque::Cntr::Write(this Cntr& cntr, seq_cntr::Tag,
                                         Cursor const* pos_cursor, size_t cnt,
                                         Writer&& writer, Cursor* dst_cursor) {
     detail::ReadWrite_<true>(cntr, pos_cursor, cnt, writer, dst_cursor);
 }
 
 template <typename ReaderWriter>
-constexpr void debug_deque::Cntr::ReadWrite(this Cntr& cntr,
+constexpr void debug_deque::Cntr::ReadWrite(this Cntr& cntr, seq_cntr::Tag,
                                             Cursor const* pos_cursor,
                                             size_t cnt,
                                             ReaderWriter&& reader_writer,
@@ -315,8 +405,9 @@ constexpr void debug_deque::Cntr::ReadWrite(this Cntr& cntr,
 }
 
 template <typename Writer>
-constexpr void debug_deque::Cntr::PushL(this Cntr& cntr, size_t cnt,
-                                        Writer&& writer, Cursor* dst_cursor) {
+constexpr void debug_deque::Cntr::PushL(this Cntr& cntr, seq_cntr::Tag,
+                                        size_t cnt, Writer&& writer,
+                                        Cursor* dst_cursor) {
     detail::CheckCntr_(cntr);
 
     auto* deque{ cntr.deque };
@@ -337,8 +428,9 @@ constexpr void debug_deque::Cntr::PushL(this Cntr& cntr, size_t cnt,
 }
 
 template <typename Writer>
-constexpr void debug_deque::Cntr::PushR(this Cntr& cntr, size_t cnt,
-                                        Writer&& writer, Cursor* dst_cursor) {
+constexpr void debug_deque::Cntr::PushR(this Cntr& cntr, seq_cntr::Tag,
+                                        size_t cnt, Writer&& writer,
+                                        Cursor* dst_cursor) {
     detail::CheckCntr_(cntr);
 
     auto* deque{ cntr.deque };
@@ -361,9 +453,9 @@ constexpr void debug_deque::Cntr::PushR(this Cntr& cntr, size_t cnt,
 }
 
 template <typename Writer>
-constexpr void debug_deque::Cntr::Insert(this Cntr& cntr, Cursor* pos_cursor,
-                                         size_t cnt, Writer&& writer,
-                                         Cursor* dst_cursor) {
+constexpr void debug_deque::Cntr::Insert(this Cntr& cntr, seq_cntr::Tag,
+                                         Cursor* pos_cursor, size_t cnt,
+                                         Writer&& writer, Cursor* dst_cursor) {
     detail::CheckCursor_(cntr, pos_cursor);
 
     auto* deque{ cntr.deque };
@@ -389,8 +481,8 @@ constexpr void debug_deque::Cntr::Insert(this Cntr& cntr, Cursor* pos_cursor,
 }
 
 template <typename Reader>
-constexpr void debug_deque::Cntr::PopL(this Cntr& cntr, size_t cnt,
-                                       Reader&& reader) {
+constexpr void debug_deque::Cntr::PopL(this Cntr& cntr, seq_cntr::Tag,
+                                       size_t cnt, Reader&& reader) {
     detail::CheckCntr_(cntr);
 
     auto* deque{ cntr.deque };
@@ -413,8 +505,8 @@ constexpr void debug_deque::Cntr::PopL(this Cntr& cntr, size_t cnt,
 }
 
 template <typename Reader>
-constexpr void debug_deque::Cntr::PopR(this Cntr& cntr, size_t cnt,
-                                       Reader&& reader) {
+constexpr void debug_deque::Cntr::PopR(this Cntr& cntr, seq_cntr::Tag,
+                                       size_t cnt, Reader&& reader) {
     detail::CheckCntr_(cntr);
 
     auto* deque{ cntr.deque };
@@ -435,8 +527,9 @@ constexpr void debug_deque::Cntr::PopR(this Cntr& cntr, size_t cnt,
 }
 
 template <typename Reader>
-constexpr void debug_deque::Cntr::Erase(this Cntr& cntr, Cursor* pos_cursor,
-                                        size_t cnt, Reader&& reader) {
+constexpr void debug_deque::Cntr::Erase(this Cntr& cntr, seq_cntr::Tag,
+                                        Cursor* pos_cursor, size_t cnt,
+                                        Reader&& reader) {
     detail::CheckCursor_(cntr, pos_cursor);
 
     auto* deque{ cntr.deque };
@@ -462,7 +555,7 @@ constexpr void debug_deque::Cntr::Erase(this Cntr& cntr, Cursor* pos_cursor,
                  deque->begin() + static_cast<long long>(end));
 }
 
-constexpr void debug_deque::Cntr::EraseAll(this Cntr& cntr) {
+constexpr void debug_deque::Cntr::EraseAll(this Cntr& cntr, seq_cntr::Tag) {
     detail::CheckCntr_(cntr);
 
     auto* deque{ cntr.deque };
@@ -473,6 +566,7 @@ constexpr void debug_deque::Cntr::EraseAll(this Cntr& cntr) {
 }
 
 constexpr void debug_deque::Cntr::CopyCursor(this Cntr const& cntr,
+                                             seq_cntr::Tag,
                                              Cursor const* src_cursor,
                                              Cursor* dst_cursor) {
     detail::CheckCursor_(cntr, src_cursor);
@@ -482,25 +576,32 @@ constexpr void debug_deque::Cntr::CopyCursor(this Cntr const& cntr,
 }
 
 constexpr bool debug_deque::Cntr::AreEqualCursor(this Cntr const& cntr,
+                                                 seq_cntr::Tag,
                                                  Cursor const* cursor_a,
                                                  Cursor const* cursor_b) {
-    return cntr.GetCursorIdx(cursor_a) == cntr.GetCursorIdx(cursor_b);
+    return cntr.GetCursorIdx(seq_cntr::Tag{}, cursor_a) ==
+           cntr.GetCursorIdx(seq_cntr::Tag{}, cursor_b);
 }
 
 constexpr comparison::Ordering debug_deque::Cntr::CompareCursor(
-    this Cntr const& cntr, Cursor const* cursor_a, Cursor const* cursor_b) {
+    this Cntr const& cntr, seq_cntr::Tag, Cursor const* cursor_a,
+    Cursor const* cursor_b) {
     return comparison::BasicCompare(
-        meta::AutoValueWrapper<comparison::OpEnum::Order>{},
-        cntr.GetCursorIdx(cursor_a) + 1, cntr.GetCursorIdx(cursor_b) + 1);
+        comparison::OpTag::Order{},
+        cntr.GetCursorIdx(seq_cntr::Tag{}, cursor_a) + 1,
+        cntr.GetCursorIdx(seq_cntr::Tag{}, cursor_b) + 1);
 }
 
 constexpr size_t debug_deque::Cntr::GetCursorDist(this Cntr const& cntr,
+                                                  seq_cntr::Tag,
                                                   Cursor const* cursor_a,
                                                   Cursor const* cursor_b) {
-    return cntr.GetCursorIdx(cursor_b) - cntr.GetCursorIdx(cursor_a);
+    return cntr.GetCursorIdx(seq_cntr::Tag{}, cursor_b) -
+           cntr.GetCursorIdx(seq_cntr::Tag{}, cursor_a);
 }
 
 constexpr size_t debug_deque::Cntr::GetCursorIdx(this Cntr const& cntr,
+                                                 seq_cntr::Tag,
                                                  Cursor const* cursor) {
     detail::CheckCntr_(cntr);
 
@@ -508,17 +609,18 @@ constexpr size_t debug_deque::Cntr::GetCursorIdx(this Cntr const& cntr,
 }
 
 constexpr void debug_deque::Cntr::CursorStepL(this Cntr const& cntr,
-                                              Cursor* cursor) {
-    cntr.CursorAdvanceL(cursor, 1);
+                                              seq_cntr::Tag, Cursor* cursor) {
+    cntr.CursorAdvanceL(seq_cntr::Tag{}, cursor, 1);
 }
 
 constexpr void debug_deque::Cntr::CursorStepR(this Cntr const& cntr,
-                                              Cursor* cursor) {
-    cntr.CursorAdvanceR(cursor, 1);
+                                              seq_cntr::Tag, Cursor* cursor) {
+    cntr.CursorAdvanceR(seq_cntr::Tag{}, cursor, 1);
 }
 
 constexpr void debug_deque::Cntr::CursorAdvanceL(this Cntr const& cntr,
-                                                 Cursor* cursor, size_t step) {
+                                                 seq_cntr::Tag, Cursor* cursor,
+                                                 size_t step) {
     detail::CheckCntr_(cntr);
 
     detail::CheckCursor_(cntr, cursor);
@@ -529,7 +631,8 @@ constexpr void debug_deque::Cntr::CursorAdvanceL(this Cntr const& cntr,
 }
 
 constexpr void debug_deque::Cntr::CursorAdvanceR(this Cntr const& cntr,
-                                                 Cursor* cursor, size_t step) {
+                                                 seq_cntr::Tag, Cursor* cursor,
+                                                 size_t step) {
     detail::CheckCntr_(cntr);
 
     auto* deque{ cntr.deque };
@@ -539,91 +642,6 @@ constexpr void debug_deque::Cntr::CursorAdvanceR(this Cntr const& cntr,
     ZETA_Core_DebugAssert(step <= deque->size() - cursor->idx);
 
     cursor->idx += step;
-}
-
-constexpr seq_cntr::capability::Flag
-seq_cntr::CntrTraits<debug_deque::Cntr>::GetStaticEnabledCapabilityFlag() {
-    return seq_cntr::capability::FlagBuilder{
-        .GetCursorSize = true,
-
-        .GetElemSize = true,
-        .GetElemCnt = true,
-        .GetMaxElemCnt = true,
-
-        .GetLBCursor = true,
-        .GetRBCursor = true,
-
-        .PeekL = true,
-        .PeekR = true,
-
-        .Refer = true,
-        .Derefer = true,
-
-        .Read = true,
-        .Write = true,
-        .ReadWrite = true,
-
-        .PushL = true,
-        .PushR = true,
-        .Insert = true,
-
-        .PopL = true,
-        .PopR = true,
-        .Erase = true,
-        .EraseAll = true,
-
-        .CopyCursor = true,
-
-        .AreEqualCursor = true,
-        .CompareCursor = true,
-        .GetCursorDist = true,
-        .GetCursorIdx = true,
-
-        .CursorStepL = true,
-        .CursorStepR = true,
-
-        .CursorAdvanceL = true,
-        .CursorAdvanceR = true,
-    }();
-}
-
-constexpr seq_cntr::capability::Flag
-seq_cntr::CntrTraits<debug_deque::Cntr>::GetStaticDisabledCapabilityFlag() {
-    return seq_cntr::capability::empty_capability_flag;
-}
-
-constexpr seq_cntr::capability::Flag seq_cntr::CntrTraits<
-    debug_deque::Cntr>::GetDynamicEnabledCapabilityFlag(debug_deque::Cntr&) {
-    return seq_cntr::capability::empty_capability_flag;
-}
-
-constexpr seq_cntr::capability::Flag seq_cntr::CntrTraits<
-    debug_deque::Cntr>::GetDynamicDisabledCapabilityFlag(debug_deque::Cntr&) {
-    return seq_cntr::capability::empty_capability_flag;
-}
-
-constexpr seq_cntr::capability::Flag seq_cntr::CntrTraits<
-    debug_deque::Cntr const>::GetStaticEnabledCapabilityFlag() {
-    return seq_cntr::CntrTraits<
-               debug_deque::Cntr>::GetStaticEnabledCapabilityFlag() &
-           seq_cntr::capability::const_capability_flag;
-}
-
-constexpr seq_cntr::capability::Flag seq_cntr::CntrTraits<
-    debug_deque::Cntr const>::GetStaticDisabledCapabilityFlag() {
-    return seq_cntr::capability::non_const_capability_flag;
-}
-
-constexpr seq_cntr::capability::Flag
-seq_cntr::CntrTraits<debug_deque::Cntr const>::GetDynamicEnabledCapabilityFlag(
-    debug_deque::Cntr const&) {
-    return seq_cntr::capability::empty_capability_flag;
-}
-
-constexpr seq_cntr::capability::Flag
-seq_cntr::CntrTraits<debug_deque::Cntr const>::GetDynamicDisabledCapabilityFlag(
-    debug_deque::Cntr const&) {
-    return seq_cntr::capability::empty_capability_flag;
 }
 
 }  // namespace zeta::core

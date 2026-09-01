@@ -1,13 +1,16 @@
 #pragma once
 
 #include <zeta/core/comparison_utils.ipp>
+#include <zeta/core/elem_stream.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
-#include <zeta/core/seq_cntr.hpp>
+#include <zeta/core/pair.hpp>
+#include <zeta/core/unicode.hpp>
+#include <zeta/core/utils.hpp>
 
 namespace zeta::core::object_state_notation {
 
-enum struct NodeTypeEnum : unsigned char {
+enum struct NodeType : unsigned char {
     Null = 0,
     Integral = 1,
     IntegralList = 2,
@@ -65,7 +68,7 @@ struct Config {
 };
 
 struct NodeTag {
-    NodeTypeEnum node_type;
+    NodeType node_type;
     bool has_name;
     bool has_obj_type;
     bool has_region;
@@ -97,40 +100,34 @@ struct IntegralDescriptor {
 };
 
 template <elem_stream::acceptor::IsAcceptor Acceptor>
-bool SerializeHeaderToOctets(Acceptor&& acceptor, Header const& src_header);
+constexpr bool EncodeHeaderToOctets(Acceptor&& acceptor,
+                                    Header const& src_header);
 
 template <elem_stream::provider::IsProvider Provider>
-bool DeserializeHeaderFromOctets(Provider&& provider, Header& dst_header);
+constexpr bool DecodeHeaderFromOctets(Provider&& provider, Header& dst_header);
 
-namespace state_machine {
-
-struct SerializationStateMachineBase {
-    enum struct StateEnum : unsigned char {
-        ReceivingNodeTag = 0,
-        ReceivingNodeTagOrTermination = 1,
-        ReceivingNameString = 2,
-        ReceivingObjTypeString = 3,
-        ReceivingRegionAttr = 4,
-        ReceivingIntegralDescriptor = 5,
-        ReceivingListElemCnt = 6,
-        ReceivingIntegral = 7,
-        ReceivingIntegralOrTermination = 8,
-        ReceivingTermination = 9,
-        Finished = 10,
-        Corrupted = static_cast<unsigned char>(-1),
-    };
-
-    static constexpr StateEnum FindNextState_(StateEnum cur_state,
-                                              NodeTag const& node_tag);
+enum struct EncoderState : unsigned char {
+    ReceivingNodeTag = 0,
+    ReceivingNodeTagOrFinish = 1,
+    ReceivingNameString = 2,
+    ReceivingObjTypeString = 3,
+    ReceivingRegionAttr = 4,
+    ReceivingIntegralDescriptor = 5,
+    ReceivingListElemCnt = 6,
+    ReceivingIntegral = 7,
+    ReceivingIntegralOrFinish = 8,
+    ReceivingFinish = 9,
+    Finished = 10,
+    Corrupted = static_cast<unsigned char>(-1),
 };
 
 template <elem_stream::acceptor::IsAcceptor Acceptor>
-struct SerializeToOctetsStateMachine : public SerializationStateMachineBase {
+struct Encoder {
     static constexpr unsigned max_depth{ 32 };
 
     Config config;
 
-    StateEnum state;
+    EncoderState state;
 
     unsigned short depth;
 
@@ -149,70 +146,64 @@ struct SerializeToOctetsStateMachine : public SerializationStateMachineBase {
 
     Acceptor& acceptor;
 
-    constexpr SerializeToOctetsStateMachine(
-        Config const& config, unsigned char* integral_chunk_buffer_data,
-        unsigned short integral_chunk_buffer_max_octet_cnt, Acceptor& acceptor);
+    constexpr Encoder(Config const& config,
+                      unsigned char* integral_chunk_buffer_data,
+                      unsigned short integral_chunk_buffer_max_octet_cnt,
+                      Acceptor& acceptor);
 
-    bool SerializeNodeTag(this SerializeToOctetsStateMachine& self,
-                          NodeTag const& src_node_tag);
+    constexpr utils::TryResult<meta::Monostate, meta::Monostate> SendNodeTag(
+        this Encoder& self, NodeTag const& src_node_tag);
 
     template <elem_stream::provider::IsProvider Provider>
-    bool SerializeString(this SerializeToOctetsStateMachine& self,
-                         Provider&& provider, size_t size);
-
-    bool TerminateSerializeString(this SerializeToOctetsStateMachine& self);
+    constexpr utils::TryResult<meta::Monostate, meta::Monostate>
+    SendStringOctet(this Encoder& self, Provider&& provider, size_t size);
 
     template <integral::IsIntegral Integral>
-    bool SerializeRegionAttr(this SerializeToOctetsStateMachine& self,
-                             Integral region_beg, Integral region_size);
+    constexpr utils::TryResult<meta::Monostate, meta::Monostate> SendRegionAttr(
+        this Encoder& self, Integral region_beg, Integral region_size);
 
-    bool SerializeIntegralDescriptor(
-        this SerializeToOctetsStateMachine& self,
-        IntegralDescriptor const& src_integral_descriptor);
+    constexpr utils::TryResult<meta::Monostate, meta::Monostate>
+    SendIntegralDescriptor(this Encoder& self,
+                           IntegralDescriptor const& src_integral_descriptor);
 
-    bool SerializeListElemCnt(this SerializeToOctetsStateMachine& self,
-                              size_t list_elem_cnt);
+    constexpr utils::TryResult<meta::Monostate, meta::Monostate>
+    SendListElemCnt(this Encoder& self, size_t list_elem_cnt);
 
     template <integral::IsIntegral Integral>
-    bool SerializeIntegral(this SerializeToOctetsStateMachine& self,
-                           Integral src_integral);
+    constexpr utils::TryResult<meta::Monostate, meta::Monostate> SendIntegral(
+        this Encoder& self, Integral src_integral);
 
-    bool TerminateNode(this SerializeToOctetsStateMachine& self);
+    constexpr utils::TryResult<meta::Monostate, meta::Monostate> SendFinish(
+        this Encoder& self);
 };
 
-struct DeserializationStateMachineBase {
-    enum struct StateEnum : unsigned char {
-        SendingNodeTag = 0,
-        SendingNameString = 2,
-        SendingObjTypeString = 3,
-        SendingRegionAttr = 4,
-        SendingIntegralDescriptor = 5,
-        SendingListElemCnt = 6,
-        SendingIntegral = 7,
-        SendingTermination = 9,
-        Finished = 10,
-        Corrupted = static_cast<unsigned char>(-1),
-    };
-
-    static constexpr StateEnum FindNextState_(StateEnum cur_state,
-                                              NodeTag const& node_tag);
+enum struct DecoderState : unsigned char {
+    SendingNodeTag = 0,
+    SendingNameString = 2,
+    SendingObjTypeString = 3,
+    SendingRegionAttr = 4,
+    SendingIntegralDescriptor = 5,
+    SendingListElemCnt = 6,
+    SendingIntegral = 7,
+    SendingFinish = 9,
+    Finished = 10,
+    Corrupted = static_cast<unsigned char>(-1),
 };
 
 template <elem_stream::provider::IsProvider Provider>
-struct DeserializeFromOctetsStateMachine
-    : public DeserializationStateMachineBase {
+struct Decoder {
     static constexpr unsigned max_depth{ 32 };
 
     Config config;
 
-    StateEnum state;
+    DecoderState state;
 
     unsigned short depth;
 
     size_t res_elem_cnts[max_depth];
 
-    bool node_tag_buffer_store_nxt;
-    NodeTag node_tag_buffer;
+    bool has_buffer_node_tag;
+    NodeTag buffer_node_tag;
 
     IntegralDescriptor integral_descriptor_buffer;
 
@@ -220,34 +211,31 @@ struct DeserializeFromOctetsStateMachine
 
     Provider& provider;
 
-    constexpr DeserializeFromOctetsStateMachine(Config const& config,
-                                                Provider& provider);
+    constexpr Decoder(Config const& config, Provider& provider);
 
-    bool DeserializeNodeTag(this DeserializeFromOctetsStateMachine& self,
-                            NodeTag& dst_node_tag);
+    constexpr utils::TryResult<NodeTag, meta::Monostate> ReceiveNodeTag(
+        this Decoder& self);
 
     template <elem_stream::acceptor::IsAcceptor Accetpr>
-    size_t DeserializeString(this DeserializeFromOctetsStateMachine& self,
-                             Accetpr&& acceptor, size_t max_str_size);
+    constexpr utils::TryResult<unicode::unichar_t, meta::Monostate>
+    ReceiveStringChar(this Decoder& self);
 
     template <integral::IsIntegral Integral>
-    bool DeserializeRegionAttr(this DeserializeFromOctetsStateMachine& self,
-                               Integral& region_beg, Integral& region_size);
+    constexpr utils::TryResult<pair::Pair<Integral, Integral>, meta::Monostate>
+    ReceiveRegionAttr(this Decoder& self);
 
-    bool DeserializeIntegralDescriptor(
-        this DeserializeFromOctetsStateMachine& self,
-        IntegralDescriptor& dst_integral_descriptor);
+    constexpr utils::TryResult<IntegralDescriptor, meta::Monostate>
+    ReceiveIntegralDescriptor(this Decoder& self);
 
-    bool DeserializeListElemCnt(this DeserializeFromOctetsStateMachine& self,
-                                size_t& list_elem_cnt);
+    constexpr utils::TryResult<size_t, meta::Monostate> ReceiveListElemCnt(
+        this Decoder& self);
 
     template <integral::IsIntegral Integral>
-    bool DeserializeIntegral(this DeserializeFromOctetsStateMachine& self,
-                             Integral& dst_integral);
+    constexpr utils::TryResult<Integral, meta::Monostate> ReceiveIntegral(
+        this Decoder& self);
 
-    bool TerminateNode(this DeserializeFromOctetsStateMachine& self);
+    constexpr utils::TryResult<meta::Monostate, meta::Monostate> ReceiveFinish(
+        this Decoder& self);
 };
-
-}  // namespace state_machine
 
 }  // namespace zeta::core::object_state_notation

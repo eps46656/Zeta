@@ -79,7 +79,8 @@ constexpr void seg_utils::SegInsertShoveL(circular_array::Cntr& l_ca,
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    l_ca.PushR(shove_cnt, elem_stream::provider::EmptyProvider{}, nullptr);
+    seq_cntr::PushR(l_ca, shove_cnt, elem_stream::provider::EmptyProvider{},
+                    nullptr);
 
     if (0 < cnt_a) { l_ca.AssignFromCircularArray(l_elem_cnt, r_ca, 0, cnt_a); }
 
@@ -90,7 +91,7 @@ constexpr void seg_utils::SegInsertShoveL(circular_array::Cntr& l_ca,
                                      cnt_c);
     }
 
-    r_ca.PopL(cnt_a + cnt_c, elem_stream::acceptor::EmptyAcceptor{});
+    seq_cntr::PopL(r_ca, cnt_a + cnt_c, elem_stream::acceptor::EmptyAcceptor{});
 
     if (0 < ins_cnt - cnt_b) {
         r_ca.IdxInsert(rl_cnt - cnt_a, ins_cnt - cnt_b, writer);
@@ -121,7 +122,8 @@ constexpr void seg_utils::SegInsertShoveR(circular_array::Cntr& l_ca,
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    r_ca.PushL(shove_cnt, elem_stream::provider::EmptyProvider{}, nullptr);
+    seq_cntr::PushL(r_ca, shove_cnt, elem_stream::provider::EmptyProvider{},
+                    nullptr);
 
     if (0 < cnt_c) {
         r_ca.AssignFromCircularArray(0, l_ca, l_elem_cnt - cnt_a - cnt_c,
@@ -135,7 +137,7 @@ constexpr void seg_utils::SegInsertShoveR(circular_array::Cntr& l_ca,
                                      cnt_a);
     }
 
-    l_ca.PopR(cnt_c + cnt_a, elem_stream::acceptor::EmptyAcceptor{});
+    seq_cntr::PopR(l_ca, cnt_c + cnt_a, elem_stream::acceptor::EmptyAcceptor{});
 
     if (0 < ins_cnt - cnt_b) {
         l_ca.IdxInsert(l_elem_cnt - lr_cnt, ins_cnt - cnt_b, writer);

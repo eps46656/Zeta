@@ -1,6 +1,16 @@
 #pragma once
 
+#include <zeta/core/comparison.hpp>
+#include <zeta/core/integral.hpp>
+
 namespace zeta::core::integral_math {
+
+template <comparison::IsOpTag OpTag, integral::IsIntegral NumA,
+          integral::IsIntegral NumB>
+constexpr auto Compare(OpTag op, NumA a, NumB b);
+
+template <integral::IsIntegral Num>
+constexpr Num Abs(Num x);
 
 template <typename Num>
 constexpr Num CeilDiv(Num x, Num y);

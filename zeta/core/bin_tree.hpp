@@ -5,80 +5,44 @@
 
 namespace zeta::core::bin_tree {
 
-template <typename Node>
-struct NodeTraits;
+struct Tag {};
 
 template <typename Node>
-concept IsNode = requires(Node* n, size_t acc_size) {
-    requires meta::IsSame<
-        meta::RemoveCVRef<decltype(NodeTraits<Node>::GetP(n))>, Node*>;
+concept IsNode = requires(Node* n, Tag tag, size_t acc_size) {
+    requires meta::IsSame<meta::RemoveCVRef<decltype(n->GetP(tag))>, Node*>;
 
-    requires meta::IsSame<
-        meta::RemoveCVRef<decltype(NodeTraits<Node>::GetL(n))>, Node*>;
+    requires meta::IsSame<meta::RemoveCVRef<decltype(n->GetL(tag))>, Node*>;
 
-    requires meta::IsSame<
-        meta::RemoveCVRef<decltype(NodeTraits<Node>::GetR(n))>, Node*>;
+    requires meta::IsSame<meta::RemoveCVRef<decltype(n->GetR(tag))>, Node*>;
 
-    requires meta::IsSame<
-        meta::RemoveCVRef<decltype(NodeTraits<Node>::IsConst())>, bool>;
+    requires meta::IsSame<meta::RemoveCVRef<decltype(Node::IsConst(
+                              tag, meta::TypeWrapper<Node>{}))>,
+                          bool>;
 
-    requires meta::IsSame<
-        meta::RemoveCVRef<decltype(NodeTraits<Node>::HasAccSize())>, bool>;
+    requires meta::IsSame<meta::RemoveCVRef<decltype(Node::HasAccSize(
+                              tag, meta::TypeWrapper<Node>{}))>,
+                          bool>;
 
-    requires NodeTraits<Node>::IsConst() ||
-                 requires { NodeTraits<Node>::SetP(n, n); };
+    requires Node::IsConst(tag, meta::TypeWrapper<Node>{}) ||
+                 requires { n->SetP(tag, n); };
 
-    requires NodeTraits<Node>::IsConst() ||
-                 requires { NodeTraits<Node>::SetL(n, n); };
+    requires Node::IsConst(tag, meta::TypeWrapper<Node>{}) ||
+                 requires { n->SetL(tag, n); };
 
-    requires NodeTraits<Node>::IsConst() ||
-                 requires { NodeTraits<Node>::SetR(n, n); };
+    requires Node::IsConst(tag, meta::TypeWrapper<Node>{}) ||
+                 requires { n->SetR(tag, n); };
 
-    requires !NodeTraits<Node>::HasAccSize() ||
-                 meta::IsSame<meta::RemoveCVRef<
-                                  decltype(NodeTraits<Node>::GetNullAccSize())>,
+    requires !Node::HasAccSize(tag, meta::TypeWrapper<Node>{}) ||
+                 meta::IsSame<meta::RemoveCVRef<decltype(Node::GetNullAccSize(
+                                  tag, meta::TypeWrapper<Node>{}))>,
                               size_t>;
 
-    requires !NodeTraits<Node>::HasAccSize() ||
-                 meta::IsSame<meta::RemoveCVRef<
-                                  decltype(NodeTraits<Node>::GetAccSize(n))>,
+    requires !Node::HasAccSize(tag, meta::TypeWrapper<Node>{}) ||
+                 meta::IsSame<meta::RemoveCVRef<decltype(n->GetAccSize(tag))>,
                               size_t>;
 
-    requires !NodeTraits<Node>::HasAccSize() ||
-                 requires { NodeTraits<Node>::SetAccSize(n, acc_size); };
-};
-
-template <typename Node>
-struct MemberFuncNodeTraitsAdapter {
-    static constexpr decltype(auto) GetP(Node* n);
-
-    static constexpr decltype(auto) GetL(Node* n);
-
-    static constexpr decltype(auto) GetR(Node* n);
-
-    template <typename _ = void>
-        requires meta::IsSame<_, void>
-    static constexpr decltype(auto) SetP(Node* n, Node* m);
-
-    template <typename _ = void>
-        requires meta::IsSame<_, void>
-    static constexpr decltype(auto) SetL(Node* n, Node* m);
-
-    template <typename _ = void>
-        requires meta::IsSame<_, void>
-    static constexpr decltype(auto) SetR(Node* n, Node* m);
-
-    template <typename _ = void>
-        requires meta::IsSame<_, void>
-    static constexpr decltype(auto) GetNullAccSize();
-
-    template <typename _ = void>
-        requires meta::IsSame<_, void>
-    static constexpr decltype(auto) GetAccSize(Node* n);
-
-    template <typename _ = void>
-        requires meta::IsSame<_, void>
-    static constexpr decltype(auto) SetAccSize(Node* n, size_t acc_size);
+    requires !Node::HasAccSize(tag, meta::TypeWrapper<Node>{}) ||
+                 requires { n->SetAccSize(tag, acc_size); };
 };
 
 template <IsNode Node>

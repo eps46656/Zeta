@@ -10,7 +10,7 @@
 
 namespace zeta::core_test::debug_deque_utils {
 
-using SeqCntrRef = core::seq_cntr_ref::Ref;
+using PolySeqCntr = core::poly_seq_cntr::Cntr;
 namespace DebugDequeNS = core::debug_deque;
 using DebugDeque = DebugDequeNS::Cntr;
 
@@ -19,44 +19,40 @@ struct Pack {
 };
 
 template <typename Elem>
-SeqCntrRef Create();
+constexpr PolySeqCntr Create();
 
-void Destroy(void* dd);
+constexpr void Destroy(void* dd);
 
-void Sanitize(void const* dd);
+constexpr void Sanitize(void const* dd);
 
 template <typename Elem>
-SeqCntrRef Create() {
-    Pack* pack{ new Pack{} };
+constexpr PolySeqCntr Create() {
+    Pack* pack{ new Pack{
+        .debug_deque{ sizeof(Elem) },
+    } };
 
     auto* dd{ &pack->debug_deque };
 
-    dd->elem_size = sizeof(Elem);
-
-    dd->Init();
-
-    SeqCntrRef seq_cntr_ref{ *dd };
+    ZETA_Core_StaticAssert(core::seq_cntr::IsSeqCntr<DebugDeque>);
 
     seq_cntr_utils::AddSanitizeFunc(dd, Sanitize);
 
     seq_cntr_utils::AddDestroyFunc(dd, Destroy);
 
-    return seq_cntr_ref;
+    return *dd;
 }
 
-inline void Destroy(void* dd_) {
+constexpr void Destroy(void* dd_) {
     DebugDeque* dd{ static_cast<DebugDeque*>(dd_) };
 
     if (dd_ == nullptr) { return; }
 
     Pack* pack{ ZETA_Core_MemberToStruct(Pack, debug_deque, dd) };
 
-    dd->Deinit();
-
     delete pack;
 }
 
-inline void Sanitize(void const* dd_) {
+constexpr void Sanitize(void const* dd_) {
     DebugDeque const* dd{ static_cast<DebugDeque const*>(dd_) };
 
     if (dd == nullptr) { return; }

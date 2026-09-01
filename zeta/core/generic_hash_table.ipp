@@ -192,8 +192,8 @@ Node* FindInTable_  // NOLINT(misc-use-internal-linkage)
         }
 
         comparison::Ordering cmp{ comparison::Compare(
-            key_elem_cmptr, meta::AutoValueWrapper<comparison::OpEnum::Order>{},
-            key, ZETA_Core_MemberToStruct(Node, tn, tn)) };
+            key_elem_cmptr, comparison::OpTag::Order{}, key,
+            ZETA_Core_MemberToStruct(Node, tn, tn)) };
 
         if (cmp == comparison::Ordering::Greater) {
             tn = bin_tree::GetR(tn);
@@ -251,8 +251,8 @@ void InsertToTable_(unsigned long long salt, MultiLevelPtrTable& table,
         }
 
         comparison::Ordering cmp{ comparison::Compare(
-            key_elem_cmptr, meta::AutoValueWrapper<comparison::OpEnum::Order>{},
-            n, ZETA_Core_MemberToStruct(Node, tn, tn)) };
+            key_elem_cmptr, comparison::OpTag::Order{}, n,
+            ZETA_Core_MemberToStruct(Node, tn, tn)) };
 
         if (cmp == comparison::Ordering::Less) {
             gt_tn = tn;
@@ -824,8 +824,7 @@ constexpr SanitizeTreeRet_ SanitizeTree_  // NOLINT(misc-use-internal-linkage)
 
     if (tnl != nullptr) {
         comparison::Ordering cmp{ comparison::Compare(
-            meta::GetInstRef(ght.cmptr),
-            meta::AutoValueWrapper<comparison::OpEnum::Order>{},
+            meta::GetInstRef(ght.cmptr), comparison::OpTag::Order{},
             ZETA_Core_MemberToStruct(Node, tn, l_ret.most_r_tn), n) };
 
         ZETA_Core_DebugAssert(cmp != comparison::Ordering::Greater);
@@ -835,8 +834,7 @@ constexpr SanitizeTreeRet_ SanitizeTree_  // NOLINT(misc-use-internal-linkage)
 
     if (tnr != nullptr) {
         comparison::Ordering cmp{ comparison::Compare(
-            meta::GetInstRef(ght.cmptr),
-            meta::AutoValueWrapper<comparison::OpEnum::Order>{}, n,
+            meta::GetInstRef(ght.cmptr), comparison::OpTag::Order{}, n,
             ZETA_Core_MemberToStruct(Node, tn, r_ret.most_l_tn)) };
 
         ZETA_Core_DebugAssert(cmp != comparison::Ordering::Greater);

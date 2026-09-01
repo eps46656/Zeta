@@ -11,13 +11,12 @@
 #include <zeta/core/utils.ipp>
 #include <zeta/core_test/random.hpp>
 
-struct BinTreeNode
-    : public zeta::core::basic_bin_tree_node::Node<
-          void*, zeta::core::meta::AutoValueWrapper<true>,
-          zeta::core::meta::AutoValueWrapper<true>,
-          zeta::core::meta::AutoValueWrapper<false>,
-          zeta::core::meta::AutoValueWrapper<true>,
-          zeta::core::basic_bin_tree_node::PrimaryColorTagEnum::Null> {};
+using BinTreeNode = zeta::core::basic_bin_tree_node::Node<
+    void*, zeta::core::meta::AutoValueWrapper<true>,
+    zeta::core::meta::AutoValueWrapper<true>,
+    zeta::core::meta::AutoValueWrapper<false>,
+    zeta::core::meta::AutoValueWrapper<true>,
+    zeta::core::basic_bin_tree_node::PrimaryColorTagEnum::P>;
 
 struct Node {
     BinTreeNode n;
@@ -35,6 +34,7 @@ size_t size_sum;
 BinTreeNode* root;
 BinTreeNode* rb;
 
+/*
 template <>
 struct zeta::core::bin_tree::NodeTraits<BinTreeNode> {
     static constexpr bool IsConst() { return false; }
@@ -75,7 +75,9 @@ struct zeta::core::bin_tree::NodeTraits<BinTreeNode> {
         n->SetAccSize(acc_size);
     }
 };
+*/
 
+/*
 template <>
 struct zeta::core::bin_tree::NodeTraits<BinTreeNode const> {
     static constexpr bool IsConst() { return true; }
@@ -114,6 +116,7 @@ struct zeta::core::rbtree::NodeTraits<BinTreeNode> {
         n->SetPColor(color);
     }
 };
+*/
 
 inline void CompareLR() {
     BinTreeNode* n{ zeta::core::bin_tree::GetMostL(root).first };

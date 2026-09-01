@@ -127,7 +127,7 @@ bool CascadeAllocator::CheckAllocator(void const* ca_) {
     return true;
 }
 
-allocator::AllocatorRef CascadeAllocator::GetAlloccatorRef(void* ca_) {
+allocator::PolyAllocator CascadeAllocator::GetAlloccatorRef(void* ca_) {
     auto ca{ reinterpret_cast<CascadeAllocator*>(ca_) };
     ZETA_Core_DebugAssert(CheckAllocator(ca));
 

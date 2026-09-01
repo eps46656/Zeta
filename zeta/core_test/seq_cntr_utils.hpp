@@ -5,9 +5,9 @@
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/meta.hpp>
+#include <zeta/core/poly_seq_cntr.hpp>
+#include <zeta/core/poly_seq_cntr.ipp>
 #include <zeta/core/seq_cntr.hpp>
-#include <zeta/core/seq_cntr_ref.hpp>
-#include <zeta/core/seq_cntr_ref.ipp>
 #include <zeta/core/static_seq.hpp>
 #include <zeta/core/utils.hpp>
 #include <zeta/core/utils.ipp>
@@ -18,18 +18,19 @@ namespace zeta::core_test::seq_cntr_utils {
 
 using VTable = core::seq_cntr::VTable;
 
-inline size_t GetRandomStride(size_t elem_size) {
+constexpr size_t GetRandomStride(size_t elem_size) {
     ZETA_Core_DebugAssert(1 <= elem_size);
 
     return elem_size + (GetRandomInt<size_t>)(0, elem_size * 2);
 }
 
-inline auto& GetSanitizeFuncs() {
+constexpr auto& GetSanitizeFuncs() {
     static std::unordered_map<void const*, void (*)(void const* sc)> instance;
     return instance;
 }
 
-inline void AddSanitizeFunc(void const* sc, void (*Sanitize)(void const* sc)) {
+constexpr void AddSanitizeFunc(void const* sc,
+                               void (*Sanitize)(void const* sc)) {
     auto& map{ (GetSanitizeFuncs)() };
 
     auto iter{ map.insert({ sc, Sanitize }).first };
@@ -37,7 +38,7 @@ inline void AddSanitizeFunc(void const* sc, void (*Sanitize)(void const* sc)) {
     ZETA_Core_DebugAssert(iter->second == Sanitize);
 }
 
-inline void(Sanitize)(void const* sc) {
+constexpr void(Sanitize)(void const* sc) {
     if (sc == nullptr) { return; }
 
     auto& map{ (GetSanitizeFuncs)() };
@@ -50,16 +51,16 @@ inline void(Sanitize)(void const* sc) {
     iter->second(sc);
 }
 
-inline void(Sanitize)(core::seq_cntr_ref::Ref const* sc) {
-    (Sanitize)(sc->cntr);
+constexpr void(Sanitize)(core::poly_seq_cntr::Cntr const* sc) {
+    (Sanitize)(sc->target_cntr);
 }
 
-inline auto& GetDestroyFuncs() {
+constexpr auto& GetDestroyFuncs() {
     static std::unordered_map<void*, void (*)(void* sc)> instance;
     return instance;
 }
 
-inline void AddDestroyFunc(void* sc, void (*Destroy)(void* sc)) {
+constexpr void AddDestroyFunc(void* sc, void (*Destroy)(void* sc)) {
     auto& map{ (GetDestroyFuncs)() };
 
     auto iter{ map.insert({ sc, Destroy }).first };
@@ -67,7 +68,7 @@ inline void AddDestroyFunc(void* sc, void (*Destroy)(void* sc)) {
     ZETA_Core_DebugAssert(iter->second == Destroy);
 }
 
-inline void Destroy(void* sc) {
+constexpr void Destroy(void* sc) {
     if (sc == nullptr) { return; }
 
     auto& map{ (GetDestroyFuncs)() };
@@ -80,7 +81,9 @@ inline void Destroy(void* sc) {
     iter->second(sc);
 }
 
-inline void Destroy(core::seq_cntr_ref::Ref* sc) { Destroy(sc->cntr); }
+constexpr void Destroy(core::poly_seq_cntr::Cntr* sc) {
+    Destroy(sc->target_cntr);
+}
 
 template <typename SeqCntr>
 void Read_(SeqCntr* sc, size_t idx, size_t cnt, void* dst, size_t dst_stride) {
@@ -503,9 +506,8 @@ void CheckCursor(SeqCntr* sc, size_t max_op_size) {
 
         ZETA_Core_DebugAssert(
             core::seq_cntr::CompareCursor(*sc, &cursor_a, &cursor_b) ==
-            core::comparison::BasicCompare(
-                core::meta::AutoValueWrapper<core::comparison::OpEnum::Order>{},
-                idx_a + 1, idx_b + 1));
+            core::comparison::BasicCompare(core::comparison::OpTag::Order{},
+                                           idx_a + 1, idx_b + 1));
 
         ZETA_Core_DebugAssert(core::seq_cntr::GetCursorDist(
                                   *sc, &cursor_a, &cursor_b) == idx_b - idx_a);
@@ -916,7 +918,7 @@ void SyncCompare(std::vector<SeqCntr*> const& scs) {
     }
 }
 
-enum OpEnum : int {
+enum Op : int {
     READ,
     WRITE,
     PUSH_L,
@@ -957,62 +959,62 @@ void DoRandomOperations(std::vector<SeqCntr*> scs,
 
     std::vector<int> ops;
 
-    if (0 < read_max_op_size) { ops.push_back(OpEnum::READ); }
+    if (0 < read_max_op_size) { ops.push_back(Op::READ); }
 
-    if (0 < write_max_op_size) { ops.push_back(OpEnum::WRITE); }
+    if (0 < write_max_op_size) { ops.push_back(Op::WRITE); }
 
-    if (0 < push_l_max_op_size) { ops.push_back(OpEnum::PUSH_L); }
+    if (0 < push_l_max_op_size) { ops.push_back(Op::PUSH_L); }
 
-    if (0 < push_r_max_op_size) { ops.push_back(OpEnum::PUSH_R); }
+    if (0 < push_r_max_op_size) { ops.push_back(Op::PUSH_R); }
 
-    if (0 < pop_l_max_op_size) { ops.push_back(OpEnum::POP_L); }
+    if (0 < pop_l_max_op_size) { ops.push_back(Op::POP_L); }
 
-    if (0 < pop_r_max_op_size) { ops.push_back(OpEnum::POP_R); }
+    if (0 < pop_r_max_op_size) { ops.push_back(Op::POP_R); }
 
-    if (0 < insert_max_op_size) { ops.push_back(OpEnum::INSERT); }
+    if (0 < insert_max_op_size) { ops.push_back(Op::INSERT); }
 
-    if (0 < erase_max_op_size) { ops.push_back(OpEnum::ERASE); }
+    if (0 < erase_max_op_size) { ops.push_back(Op::ERASE); }
 
     ZETA_Core_DebugAssert(!ops.empty());
 
     for (size_t iter_i{ 0 }; iter_i < iter_cnt; ++iter_i) {
         switch (ops[(GetRandomInt<size_t>)(0, ops.size() - 1)]) {
-        case OpEnum::READ:
+        case Op::READ:
             ZETA_Core_PrintVar("READ");
             (SyncRandomRead)(scs, read_max_op_size);
             break;
 
-        case OpEnum::WRITE:
+        case Op::WRITE:
             ZETA_Core_PrintVar("WRITE");
             (SyncRandomWrite)(scs, write_max_op_size);
             break;
 
-        case OpEnum::PUSH_L:
+        case Op::PUSH_L:
             ZETA_Core_PrintVar("PUSH_L");
             (SyncRandomPushL)(scs, push_l_max_op_size);
             break;
 
-        case OpEnum::PUSH_R:
+        case Op::PUSH_R:
             ZETA_Core_PrintVar("PUSH_R");
             (SyncRandomPushR)(scs, push_r_max_op_size);
             break;
 
-        case OpEnum::POP_L:
+        case Op::POP_L:
             ZETA_Core_PrintVar("POP_L");
             (SyncRandomPopL)(scs, pop_l_max_op_size);
             break;
 
-        case OpEnum::POP_R:
+        case Op::POP_R:
             ZETA_Core_PrintVar("POP_R");
             (SyncRandomPopR)(scs, pop_r_max_op_size);
             break;
 
-        case OpEnum::INSERT:
+        case Op::INSERT:
             ZETA_Core_PrintVar("INSERT");
             (SyncRandomInsert)(scs, insert_max_op_size);
             break;
 
-        case OpEnum::ERASE:
+        case Op::ERASE:
             ZETA_Core_PrintVar("ERASE");
             (SyncRandomErase)(scs, erase_max_op_size);
             break;

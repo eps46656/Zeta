@@ -8,10 +8,13 @@
 #include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/define.hpp>
+#include <zeta/core/elem_stream.ipp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/integral_bit.ipp>
 #include <zeta/core/integral_math.ipp>
-#include <zeta/core/lifecycle.ipp>
+#include <zeta/core/integral_utils.ipp>
+#include <zeta/core/lifecycle.hpp>
+#include <zeta/core/lin_seq_elem_stream.ipp>
 #include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/multi_level_table.mpp.hpp>
 #include <zeta/core/ptr_utils.ipp>
@@ -55,7 +58,7 @@ namespace zeta::core {
 namespace Namespace::detail {
 
 template <CntrTplParamList>
-void CheckCntr_  // NOLINT(misc-use-internal-linkage)
+constexpr void CheckCntr_  // NOLINT(misc-use-internal-linkage)
     (Cntr<CntrTplArgList>& cntr) {
     unsigned level{ cntr.level };
     ZETA_Core_DebugAssert(0 < level);
@@ -72,105 +75,24 @@ void CheckCntr_  // NOLINT(misc-use-internal-linkage)
     }
 }
 
-template <typename T>
-struct TransferBranchIdxesCore_ {
-    static auto& Src(unsigned, T& x) { return x; }
-    static auto& Dst(unsigned, T& x) { return x; }
-};
+template <elem_stream::provider::IsProvider SrcBranchIdxesProvider>
+constexpr BranchNum PullBranchIdx_(
+    SrcBranchIdxesProvider& src_branch_idxes_provider, BranchNum branch_num) {
+    ZETA_Core_DebugAssert(
+        !elem_stream::provider::IsEnd(src_branch_idxes_provider));
 
-template <>
-struct TransferBranchIdxesCore_<meta::NullTag> {
-    static auto Dst(unsigned, meta::NullTag&) {
-        struct {
-            void operator()(BranchNum) {}
-        } ret;
+    BranchNum branch_idx;
 
-        return ret;
-    }
-};
+    elem_stream::provider::Transfer(src_branch_idxes_provider, &branch_idx,
+                                    sizeof(BranchNum), sizeof(BranchNum), 1);
 
-template <typename T>
-struct TransferBranchIdxesCore_<T*> {
-    static auto Src(unsigned level, T* x) {
-        struct {
-            T* ptr;
+    ZETA_Core_Debug_PrintVar(branch_idx);
+    ZETA_Core_Debug_PrintVar(branch_num);
 
-            auto operator()() { return *(--this->ptr); }
-        } ret{ .ptr = x + level };
+    ZETA_Core_DebugAssert(integral_math::Compare(comparison::OpTag::Less{},
+                                                 branch_idx, branch_num));
 
-        return ret;
-    }
-
-    static auto Dst(unsigned level, T* x) {
-        struct {
-            T* ptr;
-
-            void operator()(BranchNum branch_idx) {
-                *(--this->ptr) = static_cast<T>(branch_idx);
-            }
-        } ret{ .ptr = x + level };
-
-        return ret;
-    }
-};
-
-template <typename T>
-struct TransferBranchIdxesCore_<T* const>
-    : public TransferBranchIdxesCore_<T*> {};
-
-template <typename T, size_t N>
-struct TransferBranchIdxesCore_<T[N]> {
-    static decltype(auto) Src(unsigned level, T (&x)[N]) {
-        return TransferBranchIdxesCore_<T*>::Src(level, x);
-    }
-
-    static decltype(auto) Dst(unsigned level, T (&x)[N]) {
-        return TransferBranchIdxesCore_<T*>::Dst(level, x);
-    }
-};
-
-template <typename T>
-struct TransferBranchIdxesCore_<T[]> {
-    static decltype(auto) Src(unsigned level, T (&x)[]) {
-        return TransferBranchIdxesCore_<T*>::Src(level, x);
-    }
-
-    static decltype(auto) Dst(unsigned level, T (&x)[]) {
-        return TransferBranchIdxesCore_<T*>::Dst(level, x);
-    }
-};
-
-template <typename T>
-decltype(auto) GetSrcBranchIdxes_(unsigned level, T&& x) {
-    return TransferBranchIdxesCore_<meta::RemoveRef<T>>::Src(
-        level, meta::Forward<T>(x));
-}
-
-template <typename T>
-decltype(auto) GetDstBranchIdxes_(unsigned level, T&& x) {
-    return TransferBranchIdxesCore_<meta::RemoveRef<T>>::Dst(
-        level, meta::Forward<T>(x));
-}
-
-template <typename BranchIdx, typename BranchNum>
-void CheckBranchIdx_  // NOLINT(misc-use-internal-linkage)
-    (BranchIdx const& idx, BranchNum branch_num) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<BranchIdx>);
-    ZETA_Core_DebugAssert(0 <= idx);
-    ZETA_Core_DebugAssert(integral_utils::MathCompare(idx, branch_num) ==
-                          comparison::Ordering::Less);
-}
-
-template <typename SrcBranchIdxes>
-BranchNum FetchAndCheckBranchIdx_(SrcBranchIdxes& src_branch_idxes,
-                                  BranchNum branch_num) {
-    auto branch_idx{ src_branch_idxes() };
-    ZETA_Core_StaticAssert(integral::IsIntegral<decltype(branch_idx)>);
-    ZETA_Core_DebugAssert(0 <= branch_idx);
-    ZETA_Core_DebugAssert(integral_utils::MathCompare(branch_idx, branch_num) ==
-                          comparison::Ordering::Less);
-
-    return static_cast<BranchNum>(branch_idx);
+    return branch_idx;
 }
 
 template <integral::IsUnsignedIntegral ActiveMap>
@@ -181,15 +103,17 @@ constexpr bool TestActiveMap_  // NOLINT(misc-use-internal-linkage)
 }
 
 template <integral::IsUnsignedIntegral ActiveMap>
-size_t GetNavNodeSize_(BranchNum branch_num) {
+constexpr size_t GetNavNodeSize_(BranchNum branch_num) {
     return __builtin_offsetof(ZETA_Core_Identity(NavNode<ActiveMap>),
                               ptrs[branch_num]);
 }
 
-template <integral::IsUnsignedIntegral ActiveMap,
-          typename NavNodeAllocator>
-NavNode<ActiveMap>* AllocateNavNode_  // NOLINT(misc-use-internal-linkage)
-    (BranchNum branch_num, NavNodeAllocator& nav_node_alctr) {
+template <allocator::IsAllocator NavNodeAllocator,
+          integral::IsUnsignedIntegral ActiveMap>
+constexpr NavNode<ActiveMap>*
+    AllocateNavNode_  // NOLINT(misc-use-internal-linkage)
+    (NavNodeAllocator& nav_node_alctr, BranchNum branch_num,
+     meta::TypeWrapper<ActiveMap>) {
     auto* nav_node{ static_cast<NavNode<ActiveMap>*>(
         allocator::SafeAllocate(nav_node_alctr, alignof(NavNode<ActiveMap>),
                                 (GetNavNodeSize_<ActiveMap>)(branch_num))) };
@@ -199,37 +123,42 @@ NavNode<ActiveMap>* AllocateNavNode_  // NOLINT(misc-use-internal-linkage)
     return nav_node;
 }
 
-template <integral::IsUnsignedIntegral ActiveMap,
-          typename NavNodeAllocator>
-void DeallocateNavNode_  // NOLINT(misc-use-internal-linkage)
-    (NavNode<ActiveMap>* node, NavNodeAllocator& node_alctr) {
+template <allocator::IsAllocator NavNodeAllocator,
+          integral::IsUnsignedIntegral ActiveMap>
+constexpr void DeallocateNavNode_  // NOLINT(misc-use-internal-linkage)
+    (NavNodeAllocator& node_alctr, NavNode<ActiveMap>* node) {
     allocator::Deallocate(node_alctr, node);
 }
 
 #if EnDataNode
 
 template <integral::IsUnsignedIntegral ActiveMap>
-size_t GetDataNodeSize_(size_t elem_stride, BranchNum branch_num) {
+constexpr size_t GetDataNodeSize_(size_t elem_stride, BranchNum branch_num,
+                                  meta::TypeWrapper<ActiveMap>) {
     return __builtin_offsetof(ZETA_Core_Identity(DataNode<ActiveMap>),
                               data[elem_stride * branch_num]);
 }
 
-template <integral::IsUnsignedIntegral ActiveMap, typename DataNodeAllocator>
-DataNode<ActiveMap>* AllocateDataNode_  // NOLINT(misc-use-internal-linkage)
-    (size_t elem_stride, BranchNum branch_num,
-     DataNodeAllocator& data_node_alctr) {
+template <allocator::IsAllocator DataNodeAllocator,
+          integral::IsUnsignedIntegral ActiveMap>
+constexpr DataNode<ActiveMap>*
+    AllocateDataNode_  // NOLINT(misc-use-internal-linkage)
+    (DataNodeAllocator& data_node_alctr, size_t elem_stride,
+     BranchNum branch_num, meta::TypeWrapper<ActiveMap>) {
     auto* data_node{ static_cast<DataNode<ActiveMap>*>(allocator::SafeAllocate(
         data_node_alctr, alignof(DataNode<ActiveMap>),
-        (GetDataNodeSize_<ActiveMap>)(elem_stride, branch_num))) };
+        (GetDataNodeSize_)(elem_stride, branch_num,
+                           meta::TypeWrapper<ActiveMap>{}))) };
 
     data_node->active_map = 0;
 
     return data_node;
 }
 
-template <integral::IsUnsignedIntegral ActiveMap, typename DataNodeAllocator>
-void DeallocateDataNode_  // NOLINT(misc-use-internal-linkage)
-    (DataNode<ActiveMap>* node, DataNodeAllocator& data_node_alctr) {
+template <allocator::IsAllocator DataNodeAllocator,
+          integral::IsUnsignedIntegral ActiveMap>
+constexpr void DeallocateDataNode_  // NOLINT(misc-use-internal-linkage)
+    (DataNodeAllocator& data_node_alctr, DataNode<ActiveMap>* node) {
     allocator::Deallocate(data_node_alctr, node);
 }
 
@@ -244,8 +173,8 @@ template <typename NavNodeAllocatorInitArg
           typename DataNodeAllocatorInitArg
 #endif
           >
-constexpr void Namespace::Cntr<CntrTplArgList>::Init(
-    this Cntr& cntr, NavNodeAllocatorInitArg&& nav_node_alctr_init_arg,
+constexpr Namespace::Cntr<CntrTplArgList>::Cntr(
+    NavNodeAllocatorInitArg&& nav_node_alctr_init_arg,
 #if EnDataNode
     DataNodeAllocatorInitArg&& data_node_alctr_init_arg,
 #endif
@@ -254,7 +183,17 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Init(
     ,
     size_t elem_stride
 #endif
-) {
+    )
+    : nav_node_alctr_like{ ZETA_Core_Lifecycle_UnpackInitArg(
+          NavNodeAllocatorLike, NavNodeAllocatorInitArg,
+          nav_node_alctr_init_arg) }
+#if EnDataNode
+      ,
+      data_node_alctr_like{ ZETA_Core_Lifecycle_UnpackInitArg(
+          DataNodeAllocatorLike, DataNodeAllocatorInitArg,
+          data_node_alctr_init_arg) }
+#endif
+{
     ZETA_Core_DebugAssert(0 < level);
     ZETA_Core_DebugAssert(level <= max_level);
 
@@ -266,32 +205,22 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Init(
         ZETA_Core_DebugAssert(branch_num <= max_branch_num);
     }
 
-    lifecycle::Init(cntr.nav_node_alctr, meta::Forward<NavNodeAllocatorInitArg>(
-                                             nav_node_alctr_init_arg));
-
-#if EnDataNode
-    lifecycle::Init(
-        cntr.data_node_alctr,
-        meta::Forward<DataNodeAllocatorInitArg>(data_node_alctr_init_arg));
-    allocator::CheckContract(cntr.data_node_alctr);
-#endif
-
-    cntr.level = level;
-    cntr.branch_nums = branch_nums;
+    this->level = level;
+    this->branch_nums = branch_nums;
 
 #if EnDataNode
     ZETA_Core_DebugAssert(0 < elem_stride);
-    cntr.elem_stride = elem_stride;
+    this->elem_stride = elem_stride;
 #endif
 
-    cntr.elem_cnt = 0;
+    this->elem_cnt = 0;
 
-    cntr.root = nullptr;
+    this->root = nullptr;
 }
 
 template <CntrTplParamList>
-constexpr void Namespace::Cntr<CntrTplArgList>::Deinit(this Cntr& cntr) {
-    cntr.EraseAll();
+constexpr Namespace::Cntr<CntrTplArgList>::~Cntr() {
+    this->EraseAll();
 }
 
 template <CntrTplParamList>
@@ -321,11 +250,11 @@ constexpr size_t Namespace::Cntr<CntrTplArgList>::GetMaxElemCnt(
 }
 
 template <CntrTplParamList>
-template <typename BranchIdxesSource>
+template <elem_stream::provider::IsProvider SrcBranchIdxesProvider>
 constexpr auto Namespace::Cntr<CntrTplArgList>::Access(
     this auto& cntr,
-    BranchIdxesSource&&
-        src_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward)
+    SrcBranchIdxesProvider&&
+        src_branch_idxes_provider  // NOLINT(cppcoreguidelines-missing-std-forward)
     ) -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*> {
     detail::CheckCntr_(cntr);
 
@@ -336,9 +265,6 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::Access(
     size_t elem_stride{ cntr.elem_stride };
 #endif
 
-    decltype(auto) src_branch_idxes{ detail::GetSrcBranchIdxes_(
-        level, src_branch_idxes_) };
-
     void* node{ cntr.root };
 
     if (node == nullptr) { return nullptr; }
@@ -346,8 +272,8 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::Access(
     for (unsigned level_i{ level - 1 }; 0 < level_i; --level_i) {
         auto* nav_node{ static_cast<NavNode<ActiveMap>*>(node) };
 
-        BranchNum cur_branch_idx{ detail::FetchAndCheckBranchIdx_(
-            src_branch_idxes, branch_nums[level_i]) };
+        BranchNum cur_branch_idx{ detail::PullBranchIdx_(
+            src_branch_idxes_provider, branch_nums[level_i]) };
 
         if (!detail::TestActiveMap_(nav_node->active_map, cur_branch_idx)) {
             return nullptr;
@@ -356,8 +282,8 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::Access(
         node = nav_node->ptrs[cur_branch_idx];
     }
 
-    BranchNum last_branch_idx{ detail::FetchAndCheckBranchIdx_(
-        src_branch_idxes, branch_nums[0]) };
+    BranchNum last_branch_idx{ detail::PullBranchIdx_(src_branch_idxes_provider,
+                                                      branch_nums[0]) };
 
     if (!detail::TestActiveMap_(
             static_cast<EnDataNodeTernary(DataNode, NavNode) < ActiveMap>* >
@@ -375,47 +301,81 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::Access(
 }
 
 template <CntrTplParamList>
-template <typename DstBranchIdxes>
+template <elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindFirst(
     this auto& cntr,
-    DstBranchIdxes&&
-        dst_branch_idxes  // NOLINT(cppcoreguidelines-missing-std-forward)
+    DstBranchIdxesAcceptor&&
+        dst_branch_idxes_acceptor  // NOLINT(cppcoreguidelines-missing-std-forward)
     ) -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*> {
     detail::CheckCntr_(cntr);
 
-    struct {
-        constexpr size_t operator()() { return 0; }
-    } src_branch_idxes;
+    constexpr BranchNum zero{ 0 };
 
-    return cntr.FindNextIncl(src_branch_idxes, dst_branch_idxes);
+    return cntr.FindNextIncl(
+        lin_seq_elem_stream::Provider{
+            .data = &zero,
+            .elem_size = sizeof(BranchNum),
+            .elem_stride = 0,
+            .elem_cnt = integral::RangeMaxOf<size_t>,
+        },
+        dst_branch_idxes_acceptor);
 }
 
 template <CntrTplParamList>
-template <typename DstBranchIdxes>
+template <elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindLast(
     this auto& cntr,
-    DstBranchIdxes&&
-        dst_branch_idxes  // NOLINT(cppcoreguidelines-missing-std-forward)
+    DstBranchIdxesAcceptor&&
+        dst_branch_idxes_acceptor  // NOLINT(cppcoreguidelines-missing-std-forward)
     ) -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*> {
     detail::CheckCntr_(cntr);
 
-    struct {
+    struct SrcBranchIdxesProvider {
         BranchNum const* branch_nums;
+        size_t elem_cnt;
 
-        size_t operator()() { return *(--this->branch_nums) - 1; }
-    } src_branch_idxes{ .branch_nums = cntr.branch_nums + cntr.level };
+        static constexpr bool GetElemSize(elem_stream::provider::Tag) {
+            return sizeof(BranchNum);
+        }
 
-    return cntr.FindPrevIncl(src_branch_idxes, dst_branch_idxes);
+        static constexpr bool IsEnd(elem_stream::provider::Tag) {
+            return false;
+        }
+
+        constexpr size_t Transfer(this SrcBranchIdxesProvider& self,
+                                  elem_stream::provider::Tag, void* dst_,
+                                  size_t elem_size, ptrdiff_t elem_stride,
+                                  size_t elem_cnt) {
+            ZETA_Core_DebugAssert(elem_size == sizeof(BranchNum));
+            ZETA_Core_DebugAssert(elem_stride == sizeof(BranchNum));
+            ZETA_Core_DebugAssert(elem_cnt == self.elem_cnt);
+
+            BranchNum* dst{ static_cast<BranchNum*>(dst_) };
+
+            for (size_t i{ 0 }; i < elem_cnt; ++i) {
+                *(dst++) = *(--self.branch_nums) - 1;
+            }
+
+            return elem_cnt;
+        }
+    } src_branch_idxes_provider{
+        .branch_nums = cntr.branch_nums + cntr.level,
+        .elem_cnt = cntr.level,
+    };
+
+    return cntr.FindPrevIncl(src_branch_idxes_provider,
+                             dst_branch_idxes_acceptor);
 }
 
 template <CntrTplParamList>
-template <typename SrcBranchIdxes, typename DstBranchIdxes>
+template <elem_stream::provider::IsProvider SrcBranchIdxesProvider,
+          elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
     this auto& cntr,
-    SrcBranchIdxes&&
-        src_branch_idxes_,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    DstBranchIdxes&&
-        dst_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward)
+    SrcBranchIdxesProvider&&
+        src_branch_idxes_provider,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    DstBranchIdxesAcceptor&&
+        dst_branch_idxes_acceptor  // NOLINT(cppcoreguidelines-missing-std-forward)
     ) -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*> {
     detail::CheckCntr_(cntr);
 
@@ -426,18 +386,19 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
     size_t elem_stride{ cntr.elem_stride };
 #endif
 
-    decltype(auto) src_branch_idxes{ detail::GetSrcBranchIdxes_(
-        level, src_branch_idxes_) };
-
-    decltype(auto) dst_branch_idxes{ detail::GetDstBranchIdxes_(
-        level, dst_branch_idxes_) };
-
     void* root{ cntr.root };
 
     if (root == nullptr) {
-        for (unsigned level_j{ level }; 0 < level_j;) {
-            dst_branch_idxes(branch_nums[--level_j] - 1);
+        BranchNum branch_idxes[max_level];
+
+        for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
+            branch_idxes[level_i] = branch_nums[level_i] - 1;
         }
+
+        elem_stream::acceptor::Transfer(
+            dst_branch_idxes_acceptor, branch_idxes + (level - 1),
+            sizeof(BranchNum), -static_cast<ptrdiff_t>(sizeof(BranchNum)),
+            level);
 
         return nullptr;
     }
@@ -449,8 +410,8 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
     void* node{ root };
 
     for (;; --level_i) {
-        BranchNum cur_branch_idx{ detail::FetchAndCheckBranchIdx_(
-            src_branch_idxes, branch_nums[level_i]) };
+        BranchNum cur_branch_idx{ detail::PullBranchIdx_(
+            src_branch_idxes_provider, branch_nums[level_i]) };
 
         branch_idxes[level_i] = cur_branch_idx;
 
@@ -475,9 +436,10 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
             }
 #endif
 
-            for (unsigned level_j{ level }; 0 < level_j;) {
-                dst_branch_idxes(branch_idxes[--level_j]);
-            }
+            elem_stream::provider::Transfer(
+                src_branch_idxes_provider, branch_idxes + (level - 1),
+                sizeof(BranchNum), -static_cast<ptrdiff_t>(sizeof(BranchNum)),
+                level);
 
 #if EnDataNode
             return static_cast<DataNode<ActiveMap>*>(node)->data +
@@ -493,8 +455,17 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
 
     for (;; ++level_i) {
         if (level_i == level) {
-            for (unsigned level_j{ level }; 0 < level_j;) {
-                dst_branch_idxes(branch_nums[--level_j] - 1);
+            {
+                BranchNum branch_idxes[max_level];
+
+                for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
+                    branch_idxes[level_i] = branch_nums[level_i] - 1;
+                }
+
+                elem_stream::acceptor::Transfer(
+                    dst_branch_idxes_acceptor, branch_idxes + (level - 1),
+                    sizeof(BranchNum),
+                    -static_cast<ptrdiff_t>(sizeof(BranchNum)), level);
             }
 
             return nullptr;
@@ -537,9 +508,9 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
                 branch_nums[level_i] - 1));
     }
 
-    for (unsigned level_j{ level }; 0 < level_j;) {
-        dst_branch_idxes(branch_idxes[--level_j]);
-    }
+    elem_stream::acceptor::Transfer(
+        dst_branch_idxes_acceptor, branch_idxes + (level - 1),
+        sizeof(BranchNum), -static_cast<ptrdiff_t>(sizeof(BranchNum)), level);
 
 #if EnDataNode
     return static_cast<DataNode<ActiveMap>*>(nodes[0])->data +
@@ -550,30 +521,25 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
 }
 
 template <CntrTplParamList>
-template <typename SrcBranchIdxes, typename DstBranchIdxes>
+template <elem_stream::provider::IsProvider SrcBranchIdxesProvider,
+          elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevExcl(
     this auto& cntr,
-    SrcBranchIdxes&&
-        src_branch_idxes_,  // NOLINT(cppcoreguidelines-missing-std-forward
-    DstBranchIdxes&&
-        dst_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward
+    SrcBranchIdxesProvider&&
+        src_branch_idxes_provider,  // NOLINT(cppcoreguidelines-missing-std-forward
+    DstBranchIdxesAcceptor&&
+        dst_branch_idxes_acceptor  // NOLINT(cppcoreguidelines-missing-std-forward
     ) -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*> {
     detail::CheckCntr_(cntr);
 
     unsigned level{ cntr.level };
     BranchNum const* branch_nums{ cntr.branch_nums };
 
-    decltype(auto) src_branch_idxes{ detail::GetSrcBranchIdxes_(
-        level, src_branch_idxes_) };
-
-    decltype(auto) dst_branch_idxes{ detail::GetDstBranchIdxes_(
-        level, dst_branch_idxes_) };
-
     BranchNum branch_idxes[max_level];
 
     for (unsigned level_i{ level }; 0 < level_i; --level_i) {
-        branch_idxes[level_i - 1] = detail::FetchAndCheckBranchIdx_(
-            src_branch_idxes, branch_nums[level_i - 1]);
+        branch_idxes[level_i - 1] = detail::PullBranchIdx_(
+            src_branch_idxes_provider, branch_nums[level_i - 1]);
     }
 
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
@@ -585,25 +551,26 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevExcl(
         branch_idxes[level_i] = branch_nums[level_i] - 1;
     }
 
-    for (unsigned level_j{ level }; 0 < level_j;) {
-        dst_branch_idxes(branch_nums[--level_j] - 1);
-    }
+    elem_stream::provider::Transfer(
+        src_branch_idxes_provider, branch_idxes + (level - 1),
+        sizeof(BranchNum), -static_cast<ptrdiff_t>(sizeof(BranchNum)), level);
 
     return nullptr;
 
 L1:;
 
-    return cntr.FindPrevIncl(branch_idxes, dst_branch_idxes);
+    return cntr.FindPrevIncl(branch_idxes, dst_branch_idxes_acceptor);
 }
 
 template <CntrTplParamList>
-template <typename SrcBranchIdxes, typename DstBranchIdxes>
+template <elem_stream::provider::IsProvider SrcBranchIdxesProvider,
+          elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
     this auto& cntr,
-    SrcBranchIdxes&&
-        src_branch_idxes_,  // NOLINT(cppcoreguidelines-missing-std-forward)
-    DstBranchIdxes&&
-        dst_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward)
+    SrcBranchIdxesProvider&&
+        src_branch_idxes_provider,  // NOLINT(cppcoreguidelines-missing-std-forward)
+    DstBranchIdxesAcceptor&&
+        dst_branch_idxes_acceptor  // NOLINT(cppcoreguidelines-missing-std-forward)
     ) -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*> {
     detail::CheckCntr_(cntr);
 
@@ -614,18 +581,13 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
     size_t elem_stride{ cntr.elem_stride };
 #endif
 
-    decltype(auto) src_branch_idxes{ detail::GetSrcBranchIdxes_(
-        level, src_branch_idxes_) };
-
-    decltype(auto) dst_branch_idxes{ detail::GetDstBranchIdxes_(
-        level, dst_branch_idxes_) };
-
     void* root{ cntr.root };
 
     if (root == nullptr) {
-        for (unsigned level_j{ level }; 0 < level_j; --level_j) {
-            dst_branch_idxes(0);
-        }
+        constexpr BranchNum zero{ 0 };
+
+        elem_stream::acceptor::Transfer(dst_branch_idxes_acceptor, &zero,
+                                        sizeof(BranchNum), 0, level);
 
         return nullptr;
     }
@@ -637,8 +599,8 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
     void* node{ root };
 
     for (;; --level_i) {
-        BranchNum cur_branch_idx{ detail::FetchAndCheckBranchIdx_(
-            src_branch_idxes, branch_nums[level_i]) };
+        BranchNum cur_branch_idx{ detail::PullBranchIdx_(
+            src_branch_idxes_provider, branch_nums[level_i]) };
 
         branch_idxes[level_i] = cur_branch_idx;
 
@@ -663,9 +625,10 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
             }
 #endif
 
-            for (unsigned level_j{ level }; 0 < level_j;) {
-                dst_branch_idxes(branch_idxes[--level_j]);
-            }
+            elem_stream::acceptor::Transfer(
+                dst_branch_idxes_acceptor, branch_idxes + (level - 1),
+                sizeof(BranchNum), -static_cast<ptrdiff_t>(sizeof(BranchNum)),
+                level);
 
 #if EnDataNode
             return static_cast<DataNode<ActiveMap>*>(node)->data +
@@ -681,9 +644,10 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
 
     for (;; ++level_i) {
         if (level_i == level) {
-            for (unsigned level_j{ level }; 0 < level_j; --level_j) {
-                dst_branch_idxes(0);
-            }
+            constexpr BranchNum zero{ 0 };
+
+            elem_stream::acceptor::Transfer(dst_branch_idxes_acceptor, &zero,
+                                            sizeof(BranchNum), 0, level);
 
             return nullptr;
         }
@@ -725,9 +689,9 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
                 0));
     }
 
-    for (unsigned level_j{ level }; 0 < level_j;) {
-        dst_branch_idxes(branch_idxes[--level_j]);
-    }
+    elem_stream::acceptor::Transfer(
+        dst_branch_idxes_acceptor, branch_idxes + (level - 1),
+        sizeof(BranchNum), -static_cast<ptrdiff_t>(sizeof(BranchNum)), level);
 
 #if EnDataNode
     return static_cast<DataNode<ActiveMap>*>(nodes[0])->data +
@@ -738,30 +702,25 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
 }
 
 template <CntrTplParamList>
-template <typename SrcBranchIdxes, typename DstBranchIdxes>
+template <elem_stream::provider::IsProvider SrcBranchIdxesProvider,
+          elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextExcl(
     this auto& cntr,
-    SrcBranchIdxes&&
-        src_branch_idxes_,  // NOLINT(cppcoreguidelines-missing-std-forward
-    DstBranchIdxes&&
-        dst_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward
+    SrcBranchIdxesProvider&&
+        src_branch_idxes_provider,  // NOLINT(cppcoreguidelines-missing-std-forward
+    DstBranchIdxesAcceptor&&
+        dst_branch_idxes_acceptor  // NOLINT(cppcoreguidelines-missing-std-forward
     ) -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*> {
     detail::CheckCntr_(cntr);
 
     unsigned level{ cntr.level };
     BranchNum const* branch_nums{ cntr.branch_nums };
 
-    decltype(auto) src_branch_idxes{ detail::GetSrcBranchIdxes_(
-        level, src_branch_idxes_) };
-
-    decltype(auto) dst_branch_idxes{ detail::GetDstBranchIdxes_(
-        level, dst_branch_idxes_) };
-
     BranchNum branch_idxes[max_level];
 
     for (unsigned level_i{ level }; 0 < level_i; --level_i) {
-        branch_idxes[level_i - 1] = detail::FetchAndCheckBranchIdx_(
-            src_branch_idxes, branch_nums[level_i - 1]);
+        branch_idxes[level_i - 1] = detail::PullBranchIdx_(
+            src_branch_idxes_provider, branch_nums[level_i - 1]);
     }
 
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
@@ -773,30 +732,40 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextExcl(
         branch_idxes[level_i] = 0;
     }
 
-    for (unsigned level_j{ level }; 0 < level_j; --level_j) {
-        dst_branch_idxes(0);
+    {
+        constexpr BranchNum zero{ 0 };
+
+        elem_stream::acceptor::Transfer(dst_branch_idxes_acceptor, &zero,
+                                        sizeof(BranchNum), 0, level);
     }
 
     return nullptr;
 
 L1:;
 
-    return cntr.FindNextIncl(branch_idxes, dst_branch_idxes);
+    return cntr.FindNextIncl(
+        lin_seq_elem_stream::Provider{
+            .data = branch_idxes,
+            .elem_size = sizeof(BranchNum),
+            .elem_stride = sizeof(BranchNum),
+            .elem_cnt = level,
+        },
+        dst_branch_idxes_acceptor);
 }
 
 template <CntrTplParamList>
-template <typename BranchIdxesSource>
+template <elem_stream::provider::IsProvider SrcBranchIdxesProvider>
 constexpr pair::Pair<void*, bool> Namespace::Cntr<CntrTplArgList>::Insert(
     this Cntr& cntr,
-    BranchIdxesSource&&
-        src_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward)
+    SrcBranchIdxesProvider&&
+        src_branch_idxes_provider  // NOLINT(cppcoreguidelines-missing-std-forward)
 ) {
     detail::CheckCntr_(cntr);
 
-    auto& nav_node_alctr{ meta::GetInstRef(cntr.nav_node_alctr) };
+    auto& nav_node_alctr{ meta::GetInstRef(cntr.nav_node_alctr_like) };
 
 #if EnDataNode
-    auto& data_node_alctr{ meta::GetInstRef(cntr.data_node_alctr) };
+    auto& data_node_alctr{ meta::GetInstRef(cntr.data_node_alctr_like) };
 #endif
 
     unsigned level{ cntr.level };
@@ -806,19 +775,17 @@ constexpr pair::Pair<void*, bool> Namespace::Cntr<CntrTplArgList>::Insert(
     size_t elem_stride{ cntr.elem_stride };
 #endif
 
-    decltype(auto) src_branch_idxes{ detail::GetSrcBranchIdxes_(
-        level, src_branch_idxes_) };
-
     if (cntr.root == nullptr) {
         cntr.root =
 #if EnDataNode
-            level == 1
-                ? static_cast<void*>(detail::AllocateDataNode_<ActiveMap>(
-                      elem_stride, branch_nums[0], data_node_alctr))
-                :
+            level == 1 ? static_cast<void*>(detail::AllocateDataNode_(
+                             data_node_alctr, elem_stride, branch_nums[0],
+                             meta::TypeWrapper<ActiveMap>{}))
+                       :
 #endif
-                static_cast<void*>(detail::AllocateNavNode_<ActiveMap>(
-                    branch_nums[level - 1], nav_node_alctr));
+                       static_cast<void*>(detail::AllocateNavNode_(
+                           nav_node_alctr, branch_nums[level - 1],
+                           meta::TypeWrapper<ActiveMap>{}));
     }
 
     unsigned level_i{ level - 1 };
@@ -826,8 +793,8 @@ constexpr pair::Pair<void*, bool> Namespace::Cntr<CntrTplArgList>::Insert(
     bool exist_node{ true };
 
     for (; 0 < level_i; --level_i) {
-        BranchNum cur_branch_idx{ detail::FetchAndCheckBranchIdx_(
-            src_branch_idxes, branch_nums[level_i]) };
+        BranchNum cur_branch_idx{ detail::PullBranchIdx_(
+            src_branch_idxes_provider, branch_nums[level_i]) };
 
         // NOLINTNEXTLINE(bugprone-assignment-in-if-condition)
         if ((exist_node =
@@ -844,13 +811,14 @@ constexpr pair::Pair<void*, bool> Namespace::Cntr<CntrTplArgList>::Insert(
 
         void* nxt_node{
 #if EnDataNode
-            level_i == 1
-                ? static_cast<void*>(detail::AllocateDataNode_<ActiveMap>(
-                      elem_stride, branch_nums[0], data_node_alctr))
-                :
+            level_i == 1 ? static_cast<void*>(detail::AllocateDataNode_(
+                               data_node_alctr, elem_stride, branch_nums[0],
+                               meta::TypeWrapper<ActiveMap>{}))
+                         :
 #endif
-                static_cast<void*>(detail::AllocateNavNode_<ActiveMap>(
-                    branch_nums[level_i - 1], nav_node_alctr))
+                         static_cast<void*>(detail::AllocateNavNode_(
+                             nav_node_alctr, branch_nums[level_i - 1],
+                             meta::TypeWrapper<ActiveMap>{}))
         };
 
         static_cast<NavNode<ActiveMap>*>(node)->ptrs[cur_branch_idx] = nxt_node;
@@ -858,8 +826,8 @@ constexpr pair::Pair<void*, bool> Namespace::Cntr<CntrTplArgList>::Insert(
         node = nxt_node;
     }
 
-    BranchNum last_branch_idx{ detail::FetchAndCheckBranchIdx_(
-        src_branch_idxes, branch_nums[0]) };
+    BranchNum last_branch_idx{ detail::PullBranchIdx_(src_branch_idxes_provider,
+                                                      branch_nums[0]) };
 
     auto addr{
 #if EnDataNode
@@ -886,11 +854,11 @@ constexpr pair::Pair<void*, bool> Namespace::Cntr<CntrTplArgList>::Insert(
 }
 
 template <CntrTplParamList>
-template <typename BramchIdxSource>
+template <elem_stream::provider::IsProvider SrcBranchIdxesProvider>
 constexpr bool Namespace::Cntr<CntrTplArgList>::Erase(
     this Cntr& cntr,
-    BramchIdxSource&&
-        src_branch_idxes_  // NOLINT(cppcoreguidelines-missing-std-forward)
+    SrcBranchIdxesProvider&&
+        src_branch_idxes_provider  // NOLINT(cppcoreguidelines-missing-std-forward)
 ) {
     detail::CheckCntr_(cntr);
 
@@ -898,17 +866,14 @@ constexpr bool Namespace::Cntr<CntrTplArgList>::Erase(
 
     BranchNum const* branch_nums{ cntr.branch_nums };
 
-    decltype(auto) src_branch_idxes{ detail::GetSrcBranchIdxes_(
-        level, src_branch_idxes_) };
-
     void* node{ cntr.root };
 
     if (node == nullptr) { return false; }
 
-    auto& nav_node_alctr{ meta::GetInstRef(cntr.nav_node_alctr) };
+    auto& nav_node_alctr{ meta::GetInstRef(cntr.nav_node_alctr_like) };
 
 #if EnDataNode
-    auto& data_node_alctr{ meta::GetInstRef(cntr.data_node_alctr) };
+    auto& data_node_alctr{ meta::GetInstRef(cntr.data_node_alctr_like) };
 #endif
 
     void* nodes[max_level];
@@ -919,8 +884,8 @@ constexpr bool Namespace::Cntr<CntrTplArgList>::Erase(
 
         if (level_i == 0) { break; }
 
-        BranchNum cur_branch_idx{ detail::FetchAndCheckBranchIdx_(
-            src_branch_idxes, branch_nums[level_i]) };
+        BranchNum cur_branch_idx{ detail::PullBranchIdx_(
+            src_branch_idxes_provider, branch_nums[level_i]) };
         branch_idxes[level_i] = cur_branch_idx;
 
         if (!detail::TestActiveMap_(
@@ -932,8 +897,8 @@ constexpr bool Namespace::Cntr<CntrTplArgList>::Erase(
         node = static_cast<NavNode<ActiveMap>*>(node)->ptrs[cur_branch_idx];
     }
 
-    BranchNum last_branch_idx{ detail::FetchAndCheckBranchIdx_(
-        src_branch_idxes, branch_nums[0]) };
+    BranchNum last_branch_idx{ detail::PullBranchIdx_(src_branch_idxes_provider,
+                                                      branch_nums[0]) };
     branch_idxes[0] = last_branch_idx;
 
     if (!detail::TestActiveMap_(
@@ -957,7 +922,7 @@ constexpr bool Namespace::Cntr<CntrTplArgList>::Erase(
 
             if (data_node->active_map != 0) { return true; }
 
-            detail::DeallocateDataNode_(data_node, data_node_alctr);
+            detail::DeallocateDataNode_(data_node_alctr, data_node);
         } else
 #endif
         {
@@ -968,7 +933,7 @@ constexpr bool Namespace::Cntr<CntrTplArgList>::Erase(
 
             if (nav_node->active_map != 0) { return true; }
 
-            detail::DeallocateNavNode_(nav_node, nav_node_alctr);
+            detail::DeallocateNavNode_(nav_node_alctr, nav_node);
         }
     }
 
@@ -982,17 +947,17 @@ namespace Namespace::detail {
 template <CntrTplParamList>
 constexpr void EraseAllRecursive_  // NOLINT(misc-use-internal-linkage)
     (Cntr<CntrTplArgList>& cntr, void* node, unsigned level_i) {
-    auto& nav_node_alctr{ meta::GetInstRef(cntr.nav_node_alctr) };
+    auto& nav_node_alctr{ meta::GetInstRef(cntr.nav_node_alctr_like) };
 
 #if EnDataNode
-    auto& data_node_alctr{ meta::GetInstRef(cntr.data_node_alctr) };
+    auto& data_node_alctr{ meta::GetInstRef(cntr.data_node_alctr_like) };
 #endif
 
     if (level_i == 0) {
         (EnDataNodeTernary(DeallocateDataNode_, DeallocateNavNode_))(
+            EnDataNodeTernary(data_node_alctr, nav_node_alctr),
             static_cast<EnDataNodeTernary(DataNode, NavNode) < ActiveMap>* >
-                (node),
-            EnDataNodeTernary(data_node_alctr, nav_node_alctr));
+                (node));
 
         return;
     }
@@ -1007,7 +972,7 @@ constexpr void EraseAllRecursive_  // NOLINT(misc-use-internal-linkage)
         (EraseAllRecursive_)(cntr, nav_node->ptrs[idx], level_i - 1);
     }
 
-    (DeallocateNavNode_)(nav_node, nav_node_alctr);
+    (DeallocateNavNode_)(nav_node_alctr, nav_node);
 }
 
 }  // namespace Namespace::detail
@@ -1048,7 +1013,8 @@ size_t SanitizeRecursive_  // NOLINT(
     if (level_i == 0) {
         mem_recorder::Record(
             dst_data_node, node,
-            detail::GetDataNodeSize_<ActiveMap>(elem_stride, branch_nums[0]));
+            detail::GetDataNodeSize_(elem_stride, branch_nums[0],
+                                     meta::TypeWrapper<ActiveMap>{}));
 
         size_t ret{ static_cast<size_t>(integral_bit::PopCount(
             static_cast<DataNode<ActiveMap>*>(node)->active_map)) };

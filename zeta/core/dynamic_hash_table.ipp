@@ -33,18 +33,6 @@
 namespace zeta::core {
 
 template <typename ElemHasherLike>
-template <typename... Args>
-constexpr void dynamic_hash_table::NodeHasherWrapper<ElemHasherLike>::Init(
-    Args&&... args) {
-    lifecycle::Init(this->elem_hasher, meta::Forward<Args>(args)...);
-}
-
-template <typename ElemHasherLike>
-constexpr void dynamic_hash_table::NodeHasherWrapper<ElemHasherLike>::Deinit() {
-    lifecycle::Deinit(this->elem_hasher);
-}
-
-template <typename ElemHasherLike>
 constexpr unsigned long long
 dynamic_hash_table::NodeHasherWrapper<ElemHasherLike>::Hash(
     generic_hash_table::Node const* ghtn, unsigned long long salt) const {
@@ -67,10 +55,10 @@ dynamic_hash_table::NodeComparatorWrapper<ElemComparatorLike>::Deinit() {
 }
 
 template <typename ElemComparatorLike>
-template <comparison::IsOpType OpType>
+template <comparison::IsOpTag OpTag>
 constexpr auto
 dynamic_hash_table::NodeComparatorWrapper<ElemComparatorLike>::Compare(
-    OpType op, generic_hash_table::Node const* ghtn_a,
+    OpTag op, generic_hash_table::Node const* ghtn_a,
     generic_hash_table::Node const* ghtn_b) const {
     return comparison::Compare(
         meta::GetInstRef(this->elem_cmptr), op,
@@ -79,11 +67,10 @@ dynamic_hash_table::NodeComparatorWrapper<ElemComparatorLike>::Compare(
 }
 
 template <typename KeyNodeComparatorLike>
-template <comparison::IsOpType OpType>
+template <comparison::IsOpTag OpTag>
 constexpr auto
 dynamic_hash_table::KeyNodeComparatorWrapper<KeyNodeComparatorLike>::Compare(
-    OpType op, void const* key_a,
-    generic_hash_table::Node const* ghtn_b) const {
+    OpTag op, void const* key_a, generic_hash_table::Node const* ghtn_b) const {
     return comparison::Compare(
         meta::GetInstRef(this->key_elem_cmptr), op, key_a,
         ZETA_Core_MemberToStruct(Node, ghtn, ghtn_b)->data);

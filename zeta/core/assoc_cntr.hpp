@@ -1,14 +1,14 @@
 #pragma once
 
 #include <zeta/core/comparison.ipp>
-#include <zeta/core/comparison_ref.hpp>
 #include <zeta/core/debug_utils.ipp>
 #include <zeta/core/elem_stream.ipp>
-#include <zeta/core/elem_stream_ref.hpp>
 #include <zeta/core/function_ref.hpp>
 #include <zeta/core/hash_ref.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/lin_seq_elem_stream.hpp>
+#include <zeta/core/poly_comparison.hpp>
+#include <zeta/core/poly_elem_stream.hpp>
 #include <zeta/core/utils.hpp>
 
 namespace zeta::core::assoc_cntr {
@@ -31,9 +31,9 @@ using EmptyReaderWriter = elem_stream::provider::EmptyProvider;
 using LinSeqReader = lin_seq_elem_stream::Acceptor;
 using LinSeqWriter = lin_seq_elem_stream::Provider;
 
-using FnReader = elem_stream_ref::acceptor::Acceptor;
-using FnWriter = elem_stream_ref::provider::Provider;
-using FnReaderWriter = elem_stream_ref::provider::Provider;
+using FnReader = poly_elem_stream::acceptor::Acceptor;
+using FnWriter = poly_elem_stream::provider::Provider;
+using FnReaderWriter = poly_elem_stream::provider::Provider;
 
 namespace capability {
 
@@ -222,10 +222,11 @@ template <typename Cntr>
 concept IsAssocCntr = requires(
     Cntr& cntr, bool bool_val, void* void_ptr, void const* const_void_ptr,
     size_t size_val, ElemPtrView* elem_ptr_view_ptr,
-    hash::ArchetHasher key_hasher, comparison::ArchetComparator key_elem_cmptr,
-    elem_stream::acceptor::ArchetAcceptor reader,
-    elem_stream::provider::ArchetProvider writer,
-    elem_stream::provider::ArchetProvider reader_writer,
+    hash::ArchetypeHasher key_hasher,
+    comparison::ArchetypeComparator key_elem_cmptr,
+    elem_stream::acceptor::ArchetypeAcceptor reader,
+    elem_stream::provider::ArchetypeProvider writer,
+    elem_stream::provider::ArchetypeProvider reader_writer,
     comparison::Ordering ordering_val, meta::AlwaysMatchedTag unused) {
     requires requires {
         requires meta::IsSame<
@@ -324,7 +325,6 @@ concept IsAssocCntr = requires(
                            //
         unused,            //
                            //
-        cntr,              // cntr
         void_ptr           // cursor
     );
 
@@ -334,7 +334,6 @@ concept IsAssocCntr = requires(
                            //
         unused,            //
                            //
-        cntr,              // cntr
         void_ptr           // cursor
     );
 
@@ -413,7 +412,6 @@ concept IsAssocCntr = requires(
                            //
         unused,            // ret
                            //
-        cntr,              // cntr
         const_void_ptr,    // elem
         writer,            // writer
         void_ptr           // dst_cursor
@@ -425,7 +423,6 @@ concept IsAssocCntr = requires(
                            //
         unused,            // ret
                            //
-        cntr,              // cntr
         const_void_ptr,    // key
         key_hasher,        // key_hasher
         key_elem_cmptr,    // key_elem_cmptr
@@ -439,7 +436,6 @@ concept IsAssocCntr = requires(
                            //
         unused,            // ret
                            //
-        cntr,              // cntr
         size_val,          // cnt
         reader             // reader
     );
@@ -450,7 +446,6 @@ concept IsAssocCntr = requires(
                            //
         unused,            // ret
                            //
-        cntr,              // cntr
         size_val,          // cnt
         reader             // reader
     );
@@ -461,7 +456,6 @@ concept IsAssocCntr = requires(
                            //
         unused,            // ret
                            //
-        cntr,              // cntr
         void_ptr,          // pos_cursor
         size_val,          // cnt
         reader             // reader
@@ -471,9 +465,7 @@ concept IsAssocCntr = requires(
         EraseAll,          // capability
         EraseAll,          // method
                            //
-        unused,            // ret
-                           //
-        cntr               // cntr
+        unused             // ret
     );
 
     SatisfiesMethodMacro(  //
@@ -482,7 +474,6 @@ concept IsAssocCntr = requires(
                            //
         unused,            // ret
                            //
-        cntr,              // cntr
         void_ptr,          // src_cursor
         void_ptr           // dst_cursor
     );
@@ -493,7 +484,6 @@ concept IsAssocCntr = requires(
                            //
         bool_val,          // ret
                            //
-        cntr,              // cntr
         void_ptr,          // cursor_a
         void_ptr           // cursor_b
     );
@@ -505,7 +495,6 @@ concept IsAssocCntr = requires(
         ordering_val,      //
                            // ret
                            //
-        cntr,              // cntr
         void_ptr,          // cursor_a
         void_ptr           // cursor_b
     );
@@ -516,7 +505,6 @@ concept IsAssocCntr = requires(
                            //
         size_val,          // ret
                            //
-        cntr,              // cntr
         void_ptr,          // cursor_a
         void_ptr           // cursor_b
     );
@@ -527,7 +515,6 @@ concept IsAssocCntr = requires(
                            //
         size_val,          // ret
                            //
-        cntr,              // cntr
         void_ptr           // cursor
     );
 
@@ -537,7 +524,6 @@ concept IsAssocCntr = requires(
                            //
         unused,            // ret
                            //
-        cntr,              // cntr
         void_ptr           // cursor
     );
 
@@ -547,7 +533,6 @@ concept IsAssocCntr = requires(
                            //
         unused,            // ret
                            //
-        cntr,              // cntr
         void_ptr           // cursor
     );
 
@@ -557,7 +542,6 @@ concept IsAssocCntr = requires(
                            //
         unused,            // ret
                            //
-        cntr,              // cntr
         void_ptr,          // cursor
         size_val           // step
     );
@@ -568,121 +552,12 @@ concept IsAssocCntr = requires(
                            //
         unused,            // ret
                            //
-        cntr,              // cntr
         void_ptr,          // cursor
         size_val           // step
     );
 };
 
 #pragma pop_macro("SatisfiesMethodMacro")
-
-template <typename Cntr, typename Cursr>
-struct MemberFuncCntrTraitsAdapter {
-    static constexpr decltype(auto) GetReferedInstPtr(Cntr& cntr);
-
-    static constexpr decltype(auto) GetStaticEnabledCapabilityFlag();
-
-    static constexpr decltype(auto) GetStaticDisabledCapabilityFlag();
-
-    static constexpr decltype(auto) GetDynamicEnabledCapabilityFlag(Cntr& cntr);
-
-    static constexpr decltype(auto) GetDynamicDisabledCapabilityFlag(
-        Cntr& cntr);
-
-    static constexpr decltype(auto) GetCursorSize(Cntr& cntr);
-
-    static constexpr decltype(auto) GetElemSize(Cntr& cntr);
-
-    static constexpr decltype(auto) GetElemCnt(Cntr& cntr);
-
-    static constexpr decltype(auto) GetMaxElemCnt(Cntr& cntr);
-
-    static constexpr decltype(auto) GetLBCursor(Cntr& cntr, void* dst_cursor);
-
-    static constexpr decltype(auto) GetRBCursor(Cntr& cntr, void* dst_cursor);
-
-    static constexpr decltype(auto) PeekL(Cntr& cntr, bool lazy_copy_elem,
-                                          ElemPtrView* dst_elem_ptr_view,
-                                          void* dst_cursor, void* dst_elem);
-
-    static constexpr decltype(auto) PeekR(Cntr& cntr, bool lazy_copy_elem,
-                                          ElemPtrView* dst_elem_ptr_view,
-                                          void* dst_cursor, void* dst_elem);
-
-    static constexpr decltype(auto) Derefer(Cntr& cntr, void* pos_cursor,
-                                            bool lazy_copy_elem,
-                                            ElemPtrView* dst_elem_ptr_view,
-                                            void* dst_elem);
-
-    static constexpr decltype(auto) Find(Cntr& cntr, void const* elem,
-                                         bool lazy_copy_elem,
-                                         ElemPtrView* dst_elem_ptr_view,
-                                         void* dst_cursor, void* dst_elem);
-
-    template <
-        hash::CanHash<void const*> KeyHasher,
-        comparison::CanCompare<void const*, void const*> KeyElemComparator>
-    static constexpr decltype(auto) Find(
-        Cntr& cntr, void const* key, KeyHasher const& key_hasher,
-        KeyElemComparator const& key_elem_cmptr, bool lazy_copy_elem,
-        ElemPtrView* dst_elem_ptr_view, void* dst_cursor, void* dst_elem);
-
-    template <IsReader Reader>
-    static constexpr decltype(auto) Read(Cntr& cntr, void* pos_cursor,
-                                         size_t cnt, Reader&& reader,
-                                         void* dst_cursor);
-
-    template <IsWriter Writer>
-    static constexpr decltype(auto) Insert(Cntr& cntr, void const* elem,
-                                           Writer&& writer, void* dst_cursor);
-
-    template <
-        hash::CanHash<void const*> KeyHasher,
-        comparison::CanCompare<void const*, void const*> KeyElemComparator,
-        IsWriter Writer>
-    static constexpr decltype(auto) Insert(
-        Cntr& cntr, void const* key, KeyHasher const& key_hasher,
-        KeyElemComparator const& key_elem_cmptr, Writer&& writer,
-        void* dst_cursor);
-
-    template <IsReader Reader>
-    static constexpr decltype(auto) PopL(Cntr& cntr, size_t cnt,
-                                         Reader&& reader);
-
-    template <IsReader Reader>
-    static constexpr decltype(auto) PopR(Cntr& cntr, size_t cnt,
-                                         Reader&& reader);
-
-    template <IsReader Reader>
-    static constexpr decltype(auto) Erase(Cntr& cntr, void* pos_cursor,
-                                          size_t cnt, Reader&& reader);
-
-    static constexpr decltype(auto) EraseAll(Cntr& cntr);
-
-    static constexpr decltype(auto) CopyCursor(Cntr& cntr, void* src_cursor,
-                                               void* dst_cursor);
-
-    static constexpr decltype(auto) AreEqualCursor(Cntr& cntr, void* cursor_a,
-                                                   void* cursor_b);
-
-    static constexpr decltype(auto) CompareCursor(Cntr& cntr, void* cursor_a,
-                                                  void* cursor_b);
-
-    static constexpr decltype(auto) GetCursorDist(Cntr& cntr, void* cursor_a,
-                                                  void* cursor_b);
-
-    static constexpr decltype(auto) GetCursorIdx(Cntr& cntr, void* cursor);
-
-    static constexpr decltype(auto) CursorStepL(Cntr& cntr, void* cursor);
-
-    static constexpr decltype(auto) CursorStepR(Cntr& cntr, void* cursor);
-
-    static constexpr decltype(auto) CursorAdvanceL(Cntr& cntr, void* cursor,
-                                                   size_t step);
-
-    static constexpr decltype(auto) CursorAdvanceR(Cntr& cntr, void* cursor,
-                                                   size_t step);
-};
 
 template <typename Cntr>
 constexpr decltype(auto) GetReferedInstPtr(Cntr& cntr);
@@ -837,7 +712,7 @@ struct VTable {
         struct {
             void (*fn)(void* cntr, void const* key,
                        hash_ref::Hasher const& key_hasher,
-                       comparison_ref::Comparator const& key_elem_cmptr,
+                       poly_comparison::Comparator const& key_elem_cmptr,
                        bool lazy_copy_elem, ElemPtrView* dst_elem_ptr_view,
                        void* dst_cursor, void* dst_elem);
         } with_key;
@@ -854,11 +729,11 @@ struct VTable {
         struct {
             void (*empty)(void* cntr, void const* key,
                           hash_ref::Hasher const& key_hasher,
-                          comparison_ref::Comparator const& key_elem_cmptr,
+                          poly_comparison::Comparator const& key_elem_cmptr,
                           EmptyWriter writer, void* dst_cursor);
             void (*fn)(void* cntr, void const* key,
                        hash_ref::Hasher const& key_hasher,
-                       comparison_ref::Comparator const& key_elem_cmptr,
+                       poly_comparison::Comparator const& key_elem_cmptr,
                        FnWriter writer, void* dst_cursor);
         } with_key;
     } insert;

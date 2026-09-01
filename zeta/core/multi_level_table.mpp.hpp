@@ -31,6 +31,7 @@
 
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/define.hpp>
+#include <zeta/core/elem_stream.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/integral_utils.hpp>
 #include <zeta/core/mem_recorder.hpp>
@@ -70,7 +71,7 @@ struct NavNode {
 
 #if EnDataNode
 
-template <typename ActiveMap_>
+template <integral::IsIntegral ActiveMap_>
 struct DataNode {
     using ActiveMap = ActiveMap_;
 
@@ -112,10 +113,10 @@ struct Cntr {
 
     void* root;
 
-    NavNodeAllocatorLike nav_node_alctr;
+    NavNodeAllocatorLike nav_node_alctr_like;
 
 #if EnDataNode
-    DataNodeAllocatorLike data_node_alctr;
+    DataNodeAllocatorLike data_node_alctr_like;
 #endif
 
     /**
@@ -129,24 +130,18 @@ struct Cntr {
               typename DataNodeAllocatorInitArg
 #endif
               >
-    constexpr void Init(this Cntr& cntr,
-                        NavNodeAllocatorInitArg&& nav_node_alctr_init_arg,
+    constexpr Cntr(NavNodeAllocatorInitArg&& nav_node_alctr_init_arg,
 #if EnDataNode
-                        DataNodeAllocatorInitArg&& data_node_alctr_init_arg,
+                   DataNodeAllocatorInitArg&& data_node_alctr_init_arg,
 #endif
-                        unsigned level, BranchNum const* branch_nums
+                   unsigned level, BranchNum const* branch_nums
 #if EnDataNode
-                        ,
-                        size_t stride
+                   ,
+                   size_t stride
 #endif
     );
 
-    /**
-     * @brief Deinitialize the cntr.
-     *
-     * @param cntr The target cntr.
-     */
-    constexpr void Deinit(this Cntr& cntr);
+    constexpr ~Cntr();
 
     /**
      * @brief Get the size of cntr. Assume the value does not overflow max range
@@ -173,16 +168,19 @@ struct Cntr {
      * @return The reference of target entry. If the it is not inserted, return
      * nullptr.
      */
-    template <typename BranchIdxesSource>
-    constexpr auto Access(this auto& cntr, BranchIdxesSource&& src_branch_idxes)
+    template <elem_stream::provider::IsProvider SrcBranchIdxesProvier>
+    constexpr auto Access(this auto& cntr,
+                          SrcBranchIdxesProvier&& src_branch_idxes_provider)
         -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
-    template <typename DstBranchIdxes>
-    constexpr auto FindFirst(this auto& cntr, DstBranchIdxes&& dst_branch_idxes)
+    template <elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    constexpr auto FindFirst(this auto& cntr,
+                             DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
         -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
-    template <typename DstBranchIdxes>
-    constexpr auto FindLast(this auto& cntr, DstBranchIdxes&& dst_branch_idxes)
+    template <elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    constexpr auto FindLast(this auto& cntr,
+                            DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
         -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
     /**
@@ -193,16 +191,18 @@ struct Cntr {
      *
      * @return The reference of target entry.
      */
-    template <typename SrcBranchIdxes, typename DstBranchIdxes>
-    constexpr auto FindPrevIncl(this auto& cntr,
-                                SrcBranchIdxes&& src_branch_idxes,
-                                DstBranchIdxes&& dst_branch_idxes)
+    template <elem_stream::provider::IsProvider SrcBranchIdxesProvider,
+              elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    constexpr auto FindPrevIncl(
+        this auto& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider,
+        DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
         -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
-    template <typename SrcBranchIdxes, typename DstBranchIdxes>
-    constexpr auto FindPrevExcl(this auto& cntr,
-                                SrcBranchIdxes&& src_branch_idxes,
-                                DstBranchIdxes&& dst_branch_idxes)
+    template <elem_stream::provider::IsProvider SrcBranchIdxesProvider,
+              elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    constexpr auto FindPrevExcl(
+        this auto& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider,
+        DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
         -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
     /**
@@ -213,32 +213,36 @@ struct Cntr {
      *
      * @return The reference of target entry.
      */
-    template <typename SrcBranchIdxes, typename DstBranchIdxes>
-    constexpr auto FindNextIncl(this auto& cntr,
-                                SrcBranchIdxes&& src_branch_idxes,
-                                DstBranchIdxes&& dst_branch_idxes)
+    template <elem_stream::provider::IsProvider SrcBranchIdxesProvider,
+              elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    constexpr auto FindNextIncl(
+        this auto& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider,
+        DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
         -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
-    template <typename SrcBranchIdxes, typename DstBranchIdxes>
-    constexpr auto FindNextExcl(this auto& cntr,
-                                SrcBranchIdxes&& src_branch_idxes,
-                                DstBranchIdxes&& dst_branch_idxes)
+    template <elem_stream::provider::IsProvider SrcBranchIdxesProvider,
+              elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    constexpr auto FindNextExcl(
+        this auto& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider,
+        DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
         -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
-    template <typename BranchIdxesSource>
+    template <elem_stream::provider::IsProvider SrcBranchIdxesProvider>
     constexpr pair::Pair<void*, bool> Insert(
-        this Cntr& cntr, BranchIdxesSource&& src_branch_idxes);
+        this Cntr& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider);
 
     /**
      * @brief Erase the target entry by indexes. If it has not existen.
      *
      * @param cntr The target cntr.
-     * @param src_branch_idxes The branch indexes of target entry in each level.
+     * @param src_branch_idxes_provider The branch indexes of target entry in
+     * each level.
      *
      * @return The reference of target entry.
      */
-    template <typename BramchIdxSource>
-    constexpr bool Erase(this Cntr& cntr, BramchIdxSource&& src_branch_idxes);
+    template <elem_stream::provider::IsProvider SrcBranchIdxesProvider>
+    constexpr bool Erase(this Cntr& cntr,
+                         SrcBranchIdxesProvider&& src_branch_idxes_provider);
 
     /**
      * @brief Erase all existed entries.

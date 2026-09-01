@@ -27,12 +27,12 @@ RetInt GetRandomInt(LBInt lb, RBInt rb) {
     ZETA_Core_StaticAssert(core::integral::IsIntegral<LBInt>);
     ZETA_Core_StaticAssert(core::integral::IsIntegral<RBInt>);
 
-    ZETA_Core_DebugAssert(core::integral_utils::MathCompare(
-                              core::integral::RangeMinOf<RetInt>, lb) !=
-                          core::comparison::Ordering::Greater);
-    ZETA_Core_DebugAssert(core::integral_utils::MathCompare(
-                              rb, core::integral::RangeMaxOf<RetInt>) !=
-                          core::comparison::Ordering::Greater);
+    ZETA_Core_DebugAssert(
+        core::integral_math::Compare(core::comparison::OpTag::LessEqual{},
+                                     core::integral::RangeMinOf<RetInt>, lb));
+    ZETA_Core_DebugAssert(
+        core::integral_math::Compare(core::comparison::OpTag::LessEqual{}, rb,
+                                     core::integral::RangeMaxOf<RetInt>));
 
     RetInt ret_lb{ static_cast<RetInt>(lb) };
     RetInt ret_rb{ static_cast<RetInt>(rb) };

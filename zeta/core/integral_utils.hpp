@@ -230,9 +230,6 @@ using UnsignedFastIntegral = decltype(detail::UnsignedFastIntegral_<N>())::Type;
 template <size_t N>
 using SignedFastIntegral = decltype(detail::SignedFastIntegral_<N>())::Type;
 
-template <integral::IsIntegral IntegralA, integral::IsIntegral IntegralB>
-constexpr comparison::Ordering MathCompare(IntegralA a, IntegralB b);
-
 template <integral::IsIntegral DstIntegral, integral::IsIntegral SrcIntegral>
 constexpr DstIntegral LossyDetectingCast(SrcIntegral const& a, bool& no_lossy);
 

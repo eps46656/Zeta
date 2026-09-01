@@ -102,8 +102,7 @@ Elem* Find(AssocCntr* ac, Key const& key) {
     if constexpr (core::meta::IsSame<core::meta::RemoveCVRef<Key>,
                                      core::meta::RemoveCVRef<Elem> >) {
         ZETA_Core_DebugAssert(core::comparison::BasicCompare(
-            core::meta::AutoValueWrapper<core::comparison::OpEnum::Equal>{},
-            key, *elem_find_with_key));
+            core::comparison::OpTag::Equal{}, key, *elem_find_with_key));
     }
 
     return elem_find_with_key;
@@ -124,8 +123,7 @@ Elem* Insert(AssocCntr* ac, Elem const& elem) {
     ZETA_Core_DebugAssert(ins_elem != nullptr);
 
     ZETA_Core_DebugAssert(core::comparison::BasicCompare(
-        core::meta::AutoValueWrapper<core::comparison::OpEnum::Equal>{}, elem,
-        *ins_elem));
+        core::comparison::OpTag::Equal{}, elem, *ins_elem));
 
     return ins_elem;
 }
@@ -191,8 +189,7 @@ Elem* SyncFind(std::vector<AssocCntr*> const& acs, Key const& key) {
 
         if (elem != nullptr) {
             ZETA_Core_DebugAssert(core::comparison::BasicCompare(
-                core::meta::AutoValueWrapper<core::comparison::OpEnum::Equal>{},
-                *elem, *cur_elem));
+                core::comparison::OpTag::Equal{}, *elem, *cur_elem));
         }
     }
 

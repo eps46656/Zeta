@@ -309,18 +309,6 @@ void pool_allocator::Sanitize(Allocator<AllocatorTplArgList>& pa,
     ZETA_Core_DebugAssert(cnt == pa.cnt);
 }
 
-template <AllocatorTplParamList>
-void lifecycle::Traits<pool_allocator::Allocator<AllocatorTplArgList>>::Init(
-    pool_allocator::Allocator<AllocatorTplArgList>& pa, auto&&... args) {
-    pool_allocator::Init(pa, meta::Forward<decltype(args)>(args)...);
-}
-
-template <AllocatorTplParamList>
-void lifecycle::Traits<pool_allocator::Allocator<AllocatorTplArgList>>::Deinit(
-    pool_allocator::Allocator<AllocatorTplArgList>& pa) {
-    pool_allocator::Deinit(pa);
-}
-
 }  // namespace zeta::core
 
 #pragma pop_macro("AllocatorTplParamList")

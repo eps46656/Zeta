@@ -22,10 +22,15 @@ enum struct TimeStandard : unsigned char {
     UTC = 1,
 };
 
+struct TimeStandardTag {
+    using GMT = meta::AutoValueWrapper<TimeStandard::GMT>;
+    using UTC = meta::AutoValueWrapper<TimeStandard::UTC>;
+};
+
 template <typename T>
-concept IsTimeStandardType =
-    meta::IsAnySame<T, TimeStandard, meta::AutoValueWrapper<TimeStandard::GMT>,
-                    meta::AutoValueWrapper<TimeStandard::UTC>>;
+concept IsTimeStandardLike =
+    meta::IsAnySame<T, TimeStandard, TimeStandardTag::GMT,
+                    TimeStandardTag::UTC>;
 
 struct HourMinSec {
     unsigned hour : 5;  // 0 ~ 23
@@ -41,10 +46,9 @@ struct HourMinSec {
 namespace zeta::core {
 
 template <>
-struct comparison::ComparatorTraits<
-    comparison::BasicComparator<datetime::HourMinSec, datetime::HourMinSec>> {
-    template <IsOpType OpType>
-    static constexpr auto Compare(auto const&, OpType,
+struct comparison::BasicComparator<datetime::HourMinSec, datetime::HourMinSec> {
+    template <IsOpTag OpTag>
+    static constexpr auto Compare(comparison::Tag, OpTag,
                                   datetime::HourMinSec const& a,
                                   datetime::HourMinSec const& b);
 };
@@ -77,10 +81,9 @@ struct MonthDay {
 namespace zeta::core {
 
 template <>
-struct comparison::ComparatorTraits<
-    comparison::BasicComparator<datetime::MonthDay, datetime::MonthDay>> {
-    template <IsOpType OpType>
-    static constexpr auto Compare(auto const&, OpType,
+struct comparison::BasicComparator<datetime::MonthDay, datetime::MonthDay> {
+    template <IsOpTag OpTag>
+    static constexpr auto Compare(comparison::Tag, OpTag,
                                   datetime::MonthDay const& a,
                                   datetime::MonthDay const& b);
 };
@@ -116,10 +119,10 @@ struct YearMonthDay {
 namespace zeta::core {
 
 template <>
-struct comparison::ComparatorTraits<comparison::BasicComparator<
-    datetime::YearMonthDay, datetime::YearMonthDay>> {
-    template <IsOpType OpType>
-    static constexpr auto Compare(auto const&, OpType,
+struct comparison::BasicComparator<datetime::YearMonthDay,
+                                   datetime::YearMonthDay> {
+    template <IsOpTag OpTag>
+    static constexpr auto Compare(comparison::Tag, OpTag,
                                   datetime::YearMonthDay const& a,
                                   datetime::YearMonthDay const& b);
 };
@@ -148,9 +151,9 @@ struct YearMonthDayHourMinSec {
     unsigned min : 6;   // 0 ~ 59
     unsigned sec : 6;   // 0 ~ 60
 
-    template <IsTimeStandardType TimeStandardType>
+    template <IsTimeStandardLike TimeStandardLike>
     constexpr bool IsValid(this YearMonthDayHourMinSec const& self,
-                           TimeStandardType time_standard_like);
+                           TimeStandardLike time_standard_like);
 
     constexpr bool operator==(YearMonthDayHourMinSec const& other) const =
         default;
@@ -164,10 +167,10 @@ struct YearMonthDayHourMinSec {
 namespace zeta::core {
 
 template <>
-struct comparison::ComparatorTraits<comparison::BasicComparator<
-    datetime::YearMonthDayHourMinSec, datetime::YearMonthDayHourMinSec>> {
-    template <IsOpType OpType>
-    static constexpr auto Compare(auto const&, OpType,
+struct comparison::BasicComparator<datetime::YearMonthDayHourMinSec,
+                                   datetime::YearMonthDayHourMinSec> {
+    template <IsOpTag OpTag>
+    static constexpr auto Compare(comparison::Tag, OpTag,
                                   datetime::YearMonthDayHourMinSec const& a,
                                   datetime::YearMonthDayHourMinSec const& b);
 };
@@ -201,12 +204,12 @@ constexpr BaseIntegral GetGlobalDayOffsetFromYearMonthDay(
 constexpr YearMonthDay GetYearMonthDayFromGlobalDayOffset(
     BaseIntegral global_day_offset);
 
-template <IsTimeStandardType TimeStandardType>
+template <IsTimeStandardLike TimeStandardLike>
 constexpr BaseIntegral GetGlobalSecOffsetFromYearMonthDay(
-    TimeStandardType time_standard, YearMonthDayHourMinSec const& ymdhms);
+    TimeStandardLike time_standard_like, YearMonthDayHourMinSec const& ymdhms);
 
-template <IsTimeStandardType TimeStandardType>
+template <IsTimeStandardLike TimeStandardLike>
 constexpr YearMonthDayHourMinSec GetYearMonthDayHourMinSecFromGlobalSecOffset(
-    TimeStandardType time_standard, BaseIntegral global_sec_offset);
+    TimeStandardLike time_standard_like, BaseIntegral global_sec_offset);
 
 }  // namespace zeta::core::datetime

@@ -144,189 +144,155 @@ constexpr void ptr_utils::rel_color_ptr::SetPtrColor(
 }
 
 template <ptr_utils::IsLinkType LinkType, typename ColorTag>
-template <typename _>
-    requires requires {
-        requires meta::IsSame<_, void>;
-        requires !ptr_utils::AugPtrTpl<LinkType, ColorTag>::IsRelLink &&
-                     !ColorTag::value;
-    }
-constexpr void* ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetPtr() const {
-    return this->link;
+constexpr void* ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetPtr(
+    this AugPtrTpl const& self)
+    requires(!IsRelLink && !ColorTag::value)
+{
+    return self.link;
 }
 
 template <ptr_utils::IsLinkType LinkType, typename ColorTag>
-template <typename _>
-    requires requires {
-        requires meta::IsSame<_, void>;
-        requires !ptr_utils::AugPtrTpl<LinkType, ColorTag>::IsRelLink;
-    }
 constexpr void* ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetPtr(
-    size_t align) const {
+    this AugPtrTpl const& self, size_t align)
+    requires(!IsRelLink)
+{
     if constexpr (ColorTag::value) {
-        return color_ptr::GetPtr(this->link, align);
+        return color_ptr::GetPtr(self.link, align);
     } else {
-        return this->GetPtr();
+        return self.GetPtr();
     }
 }
 
 template <ptr_utils::IsLinkType LinkType, typename ColorTag>
-template <typename _>
-    requires requires {
-        requires meta::IsSame<_, void>;
-        requires ColorTag::value;
-    }
 constexpr void* ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetPtr(
-    void const* base) const {
+    this AugPtrTpl const& self, void const* base)
+    requires ColorTag::value
+{
     if constexpr (IsRelLink) {
-        return rel_ptr::GetPtr(this->link, base);
+        return rel_ptr::GetPtr(self.link, base);
     } else {
-        return this->GetPtr();
+        return self.GetPtr();
     }
 }
 
 template <ptr_utils::IsLinkType LinkType, typename ColorTag>
 constexpr void* ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetPtr(
-    size_t align, void const* base) const {
+    this AugPtrTpl const& self, size_t align, void const* base) {
     if constexpr (!IsRelLink) {
-        return this->GetPtr(align);
+        return self.GetPtr(align);
     } else if constexpr (!ColorTag::value) {
-        return this->GetPtr(base);
+        return self.GetPtr(base);
     } else {
-        return rel_color_ptr::GetPtr(this->link, align, base);
+        return rel_color_ptr::GetPtr(self.link, align, base);
     }
 }
 
 template <ptr_utils::IsLinkType LinkType, typename ColorTag>
-template <typename _>
-    requires requires {
-        requires meta::IsSame<_, void>;
-        requires !ptr_utils::AugPtrTpl<LinkType, ColorTag>::IsRelLink &&
-                     ColorTag::value;
-    }
 constexpr unsigned ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetColor(
-    size_t align) const {
-    return color_ptr::GetColor(this->link, align);
+    this AugPtrTpl const& self, size_t align)
+    requires(!ptr_utils::AugPtrTpl<LinkType, ColorTag>::IsRelLink &&
+             ColorTag::value)
+{
+    return color_ptr::GetColor(self.link, align);
 }
 
 template <ptr_utils::IsLinkType LinkType, typename ColorTag>
-template <typename _>
-    requires requires {
-        requires meta::IsSame<_, void>;
-        requires ColorTag::value;
-    }
 constexpr unsigned ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetColor(
-    size_t align, void const* base) const {
+    this AugPtrTpl const& self, size_t align, void const* base)
+    requires ColorTag::value
+{
     if constexpr (IsRelLink) {
-        return rel_color_ptr::GetColor(this->link, align, base);
+        return rel_color_ptr::GetColor(self.link, align, base);
     } else {
-        return this->GetColor(align);
-    }
-}
-
-template <ptr_utils::IsLinkType LinkType, typename ColorTag>
-template <typename _>
-    requires requires {
-        requires meta::IsSame<_, void>;
-        requires !ptr_utils::AugPtrTpl<LinkType, ColorTag>::IsRelLink &&
-                     !ColorTag::value;
-    }
-constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtr(void* ptr) {
-    this->link = ptr;
-}
-
-template <ptr_utils::IsLinkType LinkType, typename ColorTag>
-template <typename _>
-    requires requires {
-        requires meta::IsSame<_, void>;
-        requires !ptr_utils::AugPtrTpl<LinkType, ColorTag>::IsRelLink;
-    }
-constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtr(size_t align,
-                                                                void* ptr) {
-    if constexpr (ColorTag::value) {
-        color_ptr::SetPtr(this->link, align, ptr);
-    } else {
-        this->SetPtr(ptr);
-    }
-}
-
-template <ptr_utils::IsLinkType LinkType, typename ColorTag>
-template <typename _>
-    requires requires {
-        requires meta::IsSame<_, void>;
-        requires !ColorTag::value;
-    }
-constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtr(
-    void const* base, void* ptr) {
-    if constexpr (IsRelLink) {
-        rel_ptr::SetPtr(this->link, base, ptr);
-    } else {
-        this->SetPtr(ptr);
+        return self.GetColor(align);
     }
 }
 
 template <ptr_utils::IsLinkType LinkType, typename ColorTag>
 constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtr(
-    size_t align, void const* base, void* ptr) {
+    this AugPtrTpl& self, void* ptr)
+    requires(!ptr_utils::AugPtrTpl<LinkType, ColorTag>::IsRelLink &&
+             !ColorTag::value)
+{
+    self.link = ptr;
+}
+
+template <ptr_utils::IsLinkType LinkType, typename ColorTag>
+constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtr(
+    this AugPtrTpl& self, size_t align, void* ptr)
+    requires(!ptr_utils::AugPtrTpl<LinkType, ColorTag>::IsRelLink)
+{
+    if constexpr (ColorTag::value) {
+        color_ptr::SetPtr(self.link, align, ptr);
+    } else {
+        self.SetPtr(ptr);
+    }
+}
+
+template <ptr_utils::IsLinkType LinkType, typename ColorTag>
+constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtr(
+    this AugPtrTpl& self, void const* base, void* ptr)
+    requires(!ColorTag::value)
+{
+    if constexpr (IsRelLink) {
+        rel_ptr::SetPtr(self.link, base, ptr);
+    } else {
+        self.SetPtr(ptr);
+    }
+}
+
+template <ptr_utils::IsLinkType LinkType, typename ColorTag>
+constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtr(
+    this AugPtrTpl& self, size_t align, void const* base, void* ptr) {
     if constexpr (!IsRelLink) {
-        this->SetPtr(align, ptr);
+        self.SetPtr(align, ptr);
     } else if constexpr (!ColorTag::value) {
-        this->SetPtr(base, ptr);
+        self.SetPtr(base, ptr);
     } else {
-        rel_color_ptr::SetPtr(this->link, align, base, ptr);
+        rel_color_ptr::SetPtr(self.link, align, base, ptr);
     }
 }
 
 template <ptr_utils::IsLinkType LinkType, typename ColorTag>
-template <typename _>
-    requires requires {
-        requires meta::IsSame<_, void>;
-        requires !ptr_utils::AugPtrTpl<LinkType, ColorTag>::IsRelLink &&
-                     ColorTag::value;
-    }
 constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetColor(
-    size_t align, unsigned color) {
-    color_ptr::SetColor(this->link, align, color);
+    this AugPtrTpl& self, size_t align, unsigned color)
+    requires(!ptr_utils::AugPtrTpl<LinkType, ColorTag>::IsRelLink &&
+             ColorTag::value)
+{
+    color_ptr::SetColor(self.link, align, color);
 }
 
 template <ptr_utils::IsLinkType LinkType, typename ColorTag>
-template <typename _>
-    requires requires {
-        requires meta::IsSame<_, void>;
-        requires ColorTag::value;
-    }
 constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetColor(
-    size_t align, void const* base, unsigned color) {
+    this AugPtrTpl& self, size_t align, void const* base, unsigned color)
+    requires ColorTag::value
+{
     if constexpr (IsRelLink) {
-        rel_color_ptr::SetColor(this->link, align, base, color);
+        rel_color_ptr::SetColor(self.link, align, base, color);
     } else {
-        this->SetColor(align, color);
+        self.SetColor(align, color);
     }
 }
 
 template <ptr_utils::IsLinkType LinkType, typename ColorTag>
-template <typename _>
-    requires requires {
-        requires meta::IsSame<_, void>;
-        requires !ptr_utils::AugPtrTpl<LinkType, ColorTag>::IsRelLink &&
-                     ColorTag::value;
-    }
 constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtrColor(
-    size_t align, void* ptr, unsigned color) {
-    color_ptr::SetPtrColor(this->link, align, ptr, color);
+    this AugPtrTpl& self, size_t align, void* ptr, unsigned color)
+    requires(!ptr_utils::AugPtrTpl<LinkType, ColorTag>::IsRelLink &&
+             ColorTag::value)
+{
+    color_ptr::SetPtrColor(self.link, align, ptr, color);
 }
 
 template <ptr_utils::IsLinkType LinkType, typename ColorTag>
-template <typename _>
-    requires requires {
-        requires meta::IsSame<_, void>;
-        requires ColorTag::value;
-    }
 constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtrColor(
-    size_t align, void const* base, void* ptr, unsigned color) {
+    this AugPtrTpl& self, size_t align, void const* base, void* ptr,
+    unsigned color)
+    requires ColorTag::value
+{
     if constexpr (IsRelLink) {
-        rel_color_ptr::SetPtrColor(this->link, align, base, ptr, color);
+        rel_color_ptr::SetPtrColor(self.link, align, base, ptr, color);
     } else {
-        this->SetPtrColor(align, ptr, color);
+        self.SetPtrColor(align, ptr, color);
     }
 }
 

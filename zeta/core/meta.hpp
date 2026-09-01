@@ -417,15 +417,6 @@ constexpr bool IsInvocableR{
 template <typename Type_>
 struct TypeWrapper {
     using Type = Type_;
-
-    constexpr TypeWrapper() = default;
-
-    template <typename OtherType>
-        requires IsConvertible<OtherType, Type>
-    constexpr TypeWrapper  // NOLINT(
-                           // google-explicit-constructor,
-                           // hicpp-explicit-conversions)
-        (TypeWrapper<OtherType> const&){};
 };
 
 namespace detail {
@@ -448,6 +439,23 @@ concept IsTypeWrapper = detail::IsTypeWrapperImpl_<T>::value;
 template <typename T, typename TargetType>
 concept IsTypeWrapperT =
     IsTypeWrapper<T> && meta::IsSame<typename T::Type, TargetType>;
+
+template <IsTypeWrapper T>
+using GetTypeWrapperType = typename T::Type;
+
+template <typename Type_>
+struct ConvertibleTypeWrapper {
+    using Type = Type_;
+
+    constexpr ConvertibleTypeWrapper() = default;
+
+    template <typename OtherType>
+        requires IsConvertible<OtherType, Type>
+    constexpr ConvertibleTypeWrapper  // NOLINT(
+                                      // google-explicit-constructor,
+                                      // hicpp-explicit-conversions)
+        (ConvertibleTypeWrapper<OtherType> const&){};
+};
 
 template <typename Type_, Type_ Value_>
 struct ValueWrapper {
@@ -490,6 +498,12 @@ concept IsValueWrapperT =
 template <typename T, typename TargetType, TargetType Value>
 concept IsValueWrapperTV =
     IsValueWrapperT<T, TargetType> && (T::Value == Value);
+
+template <IsValueWrapper T>
+using GetValueWrapperType = typename T::Type;
+
+template <IsValueWrapper T>
+constexpr GetValueWrapperType<T> GetValueWrapperValue{ T::value };
 
 template <auto Value>
 using AutoValueWrapper = ValueWrapper<RemoveCVRef<decltype(Value)>, Value>;

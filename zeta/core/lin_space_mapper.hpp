@@ -2,9 +2,7 @@
 
 #include <zeta/core/basic_bin_tree_node.hpp>
 #include <zeta/core/bin_tree.hpp>
-#include <zeta/core/lifecycle.hpp>
 #include <zeta/core/mem_recorder.hpp>
-#include <zeta/core/value_wrapper.hpp>
 
 #pragma push_macro("MapperTplDeclParamList")
 #define MapperTplDeclParamList typename SegAllocatorLike_
@@ -67,19 +65,6 @@ void Sanitize(Mapper<MapperTplArgList> const& mapper,
               mem_recorder::MemRecorder* dst_seg);
 
 }  // namespace zeta::core::lin_space_mapper
-
-namespace zeta::core {
-
-template <MapperTplParamList>
-struct lifecycle::Traits<lin_space_mapper::Mapper<MapperTplArgList>> {
-    template <typename... Args>
-    static void Init(lin_space_mapper::Mapper<MapperTplArgList>& mapper,
-                     Args&&... args);
-
-    static void Deinit(lin_space_mapper::Mapper<MapperTplArgList>& mapper);
-};
-
-}  // namespace zeta::core
 
 #pragma pop_macro("MapperTplArgList")
 #pragma pop_macro("MapperTplParamList")

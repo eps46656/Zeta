@@ -4,6 +4,7 @@
 #include <zeta/core/comparison.ipp>
 #include <zeta/core/comparison_utils.hpp>
 #include <zeta/core/define.hpp>
+#include <zeta/core/integral_math.ipp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/reduce.ipp>
 
@@ -17,10 +18,8 @@ struct MinOperation_ {
 
     template <typename A, typename B>
     constexpr decltype(auto) operator()(A&& a, B&& b) const {
-        return comparison::Compare(
-                   this->cmptr,
-                   meta::AutoValueWrapper<comparison::OpEnum::LessEqual>{}, a,
-                   b)
+        return comparison::Compare(this->cmptr, comparison::OpTag::LessEqual{},
+                                   a, b)
                    ? meta::Forward<A>(a)
                    : meta::Forward<B>(b);
     }
@@ -53,9 +52,7 @@ struct MaxOperation_ {
 
     template <typename A, typename B>
     constexpr decltype(auto) operator()(A&& a, B&& b) const {
-        return comparison::Compare(
-                   this->cmptr,
-                   meta::AutoValueWrapper<comparison::OpEnum::Less>{}, a, b)
+        return comparison::Compare(this->cmptr, comparison::OpTag::Less{}, a, b)
                    ? meta::Forward<B>(b)
                    : meta::Forward<A>(a);
     }
@@ -108,21 +105,25 @@ inline int comparison_utils::MemLexCompare(void const* a, void const* b,
 
 inline int comparison_utils::MemSeqLexCompare(
     void const* a_, void const* b_, size_t a_elem_size, size_t b_elem_size,
-    size_t a_elem_stride, size_t b_elem_stride, size_t a_elem_cnt,
+    ptrdiff_t a_elem_stride, ptrdiff_t b_elem_stride, size_t a_elem_cnt,
     size_t b_elem_cnt) {
     unsigned char const* a{ static_cast<unsigned char const*>(a_) };
     unsigned char const* b{ static_cast<unsigned char const*>(b_) };
 
     if (0 < a_elem_cnt) {
         ZETA_Core_DebugAssert(a != nullptr);
-        ZETA_Core_DebugAssert(a_elem_stride == 0 ||
-                              a_elem_size <= a_elem_stride);
+        ZETA_Core_DebugAssert(
+            a_elem_stride == 0 ||
+            a_elem_size <=
+                static_cast<size_t>(integral_math::Abs(a_elem_stride)));
     }
 
     if (0 < b_elem_cnt) {
         ZETA_Core_DebugAssert(b != nullptr);
-        ZETA_Core_DebugAssert(b_elem_stride == 0 ||
-                              b_elem_size <= b_elem_stride);
+        ZETA_Core_DebugAssert(
+            b_elem_stride == 0 ||
+            b_elem_size <=
+                static_cast<size_t>(integral_math::Abs(b_elem_stride)));
     }
 
     if (a_elem_cnt == 0 && b_elem_cnt == 0) { return 0; }
@@ -156,8 +157,8 @@ constexpr comparison::Ordering PairWiseLexCompare_(A&& a, B&& b,
                                                    Comparator const& cmptr,
                                                    Args&&... args) {
     comparison::Ordering cmp{ comparison::Compare(
-        cmptr, meta::AutoValueWrapper<comparison::OpEnum::Order>{},
-        meta::Forward<A>(a), meta::Forward<B>(b)) };
+        cmptr, comparison::OpTag::Order{}, meta::Forward<A>(a),
+        meta::Forward<B>(b)) };
     return cmp == comparison::Ordering::Equal ? (PairWiseLexCompare_)(args...)
                                               : cmp;
 }
@@ -173,33 +174,31 @@ constexpr comparison::Ordering comparison_utils::PairWiseLexCompare(
 
 namespace comparison_utils::detail {
 
-template <comparison::IsOpType OpType>
-constexpr auto BasicPairWiseLexCompare_(OpType op) {
-    if constexpr (meta::IsSame<OpType, meta::AutoValueWrapper<
-                                           comparison::OpEnum::Order>>) {
+template <comparison::IsOpTag OpTag>
+constexpr auto BasicPairWiseLexCompare_(OpTag op) {
+    if constexpr (meta::IsSame<OpTag, comparison::OpTag::Order>) {
         return comparison::Ordering::Equal;
     } else {
         return (meta::ToUnderlying(op) & comparison::equal_bit) != 0;
     }
 }
 
-template <comparison::IsOpType OpType, typename A, typename B, typename... Args>
-constexpr auto BasicPairWiseLexCompare_(OpType op, A&& a, B&& b,
+template <comparison::IsOpTag OpTag, typename A, typename B, typename... Args>
+constexpr auto BasicPairWiseLexCompare_(OpTag op, A&& a, B&& b,
                                         Args&&... args) {
     if constexpr (sizeof...(args) == 0) {
         return comparison::BasicCompare(op, meta::Forward<A>(a),
                                         meta::Forward<B>(b));
     } else {
         comparison::Ordering cmp{ comparison::BasicCompare(
-            meta::AutoValueWrapper<comparison::OpEnum::Order>{},
-            meta::Forward<A>(a), meta::Forward<B>(b)) };
+            comparison::OpTag::Order{}, meta::Forward<A>(a),
+            meta::Forward<B>(b)) };
 
         if (cmp == comparison::Ordering::Equal) {
             return (BasicPairWiseLexCompare_)(op, meta::Forward<Args>(args)...);
         }
 
-        if constexpr (meta::IsSame<OpType, meta::AutoValueWrapper<
-                                               comparison::OpEnum::Order>>) {
+        if constexpr (meta::IsSame<OpTag, comparison::OpTag::Order>) {
             return cmp;
         } else {
             return (static_cast<unsigned>(cmp) &
@@ -210,9 +209,9 @@ constexpr auto BasicPairWiseLexCompare_(OpType op, A&& a, B&& b,
 
 }  // namespace comparison_utils::detail
 
-template <comparison::IsOpType OpType, typename... Args>
+template <comparison::IsOpTag OpTag, typename... Args>
     requires requires { requires sizeof...(Args) % 2 == 0; }
-constexpr auto comparison_utils::BasicPairWiseLexCompare(OpType op,
+constexpr auto comparison_utils::BasicPairWiseLexCompare(OpTag op,
                                                          Args&&... args) {
     return detail::BasicPairWiseLexCompare_(op, meta::Forward<Args>(args)...);
 }

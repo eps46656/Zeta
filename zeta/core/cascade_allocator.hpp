@@ -32,7 +32,7 @@ struct CascadeAllocator {
 
     static bool CheckAllocator(void const* ca);
 
-    static allocator::AllocatorRef GetAlloccatorRef(void* ca);
+    static allocator::PolyAllocator GetAlloccatorRef(void* ca);
 
     static allocator::ConstAllocatorRef GetAlloccatorRef(void const* ca);
 

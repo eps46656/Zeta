@@ -1,7 +1,6 @@
 #include <fstream>
 #include <vector>
 #include <zeta/core/object_state_notation.ipp>
-#include <zeta/core/seq_cntr.ipp>
 
 /*
 struct Node {
@@ -116,11 +115,6 @@ struct BinFSProvider {
     }
 };
 
-template <>
-struct zeta::core::elem_stream::provider::ProviderTraits<BinFSProvider>
-    : public zeta::core::elem_stream::provider::MemberFuncProviderTraitsAdapter<
-          BinFSProvider> {};
-
 struct BinFSAcceptor {
     std::istream& re_bin_fs;
     std::ofstream& bin_fs;
@@ -174,11 +168,6 @@ struct BinFSAcceptor {
     }
 };
 
-template <>
-struct zeta::core::elem_stream::acceptor::AcceptorTraits<BinFSAcceptor>
-    : public zeta::core::elem_stream::acceptor::MemberFuncAcceptorTraitsAdapter<
-          BinFSAcceptor> {};
-
 inline void main1(int num) {
     constexpr size_t str_buffer_size{ 1024 };
     unsigned char str_buffer[1024];
@@ -203,8 +192,8 @@ inline void main1(int num) {
 
     zeta::core::object_state_notation::Header header;
 
-    zeta::core::object_state_notation::DeserializeHeaderFromOctets(
-        bin_fs_provider, header);
+    zeta::core::object_state_notation::DecodeHeaderFromOctets(bin_fs_provider,
+                                                              header);
 
     auto config{ ({
         auto [is_valid, config]{
@@ -233,62 +222,49 @@ inline void main1(int num) {
             return;
         }
 
-        zeta::core::object_state_notation::SerializeHeaderToOctets(
-            bin_fs_acceptor, header);
+        zeta::core::object_state_notation::EncodeHeaderToOctets(bin_fs_acceptor,
+                                                                header);
     }
 
-    zeta::core::object_state_notation::state_machine::
-        DeserializeFromOctetsStateMachine<decltype(bin_fs_provider)>
-            deserializer{ config, bin_fs_provider };
+    zeta::core::object_state_notation::Decoder<decltype(bin_fs_provider)>
+        decoder{ config, bin_fs_provider };
 
     unsigned char serializer_integral_chunk_buffer_data[255];
     unsigned short serializer_integral_chunk_buffer_max_octet_cnt{ sizeof(
         serializer_integral_chunk_buffer_data) };
 
-    zeta::core::object_state_notation::state_machine::
-        SerializeToOctetsStateMachine<decltype(bin_fs_acceptor)>
-            serializer{ config, serializer_integral_chunk_buffer_data,
-                        serializer_integral_chunk_buffer_max_octet_cnt,
-                        bin_fs_acceptor };
+    zeta::core::object_state_notation::Encoder<decltype(bin_fs_acceptor)>
+        encoder{ config, serializer_integral_chunk_buffer_data,
+                 serializer_integral_chunk_buffer_max_octet_cnt,
+                 bin_fs_acceptor };
 
     zeta::core::object_state_notation::IntegralDescriptor integral_descriptor;
     unsigned _BitInt(128) unsigned_integral;
     signed _BitInt(128) signed_integral;
 
-    while (deserializer.state !=
-           zeta::core::object_state_notation::state_machine::
-               DeserializationStateMachineBase::StateEnum::Finished) {
+    using UnsignedIntegralType = unsigned _BitInt(128);
+    using SignedIntegralType = signed _BitInt(128);
+
+    while (decoder.state !=
+           zeta::core::object_state_notation::DecoderState::Finished) {
         ZETA_Core_Debug_PrintCurPos;
 
-        ZETA_Core_Debug_PrintVar(
-            zeta::core::meta::ToUnderlying(deserializer.state));
-        ZETA_Core_Debug_PrintVar(
-            zeta::core::meta::ToUnderlying(serializer.state));
+        ZETA_Core_Debug_PrintVar(zeta::core::meta::ToUnderlying(decoder.state));
+        ZETA_Core_Debug_PrintVar(zeta::core::meta::ToUnderlying(encoder.state));
 
-        switch (deserializer.state) {
-        case zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::SendingNodeTag: {
+        switch (decoder.state) {
+        case zeta::core::object_state_notation::DecoderState::SendingNodeTag: {
             ZETA_Core_Debug_PrintCurPos;
 
-            zeta::core::object_state_notation::NodeTag node_tag;
-
-            if (!deserializer.DeserializeNodeTag(node_tag)) {
-                ZETA_Core_DebugAssert(false);
-                return;
-            }
-
-            if (!serializer.SerializeNodeTag(node_tag)) {
-                ZETA_Core_DebugAssert(false);
-                return;
-            }
+            encoder.SendNodeTag(decoder.ReceiveNodeTag().GetValue())
+                .CheckHasValue();
 
             break;
         }
 
-        case zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::SendingNameString:
-        case zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::SendingObjTypeString: {
+        case zeta::core::object_state_notation::DecoderState::SendingNameString:
+        case zeta::core::object_state_notation::DecoderState::
+            SendingObjTypeString: {
             zeta::core::lin_seq_elem_stream::Acceptor str_reader{
                 .data = str_buffer,
                 .elem_size = 1,
@@ -296,12 +272,14 @@ inline void main1(int num) {
                 .elem_cnt = str_buffer_size,
             };
 
-            size_t str_size{ deserializer.DeserializeString(str_reader,
-                                                            str_buffer_size) };
+            size_t str_size{
+                decoder.ReceiveStringOctet(str_reader, str_buffer_size)
+                    .GetValue()
+            };
 
             ZETA_Core_DebugAssert(str_size < str_buffer_size);
 
-            if (!serializer.SerializeString(
+            if (!encoder.SendStringOctet(
                     zeta::core::lin_seq_elem_stream::Provider{
                         .data = str_buffer,
                         .elem_size = 1,
@@ -313,45 +291,28 @@ inline void main1(int num) {
                 return;
             }
 
-            if (!serializer.TerminateSerializeString()) {
-                ZETA_Core_DebugAssert(false);
-                return;
-            }
+            encoder.SendFinish().CheckHasValue();
 
             break;
         }
 
-        case zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::SendingRegionAttr: {
-            unsigned long long region_beg;
-            unsigned long long region_size;
+        case zeta::core::object_state_notation::DecoderState::
+            SendingRegionAttr: {
+            auto [region_beg, region_size]{
+                decoder.ReceiveRegionAttr<unsigned long long>().GetValue()
+            };
 
-            if (!deserializer.DeserializeRegionAttr(region_beg, region_size)) {
-                ZETA_Core_DebugAssert(false);
-                return;
-            }
-
-            if (!serializer.SerializeRegionAttr(region_beg, region_size)) {
-                ZETA_Core_DebugAssert(false);
-                return;
-            }
+            encoder.SendRegionAttr(region_beg, region_size).CheckHasValue();
 
             break;
         }
 
-        case zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::
-                SendingIntegralDescriptor: {
-            if (!deserializer.DeserializeIntegralDescriptor(
-                    integral_descriptor)) {
-                ZETA_Core_DebugAssert(false);
-                return;
-            }
+        case zeta::core::object_state_notation::DecoderState::
+            SendingIntegralDescriptor: {
+            integral_descriptor =
+                decoder.ReceiveIntegralDescriptor().GetValue();
 
-            if (!serializer.SerializeIntegralDescriptor(integral_descriptor)) {
-                ZETA_Core_DebugAssert(false);
-                return;
-            }
+            encoder.SendIntegralDescriptor(integral_descriptor).CheckHasValue();
 
             ZETA_Core_Debug_PrintVar(integral_descriptor.is_signed);
             ZETA_Core_Debug_PrintVar(integral_descriptor.size);
@@ -359,95 +320,65 @@ inline void main1(int num) {
             break;
         }
 
-        case zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::SendingListElemCnt: {
-            size_t list_elem_cnt;
-
-            if (!deserializer.DeserializeListElemCnt(list_elem_cnt)) {
-                ZETA_Core_DebugAssert(false);
-                return;
-            }
-
-            if (!serializer.SerializeListElemCnt(list_elem_cnt)) {
-                ZETA_Core_DebugAssert(false);
-                return;
-            }
+        case zeta::core::object_state_notation::DecoderState::
+            SendingListElemCnt: {
+            encoder.SendListElemCnt(decoder.ReceiveListElemCnt().GetValue())
+                .CheckHasValue();
 
             break;
         }
 
-        case zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::SendingIntegral: {
+        case zeta::core::object_state_notation::DecoderState::SendingIntegral: {
             if (integral_descriptor.is_signed) {
-                if (!deserializer.DeserializeIntegral(signed_integral)) {
-                    ZETA_Core_DebugAssert(false);
-                    return;
-                }
-
-                if (!serializer.SerializeIntegral(signed_integral)) {
-                    ZETA_Core_DebugAssert(false);
-                    return;
-                }
+                encoder
+                    .SendIntegral(decoder.ReceiveIntegral<SignedIntegralType>()
+                                      .GetValue())
+                    .CheckHasValue();
             } else {
-                if (!deserializer.DeserializeIntegral(unsigned_integral)) {
-                    ZETA_Core_DebugAssert(false);
-                    return;
-                }
-
-                if (!serializer.SerializeIntegral(unsigned_integral)) {
-                    ZETA_Core_DebugAssert(false);
-                    return;
-                }
+                encoder
+                    .SendIntegral(
+                        decoder.ReceiveIntegral<UnsignedIntegralType>()
+                            .GetValue())
+                    .CheckHasValue();
             }
 
             break;
         }
 
-        case zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::SendingTermination: {
-            if (!deserializer.TerminateNode()) {
-                ZETA_Core_DebugAssert(false);
-                return;
-            }
+        case zeta::core::object_state_notation::DecoderState::SendingFinish: {
+            decoder.ReceiveFinish().CheckHasValue();
 
-            if (!serializer.TerminateNode()) {
-                ZETA_Core_DebugAssert(false);
-                return;
-            }
+            encoder.SendFinish().CheckHasValue();
 
             break;
         }
 
         default:
             ZETA_Core_Debug_PrintVar(
-                zeta::core::meta::ToUnderlying(deserializer.state));
+                zeta::core::meta::ToUnderlying(decoder.state));
 
             ZETA_Core_DebugAssert(false);
             return;
         }
 
         ZETA_Core_DebugAssert(
-            deserializer.state !=
-            zeta::core::object_state_notation::state_machine::
-                DeserializationStateMachineBase::StateEnum::Corrupted);
+            decoder.state !=
+            zeta::core::object_state_notation::DecoderState::Corrupted);
 
         ZETA_Core_DebugAssert(
-            serializer.state !=
-            zeta::core::object_state_notation::state_machine::
-                SerializationStateMachineBase::StateEnum::Corrupted);
+            encoder.state !=
+            zeta::core::object_state_notation::EncoderState::Corrupted);
 
         zeta::core::debug_utils::ClearDebugStrStream();
     }
 
     ZETA_Core_DebugAssert(
-        serializer.state ==
-        zeta::core::object_state_notation::state_machine::
-            SerializationStateMachineBase::StateEnum::Finished);
+        encoder.state ==
+        zeta::core::object_state_notation::EncoderState::Finished);
 
     ZETA_Core_DebugAssert(
-        deserializer.state ==
-        zeta::core::object_state_notation::state_machine::
-            DeserializationStateMachineBase::StateEnum::Finished);
+        decoder.state ==
+        zeta::core::object_state_notation::DecoderState::Finished);
 
     {
         ZETA_Core_DebugAssert(!bin_fs.eof());

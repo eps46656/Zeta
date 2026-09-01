@@ -111,19 +111,6 @@ void Sanitize(Allocator<AllocatorTplArgList>& pa,
 
 }  // namespace zeta::core::pool_allocator
 
-namespace zeta::core {
-
-template <AllocatorTplParamList>
-struct lifecycle::Traits<pool_allocator::Allocator<AllocatorTplArgList>> {
-    template <typename... Args>
-    static void Init(pool_allocator::Allocator<AllocatorTplArgList>& pa,
-                     Args&&... args);
-
-    static void Deinit(pool_allocator::Allocator<AllocatorTplArgList>& pa);
-};
-
-}  // namespace zeta::core
-
 #pragma pop_macro("AllocatorTplParamList")
 #pragma pop_macro("AllocatorTplArgList")
 

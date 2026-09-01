@@ -6,18 +6,19 @@
 
 namespace zeta::core {
 
-size_t lin_seq_elem_stream::Provider::GetElemSize(this Provider const& self) {
+constexpr size_t lin_seq_elem_stream::Provider::GetElemSize(
+    this Provider const& self, elem_stream::provider::Tag) {
     return self.elem_size;
 }
 
-bool lin_seq_elem_stream::Provider::IsEnd(this Provider const& self) {
+constexpr bool lin_seq_elem_stream::Provider::IsEnd(
+    this Provider const& self, elem_stream::provider::Tag) {
     return self.elem_cnt == 0;
 }
 
-size_t lin_seq_elem_stream::Provider::Transfer(this Provider& self, void* dst,
-                                               size_t dst_elem_size,
-                                               size_t dst_elem_stride,
-                                               size_t cnt) {
+constexpr size_t lin_seq_elem_stream::Provider::Transfer(
+    this Provider& self, elem_stream::provider::Tag, void* dst,
+    size_t dst_elem_size, ptrdiff_t dst_elem_stride, size_t cnt) {
     size_t transfer_elem_size{ comparison_utils::BasicMin(self.elem_size,
                                                           dst_elem_size) };
 
@@ -27,26 +28,26 @@ size_t lin_seq_elem_stream::Provider::Transfer(this Provider& self, void* dst,
                     self.elem_stride, transfer_elem_cnt);
 
     self.data = static_cast<char const*>(self.data) +
-                self.elem_stride * transfer_elem_cnt;
+                self.elem_stride * static_cast<ptrdiff_t>(transfer_elem_cnt);
 
     self.elem_cnt -= transfer_elem_cnt;
 
     return transfer_elem_cnt;
 }
 
-size_t lin_seq_elem_stream::Acceptor::GetElemSize(this Acceptor const& self) {
+constexpr size_t lin_seq_elem_stream::Acceptor::GetElemSize(
+    this Acceptor const& self, elem_stream::acceptor::Tag) {
     return self.elem_size;
 }
 
-bool lin_seq_elem_stream::Acceptor::IsEnd(this Acceptor const& self) {
+constexpr bool lin_seq_elem_stream::Acceptor::IsEnd(
+    this Acceptor const& self, elem_stream::acceptor::Tag) {
     return self.elem_cnt == 0;
 }
 
-size_t lin_seq_elem_stream::Acceptor::Transfer(this Acceptor& self,
-                                               void const* src,
-                                               size_t src_elem_size,
-                                               size_t src_elem_stride,
-                                               size_t cnt) {
+constexpr size_t lin_seq_elem_stream::Acceptor::Transfer(
+    this Acceptor& self, elem_stream::acceptor::Tag, void const* src,
+    size_t src_elem_size, ptrdiff_t src_elem_stride, size_t cnt) {
     size_t transfer_elem_size{ comparison_utils::BasicMin(self.elem_size,
                                                           src_elem_size) };
 
@@ -55,8 +56,8 @@ size_t lin_seq_elem_stream::Acceptor::Transfer(this Acceptor& self,
     utils::ElemCopy(self.data, src, transfer_elem_size, self.elem_stride,
                     src_elem_stride, transfer_elem_cnt);
 
-    self.data =
-        static_cast<char*>(self.data) + self.elem_stride * transfer_elem_cnt;
+    self.data = static_cast<char*>(self.data) +
+                self.elem_stride * static_cast<ptrdiff_t>(transfer_elem_cnt);
 
     self.elem_cnt -= transfer_elem_cnt;
 

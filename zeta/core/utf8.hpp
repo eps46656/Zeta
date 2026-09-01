@@ -21,6 +21,44 @@ constexpr unicode::unichar_t range_maxs[]{
     0x10FFFF,  // 4
 };
 
+constexpr unsigned EvaluateLevelFromCodepoint(unicode::unichar_t codepoint);
+
+constexpr unsigned EvaluateLevelFromLeadingOctet(unsigned char leading_octet);
+
+struct EncodeResult {
+    enum struct ResultType : unsigned char {
+        Success = 0,
+        CodepointOutOfRange = 1,
+        CodepointIsSurrogate = 2,
+    };
+
+    ResultType type;
+
+    unsigned char encoded_octet_cnt : 3;
+    unsigned char encoded_octets[4];
+};
+
+constexpr EncodeResult Encode(unicode::unichar_t codepoint);
+
+struct DecodeResult {
+    enum struct ResultType : unsigned char {
+        Success = 0,
+        InsufficientOctet = 1,
+        OctetOutOfRange = 2,
+        LeadingOctetPatternMismatch = 3,
+        TrailingOctetPatternMismatch = 4,
+        OverlongEncoding = 5,
+        CodepointIsSurrogate = 6,
+    };
+
+    ResultType type;
+
+    unicode::unichar_t codepoint;
+    unsigned char consumed_octet_cnt;
+};
+
+constexpr DecodeResult Decode(unsigned char const* octets, size_t octet_cnt);
+
 struct Encoder {
     enum struct ResultEnum : unsigned char {
         Success = 0,

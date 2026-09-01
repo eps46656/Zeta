@@ -50,11 +50,9 @@ inline void main1() {
 
     std::vector<AssocCntrRef*> assoc_cntrs{ &assoc_cntr_a, &assoc_cntr_b };
 
-    std::unordered_set<
-        Elem, core::hash::CppStdBasicHash<Elem>,
-        core::comparison::CppStdBasicComparator<
-            core::meta::AutoValueWrapper<core::comparison::OpEnum::Equal>, Elem,
-            Elem>>
+    std::unordered_set<Elem, core::hash::CppStdBasicHash<Elem>,
+                       core::comparison::CppStdBasicComparator<
+                           core::comparison::OpTag::Equal, Elem, Elem>>
         elems_s;
     std::vector<Elem> elems_v;
 

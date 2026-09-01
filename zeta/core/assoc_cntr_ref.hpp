@@ -1,7 +1,6 @@
 #pragma once
 
 #include <zeta/core/assoc_cntr.hpp>
-#include <zeta/core/lifecycle.hpp>
 
 namespace zeta::core::assoc_cntr_ref {
 
@@ -136,45 +135,3 @@ struct Cntr {
 };
 
 }  // namespace zeta::core::assoc_cntr_ref
-
-namespace zeta::core {
-
-template <>
-struct lifecycle::Traits<assoc_cntr_ref::Cntr>
-    : public lifecycle::MemberFuncTraitsAdapter<assoc_cntr_ref::Cntr> {};
-
-template <>
-struct assoc_cntr::CntrTraits<assoc_cntr_ref::Cntr>
-    : public assoc_cntr::MemberFuncCntrTraitsAdapter<assoc_cntr_ref::Cntr,
-                                                     void> {
-    static constexpr assoc_cntr::capability::Flag
-    GetStaticEnabledCapabilityFlag();
-
-    static constexpr assoc_cntr::capability::Flag
-    GetStaticDisabledCapabilityFlag();
-
-    static constexpr assoc_cntr::capability::Flag
-    GetDynamicEnabledCapabilityFlag(assoc_cntr_ref::Cntr& cntr);
-
-    static constexpr assoc_cntr::capability::Flag
-    GetDynamicDisabledCapabilityFlag(assoc_cntr_ref::Cntr& cntr);
-};
-
-template <>
-struct assoc_cntr::CntrTraits<assoc_cntr_ref::Cntr const>
-    : public assoc_cntr::MemberFuncCntrTraitsAdapter<assoc_cntr_ref::Cntr const,
-                                                     void> {
-    static constexpr assoc_cntr::capability::Flag
-    GetStaticEnabledCapabilityFlag();
-
-    static constexpr assoc_cntr::capability::Flag
-    GetStaticDisabledCapabilityFlag();
-
-    static constexpr assoc_cntr::capability::Flag
-    GetDynamicEnabledCapabilityFlag(assoc_cntr_ref::Cntr const& cntr);
-
-    static constexpr assoc_cntr::capability::Flag
-    GetDynamicDisabledCapabilityFlag(assoc_cntr_ref::Cntr const& cntr);
-};
-
-}  // namespace zeta::core

@@ -3,7 +3,6 @@
 #include <unordered_set>
 #include <zeta/core/assoc_cntr.hpp>
 #include <zeta/core/define.hpp>
-#include <zeta/core/lifecycle.hpp>
 #include <zeta/core/pair.hpp>
 
 #pragma push_macro("CntrTplParamList")
@@ -150,53 +149,6 @@ struct Cntr {
 };
 
 }  // namespace zeta::core::debug_hash_table
-
-namespace zeta::core {
-
-template <CntrTplParamList>
-struct lifecycle::Traits<debug_hash_table::Cntr<CntrTplArgList>>
-    : public lifecycle::MemberFuncTraitsAdapter<
-          debug_hash_table::Cntr<CntrTplArgList>> {};
-
-template <CntrTplParamList>
-struct assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList>>
-    : public assoc_cntr::MemberFuncCntrTraitsAdapter<
-          debug_hash_table::Cntr<CntrTplArgList>,
-          typename debug_hash_table::Cntr<CntrTplArgList>::Cursor> {
-    static constexpr assoc_cntr::capability::Flag
-    GetStaticEnabledCapabilityFlag();
-
-    static constexpr assoc_cntr::capability::Flag
-    GetStaticDisabledCapabilityFlag();
-
-    static constexpr assoc_cntr::capability::Flag
-    GetDynamicEnabledCapabilityFlag(debug_hash_table::Cntr<CntrTplArgList>&);
-
-    static constexpr assoc_cntr::capability::Flag
-    GetDynamicDisabledCapabilityFlag(debug_hash_table::Cntr<CntrTplArgList>&);
-};
-
-template <CntrTplParamList>
-struct assoc_cntr::CntrTraits<debug_hash_table::Cntr<CntrTplArgList> const>
-    : public assoc_cntr::MemberFuncCntrTraitsAdapter<
-          debug_hash_table::Cntr<CntrTplArgList> const,
-          typename debug_hash_table::Cntr<CntrTplArgList>::Cursor> {
-    static constexpr assoc_cntr::capability::Flag
-    GetStaticEnabledCapabilityFlag();
-
-    static constexpr assoc_cntr::capability::Flag
-    GetStaticDisabledCapabilityFlag();
-
-    static constexpr assoc_cntr::capability::Flag
-    GetDynamicEnabledCapabilityFlag(
-        debug_hash_table::Cntr<CntrTplArgList> const&);
-
-    static constexpr assoc_cntr::capability::Flag
-    GetDynamicDisabledCapabilityFlag(
-        debug_hash_table::Cntr<CntrTplArgList> const&);
-};
-
-}  // namespace zeta::core
 
 #pragma pop_macro("CntrTplParamList")
 #pragma pop_macro("CntrTplArgList")

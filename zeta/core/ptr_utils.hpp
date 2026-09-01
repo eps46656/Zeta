@@ -92,94 +92,51 @@ struct AugPtrTpl {
 
     LinkType link;
 
-    template <typename _ = void>
-        requires requires {
-            requires meta::IsSame<_, void>;
-            requires !IsRelLink && !ColorTag::value;
-        }
-    constexpr void* GetPtr() const;
+    constexpr void* GetPtr(this AugPtrTpl const& self)
+        requires(!IsRelLink && !ColorTag::value);
 
-    template <typename _ = void>
-        requires requires {
-            requires meta::IsSame<_, void>;
-            requires !IsRelLink;
-        }
-    constexpr void* GetPtr(size_t align) const;
+    constexpr void* GetPtr(this AugPtrTpl const& self, size_t align)
+        requires(!IsRelLink);
 
-    template <typename _ = void>
-        requires requires {
-            requires meta::IsSame<_, void>;
-            requires ColorTag::value;
-        }
-    constexpr void* GetPtr(void const* base) const;
+    constexpr void* GetPtr(this AugPtrTpl const& self, void const* base)
+        requires ColorTag::value;
 
-    constexpr void* GetPtr(size_t align, void const* base) const;
+    constexpr void* GetPtr(this AugPtrTpl const& self, size_t align,
+                           void const* base);
 
-    template <typename _ = void>
-        requires requires {
-            requires meta::IsSame<_, void>;
-            requires !IsRelLink && ColorTag::value;
-        }
-    constexpr unsigned GetColor(size_t align) const;
+    constexpr unsigned GetColor(this AugPtrTpl const& self, size_t align)
+        requires(!IsRelLink && ColorTag::value);
 
-    template <typename _ = void>
-        requires requires {
-            requires meta::IsSame<_, void>;
-            requires ColorTag::value;
-        }
-    constexpr unsigned GetColor(size_t align, void const* base) const;
+    constexpr unsigned GetColor(this AugPtrTpl const& self, size_t align,
+                                void const* base)
+        requires ColorTag::value;
 
-    template <typename _ = void>
-        requires requires {
-            requires meta::IsSame<_, void>;
-            requires !IsRelLink && !ColorTag::value;
-        }
-    constexpr void SetPtr(void* ptr);
+    constexpr void SetPtr(this AugPtrTpl& self, void* ptr)
+        requires(!IsRelLink && !ColorTag::value);
 
-    template <typename _ = void>
-        requires requires {
-            requires meta::IsSame<_, void>;
-            requires !IsRelLink;
-        }
-    constexpr void SetPtr(size_t align, void* ptr);
+    constexpr void SetPtr(this AugPtrTpl& self, size_t align, void* ptr)
+        requires(!IsRelLink);
 
-    template <typename _ = void>
-        requires requires {
-            requires meta::IsSame<_, void>;
-            requires !ColorTag::value;
-        }
-    constexpr void SetPtr(void const* base, void* ptr);
+    constexpr void SetPtr(this AugPtrTpl& self, void const* base, void* ptr)
+        requires(!ColorTag::value);
 
-    constexpr void SetPtr(size_t align, void const* base, void* ptr);
+    constexpr void SetPtr(this AugPtrTpl& self, size_t align, void const* base,
+                          void* ptr);
 
-    template <typename _ = void>
-        requires requires {
-            requires meta::IsSame<_, void>;
-            requires !IsRelLink && ColorTag::value;
-        }
-    constexpr void SetColor(size_t align, unsigned color);
+    constexpr void SetColor(this AugPtrTpl& self, size_t align, unsigned color)
+        requires(!IsRelLink && ColorTag::value);
 
-    template <typename _ = void>
-        requires requires {
-            requires meta::IsSame<_, void>;
-            requires ColorTag::value;
-        }
-    constexpr void SetColor(size_t align, void const* base, unsigned color);
+    constexpr void SetColor(this AugPtrTpl& self, size_t align,
+                            void const* base, unsigned color)
+        requires ColorTag::value;
 
-    template <typename _ = void>
-        requires requires {
-            requires meta::IsSame<_, void>;
-            requires !IsRelLink && ColorTag::value;
-        }
-    constexpr void SetPtrColor(size_t align, void* ptr, unsigned color);
+    constexpr void SetPtrColor(this AugPtrTpl& self, size_t align, void* ptr,
+                               unsigned color)
+        requires(!IsRelLink && ColorTag::value);
 
-    template <typename _ = void>
-        requires requires {
-            requires meta::IsSame<_, void>;
-            requires ColorTag::value;
-        }
-    constexpr void SetPtrColor(size_t align, void const* base, void* ptr,
-                               unsigned color);
+    constexpr void SetPtrColor(this AugPtrTpl& self, size_t align,
+                               void const* base, void* ptr, unsigned color)
+        requires ColorTag::value;
 };
 
 }  // namespace zeta::core::ptr_utils

@@ -1,7 +1,7 @@
 #include <fstream>
 #include <vector>
 #include <zeta/core/debug_utils.ipp>
-#include <zeta/core/json_utils/main.ipp>
+#include <zeta/core/json_utils.ipp>
 #include <zeta/core/lin_seq_elem_stream.ipp>
 #include <zeta/core/utf8.ipp>
 #include <zeta/core/utils.hpp>
@@ -13,8 +13,8 @@ struct NumericInfo {
     bool is_ok;
     bool sign;
     bool has_frac;
-    unsigned char e;
-    unsigned char exp_part_sign;
+    zeta::core::unicode::unichar_t e;
+    zeta::core::unicode::unichar_t exp_part_sign;
     std::string int_part_digits;
     std::string frac_part_digits;
     std::string exp_part_digits;
@@ -50,8 +50,11 @@ constexpr bool operator==(NumericInfo const& lhs, NumericInfo const& rhs) {
 
     if (lhs.e != rhs.e) { return false; }
 
-    if (lhs.e != zeta::core::ascii::CharCodeTable::empty) {
+    if (lhs.e != zeta::core::unicode::null_codepoint) {
         if (lhs.exp_part_sign != rhs.exp_part_sign) {
+            ZETA_Core_Debug_PrintVar(lhs.exp_part_sign);
+            ZETA_Core_Debug_PrintVar(rhs.exp_part_sign);
+
             ZETA_Core_Debug_PrintCurPos;
             return false;
         }
@@ -281,18 +284,17 @@ constexpr NumericInfo GenRandomNumericInfo() {
     }
 
     switch (zeta::core_test::GetRandomInt<int, int>(0, 2)) {
-    case 0: numeric_info.e = zeta::core::ascii::CharCodeTable::empty; break;
+    case 0: numeric_info.e = zeta::core::unicode::null_codepoint; break;
     case 1: numeric_info.e = zeta::core::ascii::CharCodeTable::e; break;
     case 2: numeric_info.e = zeta::core::ascii::CharCodeTable::E; break;
     }
 
-    if (numeric_info.e == zeta::core::ascii::CharCodeTable::empty) {
-        numeric_info.exp_part_sign = zeta::core::ascii::CharCodeTable::empty;
+    if (numeric_info.e == zeta::core::unicode::null_codepoint) {
+        numeric_info.exp_part_sign = zeta::core::unicode::null_codepoint;
     } else {
         switch (zeta::core_test::GetRandomInt<int, int>(0, 2)) {
         case 0:
-            numeric_info.exp_part_sign =
-                zeta::core::ascii::CharCodeTable::empty;
+            numeric_info.exp_part_sign = zeta::core::unicode::null_codepoint;
             break;
         case 1:
             numeric_info.exp_part_sign = zeta::core::ascii::CharCodeTable::plus;
@@ -473,11 +475,10 @@ constexpr std::string NumericInfoToString(NumericInfo const& numeric_info) {
         ret.append(numeric_info.frac_part_digits);
     }
 
-    if (numeric_info.e != zeta::core::ascii::CharCodeTable::empty) {
+    if (numeric_info.e != zeta::core::unicode::null_codepoint) {
         ret.push_back(static_cast<char>(numeric_info.e));
 
-        if (numeric_info.exp_part_sign !=
-            zeta::core::ascii::CharCodeTable::empty) {
+        if (numeric_info.exp_part_sign != zeta::core::unicode::null_codepoint) {
             ret.push_back(static_cast<char>(numeric_info.exp_part_sign));
         }
 
@@ -487,6 +488,7 @@ constexpr std::string NumericInfoToString(NumericInfo const& numeric_info) {
     return ret;
 }
 
+/*
 constexpr NumericInfo ParseNumeric(std::string const& numeric_str) {
     size_t len{ numeric_str.size() };
 
@@ -512,8 +514,8 @@ constexpr NumericInfo ParseNumeric(std::string const& numeric_str) {
     NumericInfo numeric_info;
 
     numeric_info.has_frac = false;
-    numeric_info.e = zeta::core::ascii::CharCodeTable::empty;
-    numeric_info.exp_part_sign = zeta::core::ascii::CharCodeTable::empty;
+    numeric_info.e = zeta::core::unicode::null_codepoint;
+    numeric_info.exp_part_sign = zeta::core::unicode::null_codepoint;
 
     struct {
         size_t sending_sign{ 0 };
@@ -524,16 +526,13 @@ constexpr NumericInfo ParseNumeric(std::string const& numeric_str) {
         size_t sending_exp_part_digit{ 0 };
     } state_cnt;
 
-    zeta::core::json_utils::numeric_serde::deserialize::StateEnum
-        deserialize_state;
-
-    zeta::core::json_utils::numeric_serde::deserialize::ReceiveStart(
-        bcpp, deserialize_state);
+    zeta::core::json_utils::numeric_endec::dec::State deserialize_state{
+        zeta::core::json_utils::numeric_endec::dec::State::SendingSign
+    };
 
     while (true) {
         switch (deserialize_state) {
-        case zeta::core::json_utils::numeric_serde::deserialize::StateEnum::
-            SendingSign: {
+        case zeta::core::json_utils::numeric_endec::dec::State::SendingSign: {
             ZETA_Core_DebugAssert(state_cnt.sending_sign == 0);
             ZETA_Core_DebugAssert(state_cnt.sending_int_part_digit == 0);
             ZETA_Core_DebugAssert(state_cnt.sending_frac_part_digit == 0);
@@ -544,15 +543,16 @@ constexpr NumericInfo ParseNumeric(std::string const& numeric_str) {
             ++state_cnt.sending_sign;
 
             numeric_info.sign =
-                zeta::core::json_utils::numeric_serde::deserialize::ReceiveSign(
-                    bcpp, deserialize_state);
+                zeta::core::json_utils::numeric_endec::dec::ReceiveSign(
+                    bcpp, deserialize_state)
+                    .GetValue();
 
             break;
         }
 
-        case zeta::core::json_utils::numeric_serde::deserialize::StateEnum::
+        case zeta::core::json_utils::numeric_endec::dec::State::
             SendingIntPartDigitLead:
-        case zeta::core::json_utils::numeric_serde::deserialize::StateEnum::
+        case zeta::core::json_utils::numeric_endec::dec::State::
             SendingIntPartDigitTail: {
             ZETA_Core_DebugAssert(state_cnt.sending_sign == 1);
             ZETA_Core_DebugAssert(state_cnt.sending_frac_part_digit == 0);
@@ -563,13 +563,15 @@ constexpr NumericInfo ParseNumeric(std::string const& numeric_str) {
             ++state_cnt.sending_int_part_digit;
 
             numeric_info.int_part_digits.push_back(static_cast<char>(
-                '0' + zeta::core::json_utils::numeric_serde::deserialize::
-                          ReceiveIntPartDigit(bcpp, deserialize_state)));
+                '0' +
+                zeta::core::json_utils::numeric_endec::dec::ReceiveIntPartDigit(
+                    bcpp, deserialize_state)
+                    .GetValue()));
 
             break;
         }
 
-        case zeta::core::json_utils::numeric_serde::deserialize::StateEnum::
+        case zeta::core::json_utils::numeric_endec::dec::State::
             SendingFracPartDigit: {
             ZETA_Core_DebugAssert(state_cnt.sending_sign == 1);
             ZETA_Core_DebugAssert(0 < state_cnt.sending_int_part_digit);
@@ -582,13 +584,14 @@ constexpr NumericInfo ParseNumeric(std::string const& numeric_str) {
             numeric_info.has_frac = true;
 
             numeric_info.frac_part_digits.push_back(static_cast<char>(
-                '0' + zeta::core::json_utils::numeric_serde::deserialize::
-                          ReceiveFracPartDigit(bcpp, deserialize_state)));
+                '0' + zeta::core::json_utils::numeric_endec::dec::
+                          ReceiveFracPartDigit(bcpp, deserialize_state)
+                              .GetValue()));
 
             break;
         }
 
-        case zeta::core::json_utils::numeric_serde::deserialize::StateEnum::
+        case zeta::core::json_utils::numeric_endec::dec::State::
             SendingExpPartE: {
             ZETA_Core_DebugAssert(state_cnt.sending_sign == 1);
             ZETA_Core_DebugAssert(0 < state_cnt.sending_int_part_digit);
@@ -598,13 +601,15 @@ constexpr NumericInfo ParseNumeric(std::string const& numeric_str) {
 
             ++state_cnt.sending_exp_part_e;
 
-            numeric_info.e = zeta::core::json_utils::numeric_serde::
-                deserialize::ReceiveExpPartE(bcpp, deserialize_state);
+            numeric_info.e =
+                zeta::core::json_utils::numeric_endec::dec::ReceiveExpPartE(
+                    bcpp, deserialize_state)
+                    .GetValue();
 
             break;
         }
 
-        case zeta::core::json_utils::numeric_serde::deserialize::StateEnum::
+        case zeta::core::json_utils::numeric_endec::dec::State::
             SendingExpPartSign: {
             ZETA_Core_DebugAssert(state_cnt.sending_sign == 1);
             ZETA_Core_DebugAssert(0 < state_cnt.sending_int_part_digit);
@@ -615,14 +620,14 @@ constexpr NumericInfo ParseNumeric(std::string const& numeric_str) {
             ++state_cnt.sending_exp_part_sign;
 
             numeric_info.exp_part_sign =
-                zeta::core::json_utils::numeric_serde::deserialize::
-                    ReceiveExpPartSign(bcpp, deserialize_state)
-                        .first;
+                zeta::core::json_utils::numeric_endec::dec::ReceiveExpPartSign(
+                    bcpp, deserialize_state)
+                    .GetValue();
 
             break;
         }
 
-        case zeta::core::json_utils::numeric_serde::deserialize::StateEnum::
+        case zeta::core::json_utils::numeric_endec::dec::State::
             SendingExpPartDigit: {
             ZETA_Core_DebugAssert(state_cnt.sending_sign == 1);
             ZETA_Core_DebugAssert(0 < state_cnt.sending_int_part_digit);
@@ -632,14 +637,15 @@ constexpr NumericInfo ParseNumeric(std::string const& numeric_str) {
             ++state_cnt.sending_exp_part_digit;
 
             numeric_info.exp_part_digits.push_back(static_cast<char>(
-                '0' + zeta::core::json_utils::numeric_serde::deserialize::
-                          ReceiveExpPartDigit(bcpp, deserialize_state)));
+                '0' +
+                zeta::core::json_utils::numeric_endec::dec::ReceiveExpPartDigit(
+                    bcpp, deserialize_state)
+                    .GetValue()));
 
             break;
         }
 
-        case zeta::core::json_utils::numeric_serde::deserialize::StateEnum::
-            Finished: {
+        case zeta::core::json_utils::numeric_endec::dec::State::Finished: {
             numeric_info.is_ok = true;
 
             ZETA_Core_DebugAssert(state_cnt.sending_sign == 1);
@@ -650,16 +656,16 @@ constexpr NumericInfo ParseNumeric(std::string const& numeric_str) {
             return numeric_info;
         }
 
-        case zeta::core::json_utils::numeric_serde::deserialize::StateEnum::
-            Corrupted:
+        case zeta::core::json_utils::numeric_endec::dec::State::Corrupted:
 
             numeric_info.is_ok = false;
             return numeric_info;
         }
     }
 }
+*/
 
-namespace deserialize_json_text_to_json_node {
+namespace decode_json_text_to_json_node {
 
 std::stringstream json_log_ss;
 std::string json_log_indent_str{ "    " };
@@ -667,22 +673,19 @@ std::string json_log_acc_indent_str;
 
 template <zeta::core::elem_stream::provider::IsProvider CodepointProvider>
 constexpr JsonNode* ReceiveValue(
-    zeta::core::json_utils::value_serde::Deserializer<CodepointProvider>&
-        deserializer);
+    zeta::core::json_utils::Decoder<CodepointProvider>& decoder);
 
 template <zeta::core::elem_stream::provider::IsProvider CodepointProvider>
 constexpr JsonNode* ReceiveNull(
-    zeta::core::json_utils::value_serde::Deserializer<CodepointProvider>&
-        deserializer) {
-    ZETA_Core_DebugAssert(0 < deserializer.depth);
+    zeta::core::json_utils::Decoder<CodepointProvider>& decoder) {
+    ZETA_Core_DebugAssert(0 < decoder.depth);
 
-    ZETA_Core_DebugAssert(deserializer.states[deserializer.depth - 1] ==
-                          zeta::core::json_utils::value_serde::
-                              DeserializerStateEnum::SendingNull);
+    ZETA_Core_DebugAssert(decoder.GetState() ==
+                          zeta::core::json_utils::DecState::SendingNull);
 
     JsonNode* json_node{ new JsonNode{ JsonNode::TypeEnum::Null } };
 
-    deserializer.ReceiveNull();
+    decoder.ReceiveNull().CheckHasValue();
 
     json_log_ss << "null";
 
@@ -691,17 +694,19 @@ constexpr JsonNode* ReceiveNull(
 
 template <zeta::core::elem_stream::provider::IsProvider CodepointProvider>
 constexpr JsonNode* ReceiveBoolean(
-    zeta::core::json_utils::value_serde::Deserializer<CodepointProvider>&
-        deserializer) {
-    ZETA_Core_DebugAssert(0 < deserializer.depth);
+    zeta::core::json_utils::Decoder<CodepointProvider>& decoder) {
+    ZETA_Core_DebugAssert(0 < decoder.depth);
 
-    ZETA_Core_DebugAssert(deserializer.states[deserializer.depth - 1] ==
-                          zeta::core::json_utils::value_serde::
-                              DeserializerStateEnum::SendingBoolean);
+    ZETA_Core_DebugAssert(decoder.GetState() ==
+                          zeta::core::json_utils::DecState::SendingBoolean);
+
+    auto try_result{ decoder.ReceiveBoolean() };
+
+    if (!try_result.HasValue()) { return nullptr; }
 
     JsonNode* json_node{ new JsonNode{ JsonNode::TypeEnum::Boolean } };
 
-    json_node->boolean_value = deserializer.ReceiveBoolean();
+    json_node->boolean_value = try_result.GetValue();
 
     json_log_ss << (json_node->boolean_value ? "true" : "false");
 
@@ -710,75 +715,100 @@ constexpr JsonNode* ReceiveBoolean(
 
 template <zeta::core::elem_stream::provider::IsProvider CodepointProvider>
 constexpr JsonNode* ReceiveNumeric(
-    zeta::core::json_utils::value_serde::Deserializer<CodepointProvider>&
-        deserializer) {
-    ZETA_Core_DebugAssert(0 < deserializer.depth);
+    zeta::core::json_utils::Decoder<CodepointProvider>& decoder) {
+    ZETA_Core_DebugAssert(0 < decoder.depth);
 
-    ZETA_Core_DebugAssert(deserializer.states[deserializer.depth - 1] ==
-                          zeta::core::json_utils::value_serde::
-                              DeserializerStateEnum::SendingNumericStart);
+    ZETA_Core_DebugAssert(decoder.GetState() ==
+                          zeta::core::json_utils::DecState::SendingNumericSign);
 
     JsonNode* json_node{ new JsonNode{ JsonNode::TypeEnum::Numeric } };
     json_node->numeric_info.has_frac = false;
-    json_node->numeric_info.e = zeta::core::ascii::CharCodeTable::empty;
-
-    deserializer.ReceiveNumericStart();
+    json_node->numeric_info.e = zeta::core::unicode::null_codepoint;
+    json_node->numeric_info.exp_part_sign = zeta::core::unicode::null_codepoint;
 
     while (true) {
-        ZETA_Core_Debug_PrintVar(zeta::core::meta::ToUnderlying(
-            deserializer.states[deserializer.depth - 1]));
+        ZETA_Core_Debug_PrintVar(
+            zeta::core::meta::ToUnderlying(decoder.GetState()));
 
-        switch (deserializer.states[deserializer.depth - 1]) {
-        case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-            SendingNumericSign:
-            json_node->numeric_info.sign = deserializer.ReceiveNumericSign();
+        switch (decoder.GetState()) {
+        case zeta::core::json_utils::DecState::SendingNumericSign: {
+            auto ret{ decoder.ReceiveNumericSign() };
+
+            if (ret.HasValue()) {
+                json_node->numeric_info.sign = ret.GetValue();
+            }
+
             break;
+        }
 
-        case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-            SendingNumericIntPartDigitLead:
-        case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-            SendingNumericIntPartDigitTail:
-            json_node->numeric_info.int_part_digits.push_back(static_cast<char>(
-                '0' + deserializer.ReceiveNumericIntPartDigit()));
+        case zeta::core::json_utils::DecState::SendingNumericIntPartDigit: {
+            auto ret{ decoder.ReceiveNumericIntPartDigit() };
+
+            if (!ret.HasValue()) { break; }
+
+            json_node->numeric_info.int_part_digits.push_back(
+                static_cast<char>('0' + ret.GetValue()));
+
             break;
+        }
 
-        case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-            SendingNumericFracPartDigit:
+        case zeta::core::json_utils::DecState::SendingNumericFracPartDigit: {
+            auto ret{ decoder.ReceiveNumericFracPartDigit() };
+
+            if (!ret.HasValue()) { break; }
+
             json_node->numeric_info.has_frac = true;
-            json_node->numeric_info.frac_part_digits.push_back(
-                static_cast<char>('0' +
-                                  deserializer.ReceiveNumericFracPartDigit()));
-            break;
 
-        case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-            SendingNumericExpPartE:
-            json_node->numeric_info.e = deserializer.ReceiveNumericExpPartE();
+            json_node->numeric_info.frac_part_digits.push_back(
+                static_cast<char>('0' + ret.GetValue()));
+
+            break;
+        }
+
+        case zeta::core::json_utils::DecState::SendingNumericExpPartE: {
+            auto ret{ decoder.ReceiveNumericExpPartE() };
+
+            if (!ret.HasValue()) { break; }
+
+            json_node->numeric_info.e = ret.GetValue();
+
             ZETA_Core_Debug_PrintVar(&json_node->numeric_info.e);
             ZETA_Core_Debug_PrintVar(
                 static_cast<char>(json_node->numeric_info.e));
-            break;
 
-        case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-            SendingNumericExpPartSign:
-            json_node->numeric_info.exp_part_sign =
-                deserializer.ReceiveNumericExpPartSign().first;
             break;
+        }
 
-        case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-            SendingNumericExpPartDigit:
-            json_node->numeric_info.exp_part_digits.push_back(static_cast<char>(
-                '0' + deserializer.ReceiveNumericExpPartDigit()));
+        case zeta::core::json_utils::DecState::SendingNumericExpPartSign: {
+            auto ret{ decoder.ReceiveNumericExpPartSign() };
+
+            if (!ret.HasValue()) { break; }
+
+            json_node->numeric_info.exp_part_sign = ret.GetValue();
+
             break;
+        }
 
-        case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-            SendingNumericFinish:
+        case zeta::core::json_utils::DecState::SendingNumericExpPartDigit: {
+            auto ret{ decoder.ReceiveNumericExpPartDigit() };
+
+            if (!ret.HasValue()) { break; }
+
+            json_node->numeric_info.exp_part_digits.push_back(
+                static_cast<char>('0' + ret.GetValue()));
+
+            break;
+        }
+
+        case zeta::core::json_utils::DecState::SendingNumericFinish: {
             json_node->numeric_info.is_ok = true;
-            deserializer.ReceiveNumericFinish();
+            decoder.ReceiveFinish().CheckHasValue();
 
             zeta::core::debug_utils::VarPrinter<NumericInfo>::Print(
                 json_log_ss, json_node->numeric_info);
 
             return json_node;
+        }
 
         default: ZETA_Core_Unreachable();
         }
@@ -787,31 +817,33 @@ constexpr JsonNode* ReceiveNumeric(
 
 template <zeta::core::elem_stream::provider::IsProvider CodepointProvider>
 constexpr JsonNode* ReceiveString(
-    zeta::core::json_utils::value_serde::Deserializer<CodepointProvider>&
-        deserializer) {
-    ZETA_Core_DebugAssert(0 < deserializer.depth);
+    zeta::core::json_utils::Decoder<CodepointProvider>& decoder) {
+    ZETA_Core_DebugAssert(0 < decoder.depth);
 
-    ZETA_Core_DebugAssert(deserializer.states[deserializer.depth - 1] ==
-                          zeta::core::json_utils::value_serde::
-                              DeserializerStateEnum::SendingStringStart);
+    ZETA_Core_DebugAssert(decoder.GetState() ==
+                          zeta::core::json_utils::DecState::SendingStringStart);
+
+    if (!decoder.ReceiveStringStart().HasValue()) { return nullptr; }
 
     JsonNode* json_node{ new JsonNode{ JsonNode::TypeEnum::String } };
 
-    deserializer.ReceiveStringStart();
-
     while (true) {
-        ZETA_Core_Debug_PrintVar(zeta::core::meta::ToUnderlying(
-            deserializer.states[deserializer.depth - 1]));
+        ZETA_Core_Debug_PrintVar(
+            zeta::core::meta::ToUnderlying(decoder.GetState()));
 
-        switch (deserializer.states[deserializer.depth - 1]) {
-        case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-            SendingStringChar:
-            json_node->string_value.push_back(deserializer.ReceiveStringChar());
+        switch (decoder.GetState()) {
+        case zeta::core::json_utils::DecState::SendingStringChar: {
+            auto ret{ decoder.ReceiveStringChar() };
+
+            if (!ret.HasValue()) { break; }
+
+            json_node->string_value.push_back(ret.GetValue());
+
             break;
+        }
 
-        case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-            SendingStringFinish:
-            deserializer.ReceiveStringFinish();
+        case zeta::core::json_utils::DecState::SendingStringFinish:
+            decoder.ReceiveFinish().CheckHasValue();
 
             json_log_ss << '"';
 
@@ -830,42 +862,38 @@ constexpr JsonNode* ReceiveString(
 
 template <zeta::core::elem_stream::provider::IsProvider CodepointProvider>
 constexpr JsonNode* ReceiveArray(
-    zeta::core::json_utils::value_serde::Deserializer<CodepointProvider>&
-        deserializer) {
-    ZETA_Core_DebugAssert(0 < deserializer.depth);
+    zeta::core::json_utils::Decoder<CodepointProvider>& decoder) {
+    ZETA_Core_DebugAssert(0 < decoder.depth);
 
-    ZETA_Core_DebugAssert(deserializer.states[deserializer.depth - 1] ==
-                          zeta::core::json_utils::value_serde::
-                              DeserializerStateEnum::SendingArrayStart);
+    ZETA_Core_DebugAssert(decoder.GetState() ==
+                          zeta::core::json_utils::DecState::SendingArrayStart);
+
+    if (!decoder.ReceiveArrayStart().HasValue()) { return nullptr; }
 
     JsonNode* json_node{ new JsonNode{ JsonNode::TypeEnum::Array } };
-
-    deserializer.ReceiveArrayStart();
 
     json_log_ss << "[";
     json_log_acc_indent_str.append(json_log_indent_str);
 
     while (true) {
-        ZETA_Core_Debug_PrintVar(zeta::core::meta::ToUnderlying(
-            deserializer.states[deserializer.depth - 1]));
+        ZETA_Core_Debug_PrintVar(
+            zeta::core::meta::ToUnderlying(decoder.GetState()));
 
-        switch (deserializer.states[deserializer.depth - 1]) {
-        case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-            SendingArrayElem:
+        switch (decoder.GetState()) {
+        case zeta::core::json_utils::DecState::SendingArrayElem: {
+            if (!decoder.ReceiveArrayElem().HasValue()) { break; }
 
             if (!json_node->array_value.empty()) { json_log_ss << ","; }
 
             json_log_ss << "\n" << json_log_acc_indent_str;
 
-            deserializer.ReceiveArrayElem();
-
-            json_node->array_value.push_back(ReceiveValue(deserializer));
+            json_node->array_value.push_back(ReceiveValue(decoder));
 
             break;
+        }
 
-        case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-            SendingArrayFinish:
-            deserializer.ReceiveArrayFinish();
+        case zeta::core::json_utils::DecState::SendingArrayFinish: {
+            decoder.ReceiveFinish().CheckHasValue();
 
             json_log_acc_indent_str.resize(json_log_acc_indent_str.size() -
                                            json_log_indent_str.size());
@@ -877,6 +905,7 @@ constexpr JsonNode* ReceiveArray(
             json_log_ss << "]";
 
             return json_node;
+        }
 
         default: ZETA_Core_Unreachable();
         }
@@ -885,59 +914,64 @@ constexpr JsonNode* ReceiveArray(
 
 template <zeta::core::elem_stream::provider::IsProvider CodepointProvider>
 constexpr JsonNode* ReceiveObject(
-    zeta::core::json_utils::value_serde::Deserializer<CodepointProvider>&
-        deserializer) {
-    ZETA_Core_DebugAssert(0 < deserializer.depth);
+    zeta::core::json_utils::Decoder<CodepointProvider>& decoder) {
+    ZETA_Core_DebugAssert(0 < decoder.depth);
 
-    ZETA_Core_DebugAssert(deserializer.states[deserializer.depth - 1] ==
-                          zeta::core::json_utils::value_serde::
-                              DeserializerStateEnum::SendingObjectStart);
+    ZETA_Core_DebugAssert(decoder.GetState() ==
+                          zeta::core::json_utils::DecState::SendingObjectStart);
+
+    if (!decoder.ReceiveObjectStart().HasValue()) { return nullptr; }
 
     JsonNode* json_node{ new JsonNode{ JsonNode::TypeEnum::Object } };
-
-    deserializer.ReceiveObjectStart();
 
     json_log_ss << "{";
     json_log_acc_indent_str.append(json_log_indent_str);
 
     while (true) {
-        ZETA_Core_Debug_PrintVar(zeta::core::meta::ToUnderlying(
-            deserializer.states[deserializer.depth - 1]));
+        ZETA_Core_Debug_PrintVar(
+            zeta::core::meta::ToUnderlying(decoder.GetState()));
 
-        switch (deserializer.states[deserializer.depth - 1]) {
-        case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-            SendingObjectKey:
+        switch (decoder.GetState()) {
+        case zeta::core::json_utils::DecState::SendingObjectKey: {
+            {
+                auto result{ decoder.ReceiveObjectKey() };
+
+                if (!result.HasValue()) {
+                    ZETA_Core_Debug_PrintVar(
+                        static_cast<unsigned char>(result.GetReason()));
+                    break;
+                }
+            }
 
             if (!json_node->object_value.empty()) { json_log_ss << ","; }
 
             json_log_ss << "\n" << json_log_acc_indent_str;
 
-            deserializer.ReceiveObjectKey();
+            ZETA_Core_Debug_PrintVar(
+                zeta::core::meta::ToUnderlying(decoder.GetState()));
 
             json_node->object_value.push_back(std::pair<JsonNode*, JsonNode*>{
-                ReceiveValue(deserializer), nullptr });
+                ReceiveValue(decoder), nullptr });
 
             json_log_ss << ": ";
 
             break;
+        }
 
-        case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-            SendingObjectValue:
-
-            deserializer.ReceiveObjectValue();
+        case zeta::core::json_utils::DecState::SendingObjectValue: {
+            if (!decoder.ReceiveObjectValue().HasValue()) { break; }
 
             ZETA_Core_DebugAssert(!json_node->object_value.empty());
             ZETA_Core_DebugAssert(json_node->object_value.back().second ==
                                   nullptr);
 
-            json_node->object_value.back().second = ReceiveValue(deserializer);
+            json_node->object_value.back().second = ReceiveValue(decoder);
 
             break;
+        }
 
-        case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-            SendingObjectFinish:
-
-            deserializer.ReceiveObjectFinish();
+        case zeta::core::json_utils::DecState::SendingObjectFinish: {
+            decoder.ReceiveFinish().CheckHasValue();
 
             json_log_acc_indent_str.resize(json_log_acc_indent_str.size() -
                                            json_log_indent_str.size());
@@ -949,6 +983,7 @@ constexpr JsonNode* ReceiveObject(
             json_log_ss << "}";
 
             return json_node;
+        }
 
         default: ZETA_Core_Unreachable();
         }
@@ -957,110 +992,101 @@ constexpr JsonNode* ReceiveObject(
 
 template <zeta::core::elem_stream::provider::IsProvider CodepointProvider>
 constexpr JsonNode* ReceiveValue(
-    zeta::core::json_utils::value_serde::Deserializer<CodepointProvider>&
-        deserializer) {
-    ZETA_Core_DebugAssert(0 < deserializer.depth);
+    zeta::core::json_utils::Decoder<CodepointProvider>& decoder) {
+    ZETA_Core_DebugAssert(0 < decoder.depth);
 
-    ZETA_Core_Debug_PrintVar(zeta::core::meta::ToUnderlying(
-        deserializer.states[deserializer.depth - 1]));
+    ZETA_Core_Debug_PrintVar(
+        zeta::core::meta::ToUnderlying(decoder.GetState()));
 
     JsonNode* json_node;
 
-    switch (deserializer.states[deserializer.depth - 1]) {
-    case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-        SendingNull:
-        json_node = ReceiveNull(deserializer);
+    switch (decoder.GetState()) {
+    case zeta::core::json_utils::DecState::SendingNull:
+        json_node = ReceiveNull(decoder);
         break;
 
-    case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-        SendingBoolean:
-        json_node = ReceiveBoolean(deserializer);
+    case zeta::core::json_utils::DecState::SendingBoolean:
+        json_node = ReceiveBoolean(decoder);
         break;
 
-    case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-        SendingNumericStart:
-        json_node = ReceiveNumeric(deserializer);
+    case zeta::core::json_utils::DecState::SendingNumericSign:
+        json_node = ReceiveNumeric(decoder);
         break;
 
-    case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-        SendingStringStart:
-        json_node = ReceiveString(deserializer);
+    case zeta::core::json_utils::DecState::SendingStringStart:
+        json_node = ReceiveString(decoder);
         break;
 
-    case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-        SendingArrayStart:
-        json_node = ReceiveArray(deserializer);
+    case zeta::core::json_utils::DecState::SendingArrayStart:
+        json_node = ReceiveArray(decoder);
         break;
 
-    case zeta::core::json_utils::value_serde::DeserializerStateEnum::
-        SendingObjectStart:
-        json_node = ReceiveObject(deserializer);
+    case zeta::core::json_utils::DecState::SendingObjectStart:
+        json_node = ReceiveObject(decoder);
         break;
 
-    case zeta::core::json_utils::value_serde::DeserializerStateEnum::Finished:
-        return nullptr;
+    case zeta::core::json_utils::DecState::Finished: return nullptr;
 
     default: ZETA_Core_Unreachable();
     }
 
     ZETA_Core_Debug_PrintVar(json_node);
-    ZETA_Core_Debug_PrintVar(static_cast<unsigned>(json_node->type));
+
+    if (json_node != nullptr) {
+        ZETA_Core_Debug_PrintVar(static_cast<unsigned>(json_node->type));
+    }
 
     return json_node;
 }
 
-}  // namespace deserialize_json_text_to_json_node
+}  // namespace decode_json_text_to_json_node
 
-namespace serialize_json_node_to_json_text {
-
-template <zeta::core::elem_stream::acceptor::IsAcceptor CodepointAcceptor>
-constexpr void SendValue(zeta::core::json_utils::value_serde::Serializer<
-                             CodepointAcceptor>& serializer,
-                         JsonNode* json_node);
+namespace encode_json_node_to_json_text {
 
 template <zeta::core::elem_stream::acceptor::IsAcceptor CodepointAcceptor>
-constexpr void SendNull(zeta::core::json_utils::value_serde::Serializer<
-                            CodepointAcceptor>& serializer,
-                        JsonNode* json_node) {
+constexpr void SendValue(
+    zeta::core::json_utils::Encoder<CodepointAcceptor>& serializer,
+    JsonNode* json_node);
+
+template <zeta::core::elem_stream::acceptor::IsAcceptor CodepointAcceptor>
+constexpr void SendNull(
+    zeta::core::json_utils::Encoder<CodepointAcceptor>& serializer,
+    JsonNode* json_node) {
     ZETA_Core_DebugAssert(json_node->type == JsonNode::TypeEnum::Null);
 
     ZETA_Core_Debug_PrintCurPos;
 
-    serializer.SendNull();
+    serializer.SendNull().CheckHasValue();
 }
 
 template <zeta::core::elem_stream::acceptor::IsAcceptor CodepointAcceptor>
-constexpr void SendBoolean(zeta::core::json_utils::value_serde::Serializer<
-                               CodepointAcceptor>& serializer,
-                           JsonNode* json_node) {
+constexpr void SendBoolean(
+    zeta::core::json_utils::Encoder<CodepointAcceptor>& serializer,
+    JsonNode* json_node) {
     ZETA_Core_DebugAssert(json_node->type == JsonNode::TypeEnum::Boolean);
 
     ZETA_Core_Debug_PrintCurPos;
 
-    serializer.SendBoolean(json_node->boolean_value);
+    serializer.SendBoolean(json_node->boolean_value).CheckHasValue();
 }
 
 template <zeta::core::elem_stream::acceptor::IsAcceptor CodepointAcceptor>
-constexpr void SendNeumeric(zeta::core::json_utils::value_serde::Serializer<
-                                CodepointAcceptor>& serializer,
-                            JsonNode* json_node) {
+constexpr void SendNeumeric(
+    zeta::core::json_utils::Encoder<CodepointAcceptor>& serializer,
+    JsonNode* json_node) {
     ZETA_Core_DebugAssert(json_node->type == JsonNode::TypeEnum::Numeric);
 
     ZETA_Core_Debug_PrintCurPos;
 
-    bool b;
-
-    serializer.SendNumericStart();
-
     ZETA_Core_Debug_PrintCurPos;
 
-    serializer.SendNumericSign(json_node->numeric_info.sign);
+    serializer.SendNumericSign(json_node->numeric_info.sign).CheckHasValue();
 
     for (char d : json_node->numeric_info.int_part_digits) {
         ZETA_Core_Debug_PrintCurPos;
 
-        b = serializer.SendNumericIntPartDigit(static_cast<unsigned>(d - '0'));
-        ZETA_Core_DebugAssert(b);
+        serializer.SendNumericIntPartDigit(static_cast<unsigned char>(d - '0'))
+            .CheckHasValue();
     }
 
     ZETA_Core_Debug_PrintVar(json_node->numeric_info.has_frac);
@@ -1069,80 +1095,78 @@ constexpr void SendNeumeric(zeta::core::json_utils::value_serde::Serializer<
         for (char d : json_node->numeric_info.frac_part_digits) {
             ZETA_Core_Debug_PrintCurPos;
 
-            ZETA_Core_Debug_PrintVar(static_cast<unsigned>(d - '0'));
+            ZETA_Core_Debug_PrintVar(static_cast<unsigned char>(d - '0'));
 
-            b = serializer.SendNumericFracPartDigit(
-                static_cast<unsigned>(d - '0'));
-            ZETA_Core_DebugAssert(b);
+            serializer
+                .SendNumericFracPartDigit(static_cast<unsigned char>(d - '0'))
+                .CheckHasValue();
         }
     }
 
-    ZETA_Core_Debug_PrintVar(static_cast<unsigned>(json_node->numeric_info.e));
+    ZETA_Core_Debug_PrintVar(json_node->numeric_info.e);
 
-    if (json_node->numeric_info.e != zeta::core::ascii::CharCodeTable::empty) {
+    if (json_node->numeric_info.e != zeta::core::unicode::null_codepoint) {
         ZETA_Core_Debug_PrintCurPos;
 
         ZETA_Core_Debug_PrintVar(json_node);
         ZETA_Core_Debug_PrintVar(&json_node->numeric_info.e);
-        ZETA_Core_Debug_PrintVar(
-            static_cast<unsigned>(json_node->numeric_info.e));
+        ZETA_Core_Debug_PrintVar(json_node->numeric_info.e);
 
-        b = serializer.SendNumericExpPartE(json_node->numeric_info.e);
-        ZETA_Core_DebugAssert(b);
+        serializer.SendNumericExpPartE(json_node->numeric_info.e)
+            .CheckHasValue();
 
         if (json_node->numeric_info.exp_part_sign !=
-            zeta::core::ascii::CharCodeTable::empty) {
+            zeta::core::unicode::null_codepoint) {
             ZETA_Core_Debug_PrintCurPos;
 
-            b = serializer.SendNumericExpPartSign(
-                json_node->numeric_info.exp_part_sign);
-            ZETA_Core_DebugAssert(b);
+            serializer
+                .SendNumericExpPartSign(json_node->numeric_info.exp_part_sign)
+                .CheckHasValue();
         }
 
         for (char d : json_node->numeric_info.exp_part_digits) {
             ZETA_Core_Debug_PrintCurPos;
 
-            b = serializer.SendNumericExpPartDigit(
-                static_cast<unsigned>(d - '0'));
-            ZETA_Core_DebugAssert(b);
+            serializer
+                .SendNumericExpPartDigit(static_cast<unsigned char>(d - '0'))
+                .CheckHasValue();
         }
     }
     ZETA_Core_Debug_PrintCurPos;
 
-    serializer.SendNumericFinish();
+    serializer.SendFinish().CheckHasValue();
 }
 
 template <zeta::core::elem_stream::acceptor::IsAcceptor CodepointAcceptor>
-constexpr void SendString(zeta::core::json_utils::value_serde::Serializer<
-                              CodepointAcceptor>& serializer,
-                          JsonNode* json_node) {
+constexpr void SendString(
+    zeta::core::json_utils::Encoder<CodepointAcceptor>& serializer,
+    JsonNode* json_node) {
     ZETA_Core_DebugAssert(json_node->type == JsonNode::TypeEnum::String);
 
     ZETA_Core_Debug_PrintCurPos;
 
-    serializer.SendStringStart();
+    serializer.SendStringStart().CheckHasValue();
 
     for (zeta::core::unicode::unichar_t cp : json_node->string_value) {
         ZETA_Core_Debug_PrintCurPos;
 
-        bool b{ serializer.SendStringChar(cp) };
-        ZETA_Core_DebugAssert(b);
+        serializer.SendStringChar(cp).CheckHasValue();
     }
 
     ZETA_Core_Debug_PrintCurPos;
 
-    serializer.SendStringFinish();
+    serializer.SendFinish().CheckHasValue();
 }
 
 template <zeta::core::elem_stream::acceptor::IsAcceptor CodepointAcceptor>
-constexpr void SendArray(zeta::core::json_utils::value_serde::Serializer<
-                             CodepointAcceptor>& serializer,
-                         JsonNode* json_node) {
+constexpr void SendArray(
+    zeta::core::json_utils::Encoder<CodepointAcceptor>& serializer,
+    JsonNode* json_node) {
     ZETA_Core_DebugAssert(json_node->type == JsonNode::TypeEnum::Array);
 
     ZETA_Core_Debug_PrintCurPos;
 
-    serializer.SendArrayStart();
+    serializer.SendArrayStart().CheckHasValue();
 
     for (JsonNode* elem : json_node->array_value) {
         ZETA_Core_Debug_PrintCurPos;
@@ -1152,18 +1176,18 @@ constexpr void SendArray(zeta::core::json_utils::value_serde::Serializer<
 
     ZETA_Core_Debug_PrintCurPos;
 
-    serializer.SendArrayFinish();
+    serializer.SendFinish().CheckHasValue();
 }
 
 template <zeta::core::elem_stream::acceptor::IsAcceptor CodepointAcceptor>
-constexpr void SendObject(zeta::core::json_utils::value_serde::Serializer<
-                              CodepointAcceptor>& serializer,
-                          JsonNode* json_node) {
+constexpr void SendObject(
+    zeta::core::json_utils::Encoder<CodepointAcceptor>& serializer,
+    JsonNode* json_node) {
     ZETA_Core_DebugAssert(json_node->type == JsonNode::TypeEnum::Object);
 
     ZETA_Core_Debug_PrintCurPos;
 
-    serializer.SendObjectStart();
+    serializer.SendObjectStart().CheckHasValue();
 
     for (auto const& [key, value] : json_node->object_value) {
         ZETA_Core_Debug_PrintCurPos;
@@ -1176,15 +1200,15 @@ constexpr void SendObject(zeta::core::json_utils::value_serde::Serializer<
 
     ZETA_Core_Debug_PrintCurPos;
 
-    serializer.SendObjectFinish();
+    serializer.SendFinish().CheckHasValue();
 
     ZETA_Core_Debug_PrintCurPos;
 }
 
 template <zeta::core::elem_stream::acceptor::IsAcceptor CodepointAcceptor>
-constexpr void SendValue(zeta::core::json_utils::value_serde::Serializer<
-                             CodepointAcceptor>& serializer,
-                         JsonNode* json_node) {
+constexpr void SendValue(
+    zeta::core::json_utils::Encoder<CodepointAcceptor>& serializer,
+    JsonNode* json_node) {
     ZETA_Core_Debug_PrintVar(json_node);
     ZETA_Core_Debug_PrintVar(static_cast<unsigned>(json_node->type));
 
@@ -1202,7 +1226,7 @@ constexpr void SendValue(zeta::core::json_utils::value_serde::Serializer<
     }
 }
 
-}  // namespace serialize_json_node_to_json_text
+}  // namespace encode_json_node_to_json_text
 
 constexpr std::vector<zeta::core::unicode::unichar_t> GenRandomLogicalString() {
     size_t len{ zeta::core_test::GetRandomInt<size_t, size_t>(0, 128) };
@@ -1253,6 +1277,7 @@ constexpr std::vector<zeta::core::unicode::unichar_t> GenRandomLogicalString() {
     return ret;
 }
 
+/*
 constexpr std::vector<zeta::core::unicode::unichar_t> LogicalStringToJsontring(
     std::vector<zeta::core::unicode::unichar_t> const& raw_string) {
     std::vector<zeta::core::unicode::unichar_t> ret;
@@ -1279,23 +1304,27 @@ constexpr std::vector<zeta::core::unicode::unichar_t> LogicalStringToJsontring(
         }
     } };
 
-    zeta::core::json_utils::string_serde::serialize::StateEnum
-        string_serialize_state;
+    zeta::core::json_utils::string_endec::enc::State string_serialize_state;
 
-    zeta::core::json_utils::string_serde::serialize::SendStart(
-        raw_string_cp_acceptor, string_serialize_state);
+    zeta::core::json_utils::string_endec::enc::SendStart(raw_string_cp_acceptor,
+                                                         string_serialize_state)
+        .CheckHasValue();
 
     for (zeta::core::unicode::unichar_t cp : raw_string) {
         try_expand();
-        zeta::core::json_utils::string_serde::serialize::SendChar(
+
+        zeta::core::json_utils::string_endec::enc::SendChar(
             raw_string_cp_acceptor, string_serialize_state, cp,
             zeta::core_test::GetRandomInt<int, int>(0, 1) == 1,
-            zeta::core_test::GetRandomInt<int, int>(0, 1) == 1);
+            zeta::core_test::GetRandomInt<int, int>(0, 1) == 1)
+            .CheckHasValue();
     }
 
     try_expand();
-    zeta::core::json_utils::string_serde::serialize::SendFinish(
-        raw_string_cp_acceptor, string_serialize_state);
+
+    zeta::core::json_utils::string_endec::enc::SendFinish(
+        raw_string_cp_acceptor, string_serialize_state)
+        .CheckHasValue();
 
     ret.resize(static_cast<size_t>(static_cast<zeta::core::unicode::unichar_t*>(
                                        raw_string_cp_acceptor.data) -
@@ -1303,7 +1332,9 @@ constexpr std::vector<zeta::core::unicode::unichar_t> LogicalStringToJsontring(
 
     return ret;
 }
+*/
 
+/*
 constexpr std::vector<zeta::core::unicode::unichar_t> JsonStringToLogicalString(
     std::vector<zeta::core::unicode::unichar_t> const& json_string) {
     std::vector<zeta::core::unicode::unichar_t> ret;
@@ -1319,76 +1350,79 @@ constexpr std::vector<zeta::core::unicode::unichar_t> JsonStringToLogicalString(
         zeta::core::lin_seq_elem_stream::Provider>
         bcpp{ json_string_cp_provider };
 
-    zeta::core::json_utils::string_serde::deserialize::StateEnum
-        string_deserialize_state;
+    zeta::core::json_utils::string_endec::dec::State string_deserialize_state;
 
-    zeta::core::json_utils::string_serde::deserialize::ReceiveStart(
-        bcpp, string_deserialize_state);
+    zeta::core::json_utils::string_endec::dec::ReceiveStart(
+        bcpp, string_deserialize_state)
+        .CheckHasValue();
 
-    while (string_deserialize_state != zeta::core::json_utils::string_serde::
-                                           deserialize::StateEnum::Finished) {
-        ZETA_Core_DebugAssert(string_deserialize_state !=
-                              zeta::core::json_utils::string_serde::
-                                  deserialize::StateEnum::Corrupted);
+    while (string_deserialize_state !=
+           zeta::core::json_utils::string_endec::dec::State::Finished) {
+        ZETA_Core_DebugAssert(
+            string_deserialize_state !=
+            zeta::core::json_utils::string_endec::dec::State::Corrupted);
 
-        ret.push_back(
-            zeta::core::json_utils::string_serde::deserialize::ReceiveChar(
-                bcpp, string_deserialize_state));
+        ret.push_back(zeta::core::json_utils::string_endec::dec::ReceiveChar(
+                          bcpp, string_deserialize_state)
+                          .GetValue());
     }
 
     return ret;
 }
+*/
 
 template <typename T>
 struct DequeElemStream {
     std::deque<T> deque;
-};
 
-template <typename T>
-struct zeta::core::elem_stream::provider::ProviderTraits<DequeElemStream<T>>
-    : zeta::core::elem_stream::provider::MemberFuncProviderTraitsAdapter<
-          DequeElemStream<T>> {
-    static constexpr bool IsEnd(DequeElemStream<T> const& deque_elem_stream) {
-        return deque_elem_stream.deque.empty();
+    static constexpr size_t GetElemSize(
+        zeta::core::elem_stream::provider::Tag) {
+        return sizeof(T);
     }
 
-    static constexpr size_t Transfer(DequeElemStream<T>& deque_elem_stream,
-                                     void* dst, size_t elem_size,
-                                     size_t elem_stride, size_t elem_cnt) {
+    static constexpr size_t GetElemSize(
+        zeta::core::elem_stream::acceptor::Tag) {
+        return sizeof(T);
+    }
+
+    constexpr bool IsEnd(this DequeElemStream<T> const& self,
+                         zeta::core::elem_stream::provider::Tag) {
+        return self.deque.empty();
+    }
+
+    static constexpr bool IsEnd(zeta::core::elem_stream::acceptor::Tag) {
+        return false;
+    }
+
+    constexpr size_t Transfer(this DequeElemStream<T>& self,
+                              zeta::core::elem_stream::provider::Tag, void* dst,
+                              size_t elem_size, size_t elem_stride,
+                              size_t elem_cnt) {
         size_t transfer_elem_size{ std::min(elem_size, sizeof(T)) };
-        size_t transfer_elem_cnt{ std::min(deque_elem_stream.deque.size(),
-                                           elem_cnt) };
+        size_t transfer_elem_cnt{ std::min(self.deque.size(), elem_cnt) };
 
         for (size_t i{ 0 }; i < transfer_elem_cnt; ++i) {
-            std::memcpy(dst,
-                        static_cast<void*>(&deque_elem_stream.deque.front()),
+            std::memcpy(dst, static_cast<void*>(&self.deque.front()),
                         transfer_elem_size);
 
-            deque_elem_stream.deque.pop_front();
+            self.deque.pop_front();
             dst = static_cast<char*>(dst) + elem_stride;
         }
 
         return transfer_elem_cnt;
     }
-};
 
-template <typename T>
-struct zeta::core::elem_stream::acceptor::AcceptorTraits<DequeElemStream<T>>
-    : zeta::core::elem_stream::acceptor::MemberFuncAcceptorTraitsAdapter<
-          DequeElemStream<T>> {
-    static constexpr bool IsEnd(DequeElemStream<T> const&) { return false; }
-
-    static constexpr size_t Transfer(DequeElemStream<T>& deque_elem_stream,
-                                     void const* src, size_t elem_size,
-                                     size_t elem_stride, size_t elem_cnt) {
+    constexpr size_t Transfer(this DequeElemStream<T>& self,
+                              zeta::core::elem_stream::acceptor::Tag,
+                              void const* src, size_t elem_size,
+                              size_t elem_stride, size_t elem_cnt) {
         size_t transfer_elem_size{ std::min(elem_size, sizeof(T)) };
         size_t transfer_elem_cnt{ elem_cnt };
 
         for (size_t i{ 0 }; i < transfer_elem_cnt; ++i) {
-            deque_elem_stream.deque.emplace_back();
+            self.deque.emplace_back();
 
-            std::memcpy(&deque_elem_stream.deque.back(), src,
-                        transfer_elem_size);
+            std::memcpy(&self.deque.back(), src, transfer_elem_size);
 
             src = static_cast<char const*>(src) + elem_stride;
         }
@@ -1403,7 +1437,12 @@ struct CharToUnicharProvider {
 
     mutable zeta::core::utf8::Decoder utf8_decoder;
 
-    constexpr bool IsEnd() const {
+    static constexpr size_t GetElemSize(
+        zeta::core::elem_stream::provider::Tag) {
+        return sizeof(zeta::core::unicode::unichar_t);
+    }
+
+    constexpr bool IsEnd(zeta::core::elem_stream::provider::Tag) const {
         if (false) {
             return zeta::core::elem_stream::provider::IsEnd(this->provider);
         } else {
@@ -1415,12 +1454,15 @@ struct CharToUnicharProvider {
         }
     }
 
-    constexpr size_t Transfer(void* dst, size_t elem_size, size_t elem_stride,
+    constexpr size_t Transfer(zeta::core::elem_stream::provider::Tag, void* dst,
+                              size_t elem_size, size_t elem_stride,
                               size_t elem_cnt) {
         if (false) {
             size_t transfer_elem_cnt{ 0 };
 
-            for (size_t i{ 0 }; i < elem_cnt && !this->IsEnd();
+            for (size_t i{ 0 };
+                 i < elem_cnt &&
+                 !this->IsEnd(zeta::core::elem_stream::provider::Tag{});
                  ++i, ++transfer_elem_cnt) {
                 zeta::core::unicode::unichar_t cp;
 
@@ -1451,23 +1493,23 @@ struct CharToUnicharProvider {
     }
 };
 
-template <zeta::core::elem_stream::provider::IsProvider CharProvider>
-struct zeta::core::elem_stream::provider::ProviderTraits<
-    CharToUnicharProvider<CharProvider>>
-    : zeta::core::elem_stream::provider::MemberFuncProviderTraitsAdapter<
-          CharToUnicharProvider<CharProvider>> {};
-
 template <zeta::core::elem_stream::acceptor::IsAcceptor CharAcceptor>
 struct UnicharToCharAcceptor {
     CharAcceptor acceptor;
 
     zeta::core::utf8::Encoder utf8_encoder;
 
-    constexpr bool IsEnd() const {
+    static constexpr size_t GetElemSize(
+        zeta::core::elem_stream::acceptor::Tag) {
+        return sizeof(zeta::core::unicode::unichar_t);
+    }
+
+    constexpr bool IsEnd(zeta::core::elem_stream::acceptor::Tag) const {
         return zeta::core::elem_stream::acceptor::IsEnd(this->acceptor);
     }
 
-    constexpr size_t Transfer(void const* src, size_t elem_size,
+    constexpr size_t Transfer(zeta::core::elem_stream::acceptor::Tag,
+                              void const* src, size_t elem_size,
                               size_t elem_stride, size_t elem_cnt) {
         zeta::core::lin_seq_elem_stream::Provider p{
             .data = src,
@@ -1502,12 +1544,63 @@ struct UnicharToCharAcceptor {
     }
 };
 
-template <zeta::core::elem_stream::acceptor::IsAcceptor CharAcceptor>
-struct zeta::core::elem_stream::acceptor::AcceptorTraits<
-    UnicharToCharAcceptor<CharAcceptor>>
-    : zeta::core::elem_stream::acceptor::MemberFuncAcceptorTraitsAdapter<
-          UnicharToCharAcceptor<CharAcceptor>> {};
+constexpr std::deque<unsigned char> JsonNodeToJsonText(
+    JsonNode* json_node,
+    zeta::core::json_utils::FormatConfig const& fmt_config) {
+    DequeElemStream<unsigned char> deque_elem_stream{};
 
+    UnicharToCharAcceptor<DequeElemStream<unsigned char>&>
+        unichar_to_char_acceptor{
+            .acceptor{ deque_elem_stream },
+            .utf8_encoder{},
+        };
+
+    ZETA_Core_Debug_PrintCurPos;
+
+    zeta::core::json_utils::Encoder<
+        UnicharToCharAcceptor<DequeElemStream<unsigned char>&>>
+        encoder{ unichar_to_char_acceptor, fmt_config };
+
+    ZETA_Core_Debug_PrintCurPos;
+
+    encode_json_node_to_json_text::SendValue(encoder, json_node);
+
+    ZETA_Core_Debug_PrintCurPos;
+
+    return deque_elem_stream.deque;
+}
+
+/*
+constexpr JsonNode* JsonTextToJsonNode(
+    std::deque<unsigned char> const& json_text) {
+    DequeElemStream<char> deque_elem_stream{
+        .deque{ json_text.begin(), json_text.end() },
+    };
+
+    CharToUnicharProvider<DequeElemStream<char>&> char_to_unichar_provider{
+        .provider{ deque_elem_stream },
+        .utf8_decoder{},
+    };
+
+    ZETA_Core_Debug_PrintCurPos;
+
+    zeta::core::json_utils::BufferedCodepointProvider<
+        CharToUnicharProvider<DequeElemStream<char>&>>
+        bcpp{ char_to_unichar_provider };
+
+    ZETA_Core_Debug_PrintCurPos;
+
+    zeta::core::json_utils::Decoder<
+        CharToUnicharProvider<DequeElemStream<char>&>>
+        decoder{ bcpp };
+
+    ZETA_Core_Debug_PrintCurPos;
+
+    return decode_json_text_to_json_node::ReceiveValue(decoder);
+}
+*/
+
+/*
 inline void main1() {
     char test_string[]{ "-456E+6" };
 
@@ -1522,7 +1615,9 @@ inline void main1() {
     ZETA_Core_PrintVar(numeric_info.frac_part_digits);
     ZETA_Core_PrintVar(numeric_info.exp_part_digits);
 }
+*/
 
+/*
 constexpr void main2() {
     unsigned random_seed{ static_cast<unsigned>(time(nullptr)) };
     unsigned fixed_seed{ 1'784'375'523 };
@@ -1585,7 +1680,9 @@ constexpr void main2() {
         zeta::core::debug_utils::ClearDebugStrStream();
     }
 }
+*/
 
+/*
 constexpr void main3() {
     unsigned random_seed{ static_cast<unsigned>(time(nullptr)) };
     unsigned fixed_seed{ 1'784'375'523 };
@@ -1633,11 +1730,15 @@ constexpr void main3() {
         zeta::core::debug_utils::ClearDebugStrStream();
     }
 }
+*/
 
 constexpr void main4() {
     char sample_json_str[]{ R"({
         "null": null,
-        "boolean.true": true
+        "boolean.true": true,
+        "numeric.1": 123,
+        "numeric.2": -456E+6,
+        "string.1": "Hello, world!",
     })" };
 
     CharToUnicharProvider<DequeElemStream<char>> char_to_unichar_provider{
@@ -1646,14 +1747,11 @@ constexpr void main4() {
         .utf8_decoder{},
     };
 
-    zeta::core::json_utils::BufferedCodepointProvider<
-        decltype(char_to_unichar_provider)>
-        bcpp{ char_to_unichar_provider };
+    zeta::core::json_utils::Decoder<
+        CharToUnicharProvider<DequeElemStream<char>>&>
+        decoder{ char_to_unichar_provider };
 
-    zeta::core::json_utils::value_serde::Deserializer deserializer{ bcpp };
-
-    JsonNode* root_node{ deserialize_json_text_to_json_node::ReceiveValue(
-        deserializer) };
+    JsonNode* root_node{ decode_json_text_to_json_node::ReceiveValue(decoder) };
 
     zeta::core::debug_utils::ClearDebugStrStream();
 
@@ -1662,36 +1760,37 @@ constexpr void main4() {
         .utf8_encoder{},
     };
 
-    zeta::core::json_utils::value_serde::Serializer<
-        decltype(unichar_to_char_acceptor)>
-        serializer{ unichar_to_char_acceptor,
-                    zeta::core::json_utils::format_utils::FormatConfig{
-                        .newline{
-                            .type = zeta::core::json_utils::format_utils::
-                                FormatConfig::Newline::TypeEnum::LF,
-                        },
+    zeta::core::json_utils::Encoder<decltype(unichar_to_char_acceptor)>
+        serializer{
+            unichar_to_char_acceptor,
+            zeta::core::json_utils::FormatConfig{
+                .newline{
+                    .type =
+                        zeta::core::json_utils::FormatConfig::Newline::Type::LF,
+                },
 
-                        .space{
-                            .before_colon = false,
-                            .after_colon = true,
+                .space{
+                    .before_colon = false,
+                    .after_colon = true,
 
-                            .before_comma = false,
-                            .after_comma = true,
-                        },
+                    .before_comma = false,
+                    .after_comma = true,
+                },
 
-                        .indent{
-                            .type = zeta::core::json_utils::format_utils::
-                                FormatConfig::Indent::TypeEnum::Space,
-                            .cnt = 4,
-                        },
+                .indent{
+                    .type = zeta::core::json_utils::FormatConfig::Indent::Type::
+                        Space,
+                    .cnt = 4,
+                },
 
-                        .string{
-                            .prefer_unicode_escape = true,
-                            .prefer_uppercase_hex = false,
-                        },
-                    } };
+                .string{
+                    .prefer_unicode_escape = true,
+                    .prefer_uppercase_hex = false,
+                },
+            }
+        };
 
-    serialize_json_node_to_json_text::SendValue(serializer, root_node);
+    encode_json_node_to_json_text::SendValue(serializer, root_node);
 
     for (char ch : unichar_to_char_acceptor.acceptor.deque) { std::cout << ch; }
 
@@ -1699,16 +1798,15 @@ constexpr void main4() {
 
     delete root_node;
 
-    std::cout << deserialize_json_text_to_json_node::json_log_ss.str()
-              << std::endl;
+    std::cout << decode_json_text_to_json_node::json_log_ss.str() << std::endl;
 }
 
 constexpr void main5() {
     unsigned random_seed{ static_cast<unsigned>(time(nullptr)) };
-    unsigned fixed_seed{ 1'784'375'523 };
+    unsigned fixed_seed{ 1'787'333'379 };
 
-    unsigned seed{ random_seed };
-    // unsigned seed{ fixed_seed };
+    // unsigned seed{ random_seed };
+    unsigned seed{ fixed_seed };
 
     ZETA_Core_PrintCurPos;
 
@@ -1718,10 +1816,9 @@ constexpr void main5() {
 
     zeta::core_test::SetRandomSeed(seed);
 
-    constexpr zeta::core::json_utils::format_utils::FormatConfig fmt_config{
+    constexpr zeta::core::json_utils::FormatConfig fmt_config{
         .newline{
-            .type = zeta::core::json_utils::format_utils::FormatConfig::
-                Newline::TypeEnum::LF,
+            .type = zeta::core::json_utils::FormatConfig::Newline::Type::LF,
         },
 
         .space{
@@ -1733,20 +1830,19 @@ constexpr void main5() {
         },
 
         .indent{
-            .type = zeta::core::json_utils::format_utils::FormatConfig::Indent::
-                TypeEnum::Space,
+            .type = zeta::core::json_utils::FormatConfig::Indent::Type::Space,
             .cnt = 4,
         },
 
         .string{
-            .prefer_unicode_escape = true,
-            .prefer_uppercase_hex = false,
+            .prefer_unicode_escape = false,
+            .prefer_uppercase_hex = true,
         },
     };
 
     ZETA_Core_PrintCurPos;
 
-    JsonNode* root_node_1{ (GenRandomJsonNode(300)) };
+    JsonNode* root_node_1{ (GenRandomJsonNode(3000)) };
 
     ZETA_Core_PrintCurPos;
 
@@ -1757,11 +1853,11 @@ constexpr void main5() {
         .utf8_encoder{},
     };
 
-    zeta::core::json_utils::value_serde::Serializer<
+    zeta::core::json_utils::Encoder<
         UnicharToCharAcceptor<DequeElemStream<char>&>>
-        serializer_1{ unichar_to_char_acceptor_1, fmt_config };
+        encoder_1{ unichar_to_char_acceptor_1, fmt_config };
 
-    serialize_json_node_to_json_text::SendValue(serializer_1, root_node_1);
+    encode_json_node_to_json_text::SendValue(encoder_1, root_node_1);
 
     ZETA_Core_PrintVar(deque_elem_stream.deque.size());
 
@@ -1781,20 +1877,16 @@ constexpr void main5() {
 
     ZETA_Core_Debug_PrintCurPos;
 
-    zeta::core::json_utils::BufferedCodepointProvider<
+    ZETA_Core_Debug_PrintCurPos;
+
+    zeta::core::json_utils::Decoder<
         CharToUnicharProvider<DequeElemStream<char>&>>
-        bcpp{ char_to_unichar_provider };
+        decode_1{ char_to_unichar_provider };
 
     ZETA_Core_Debug_PrintCurPos;
 
-    zeta::core::json_utils::value_serde::Deserializer<
-        CharToUnicharProvider<DequeElemStream<char>&>>
-        deserializer_1{ bcpp };
-
-    ZETA_Core_Debug_PrintCurPos;
-
-    JsonNode* root_node_2{ deserialize_json_text_to_json_node::ReceiveValue(
-        deserializer_1) };
+    JsonNode* root_node_2{ decode_json_text_to_json_node::ReceiveValue(
+        decode_1) };
 
     ZETA_Core_DebugAssert(*root_node_1 == *root_node_2);
 
@@ -1802,7 +1894,12 @@ constexpr void main5() {
 }
 
 int main() {
-    main5();
+    for (size_t i{ 0 }; i < 128; ++i) {
+        ZETA_Core_PrintVar(i);
+        main5();
+        zeta::core::debug_utils::ClearDebugStrStream();
+    }
+
     ZETA_Core_PrintVar("ok");
     return 0;
 }

@@ -20,13 +20,22 @@ struct Allocator {
     size_t max_buffered_ptrs_num_{ 0 };
     std::vector<void*> buffered_ptrs_;
 
-    static size_t GetAlign(Allocator const& alctr) {
-        Check(alctr);
+    constexpr Allocator() = default;
+
+    constexpr void* GetReferedInstPtr(this Allocator const& alctr,
+                                      core::allocator::Tag) {
+        return const_cast<void*>(static_cast<void const*>(&alctr));
+    }
+
+    constexpr size_t GetAlign(this Allocator const& alctr,
+                              core::allocator::Tag) {
+        alctr.Check();
         return alignof(max_align_t);
     }
 
-    static void* Allocate(Allocator& alctr, size_t size) {
-        Check(alctr);
+    constexpr void* Allocate(this Allocator& alctr, core::allocator::Tag,
+                             size_t size) {
+        alctr.Check();
 
         if (size == 0) { return nullptr; }
 
@@ -40,8 +49,9 @@ struct Allocator {
         return ptr;
     }
 
-    static void Deallocate(Allocator& alctr, void* ptr) {
-        Check(alctr);
+    constexpr void Deallocate(this Allocator& alctr, core::allocator::Tag,
+                              void* ptr) {
+        alctr.Check();
 
         if (ptr == nullptr) { return; }
 
@@ -52,33 +62,7 @@ struct Allocator {
         std::free(ptr);
     }
 
-    static void Check(Allocator const&) {}
+    constexpr void Check(this Allocator const&) {}
 };
 
 }  // namespace zeta::core_test::std_allocator
-
-namespace zeta::core {
-
-template <>
-struct allocator::AllocatorTraits<core_test::std_allocator::Allocator> {
-    static void* GetReferedInstPtr(
-        core_test::std_allocator::Allocator const& alctr) {
-        return const_cast<void*>(static_cast<void const*>(&alctr));
-    }
-
-    static size_t GetAlign(core_test::std_allocator::Allocator const& alctr) {
-        return zeta::core_test::std_allocator::Allocator::GetAlign(alctr);
-    }
-
-    static void* Allocate(core_test::std_allocator::Allocator& alctr,
-                          size_t size) {
-        return zeta::core_test::std_allocator::Allocator::Allocate(alctr, size);
-    }
-
-    static void Deallocate(core_test::std_allocator::Allocator& alctr,
-                           void* ptr) {
-        zeta::core_test::std_allocator::Allocator::Deallocate(alctr, ptr);
-    }
-};
-
-}  // namespace zeta::core

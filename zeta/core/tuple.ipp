@@ -29,8 +29,10 @@ constexpr Tuple_<static_seq::StaticSeq<size_t, Idxes...>, Elems...>::Tuple_(
 template <size_t... Idxes, typename... Elems>
 template <size_t Idx>
 constexpr decltype(auto)
-Tuple_<static_seq::StaticSeq<size_t, Idxes...>, Elems...>::ForwardAccess() {
-    auto& elem_wrapper{ (AccessElemWrapper_<Idx>)(*this) };
+Tuple_<static_seq::StaticSeq<size_t, Idxes...>, Elems...>::ForwardAccess(
+    this Tuple_ const& self) {
+    auto& elem_wrapper{ (AccessElemWrapper_<Idx>)(self) };
+
     return meta::Forward<
         typename meta::RemoveRef<decltype(elem_wrapper)>::Elem>(
         elem_wrapper.elem);
@@ -38,23 +40,13 @@ Tuple_<static_seq::StaticSeq<size_t, Idxes...>, Elems...>::ForwardAccess() {
 
 template <size_t... Idxes, typename... Elems>
 template <size_t Idx>
-constexpr auto&
-Tuple_<static_seq::StaticSeq<size_t, Idxes...>, Elems...>::Access() & {
-    return (AccessElemWrapper_<Idx>)(*this).elem;
-}
-
-template <size_t... Idxes, typename... Elems>
-template <size_t Idx>
-constexpr auto const&
-Tuple_<static_seq::StaticSeq<size_t, Idxes...>, Elems...>::Access() const& {
-    return (AccessElemWrapper_<Idx>)(*this).elem;
-}
-
-template <size_t... Idxes, typename... Elems>
-template <size_t Idx>
-constexpr auto&&
-Tuple_<static_seq::StaticSeq<size_t, Idxes...>, Elems...>::Access() && {
-    return meta::Move((AccessElemWrapper_<Idx>)(*this).elem);
+constexpr decltype(auto) Tuple_<static_seq::StaticSeq<size_t, Idxes...>,
+                                Elems...>::Access(this auto&& self) {
+    if constexpr (meta::IsRValueRef<decltype(self)>) {
+        return (AccessElemWrapper_<Idx>)(self).elem;
+    } else {
+        return meta::Move((AccessElemWrapper_<Idx>)(self).elem);
+    }
 }
 
 }  // namespace tuple::detail

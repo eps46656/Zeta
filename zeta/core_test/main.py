@@ -728,7 +728,7 @@ def add_deps(builder: building_utils.Builder, config: Config):
     )
 
     add_c_cpp_bc_exe(
-        "test_serde_utils",
+        "test_integral_endec",
         CPP,
         {
             out_dir / "timer.bc",

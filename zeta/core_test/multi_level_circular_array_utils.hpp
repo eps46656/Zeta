@@ -3,25 +3,25 @@
 #include <cstdlib>
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/allocator.ipp>
-#include <zeta/core/allocator_ref.hpp>
-#include <zeta/core/allocator_ref.ipp>
 #include <zeta/core/multi_level_circular_array.ipp>
+#include <zeta/core/poly_allocator.hpp>
+#include <zeta/core/poly_allocator.ipp>
+#include <zeta/core/poly_seq_cntr.ipp>
 #include <zeta/core/seq_cntr.hpp>
 #include <zeta/core/seq_cntr.ipp>
-#include <zeta/core/seq_cntr_ref.ipp>
 #include <zeta/core_test/seq_cntr_utils.hpp>
 #include <zeta/core_test/std_allocator.hpp>
 
 namespace zeta::core_test::multi_level_circular_array_utils {
 
-using SeqCntrRef = core::seq_cntr_ref::Ref;
+using PolySeqCntr = core::poly_seq_cntr::Cntr;
 
 namespace MultiLevelCircularArrayNS = core::multi_level_circular_array;
 
 using MultiLevelCircularArray = MultiLevelCircularArrayNS::Cntr<
     core::value_wrapper::StaticValueWrapper<
         core::multi_level_ptr_table::BranchNum, 4>,
-    core::allocator_ref::Ref, core::allocator_ref::Ref>;
+    core::poly_allocator::Allocator, core::poly_allocator::Allocator>;
 
 struct Pack {
     std_allocator::Allocator node_alctr;
@@ -31,21 +31,21 @@ struct Pack {
 };
 
 template <typename Elem>
-SeqCntrRef Create(size_t elem_stride, size_t seg_slot_cnt);
+PolySeqCntr Create(size_t elem_stride, size_t seg_slot_cnt);
 
 void Destroy(void* mlca);
 
 void Sanitize(void const* mlca);
 
 template <typename Elem>
-SeqCntrRef Create(size_t elem_stride, size_t seg_slot_cnt) {
+PolySeqCntr Create(size_t elem_stride, size_t seg_slot_cnt) {
     Pack* pack{ new Pack{} };
 
     auto* mlca{ &pack->mlca };
 
-    mlca->node_alctr = zeta::core::allocator_ref::MakeRef(pack->node_alctr);
+    mlca->node_alctr = zeta::core::poly_allocator::MakeRef(pack->node_alctr);
 
-    mlca->seg_alctr = zeta::core::allocator_ref::MakeRef(pack->seg_alctr);
+    mlca->seg_alctr = zeta::core::poly_allocator::MakeRef(pack->seg_alctr);
 
     MultiLevelCircularArrayNS::Init(
         *mlca,
@@ -56,13 +56,13 @@ SeqCntrRef Create(size_t elem_stride, size_t seg_slot_cnt) {
         zeta::core::lifecycle::SkipInitTag{}   // seg_alctr_init_arg
     );
 
-    SeqCntrRef seq_cntr_ref{ zeta::core::seq_cntr_ref::MakeRef(*mlca) };
+    PolySeqCntr poly_seq_cntr{ zeta::core::poly_seq_cntr::MakeRef(*mlca) };
 
     seq_cntr_utils::AddSanitizeFunc(mlca, Sanitize);
 
     seq_cntr_utils::AddDestroyFunc(mlca, Destroy);
 
-    return seq_cntr_ref;
+    return poly_seq_cntr;
 }
 
 inline void Destroy(void* mlca_) {

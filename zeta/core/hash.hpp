@@ -1,18 +1,17 @@
 #pragma once
 
+#include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
 
 namespace zeta::core::hash {
 
-template <typename Hasher>
-struct HasherTraits;
+struct Tag {};
 
 template <typename Hasher, typename Value>
-concept CanHash = requires(Hasher const& hasher, Value const& value,
+concept CanHash = requires(Hasher const& hasher, Tag tag, Value const& value,
                            unsigned long long salt) {
     requires meta::IsSame<
-        meta::RemoveCVRef<decltype(HasherTraits<meta::RemoveCVRef<Hasher>>::
-                                       Hash(hasher, value, salt))>,
+        meta::RemoveCVRef<decltype(hasher.Hash(tag, value, salt))>,
         unsigned long long>;
 };
 
@@ -21,32 +20,36 @@ template <typename Hasher, typename Value>
 constexpr unsigned long long Hash(Hasher const& hasher, Value const& value,
                                   unsigned long long salt);
 
-template <typename Hasher>
-struct MemberFuncHasherTraitsAdapter {
-    template <typename Value>
-    static constexpr decltype(auto) Hash(Hasher const& hasher,
-                                         Value const& value,
-                                         unsigned long long salt);
-};
-
 struct EmptyHasher {
     template <typename Value>
     static constexpr unsigned long long Hash(Value const&, unsigned long long);
 };
 
-using ArchetHasher = EmptyHasher;
-
-template <>
-struct HasherTraits<hash::EmptyHasher>
-    : public hash::MemberFuncHasherTraitsAdapter<hash::EmptyHasher> {};
+using ArchetypeHasher = EmptyHasher;
 
 template <typename Value>
 struct BasicHasher {};
 
+template <integral::IsIntegral Integral>
+struct BasicHasher<Integral> {
+    static constexpr unsigned long long Hash(Tag, Integral integral,
+                                             unsigned long long salt);
+};
+
+template <meta::IsPointer Pointer>
+struct BasicHasher<Pointer> {
+    static constexpr unsigned long long Hash(Tag, void* const pointer,
+                                             unsigned long long salt);
+};
+
 template <typename Value>
 unsigned long long BasicHash(Value const& value, unsigned long long salt);
 
-struct UniversalBasicHasher {};
+struct UniversalBasicHasher {
+    template <typename Value>
+    static constexpr unsigned long long Hash(Tag, Value const& value,
+                                             unsigned long long salt);
+};
 
 template <typename Value>
 unsigned long long TypeErasedBasicHash(void const* value,

@@ -109,45 +109,17 @@ constexpr Integral integral_utils::FromString(char const* str) {
     return is_neg ? -ret : ret;
 }
 
-template <integral::IsIntegral IntegralA, integral::IsIntegral IntegralB>
-constexpr comparison::Ordering integral_utils::MathCompare(IntegralA a,
-                                                           IntegralB b) {
-    constexpr bool a_is_signed{ integral::IsSignedIntegral<IntegralA> };
-    constexpr bool b_is_signed{ integral::IsSignedIntegral<IntegralB> };
-
-    if constexpr (a_is_signed == b_is_signed) {
-        return comparison::BasicCompare(
-            meta::AutoValueWrapper<comparison::OpEnum::Order>{}, a, b);
-    }
-
-    if constexpr (a_is_signed && !b_is_signed) {
-        return a < 0 ? comparison::Ordering::Less
-                     : comparison::BasicCompare(
-                           meta::AutoValueWrapper<comparison::OpEnum::Order>{},
-                           static_cast<integral::MakeUnsignedOf<IntegralA>>(a),
-                           b);
-    }
-
-    if constexpr (!a_is_signed && b_is_signed) {
-        return b < 0
-                   ? comparison::Ordering::Greater
-                   : comparison::BasicCompare(
-                         meta::AutoValueWrapper<comparison::OpEnum::Order>{}, a,
-                         static_cast<integral::MakeUnsignedOf<IntegralB>>(b));
-    }
-
-    ZETA_Core_Unreachable();
-}
-
+/*
 template <integral::IsIntegral DstIntegral, integral::IsIntegral SrcIntegral>
 constexpr DstIntegral integral_utils::LossyDetectingCast(SrcIntegral const& a,
                                                          bool& no_lossy) {
     DstIntegral dst{ static_cast<DstIntegral>(a) };
 
-    no_lossy &= !(((MathCompare)(a, integral::RangeMinOf<DstIntegral>) ==
-                   comparison::Ordering::Less) ||
-                  ((MathCompare)(integral::RangeMaxOf<DstIntegral>, a) ==
-                   comparison::Ordering::Less));
+    no_lossy &=
+        !((MathCompare)(meta::AutoValueWrapper<comparison::Ordering::Less>{}, a,
+                        integral::RangeMinOf<DstIntegral>) ||
+          (MathCompare)(meta::AutoValueWrapper<comparison::Ordering::Less>{},
+                        integral::RangeMaxOf<DstIntegral>, a));
 
     return dst;
 }
@@ -265,5 +237,6 @@ integral_utils::operator/(LossyDetectingIntegral<Integral> const& a,
     return { .value = a.value / b.value,
              .no_lossy = b.value != 0 && a.no_lossy && b.no_lossy };
 }
+*/
 
 }  // namespace zeta::core

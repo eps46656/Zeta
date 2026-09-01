@@ -16,8 +16,9 @@ namespace zeta::core_test::debug_hash_table_utils {
 using AssocCntrRef = core::assoc_cntr_ref::Cntr;
 
 namespace DebugHashTableNS = core::debug_hash_table;
-using DebugHashTable = DebugHashTableNS::Cntr<core::hash_ref::Hasher,
-                                              core::comparison_ref::Comparator>;
+using DebugHashTable =
+    DebugHashTableNS::Cntr<core::hash_ref::Hasher,
+                           core::poly_comparison::Comparator>;
 
 struct DebugHashTablePack {
     DebugHashTable debug_ht;

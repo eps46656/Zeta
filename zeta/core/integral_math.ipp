@@ -6,8 +6,58 @@
 #include <zeta/core/integral_bit.ipp>
 #include <zeta/core/integral_math.hpp>
 #include <zeta/core/meta.hpp>
+#include <zeta/core/utils.hpp>
 
 namespace zeta::core {
+
+template <comparison::IsOpTag OpTag, integral::IsIntegral NumA,
+          integral::IsIntegral NumB>
+constexpr auto integral_math::Compare(OpTag op, NumA a, NumB b) {
+    constexpr bool a_is_signed{ integral::IsSignedIntegral<NumA> };
+    constexpr bool b_is_signed{ integral::IsSignedIntegral<NumB> };
+
+    if constexpr (a_is_signed == b_is_signed) {
+        return comparison::BasicCompare(op, a, b);
+    }
+
+    if constexpr (a_is_signed && !b_is_signed) {
+        if (0 <= a) {
+            return comparison::BasicCompare(
+                op, static_cast<integral::MakeUnsignedOf<NumA>>(a), b);
+        }
+
+        if constexpr (meta::IsSame<OpTag, comparison::OpTag::Order>) {
+            return comparison::Ordering::Less;
+        } else {
+            return (meta::ToUnderlying(op.value) & comparison::less_bit) != 0;
+        }
+    }
+
+    if constexpr (!a_is_signed && b_is_signed) {
+        if (0 <= b) {
+            return comparison::BasicCompare(
+                op, a, static_cast<integral::MakeUnsignedOf<NumB>>(b));
+        }
+
+        if constexpr (meta::IsSame<OpTag, comparison::OpTag::Order>) {
+            return comparison::Ordering::Greater;
+        } else {
+            return (meta::ToUnderlying(op.value) & comparison::greater_bit) !=
+                   0;
+        }
+    }
+
+    ZETA_Core_Unreachable();
+}
+
+template <integral::IsIntegral Num>
+constexpr Num integral_math::Abs(Num x) {
+    if constexpr (integral::IsSignedIntegral<Num>) {
+        return x < 0 ? -x : x;
+    } else {
+        return x;
+    }
+}
 
 template <typename Num>
 constexpr Num integral_math::CeilDiv(Num x, Num y) {

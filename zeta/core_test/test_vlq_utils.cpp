@@ -1,6 +1,6 @@
+#include <zeta/core/integral_endec.ipp>
 #include <zeta/core/integral_math.ipp>
 #include <zeta/core/lin_seq_elem_stream.ipp>
-#include <zeta/core/serde_utils.ipp>
 #include <zeta/core/vlq_utils.ipp>
 #include <zeta/core_test/random.hpp>
 
@@ -117,13 +117,11 @@ inline void test_IOI(int special_value) {
     ZETA_Core_StaticAssert(zeta::core::integral::WidthOf<RangeIntegral> <=
                            zeta::core::integral::WidthOf<IOIntegral>);
 
-    zeta::core::serde_utils::EndiannessEnum endianness;
+    zeta::core::integral_endec::Endianness endianness;
 
     switch (Endianness) {
-    case LE:
-        endianness = zeta::core::serde_utils::EndiannessEnum::Little;
-        break;
-    case BE: endianness = zeta::core::serde_utils::EndiannessEnum::Big; break;
+    case LE: endianness = zeta::core::integral_endec::Endianness::Little; break;
+    case BE: endianness = zeta::core::integral_endec::Endianness::Big; break;
     default: ZETA_Core_Unreachable();
     }
 
@@ -179,6 +177,8 @@ inline void test_IOI(int special_value) {
             zeta::core::integral::MakeUnsignedOf<decltype(should_oi_val)>>(
             should_oi_val));
 
+    zeta::core::vlq_utils::DecodeResult<OIIntegral> decode_result;
+
     bool no_lossy_io;
     bool no_lossy_oi;
 
@@ -190,18 +190,9 @@ inline void test_IOI(int special_value) {
             .elem_cnt = buffer_cnt,
         } };
 
-        /*
-
-        Because
-        'meta::IsSame<meta::RemoveCVRef<decltype(AcceptorTraits<meta::RemoveCVRef<Acceptor>>::GetElemSize(acceptor))>,
-        size_t>' would be invalid: implicit instantiation of undefined template
-        'zeta::core::elem_stream::AcceptorTraits<zeta::core::lin_seq_elem_stream::Acceptor>'
-
-        */
-
-        no_lossy_io = zeta::core::vlq_utils::SerializeIntegral(
-            io_val,
-            // src_value
+        zeta::core::vlq_utils::Encode(
+            mem_reader,
+            // acceptor
 
             endianness,
             // endianness_like
@@ -212,15 +203,11 @@ inline void test_IOI(int special_value) {
             zeta::core::meta::ValueWrapper<size_t, DigitWidth>{},
             // digit_width
 
-            false,
-            // allow_lossy
-
-            mem_reader,
-            // acceptor
-
-            nullptr
-            // dst_error
+            io_val
+            // src_value
         );
+
+        no_lossy_io = true;
 
         ZETA_Core_Debug_PrintVar(
             static_cast<DigitIntegral const*>(mem_reader.data) - buffer);
@@ -253,9 +240,9 @@ inline void test_IOI(int special_value) {
             .elem_cnt = buffer_cnt,
         } };
 
-        no_lossy_oi = zeta::core::vlq_utils::DeserializeIntegral(
-            oi_val,
-            // dst_value
+        decode_result = zeta::core::vlq_utils::Decode(
+            mem_writer,
+            // provider
 
             endianness,
             // endianness_like
@@ -266,15 +253,10 @@ inline void test_IOI(int special_value) {
             zeta::core::meta::ValueWrapper<size_t, DigitWidth>{},
             // digit_width
 
-            false,
-            // allow_lossy
+            zeta::core::meta::TypeWrapper<OIIntegral>{});
 
-            mem_writer,
-            // provider
-
-            nullptr
-            // dst_error
-        );
+        no_lossy_oi = !decode_result.value_out_of_range;
+        oi_val = decode_result.value;
 
         ZETA_Core_Debug_PrintVar(oi_val);
         ZETA_Core_Debug_PrintVar(should_oi_val);

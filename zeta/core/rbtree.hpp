@@ -12,30 +12,16 @@ constexpr unsigned red{ 2 };
 
 constexpr size_t max_height{ integral::WidthOf<size_t> * 2 };
 
-template <typename Node>
-struct NodeTraits;
+struct Tag {};
 
 template <typename Node>
-concept IsNode = requires(Node* n, unsigned color) {
+concept IsNode = requires(Node* n, Tag tag, unsigned color) {
     requires bin_tree::IsNode<Node>;
 
-    requires meta::IsSame<
-        meta::RemoveCVRef<decltype(NodeTraits<Node>::GetColor(n))>, unsigned>;
+    requires meta::IsSame<meta::RemoveCVRef<decltype(n->GetColor(tag))>,
+                          unsigned>;
 
-    requires bin_tree::IsConst<Node>() ||
-                 meta::IsSame<
-                     meta::RemoveCVRef<decltype(NodeTraits<Node>::SetColor(
-                         n, color))>,
-                     void>;
-};
-
-template <typename Node>
-struct MemberFuncNodeTraitsAdapter {
-    static constexpr decltype(auto) GetColor(Node* n);
-
-    template <typename _ = void>
-        requires meta::IsSame<_, void>
-    static constexpr decltype(auto) SetColor(Node* n, unsigned color);
+    requires bin_tree::IsConst<Node>() || requires { n->SetColor(tag, color); };
 };
 
 template <IsNode Node>

@@ -10,136 +10,78 @@
 
 namespace zeta::core {
 
-template <typename Node>
-constexpr decltype(auto) bin_tree::MemberFuncNodeTraitsAdapter<Node>::GetP(
-    Node* n) {
-    return n->GetPPtr();
-}
-
-template <typename Node>
-constexpr decltype(auto) bin_tree::MemberFuncNodeTraitsAdapter<Node>::GetL(
-    Node* n) {
-    return n->GetLPtr();
-}
-
-template <typename Node>
-constexpr decltype(auto) bin_tree::MemberFuncNodeTraitsAdapter<Node>::GetR(
-    Node* n) {
-    return n->GetRPtr();
-}
-
-template <typename Node>
-template <typename _>
-    requires meta::IsSame<_, void>
-constexpr decltype(auto) bin_tree::MemberFuncNodeTraitsAdapter<Node>::SetP(
-    Node* n, Node* m) {
-    n->SetPPtr(m);
-}
-
-template <typename Node>
-template <typename _>
-    requires meta::IsSame<_, void>
-constexpr decltype(auto) bin_tree::MemberFuncNodeTraitsAdapter<Node>::SetL(
-    Node* n, Node* m) {
-    n->SetLPtr(m);
-}
-
-template <typename Node>
-template <typename _>
-    requires meta::IsSame<_, void>
-constexpr decltype(auto) bin_tree::MemberFuncNodeTraitsAdapter<Node>::SetR(
-    Node* n, Node* m) {
-    n->SetRPtr(m);
-}
-
-template <typename Node>
-template <typename _>
-    requires meta::IsSame<_, void>
-constexpr decltype(auto)
-bin_tree::MemberFuncNodeTraitsAdapter<Node>::GetNullAccSize() {
-    return Node::GetNullAccSize();
-}
-
-template <typename Node>
-template <typename _>
-    requires meta::IsSame<_, void>
-constexpr decltype(auto)
-bin_tree::MemberFuncNodeTraitsAdapter<Node>::GetAccSize(Node* n) {
-    return n->GetAccSize();
-}
-
-template <typename Node>
-template <typename _>
-    requires meta::IsSame<_, void>
-constexpr decltype(auto)
-bin_tree::MemberFuncNodeTraitsAdapter<Node>::SetAccSize(Node* n,
-                                                        size_t acc_size) {
-    n->SetAccSize(acc_size);
-}
-
 template <bin_tree::IsNode Node>
 constexpr bool bin_tree::IsConst() {
-    constexpr bool ret{ NodeTraits<Node>::IsConst() };
+    constexpr bool ret{ Node::IsConst(Tag{}, meta::TypeWrapper<Node>{}) };
+
     return ret;
 }
 
 template <bin_tree::IsNode Node>
 constexpr bool bin_tree::HasAccSize() {
-    constexpr bool ret{ NodeTraits<Node>::HasAccSize() };
+    constexpr bool ret{ Node::HasAccSize(Tag{}, meta::TypeWrapper<Node>{}) };
+
     return ret;
 }
 
 template <bin_tree::IsNode Node>
 constexpr Node* bin_tree::GetP(Node* n) {
-    return NodeTraits<Node>::GetP(n);
+    return n->GetP(Tag{});
 }
 
 template <bin_tree::IsNode Node>
 constexpr Node* bin_tree::GetL(Node* n) {
-    return NodeTraits<Node>::GetL(n);
+    return n->GetL(Tag{});
 }
 
 template <bin_tree::IsNode Node>
 constexpr Node* bin_tree::GetR(Node* n) {
-    return NodeTraits<Node>::GetR(n);
+    return n->GetR(Tag{});
 }
 
 template <bin_tree::IsNode Node>
 constexpr void bin_tree::SetP(Node* n, Node* m) {
     ZETA_Core_StaticAssert(!(IsConst<Node>)());
-    NodeTraits<Node>::SetP(n, m);
+
+    n->SetP(Tag{}, m);
 }
 
 template <bin_tree::IsNode Node>
 constexpr void bin_tree::SetL(Node* n, Node* m) {
     ZETA_Core_StaticAssert(!(IsConst<Node>)());
-    NodeTraits<Node>::SetL(n, m);
+
+    n->SetL(Tag{}, m);
 }
 
 template <bin_tree::IsNode Node>
 constexpr void bin_tree::SetR(Node* n, Node* m) {
     ZETA_Core_StaticAssert(!(IsConst<Node>)());
-    NodeTraits<Node>::SetR(n, m);
+
+    n->SetR(Tag{}, m);
 }
 
 template <bin_tree::IsNode Node>
 constexpr size_t bin_tree::GetNullAccSize() {
     ZETA_Core_StaticAssert((HasAccSize<Node>)());
-    constexpr size_t ret{ NodeTraits<Node>::GetNullAccSize() };
+
+    constexpr size_t ret{ Node::GetNullAccSize(Tag{},
+                                               meta::TypeWrapper<Node>{}) };
+
     return ret;
 }
 
 template <bin_tree::IsNode Node>
 constexpr size_t bin_tree::GetAccSize(Node* n) {
     ZETA_Core_StaticAssert((HasAccSize<Node>)());
-    return NodeTraits<Node>::GetAccSize(n);
+    return n->GetAccSize(Tag{});
 }
 
 template <bin_tree::IsNode Node>
 constexpr void bin_tree::SetAccSize(Node* n, size_t acc_size) {
     ZETA_Core_StaticAssert(!(IsConst<Node>)());
     ZETA_Core_StaticAssert((HasAccSize<Node>)());
-    NodeTraits<Node>::SetAccSize(n, acc_size);
+
+    n->SetAccSize(Tag{}, acc_size);
 }
 
 template <bin_tree::IsNode Node>

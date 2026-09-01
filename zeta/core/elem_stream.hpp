@@ -7,28 +7,22 @@ namespace zeta::core::elem_stream {
 
 namespace provider {
 
-template <typename Provider>
-struct ProviderTraits;
+struct Tag {};
 
 template <typename Provider>
-concept IsProvider = requires(Provider& provider, void* data, size_t elem_size,
-                              size_t elem_stride, size_t cnt) {
-    requires meta::IsSame<
-        meta::RemoveCVRef<decltype(ProviderTraits<meta::RemoveCVRef<Provider>>::
-                                       IsEnd(provider))>,
-        bool>;
+concept IsProvider =
+    requires(Provider& provider, Tag tag, void* data, size_t elem_size,
+             ptrdiff_t elem_stride, size_t cnt) {
+        requires meta::IsSame<meta::RemoveCVRef<decltype(provider.IsEnd(tag))>,
+                              bool>;
 
-    requires meta::IsSame<
-        meta::RemoveCVRef<decltype(ProviderTraits<meta::RemoveCVRef<Provider>>::
-                                       IsEnd(provider))>,
-        bool>;
+        requires meta::IsSame<meta::RemoveCVRef<decltype(provider.IsEnd(tag))>,
+                              bool>;
 
-    requires meta::IsSame<
-        meta::RemoveCVRef<
-            decltype(ProviderTraits<meta::RemoveCVRef<Provider>>::Transfer(
-                provider, data, elem_size, elem_stride, cnt))>,
-        size_t>;
-};
+        requires meta::IsSame<meta::RemoveCVRef<decltype(provider.Transfer(
+                                  tag, data, elem_size, elem_stride, cnt))>,
+                              size_t>;
+    };
 
 template <typename Provider>
 constexpr size_t GetElemSize(Provider&& provider);
@@ -38,61 +32,39 @@ constexpr bool IsEnd(Provider&& provider);
 
 template <typename Provider>
 constexpr size_t Transfer(Provider&& provider, void* dst, size_t dst_elem_size,
-                          size_t dst_elem_stride, size_t cnt);
-
-template <typename Provider>
-struct MemberFuncProviderTraitsAdapter {
-    static constexpr size_t GetElemSize(Provider const& provider);
-
-    static constexpr bool IsEnd(Provider const& provider);
-
-    static constexpr size_t Transfer(Provider& provider, void* dst,
-                                     size_t dst_elem_size,
-                                     size_t dst_elem_stride, size_t cnt);
-};
+                          ptrdiff_t dst_elem_stride, size_t cnt);
 
 struct EmptyProvider {
-    static constexpr size_t GetElemSize();
+    static constexpr size_t GetElemSize(Tag);
 
-    static constexpr bool IsEnd();
+    static constexpr bool IsEnd(Tag);
 
-    static constexpr size_t Transfer(void* dst, size_t dst_elem_size,
-                                     size_t dst_elem_stride, size_t cnt);
+    static constexpr size_t Transfer(Tag, void* dst, size_t dst_elem_size,
+                                     ptrdiff_t dst_elem_stride, size_t cnt);
 };
 
-template <>
-struct ProviderTraits<EmptyProvider>
-    : public MemberFuncProviderTraitsAdapter<EmptyProvider> {};
-
-using ArchetProvider = EmptyProvider;
+using ArchetypeProvider = EmptyProvider;
 
 }  // namespace provider
 
 namespace acceptor {
 
-template <typename Acceptor>
-struct AcceptorTraits;
+struct Tag {};
 
 template <typename Acceptor>
-concept IsAcceptor = requires(Acceptor& acceptor, void const* data,
-                              size_t elem_size, size_t elem_stride,
-                              size_t cnt) {
-    requires meta::IsSame<
-        meta::RemoveCVRef<decltype(AcceptorTraits<meta::RemoveCVRef<Acceptor>>::
-                                       GetElemSize(acceptor))>,
-        size_t>;
+concept IsAcceptor =
+    requires(Acceptor& acceptor, Tag tag, void const* data, size_t elem_size,
+             ptrdiff_t elem_stride, size_t cnt) {
+        requires meta::IsSame<
+            meta::RemoveCVRef<decltype(acceptor.GetElemSize(tag))>, size_t>;
 
-    requires meta::IsSame<
-        meta::RemoveCVRef<decltype(AcceptorTraits<meta::RemoveCVRef<Acceptor>>::
-                                       IsEnd(acceptor))>,
-        bool>;
+        requires meta::IsSame<meta::RemoveCVRef<decltype(acceptor.IsEnd(tag))>,
+                              bool>;
 
-    requires meta::IsSame<
-        meta::RemoveCVRef<
-            decltype(AcceptorTraits<meta::RemoveCVRef<Acceptor>>::Transfer(
-                acceptor, data, elem_size, elem_stride, cnt))>,
-        size_t>;
-};
+        requires meta::IsSame<meta::RemoveCVRef<decltype(acceptor.Transfer(
+                                  tag, data, elem_size, elem_stride, cnt))>,
+                              size_t>;
+    };
 
 template <typename Acceptor>
 constexpr size_t GetElemSize(Acceptor&& acceptor);
@@ -102,34 +74,19 @@ constexpr bool IsEnd(Acceptor&& acceptor);
 
 template <typename Acceptor>
 constexpr size_t Transfer(Acceptor&& acceptor, void const* src,
-                          size_t src_elem_size, size_t src_elem_stride,
+                          size_t src_elem_size, ptrdiff_t src_elem_stride,
                           size_t cnt);
 
-template <typename Acceptor>
-struct MemberFuncAcceptorTraitsAdapter {
-    static constexpr bool IsEnd(Acceptor const& acceptor);
-
-    static constexpr size_t GetElemSize(Acceptor const& acceptor);
-
-    static constexpr size_t Transfer(Acceptor& acceptor, void const* src,
-                                     size_t src_elem_size,
-                                     size_t src_elem_stride, size_t cnt);
-};
-
 struct EmptyAcceptor {
-    static constexpr bool IsEnd();
+    static constexpr bool IsEnd(Tag);
 
-    static constexpr size_t GetElemSize();
+    static constexpr size_t GetElemSize(Tag);
 
-    static constexpr size_t Transfer(void const* src, size_t src_elem_size,
-                                     size_t src_elem_stride, size_t cnt);
+    static constexpr size_t Transfer(Tag, void const* src, size_t src_elem_size,
+                                     ptrdiff_t src_elem_stride, size_t cnt);
 };
 
-template <>
-struct AcceptorTraits<EmptyAcceptor>
-    : MemberFuncAcceptorTraitsAdapter<EmptyAcceptor> {};
-
-using ArchetAcceptor = EmptyAcceptor;
+using ArchetypeAcceptor = EmptyAcceptor;
 
 }  // namespace acceptor
 

@@ -8,23 +8,18 @@ namespace zeta::core {
 
 #pragma push_macro("CallMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define CallMethod(ret, method_name, ...)                            \
-    if constexpr (ret) {                                             \
-        return AllocatorTraits<Allocator>::method_name(__VA_ARGS__); \
-    } else {                                                         \
-        AllocatorTraits<Allocator>::method_name(__VA_ARGS__);        \
-    };                                                               \
-                                                                     \
+#define CallMethod(method_name, ...)              \
+    return alctr.method_name(Tag{}, __VA_ARGS__); \
     ZETA_Core_StaticAssert(true)
 
 template <typename Allocator>
-void* allocator::GetReferedInstPtr(Allocator& alctr) {
-    CallMethod(true, GetReferedInstPtr, alctr);
+constexpr decltype(auto) allocator::GetReferedInstPtr(Allocator& alctr) {
+    CallMethod(GetReferedInstPtr, alctr);
 }
 
 template <typename Allocator>
-size_t allocator::GetAlign(Allocator& alctr) {
-    size_t align{ AllocatorTraits<Allocator>::GetAlign(alctr) };
+constexpr decltype(auto) allocator::GetAlign(Allocator& alctr) {
+    size_t align{ alctr.GetAlign(Tag{}) };
 
     ZETA_Core_DebugAssert(0 < align);
 
@@ -32,19 +27,20 @@ size_t allocator::GetAlign(Allocator& alctr) {
 }
 
 template <typename Allocator>
-void* allocator::Allocate(Allocator& alctr, size_t size) {
-    CallMethod(true, Allocate, alctr, size);
+constexpr decltype(auto) allocator::Allocate(Allocator& alctr, size_t size) {
+    CallMethod(Allocate, size);
 }
 
 template <typename Allocator>
-void allocator::Deallocate(Allocator& alctr, void* ptr) {
-    CallMethod(false, Deallocate, alctr, ptr);
+constexpr decltype(auto) allocator::Deallocate(Allocator& alctr, void* ptr) {
+    CallMethod(Deallocate, ptr);
 }
 
 #pragma pop_macro("CallMethod")
 
 template <typename Allocator>
-void* allocator::SafeAllocate(Allocator& alctr, size_t align, size_t size) {
+constexpr decltype(auto) allocator::SafeAllocate(Allocator& alctr, size_t align,
+                                                 size_t size) {
     size_t self_align{ (GetAlign)(alctr) };
 
     ZETA_Core_DebugAssert(0 < align);

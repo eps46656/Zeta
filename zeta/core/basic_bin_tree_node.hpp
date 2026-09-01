@@ -68,93 +68,76 @@ struct Node : public Node1<NodeTplArgList(_)> {
         ptr_utils::AugPtrTpl<LinkType, PColorTag>::IsRelLink
     };
 
-    template <typename _ = void>
-        requires requires {
-            requires meta::IsSame<_, void>;
-            requires !AccSizeTag::value;
-        }
-    constexpr void Init();
+    constexpr void Init()
+        requires(!AccSizeTag::value);
 
-    template <typename _ = void>
-        requires requires {
-            requires meta::IsSame<_, void>;
-            requires AccSizeTag::value;
-        }
-    constexpr void Init(size_t acc_size);
+    constexpr void Init(size_t acc_size)
+        requires AccSizeTag::value;
 
-    template <typename _ = void>
-        requires requires {
-            requires meta::IsSame<_, void>;
-            requires AccSizeTag::value;
-        }
-    static constexpr size_t GetNullAccSize();
+    static constexpr bool IsConst(bin_tree::Tag, meta::TypeWrapper<Node>);
+
+    static constexpr bool IsConst(bin_tree::Tag, meta::TypeWrapper<Node const>);
+
+    static constexpr bool HasAccSize(bin_tree::Tag, meta::TypeWrapper<Node>);
+
+    static constexpr bool HasAccSize(bin_tree::Tag,
+                                     meta::TypeWrapper<Node const>);
+
+    static constexpr size_t GetNullAccSize(bin_tree::Tag,
+                                           meta::TypeWrapper<Node>)
+        requires AccSizeTag::value;
+
+    static constexpr size_t GetNullAccSize(bin_tree::Tag,
+                                           meta::TypeWrapper<Node const>)
+        requires AccSizeTag::value;
 
     constexpr Node* GetPPtr();
     constexpr Node* GetLPtr();
     constexpr Node* GetRPtr();
 
+    constexpr Node* GetP(bin_tree::Tag);
+    constexpr Node* GetL(bin_tree::Tag);
+    constexpr Node* GetR(bin_tree::Tag);
+
     constexpr Node const* GetPPtr() const;
     constexpr Node const* GetLPtr() const;
     constexpr Node const* GetRPtr() const;
+
+    constexpr Node const* GetP(bin_tree::Tag) const;
+    constexpr Node const* GetL(bin_tree::Tag) const;
+    constexpr Node const* GetR(bin_tree::Tag) const;
 
     constexpr unsigned GetPColor() const;
     constexpr unsigned GetLColor() const;
     constexpr unsigned GetRColor() const;
 
-    constexpr unsigned GetColor() const;
+    constexpr unsigned GetColor(rbtree::Tag) const;
 
     constexpr void SetPPtr(Node* m);
     constexpr void SetLPtr(Node* m);
     constexpr void SetRPtr(Node* m);
 
+    constexpr void SetP(bin_tree::Tag, Node* m);
+    constexpr void SetL(bin_tree::Tag, Node* m);
+    constexpr void SetR(bin_tree::Tag, Node* m);
+
     constexpr void SetPColor(unsigned color);
     constexpr void SetLColor(unsigned color);
     constexpr void SetRColor(unsigned color);
 
-    constexpr void SetColor(unsigned color);
+    constexpr void SetColor(rbtree::Tag, unsigned color)
+        requires(PrimaryColorTag == PrimaryColorTagEnum::P ||
+                 PrimaryColorTag == PrimaryColorTagEnum::L ||
+                 PrimaryColorTag == PrimaryColorTagEnum::R);
 
-    template <typename _ = void,
-              typename = meta::EnableIf<AccSizeTag::value, _>>
-    constexpr size_t GetAccSize() const;
+    constexpr size_t GetAccSize(bin_tree::Tag) const
+        requires AccSizeTag::value;
 
-    template <typename _ = void,
-              typename = meta::EnableIf<AccSizeTag::value, _>>
-    constexpr void SetAccSize(size_t acc_size);
+    constexpr void SetAccSize(bin_tree::Tag, size_t acc_size)
+        requires AccSizeTag::value;
 };
 
 }  // namespace zeta::core::basic_bin_tree_node
-
-namespace zeta::core {
-
-template <NodeTplParamList()>
-struct bin_tree::NodeTraits<basic_bin_tree_node::Node<NodeTplArgList()>>
-    : public bin_tree::MemberFuncNodeTraitsAdapter<
-          basic_bin_tree_node::Node<NodeTplArgList()>> {
-    static constexpr bool IsConst();
-
-    static constexpr bool HasAccSize();
-};
-
-template <NodeTplParamList()>
-struct bin_tree::NodeTraits<basic_bin_tree_node::Node<NodeTplArgList()> const>
-    : public bin_tree::MemberFuncNodeTraitsAdapter<
-          basic_bin_tree_node::Node<NodeTplArgList()> const> {
-    static constexpr bool IsConst();
-
-    static constexpr bool HasAccSize();
-};
-
-template <NodeTplParamList()>
-struct rbtree::NodeTraits<basic_bin_tree_node::Node<NodeTplArgList()>>
-    : public rbtree::MemberFuncNodeTraitsAdapter<
-          basic_bin_tree_node::Node<NodeTplArgList()>> {};
-
-template <NodeTplParamList()>
-struct rbtree::NodeTraits<basic_bin_tree_node::Node<NodeTplArgList()> const>
-    : public rbtree::MemberFuncNodeTraitsAdapter<
-          basic_bin_tree_node::Node<NodeTplArgList()> const> {};
-
-}  // namespace zeta::core
 
 #pragma pop_macro("NodeTplArgList")
 #pragma pop_macro("NodeTplParamList")

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <zeta/core/hash.hpp>
-#include <zeta/core/lifecycle.hpp>
 
 namespace zeta::core::hash_ref {
 
@@ -42,15 +41,3 @@ struct Hasher {
 };
 
 }  // namespace zeta::core::hash_ref
-
-namespace zeta::core {
-
-template <>
-struct lifecycle::Traits<hash_ref::Hasher>
-    : public lifecycle::MemberFuncTraitsAdapter<hash_ref::Hasher> {};
-
-template <>
-struct hash::HasherTraits<hash_ref::Hasher>
-    : public MemberFuncHasherTraitsAdapter<hash_ref::Hasher> {};
-
-}  // namespace zeta::core

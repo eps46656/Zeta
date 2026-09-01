@@ -32,17 +32,3 @@ struct Hasher {
 };
 
 }  // namespace zeta::core::hash_deref
-
-namespace zeta::core {
-
-template <typename HasherLike, typename TargetValue>
-struct lifecycle::Traits<hash_deref::Hasher<HasherLike, TargetValue>>
-    : public lifecycle::MemberFuncTraitsAdapter<
-          hash_deref::Hasher<HasherLike, TargetValue>> {};
-
-template <typename HasherLike, typename TargetValue>
-struct hash::HasherTraits<hash_deref::Hasher<HasherLike, TargetValue>>
-    : public MemberFuncHasherTraitsAdapter<
-          hash_deref::Hasher<HasherLike, TargetValue>> {};
-
-}  // namespace zeta::core

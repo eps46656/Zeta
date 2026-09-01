@@ -2,61 +2,91 @@
 
 #include <zeta/core/comparison_utils.ipp>
 #include <zeta/core/elem_stream.ipp>
+#include <zeta/core/integral_endec.hpp>
 #include <zeta/core/integral_math.ipp>
 #include <zeta/core/pair.ipp>
-#include <zeta/core/serde_utils.hpp>
 #include <zeta/core/utils.hpp>
 
 namespace zeta::core {
 
 template <integral::IsUnsignedIntegral Integral>
-constexpr pair::Pair<Integral, bool> serde_utils::CanonicalizeIntegral(
-    Integral value, Integral range_max) {
-    bool no_lossy{ true };
+constexpr integral_endec::CanonicalizeResult<Integral>
+integral_endec::CanonicalizeIntegral(Integral value, Integral range_max) {
+    ZETA_Core_DebugAssert(0 < range_max);
+
+    bool out_of_range{ false };
 
     if (range_max < value) {
         value %= range_max + 1;
-        no_lossy = false;
+        out_of_range = true;
+    } else if constexpr (integral::IsSignedIntegral<Integral>) {
+        if (value < -range_max) {
+            value %= range_max + 1;
+
+            value += range_max;
+            ++value;
+
+            out_of_range = true;
+        } else if (value < 0) {
+            value += range_max;
+            ++value;
+
+            out_of_range = true;
+        }
     }
 
-    return { value, no_lossy };
+    return {
+        .out_of_range = out_of_range,
+        .value = value,
+    };
 }
 
-template <integral::IsIntegral Integral,
-          serde_utils::IsEndiannessType EndiannessType,
+template <elem_stream::acceptor::IsAcceptor Acceptor,
+          integral_endec::IsEndiannessLike EndiannessLike,
           integral::IsUnsignedIntegral DigitIntegral, size_t DigitWidth,
-          typename DigitCntLike, elem_stream::acceptor::IsAcceptor Acceptor>
+          typename DigitCntLike, integral::IsIntegral SrcIntegral>
     requires requires {
         requires 0 < DigitWidth;
         requires DigitWidth <= integral::WidthOf<DigitIntegral>;
     }
-constexpr bool serde_utils::SerializeIntegral(
-    Integral src_value, EndiannessType endianness,
+constexpr integral_endec::EncodeResult integral_endec::Encode(
+    Acceptor&& acceptor, EndiannessLike endianness_like,
     meta::TypeWrapper<DigitIntegral>, meta::ValueWrapper<size_t, DigitWidth>,
-    DigitCntLike digit_cnt_like, bool allow_lossy, Acceptor&& acceptor,
-    error::Error* dst_error) {
-    constexpr bool is_signed{ integral::IsSignedIntegral<Integral> };
+    DigitCntLike digit_cnt_like, SrcIntegral src_value) {
+    constexpr bool is_signed{ integral::IsSignedIntegral<SrcIntegral> };
 
     using OpUnsignedIntegral = decltype([]() {
-        if constexpr (integral::WidthOf<Integral> <=
+        if constexpr (integral::WidthOf<SrcIntegral> <=
                       integral::WidthOf<unsigned>) {
-            return meta::TypeWrapper<unsigned>{};
-        } else if constexpr (integral::WidthOf<Integral> <=
+            return meta::TypeWrapper<unsigned _BitInt(
+                integral_math::CeilDiv(integral::WidthOf<unsigned>,
+                                       DigitWidth) *
+                DigitWidth)>{};
+        } else if constexpr (integral::WidthOf<SrcIntegral> <=
                              integral::WidthOf<unsigned long>) {
-            return meta::TypeWrapper<unsigned long>{};
-        } else if constexpr (integral::WidthOf<Integral> <=
+            return meta::TypeWrapper<unsigned _BitInt(
+                integral_math::CeilDiv(integral::WidthOf<unsigned long>,
+                                       DigitWidth) *
+                DigitWidth)>{};
+        } else if constexpr (integral::WidthOf<SrcIntegral> <=
                              integral::WidthOf<unsigned long long>) {
-            return meta::TypeWrapper<unsigned long long>{};
+            return meta::TypeWrapper<unsigned _BitInt(
+                integral_math::CeilDiv(integral::WidthOf<unsigned long long>,
+                                       DigitWidth) *
+                DigitWidth)>{};
         } else {
-            return meta::TypeWrapper<integral::MakeUnsignedOf<Integral>>{};
+            return meta::TypeWrapper<unsigned _BitInt(
+                integral_math::CeilDiv(integral::WidthOf<SrcIntegral>,
+                                       DigitWidth) *
+                DigitWidth)>{};
         }
     }())::Type;
 
-    EndiannessEnum endianness_value{ [=]() -> EndiannessEnum {
-        if constexpr (meta::IsValueWrapperT<EndiannessType, EndiannessEnum>) {
-            return EndiannessType::value;
-        } else if constexpr (meta::IsSame<EndiannessType, EndiannessEnum>) {
-            return endianness;
+    Endianness endianness_value{ [=]() -> Endianness {
+        if constexpr (meta::IsValueWrapperT<EndiannessLike, Endianness>) {
+            return EndiannessLike::value;
+        } else if constexpr (meta::IsSame<EndiannessLike, Endianness>) {
+            return endianness_like;
         } else {
             ZETA_Core_StaticAssert(false);
         }
@@ -83,9 +113,6 @@ constexpr bool serde_utils::SerializeIntegral(
     OpUnsignedIntegral op_src_value{ static_cast<OpUnsignedIntegral>(
         src_value) };
 
-    constexpr size_t src_int_digit_cnt{ integral_math::CeilDiv(
-        integral::WidthOf<Integral>, DigitWidth) };
-
     constexpr size_t op_un_int_digit_cnt{ integral_math::CeilDiv(
         integral::WidthOf<OpUnsignedIntegral>, DigitWidth) };
 
@@ -94,38 +121,32 @@ constexpr bool serde_utils::SerializeIntegral(
     size_t exc_digit_cnt;
     size_t eff_digit_cnt;
 
-    if (digit_cnt < src_int_digit_cnt) {
+    if (digit_cnt < op_un_int_digit_cnt) {
         exc_digit_cnt = 0;
         eff_digit_cnt = digit_cnt;
     } else {
-        exc_digit_cnt = digit_cnt - src_int_digit_cnt;
-        eff_digit_cnt = src_int_digit_cnt;
+        exc_digit_cnt = digit_cnt - op_un_int_digit_cnt;
+        eff_digit_cnt = op_un_int_digit_cnt;
     }
 
-    bool no_lossy{ true };
+    bool value_out_of_range{ false };
 
-    auto proc_highest_eff_digit{ [is_neg, eff_digit_cnt, &no_lossy](
+    auto proc_highest_eff_digit{ [is_neg, eff_digit_cnt, &value_out_of_range](
                                      DigitIntegral highest_eff_digit) -> void {
         ZETA_Core_Unused(is_neg);
         ZETA_Core_Unused(eff_digit_cnt);
-        ZETA_Core_Unused(no_lossy);
-
-        constexpr size_t k{ integral::WidthOf<Integral> % DigitWidth };
+        ZETA_Core_Unused(value_out_of_range);
 
         if constexpr (is_signed) {
-            if (k == 0 || eff_digit_cnt < src_int_digit_cnt) {
-                no_lossy &= is_neg == digit_range_max / 2 < highest_eff_digit;
-            } else if (is_neg) {
-                highest_eff_digit +=
-                    digit_range_max - (digit_range_max >> (DigitWidth - k));
+            if (eff_digit_cnt < op_un_int_digit_cnt) {
+                value_out_of_range |=
+                    is_neg != digit_range_max / 2 < highest_eff_digit;
             }
         }
-
-        return highest_eff_digit;
     } };
 
     switch (endianness_value) {
-    case EndiannessEnum::Little: {
+    case Endianness::Little: {
         for (size_t i{ 0 }; i < eff_digit_cnt; ++i) {
             buffer[i] = static_cast<DigitIntegral>(
                 op_src_value %
@@ -134,8 +155,7 @@ constexpr bool serde_utils::SerializeIntegral(
             op_src_value >>= DigitWidth;
         }
 
-        buffer[eff_digit_cnt - 1] =
-            proc_highest_eff_digit(buffer[eff_digit_cnt - 1]);
+        proc_highest_eff_digit(buffer[eff_digit_cnt - 1]);
 
         elem_stream::acceptor::Transfer(acceptor, buffer, sizeof(DigitIntegral),
                                         sizeof(DigitIntegral), eff_digit_cnt);
@@ -150,9 +170,10 @@ constexpr bool serde_utils::SerializeIntegral(
         break;
     }
 
-    case EndiannessEnum::Big: {
+    case Endianness::Big: {
         if (0 < exc_digit_cnt) {
             buffer[0] = is_neg ? digit_range_max : 0;
+
             elem_stream::acceptor::Transfer(
                 acceptor, buffer, sizeof(DigitIntegral), 0, exc_digit_cnt);
         }
@@ -162,10 +183,14 @@ constexpr bool serde_utils::SerializeIntegral(
                 op_src_value %
                 (static_cast<OpUnsignedIntegral>(digit_range_max) + 1U));
 
+            ZETA_Core_Debug_PrintVar(buffer[i]);
+
             op_src_value >>= DigitWidth;
+
+            ZETA_Core_Debug_PrintVar(op_src_value);
         }
 
-        buffer[0] = proc_highest_eff_digit(buffer[0]);
+        proc_highest_eff_digit(buffer[0]);
 
         elem_stream::acceptor::Transfer(acceptor, buffer, sizeof(DigitIntegral),
                                         sizeof(DigitIntegral), eff_digit_cnt);
@@ -177,66 +202,50 @@ constexpr bool serde_utils::SerializeIntegral(
     }
 
     if (is_neg) {
-        no_lossy &= integral_math::IsPowerOf2(op_src_value + 1U);
+        value_out_of_range |= !integral_math::IsPowerOf2(op_src_value + 1U);
     } else {
-        no_lossy &= op_src_value == 0;
+        value_out_of_range |= op_src_value != 0;
     }
 
-    if (dst_error != nullptr) {
-        if (allow_lossy || no_lossy) {
-            dst_error->message = nullptr;
-            dst_error->analyzer = nullptr;
-        } else {
-            if constexpr (is_signed) {
-                dst_error->message = ErrorMessage::
-                    information_loss_when_serializing_signed_integral;
-            } else {
-                dst_error->message = ErrorMessage::
-                    information_loss_when_serializing_unsigned_integral;
-            }
-
-            dst_error->analyzer = nullptr;
-        }
-    }
-
-    return no_lossy;
+    return {
+        .value_out_of_range = value_out_of_range,
+    };
 }
 
-template <integral::IsIntegral Integral,
-          serde_utils::IsEndiannessType EndiannessType,
+template <elem_stream::provider::IsProvider Provider,
+          integral_endec::IsEndiannessLike EndiannessLike,
           integral::IsUnsignedIntegral DigitIntegral, size_t DigitWidth,
-          typename DigitCntLike, elem_stream::provider::IsProvider Provider>
+          typename DigitCntLike, integral::IsIntegral DstIntegral>
     requires requires {
         requires 0 < DigitWidth;
         requires DigitWidth <= integral::WidthOf<DigitIntegral>;
     }
-constexpr bool serde_utils::DeserializeIntegral(
-    Integral& dst_value, EndiannessType endianness,
+constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
+    Provider&& provider, EndiannessLike endianness_like,
     meta::TypeWrapper<DigitIntegral>, meta::ValueWrapper<size_t, DigitWidth>,
-    DigitCntLike digit_cnt_like, bool allow_lossy, Provider&& provider,
-    error::Error* dst_error) {
-    constexpr bool is_signed{ integral::IsSignedIntegral<Integral> };
+    DigitCntLike digit_cnt_like, meta::TypeWrapper<DstIntegral>) {
+    constexpr bool is_signed{ integral::IsSignedIntegral<DstIntegral> };
 
     using OpUnsignedIntegral = decltype([]() {
-        if constexpr (integral::WidthOf<Integral> <=
+        if constexpr (integral::WidthOf<DstIntegral> <=
                       integral::WidthOf<unsigned>) {
             return meta::TypeWrapper<unsigned>{};
-        } else if constexpr (integral::WidthOf<Integral> <=
+        } else if constexpr (integral::WidthOf<DstIntegral> <=
                              integral::WidthOf<unsigned long>) {
             return meta::TypeWrapper<unsigned long>{};
-        } else if constexpr (integral::WidthOf<Integral> <=
+        } else if constexpr (integral::WidthOf<DstIntegral> <=
                              integral::WidthOf<unsigned long long>) {
             return meta::TypeWrapper<unsigned long long>{};
         } else {
-            return meta::TypeWrapper<integral::MakeUnsignedOf<Integral>>{};
+            return meta::TypeWrapper<integral::MakeUnsignedOf<DstIntegral>>{};
         }
     }())::Type;
 
-    EndiannessEnum endianness_value{ [=]() -> EndiannessEnum {
-        if constexpr (meta::IsValueWrapperT<EndiannessType, EndiannessEnum>) {
-            return EndiannessType::value;
-        } else if constexpr (meta::IsSame<EndiannessType, EndiannessEnum>) {
-            return endianness;
+    Endianness endianness_value{ [=]() -> Endianness {
+        if constexpr (meta::IsValueWrapperT<EndiannessLike, Endianness>) {
+            return EndiannessLike::value;
+        } else if constexpr (meta::IsSame<EndiannessLike, Endianness>) {
+            return endianness_like;
         } else {
             ZETA_Core_StaticAssert(false);
         }
@@ -245,15 +254,15 @@ constexpr bool serde_utils::DeserializeIntegral(
     DigitIntegral digit_range_max{ integral_math::PowerOf2Minus1<DigitIntegral>(
         DigitWidth) };
 
-    constexpr size_t src_int_digit_cnt{ integral_math::CeilDiv(
-        integral::WidthOf<Integral>, DigitWidth) };
+    constexpr size_t dst_int_digit_cnt{ integral_math::CeilDiv(
+        integral::WidthOf<DstIntegral>, DigitWidth) };
 
     constexpr size_t op_un_int_digit_cnt{ integral_math::CeilDiv(
         integral::WidthOf<OpUnsignedIntegral>, DigitWidth) };
 
     size_t digit_cnt{ [=]() -> size_t {
         if constexpr (meta::IsSame<DigitCntLike,
-                                   serde_utils::VariableOctetCntTag>) {
+                                   integral_endec::VariableOctetCntTag>) {
             return 0;
         } else if constexpr (meta::IsValueWrapperT<DigitCntLike, size_t>) {
             ZETA_Core_StaticAssert(0 < DigitCntLike::value);
@@ -267,7 +276,7 @@ constexpr bool serde_utils::DeserializeIntegral(
     }() };
 
     constexpr size_t buffer_digit_cnt{ comparison_utils::BasicMax(
-        src_int_digit_cnt, 32U) };
+        dst_int_digit_cnt, 32U) };
 
     DigitIntegral buffer_a[buffer_digit_cnt];
     DigitIntegral buffer_b[buffer_digit_cnt];
@@ -277,59 +286,79 @@ constexpr bool serde_utils::DeserializeIntegral(
     bool see0{ false };
     bool see1{ false };
 
-    bool no_lossy{ true };
+    bool pad_zero{ false };
 
-    auto proc_digits_from_buffer{ [digit_range_max, &no_lossy](
+    bool digit_out_of_range{ false };
+
+    bool value_out_of_range{ false };
+
+    DstIntegral dst_value;
+
+    auto transfer_digits{ [&provider, &pad_zero](DigitIntegral* dst,
+                                                 size_t elem_cnt) -> void {
+        size_t transfer_elem_cnt{ elem_stream::provider::Transfer(
+            provider, dst, sizeof(DigitIntegral), sizeof(DigitIntegral),
+            elem_cnt) };
+
+        ZETA_Core_DebugAssert(transfer_elem_cnt <= elem_cnt);
+
+        if (transfer_elem_cnt == elem_cnt) { return; }
+
+        pad_zero = true;
+
+        DigitIntegral* dst_end{ dst + elem_cnt };
+        dst += transfer_elem_cnt;
+
+        for (; dst != dst_end; ++dst) { *dst = 0; }
+    } };
+
+    auto proc_digits_from_buffer{ [digit_range_max, &digit_out_of_range](
                                       DigitIntegral* buffer,
                                       size_t digit_cnt) -> void {
         for (DigitIntegral* buffer_end{ buffer + digit_cnt };
              buffer < buffer_end; ++buffer) {
-            auto [canon_digit, cur_no_lossy]{ (
+            auto [cur_digit_out_of_range, canon_digit]{ (
                 CanonicalizeIntegral)(*buffer, digit_range_max) };
 
+            digit_out_of_range |= cur_digit_out_of_range;
             *buffer = canon_digit;
-            no_lossy &= cur_no_lossy;
         }
     } };
 
-    auto discard_digits_from_buffer{ [digit_range_max, &no_lossy, &see0, &see1](
-                                         DigitIntegral* buffer,
-                                         size_t digit_cnt) -> void {
+    auto discard_digits_from_buffer{ [digit_range_max, &digit_out_of_range,
+                                      &see0, &see1](DigitIntegral* buffer,
+                                                    size_t digit_cnt) -> void {
         for (DigitIntegral* buffer_end{ buffer + digit_cnt };
              buffer < buffer_end; ++buffer) {
-            DigitIntegral d{ *buffer };
+            auto [cur_digit_out_of_range, canon_digit]{ (
+                CanonicalizeIntegral)(*buffer, digit_range_max) };
 
-            if (digit_range_max < d) { no_lossy = false; }
+            digit_out_of_range |= cur_digit_out_of_range;
 
-            see0 |= d != digit_range_max;
-            see1 |= d != 0;
+            see0 |= canon_digit != digit_range_max;
+            see1 |= canon_digit != 0;
         }
     } };
 
-    auto discard_digits_from_provider{ [&provider, &proc_digits_from_buffer,
-                                        &discard_digits_from_buffer](
-                                           size_t res_digit_cnt) -> void {
-        DigitIntegral buffer[buffer_digit_cnt];
+    auto discard_digits_from_provider{
+        [&transfer_digits, &proc_digits_from_buffer,
+         &discard_digits_from_buffer](size_t res_digit_cnt) -> void {
+            DigitIntegral buffer[buffer_digit_cnt];
 
-        for (; buffer_digit_cnt <= res_digit_cnt;
-             res_digit_cnt -= buffer_digit_cnt) {
-            elem_stream::provider::Transfer(
-                provider, buffer, sizeof(DigitIntegral), sizeof(DigitIntegral),
-                buffer_digit_cnt);
+            for (; buffer_digit_cnt <= res_digit_cnt;
+                 res_digit_cnt -= buffer_digit_cnt) {
+                transfer_digits(buffer, buffer_digit_cnt);
+                proc_digits_from_buffer(buffer, buffer_digit_cnt);
+                discard_digits_from_buffer(buffer, buffer_digit_cnt);
+            }
 
-            proc_digits_from_buffer(buffer, buffer_digit_cnt);
-            discard_digits_from_buffer(buffer, buffer_digit_cnt);
+            if (0 < res_digit_cnt) {
+                transfer_digits(buffer, res_digit_cnt);
+                proc_digits_from_buffer(buffer, res_digit_cnt);
+                discard_digits_from_buffer(buffer, res_digit_cnt);
+            }
         }
-
-        if (0 < res_digit_cnt) {
-            elem_stream::provider::Transfer(
-                provider, buffer, sizeof(DigitIntegral), sizeof(DigitIntegral),
-                res_digit_cnt);
-
-            proc_digits_from_buffer(buffer, res_digit_cnt);
-            discard_digits_from_buffer(buffer, res_digit_cnt);
-        }
-    } };
+    };
 
     auto proc_highest_eff_digit{ [digit_range_max, &see0, &see1,
                                   &eff_digit_cnt](DigitIntegral d) -> void {
@@ -337,7 +366,7 @@ constexpr bool serde_utils::DeserializeIntegral(
         ZETA_Core_Unused(see0);
         ZETA_Core_Unused(see1);
 
-        if (eff_digit_cnt == src_int_digit_cnt) {
+        if (eff_digit_cnt == dst_int_digit_cnt) {
             // In the highest digit, there may be bits that are not contained in
             // the destination integral type. These bits must be checked to
             // determine whether information loss occurs.
@@ -352,7 +381,7 @@ constexpr bool serde_utils::DeserializeIntegral(
             // k is the number of lower bits in the highest digit that are
             // removed before checking the remaining bits.
 
-            constexpr size_t k{ (integral::WidthOf<Integral> + DigitWidth -
+            constexpr size_t k{ (integral::WidthOf<DstIntegral> + DigitWidth -
                                  is_signed) %
                                 DigitWidth };
 
@@ -371,18 +400,18 @@ constexpr bool serde_utils::DeserializeIntegral(
     OpUnsignedIntegral op_dst_value{ 0 };
 
     switch (endianness_value) {
-    case EndiannessEnum::Little: {
+    case Endianness::Little: {
         DigitIntegral* buffer_h{ buffer_a };
         DigitIntegral* buffer_l{ buffer_b };
 
         if (digit_cnt == 0) {
             eff_digit_cnt = elem_stream::provider::Transfer(
                 provider, buffer_l, sizeof(DigitIntegral),
-                sizeof(DigitIntegral), src_int_digit_cnt);
+                sizeof(DigitIntegral), dst_int_digit_cnt);
 
             proc_digits_from_buffer(buffer_l, eff_digit_cnt);
 
-            if (eff_digit_cnt == src_int_digit_cnt) {
+            if (eff_digit_cnt == dst_int_digit_cnt) {
                 for (;;) {
                     size_t cur_act_digit_cnt{ elem_stream::provider::Transfer(
                         provider, buffer_h, sizeof(DigitIntegral),
@@ -396,11 +425,9 @@ constexpr bool serde_utils::DeserializeIntegral(
             }
         } else {
             eff_digit_cnt =
-                comparison_utils::BasicMin(src_int_digit_cnt, digit_cnt);
+                comparison_utils::BasicMin(dst_int_digit_cnt, digit_cnt);
 
-            elem_stream::provider::Transfer(
-                provider, buffer_l, sizeof(DigitIntegral),
-                sizeof(DigitIntegral), eff_digit_cnt);
+            transfer_digits(buffer_l, eff_digit_cnt);
 
             proc_digits_from_buffer(buffer_l, eff_digit_cnt);
             discard_digits_from_provider(digit_cnt - eff_digit_cnt);
@@ -418,7 +445,7 @@ constexpr bool serde_utils::DeserializeIntegral(
         break;
     }
 
-    case EndiannessEnum::Big: {
+    case Endianness::Big: {
         DigitIntegral* buffer_h{ buffer_a };
         DigitIntegral* buffer_l{ buffer_b };
 
@@ -480,9 +507,9 @@ constexpr bool serde_utils::DeserializeIntegral(
 
             */
 
-            if (src_int_digit_cnt < eff_digit_cnt_h + eff_digit_cnt_l) {
+            if (dst_int_digit_cnt < eff_digit_cnt_h + eff_digit_cnt_l) {
                 size_t k{ eff_digit_cnt_h + eff_digit_cnt_l -
-                          src_int_digit_cnt };
+                          dst_int_digit_cnt };
 
                 size_t k_h{ comparison_utils::BasicMin(k, eff_digit_cnt_h) };
                 size_t k_l{ k - k_h };
@@ -497,15 +524,13 @@ constexpr bool serde_utils::DeserializeIntegral(
                 eff_digit_cnt_l -= k_l;
             }
         } else {
-            if (src_int_digit_cnt < digit_cnt) {
-                discard_digits_from_provider(digit_cnt - src_int_digit_cnt);
+            if (dst_int_digit_cnt < digit_cnt) {
+                discard_digits_from_provider(digit_cnt - dst_int_digit_cnt);
 
-                elem_stream::provider::Transfer(
-                    provider, buffer_l, sizeof(DigitIntegral),
-                    sizeof(DigitIntegral), src_int_digit_cnt);
+                transfer_digits(buffer_l, dst_int_digit_cnt);
 
                 eff_digit_cnt_h = 0;
-                eff_digit_cnt_l = src_int_digit_cnt;
+                eff_digit_cnt_l = dst_int_digit_cnt;
             } else {
                 elem_stream::provider::Transfer(
                     provider, buffer_l, sizeof(DigitIntegral),
@@ -537,58 +562,69 @@ constexpr bool serde_utils::DeserializeIntegral(
     }
 
     if constexpr (is_signed) {
-        no_lossy &= !see0 || !see1;
+        value_out_of_range |= see0 && see1;
 
         if (eff_digit_cnt == 0) {
-            dst_value = static_cast<Integral>(0);
-            return no_lossy;
+            return {
+                .pad_zero = pad_zero,
+                .digit_out_of_range = digit_out_of_range,
+                .value_out_of_range = value_out_of_range,
+                .value = 0,
+            };
         }
 
-        if constexpr (integral::WidthOf<Integral> <
+        if constexpr (integral::WidthOf<DstIntegral> <
                       integral::WidthOf<OpUnsignedIntegral>) {
             op_dst_value %= integral_math::PowerOf2<OpUnsignedIntegral>(
-                integral::WidthOf<Integral>);
+                integral::WidthOf<DstIntegral>);
         }
 
         OpUnsignedIntegral special_value{
             integral_math::PowerOf2<OpUnsignedIntegral>(
                 comparison_utils::BasicMin(DigitWidth * eff_digit_cnt,
-                                           integral::WidthOf<Integral>) -
+                                           integral::WidthOf<DstIntegral>) -
                 1)
         };
 
         if (op_dst_value < special_value) {
-            dst_value = static_cast<Integral>(op_dst_value);
+            dst_value = static_cast<DstIntegral>(op_dst_value);
         } else if (special_value < op_dst_value) {
-            dst_value = -static_cast<Integral>(-op_dst_value % special_value);
+            /*
+
+            final is neg
+
+            if (see0, see1) == (0, 0)
+                pos -> neg
+
+            if (see0, see1) == (0, 1)
+                pos -> neg
+
+            if (see0, see1) == (1, 0)
+                pos -> neg
+
+            if (see0, see1) == (1, 1)
+                pos -> neg
+
+            */
+
+            dst_value =
+                -static_cast<DstIntegral>(-op_dst_value % special_value);
         } else {
-            dst_value = -static_cast<Integral>(special_value - 1) -
-                        static_cast<Integral>(1);
+            dst_value = -static_cast<DstIntegral>(special_value - 1) -
+                        static_cast<DstIntegral>(1);
         }
     } else {
-        no_lossy &= !see1;
+        value_out_of_range |= see1;
 
-        dst_value = static_cast<Integral>(op_dst_value);
+        dst_value = static_cast<DstIntegral>(op_dst_value);
     }
 
-    if (dst_error != nullptr) {
-        if (allow_lossy || no_lossy) {
-            dst_error->message = nullptr;
-            dst_error->analyzer = nullptr;
-        } else {
-            if constexpr (is_signed) {
-                dst_error->message = ErrorMessage::
-                    information_loss_when_deserializing_signed_integral;
-            } else {
-                dst_error->message = ErrorMessage::
-                    information_loss_when_deserializing_unsigned_integral;
-            }
-
-            dst_error->analyzer = nullptr;
-        }
-    }
-
-    return no_lossy;
+    return {
+        .pad_zero = pad_zero,
+        .digit_out_of_range = digit_out_of_range,
+        .value_out_of_range = value_out_of_range,
+        .value = dst_value,
+    };
 }
 
 }  // namespace zeta::core

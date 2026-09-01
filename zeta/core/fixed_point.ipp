@@ -454,16 +454,21 @@ constexpr auto fixed_point::FromIntegral(Integral integral) {
                           static_cast<Integral>(1));
 }
 
-template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
-constexpr comparison::Ordering fixed_point::MathCompare(
-    FixedPoint<FixedPointTplArgList(A)> const& a,
+template <comparison::IsOpTag OpTag, FixedPointTplParamList(A, ),
+          FixedPointTplParamList(B, )>
+constexpr auto fixed_point::MathCompare(
+    OpTag op, FixedPoint<FixedPointTplArgList(A)> const& a,
     FixedPoint<FixedPointTplArgList(B)> const& b) {
     if constexpr (ASignedTag::value && !BSignedTag::value) {
-        if (a.value < 0) { return comparison::Ordering::Less; }
+        if (a.value < 0) {
+            return (meta::ToUnderlying(op) & comparison::less_bit) != 0;
+        }
     }
 
     if constexpr (!ASignedTag::value && BSignedTag::value) {
-        if (b.value < 0) { return comparison::Ordering::Greater; }
+        if (b.value < 0) {
+            return (meta::ToUnderlying(op) & comparison::greater_bit) != 0;
+        }
     }
 
     constexpr size_t op_fraction_width{ comparison_utils::BasicMax(
@@ -483,29 +488,20 @@ constexpr comparison::Ordering fixed_point::MathCompare(
     SOpIntegral y{ static_cast<SOpIntegral>(b.value)
                    << (op_fraction_width - BFractionWidth::value) };
 
-    return comparison::BasicCompare(
-        meta::AutoValueWrapper<comparison::OpEnum::Order>{}, x, y);
+    return comparison::BasicCompare(op, x, y);
 }
 
 template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
-template <comparison::IsOpType OpType>
-constexpr auto comparison::ComparatorTraits<comparison::BasicComparator<
-    fixed_point::FixedPoint<FixedPointTplArgList(A)>,
-    fixed_point::FixedPoint<FixedPointTplArgList(B)>>>::
+template <comparison::IsOpTag OpTag>
+constexpr auto
+comparison::BasicComparator<fixed_point::FixedPoint<FixedPointTplArgList(A)>,
+                            fixed_point::FixedPoint<FixedPointTplArgList(B)>>::
     Compare(comparison::BasicComparator<
                 fixed_point::FixedPoint<FixedPointTplArgList(A)>,
                 fixed_point::FixedPoint<FixedPointTplArgList(B)>> const&,
-            OpType, fixed_point::FixedPoint<FixedPointTplArgList(A)> const& a,
+            OpTag op, fixed_point::FixedPoint<FixedPointTplArgList(A)> const& a,
             fixed_point::FixedPoint<FixedPointTplArgList(B)> const& b) {
-    comparison::Ordering ord{ fixed_point::MathCompare(a, b) };
-
-    if constexpr (meta::IsSame<OpType, meta::AutoValueWrapper<
-                                           comparison::OpEnum::Order>>) {
-        return ord;
-    } else {
-        return (meta::ToUnderlying(ord) & meta::ToUnderlying(OpType::value)) !=
-               0;
-    }
+    return fixed_point::MathCompare(op, a, b);
 }
 
 }  // namespace zeta::core

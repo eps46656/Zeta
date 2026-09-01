@@ -37,16 +37,10 @@ struct Tuple_<static_seq::StaticSeq<size_t, Idxes...>, Elems...>
     constexpr bool operator!=(Tuple_ const& t) const = default;
 
     template <size_t Idx>
-    constexpr decltype(auto) ForwardAccess();
+    constexpr decltype(auto) ForwardAccess(this Tuple_ const& self);
 
     template <size_t Idx>
-    constexpr auto& Access() &;
-
-    template <size_t Idx>
-    constexpr auto const& Access() const&;
-
-    template <size_t Idx>
-    constexpr auto&& Access() &&;
+    constexpr decltype(auto) Access(this auto&& self);
 };
 
 }  // namespace detail

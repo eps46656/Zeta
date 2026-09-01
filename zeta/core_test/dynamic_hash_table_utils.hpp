@@ -8,7 +8,6 @@
 #include <zeta/core/assoc_cntr.hpp>
 #include <zeta/core/assoc_cntr_ref.hpp>
 #include <zeta/core/comparison.ipp>
-#include <zeta/core/comparison_ref.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/dynamic_hash_table.hpp>
 #include <zeta/core/dynamic_hash_table.ipp>
@@ -22,6 +21,7 @@
 #include <zeta/core/lifecycle.hpp>
 #include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/multi_level_ptr_table.ipp>
+#include <zeta/core/poly_comparison.ipp>
 #include <zeta/core_test/assoc_cntr_utils.hpp>
 #include <zeta/core_test/std_allocator.hpp>
 
@@ -32,7 +32,7 @@ using AssocCntrRef = core::assoc_cntr_ref::Cntr;
 namespace DynamicHashTableNS = core::dynamic_hash_table;
 
 using DynamicHashTable = DynamicHashTableNS::Cntr<
-    core::hash_ref::Hasher, core::comparison_ref::Comparator,
+    core::hash_ref::Hasher, core::poly_comparison::Comparator,
     core::lcg_random_engine::rand48, std_allocator::Allocator,
     std_allocator::Allocator>;
 
@@ -90,12 +90,12 @@ AssocCntrRef Create() {
         using Cntr = zeta::core::meta::RemoveRef<decltype(pack->dht)>;
 
         zeta::core::assoc_cntr::CntrTraits<Cntr>::Find(
-            pack->dht, nullptr, zeta::core::hash::ArchetHasher{},
-            zeta::core::comparison::ArchetComparator{}, true, nullptr, nullptr,
-            nullptr);
+            pack->dht, nullptr, zeta::core::hash::ArchetypeHasher{},
+            zeta::core::comparison::ArchetypeComparator{}, true, nullptr,
+            nullptr, nullptr);
 
-        zeta::core::hash::ArchetHasher key_hasher;
-        zeta::core::comparison::ArchetComparator key_elem_cmptr;
+        zeta::core::hash::ArchetypeHasher key_hasher;
+        zeta::core::comparison::ArchetypeComparator key_elem_cmptr;
         zeta::core::assoc_cntr::ElemPtrView* elem_ptr_view_ptr;
 
         void* void_ptr{ nullptr };

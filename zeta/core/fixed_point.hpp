@@ -107,25 +107,26 @@ constexpr auto FromFraction(meta::ValueWrapper<size_t, FractionWidth>, Num num,
 template <integral::IsIntegral Integral>
 constexpr auto FromIntegral(Integral integral);
 
-template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
-constexpr comparison::Ordering MathCompare(
-    FixedPoint<FixedPointTplArgList(A)> const& a,
-    FixedPoint<FixedPointTplArgList(B)> const& b);
+template <comparison::IsOpTag OpTag, FixedPointTplParamList(A, ),
+          FixedPointTplParamList(B, )>
+constexpr auto MathCompare(OpTag op,
+                           FixedPoint<FixedPointTplArgList(A)> const& a,
+                           FixedPoint<FixedPointTplArgList(B)> const& b);
 
 }  // namespace zeta::core::fixed_point
 
 namespace zeta::core {
 
 template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
-struct comparison::ComparatorTraits<comparison::BasicComparator<
+struct comparison::BasicComparator<
     fixed_point::FixedPoint<FixedPointTplArgList(A)>,
-    fixed_point::FixedPoint<FixedPointTplArgList(B)>>> {
-    template <IsOpType OpType>
+    fixed_point::FixedPoint<FixedPointTplArgList(B)>> {
+    template <IsOpTag OpTag>
     static constexpr auto Compare(
         comparison::BasicComparator<
             fixed_point::FixedPoint<FixedPointTplArgList(A)>,
             fixed_point::FixedPoint<FixedPointTplArgList(B)>> const&,
-        OpType, fixed_point::FixedPoint<FixedPointTplArgList(A)> const& a,
+        OpTag, fixed_point::FixedPoint<FixedPointTplArgList(A)> const& a,
         fixed_point::FixedPoint<FixedPointTplArgList(B)> const& b);
 };
 

@@ -79,9 +79,7 @@ constexpr void CheckCntr_  // NOLINT(misc-use-internal-linkage)
 }
 
 constexpr void CheckCursor_  // NOLINT(misc-use-internal-linkage)
-    (Cntr const& cntr, Cursor const* cursor_) {
-    Cursor const* cursor{ static_cast<Cursor const*>(cursor_) };
-
+    (Cntr const& cntr, Cursor const* cursor) {
     (CheckCntr_)(cntr);
 
     ZETA_Core_DebugAssert(cursor != nullptr);
@@ -140,16 +138,16 @@ constexpr void circular_array::Cntr::AssignFromCircularArray(
             !ZETA_Core_AreOverlapped(dst_data, dst_data + dst_capacity,
                                      src_data, src_data + src_capacity));
 
-        goto VEC_FW_MOVE;
+        goto VEC_FW_COPY;
     }
 
-    if (dst_beg < src_beg) { goto VEC_FW_MOVE; }
+    if (dst_beg < src_beg) { goto VEC_FW_COPY; }
 
     if (src_beg < dst_beg) { goto VEC_BW_MOVE; }
 
     return;
 
-VEC_FW_MOVE:
+VEC_FW_COPY:
 
     while (0 < cnt) {
         size_t cur_cnt{ comparison_utils::BasicMin(
@@ -158,7 +156,7 @@ VEC_FW_MOVE:
             (GetLongestContSucr)(src_elem_cnt, src_capacity, src_rot,
                                  src_beg)) };
 
-        utils::ElemMove((ReferElem)(dst_data, dst_elem_stride, dst_capacity,
+        utils::ElemCopy((ReferElem)(dst_data, dst_elem_stride, dst_capacity,
                                     dst_rot, dst_beg),
                         (ReferElem)(src_data, src_elem_stride, src_capacity,
                                     src_rot, src_beg),
@@ -194,57 +192,142 @@ VEC_BW_MOVE:
     }
 }
 
-constexpr void circular_array::Cntr::Init(this Cntr const& cntr) {
-    detail::CheckCntr_(cntr);
+constexpr seq_cntr::capability::Flag
+circular_array::Cntr::GetStaticEnabledCapabilityFlag(seq_cntr::Tag,
+                                                     meta::TypeWrapper<Cntr>) {
+    return seq_cntr::capability::FlagBuilder{
+        .GetCursorSize = true,
+
+        .GetElemSize = true,
+        .GetElemCnt = true,
+        .GetMaxElemCnt = true,
+
+        .GetLBCursor = true,
+        .GetRBCursor = true,
+
+        .PeekL = true,
+        .PeekR = true,
+
+        .Refer = true,
+        .Derefer = true,
+
+        .Read = true,
+        .Write = true,
+        .ReadWrite = true,
+
+        .PushL = true,
+        .PushR = true,
+        .Insert = true,
+
+        .PopL = true,
+        .PopR = true,
+        .Erase = true,
+        .EraseAll = true,
+
+        .CopyCursor = true,
+
+        .AreEqualCursor = true,
+        .CompareCursor = true,
+        .GetCursorDist = true,
+        .GetCursorIdx = true,
+
+        .CursorStepL = true,
+        .CursorStepR = true,
+
+        .CursorAdvanceL = true,
+        .CursorAdvanceR = true,
+    }();
 }
 
-constexpr void circular_array::Cntr::Deinit(this Cntr& cntr) {
-    detail::CheckCntr_(cntr);
+constexpr seq_cntr::capability::Flag
+circular_array::Cntr::GetStaticEnabledCapabilityFlag(
+    seq_cntr::Tag, meta::TypeWrapper<Cntr const>) {
+    return (GetStaticEnabledCapabilityFlag)(seq_cntr::Tag{},
+                                            meta::TypeWrapper<Cntr>{}) &
+           seq_cntr::capability::const_capability_flag;
 }
 
-constexpr void* circular_array::Cntr::GetReferedInstPtr(this Cntr const& cntr) {
+constexpr seq_cntr::capability::Flag
+circular_array::Cntr::GetStaticDisabledCapabilityFlag(seq_cntr::Tag,
+                                                      meta::TypeWrapper<Cntr>) {
+    return seq_cntr::capability::empty_capability_flag;
+}
+
+constexpr seq_cntr::capability::Flag
+circular_array::Cntr::GetStaticDisabledCapabilityFlag(
+    seq_cntr::Tag, meta::TypeWrapper<Cntr const>) {
+    return seq_cntr::capability::non_const_capability_flag;
+}
+
+constexpr seq_cntr::capability::Flag
+circular_array::Cntr::GetDynamicEnabledCapabilityFlag(seq_cntr::Tag) {
+    return seq_cntr::capability::empty_capability_flag;
+}
+
+constexpr seq_cntr::capability::Flag
+circular_array::Cntr::GetDynamicDisabledCapabilityFlag(seq_cntr::Tag) {
+    return seq_cntr::capability::empty_capability_flag;
+}
+
+constexpr void* circular_array::Cntr::GetReferedInstPtr(this Cntr const& cntr,
+                                                        seq_cntr::Tag) {
     detail::CheckCntr_(cntr);
 
     return const_cast<void*>(static_cast<void const*>(&cntr));
 }
 
-constexpr size_t circular_array::Cntr::GetCursorSize(this Cntr const& cntr) {
-    detail::CheckCntr_(cntr);
+constexpr meta::TypeWrapper<circular_array::Cursor>
+circular_array::Cntr::GetCursorType(seq_cntr::Tag, meta::TypeWrapper<Cntr>) {
+    return {};
+}
 
+constexpr meta::TypeWrapper<circular_array::Cursor>
+circular_array::Cntr::GetCursorType(seq_cntr::Tag,
+                                    meta::TypeWrapper<Cntr const>) {
+    return {};
+}
+
+constexpr size_t circular_array::Cntr::GetCursorSize(seq_cntr::Tag) {
     return sizeof(Cursor);
 }
 
-constexpr size_t circular_array::Cntr::GetElemSize(this Cntr const& cntr) {
+constexpr size_t circular_array::Cntr::GetElemSize(this Cntr const& cntr,
+                                                   seq_cntr::Tag) {
     detail::CheckCntr_(cntr);
 
     return cntr.elem_size;
 }
 
-constexpr size_t circular_array::Cntr::GetElemStride(this Cntr const& cntr) {
+constexpr size_t circular_array::Cntr::GetElemStride(this Cntr const& cntr,
+                                                     seq_cntr::Tag) {
     detail::CheckCntr_(cntr);
 
     return cntr.elem_stride;
 }
 
-constexpr size_t circular_array::Cntr::GetIdxOffset(this Cntr const& cntr) {
+constexpr size_t circular_array::Cntr::GetIdxOffset(this Cntr const& cntr,
+                                                    seq_cntr::Tag) {
     detail::CheckCntr_(cntr);
 
     return cntr.rot;
 }
 
-constexpr size_t circular_array::Cntr::GetElemCnt(this Cntr const& cntr) {
+constexpr size_t circular_array::Cntr::GetElemCnt(this Cntr const& cntr,
+                                                  seq_cntr::Tag) {
     detail::CheckCntr_(cntr);
 
     return cntr.elem_cnt;
 }
 
-constexpr size_t circular_array::Cntr::GetMaxElemCnt(this Cntr const& cntr) {
+constexpr size_t circular_array::Cntr::GetMaxElemCnt(this Cntr const& cntr,
+                                                     seq_cntr::Tag) {
     detail::CheckCntr_(cntr);
 
     return cntr.slot_cnt;
 }
 
 constexpr void circular_array::Cntr::GetLBCursor(this Cntr const& cntr,
+                                                 seq_cntr::Tag,
                                                  Cursor* dst_cursor) {
     detail::CheckCntr_(cntr);
 
@@ -256,6 +339,7 @@ constexpr void circular_array::Cntr::GetLBCursor(this Cntr const& cntr,
 }
 
 constexpr void circular_array::Cntr::GetRBCursor(this Cntr const& cntr,
+                                                 seq_cntr::Tag,
                                                  Cursor* dst_cursor) {
     detail::CheckCntr_(cntr);
 
@@ -267,7 +351,7 @@ constexpr void circular_array::Cntr::GetRBCursor(this Cntr const& cntr,
 }
 
 constexpr void circular_array::Cntr::PeekL(
-    this auto&& cntr, bool lazy_copy_elem,
+    this auto&& cntr, seq_cntr::Tag, bool lazy_copy_elem,
     seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
     void* dst_elem) {
     detail::CheckCntr_(cntr);
@@ -313,7 +397,7 @@ constexpr void circular_array::Cntr::PeekL(
 }
 
 constexpr void circular_array::Cntr::PeekR(
-    this auto&& cntr, bool lazy_copy_elem,
+    this auto&& cntr, seq_cntr::Tag, bool lazy_copy_elem,
     seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
     void* dst_elem) {
     detail::CheckCntr_(cntr);
@@ -360,7 +444,7 @@ constexpr void circular_array::Cntr::PeekR(
 }
 
 constexpr void circular_array::Cntr::Refer(
-    this auto&& cntr, size_t idx, bool lazy_copy_elem,
+    this auto&& cntr, seq_cntr::Tag, size_t idx, bool lazy_copy_elem,
     seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
     void* dst_elem) {
     detail::CheckCntr_(cntr);
@@ -410,8 +494,9 @@ constexpr void circular_array::Cntr::Refer(
 }
 
 constexpr void circular_array::Cntr::Derefer(
-    this auto&& cntr, Cursor const* pos_cursor, bool lazy_copy_elem,
-    seq_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_elem) {
+    this auto&& cntr, seq_cntr::Tag, Cursor const* pos_cursor,
+    bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
+    void* dst_elem) {
     detail::CheckCursor_(cntr, pos_cursor);
 
     ZETA_Core_DebugAssert(dst_elem_ptr_view != nullptr || dst_elem != nullptr);
@@ -491,7 +576,7 @@ void ReadWrite_  // NOLINT(misc-use-internal-linkage)
 }  // namespace circular_array::detail
 
 template <seq_cntr::IsReader Reader>
-constexpr void circular_array::Cntr::Read(this Cntr const& cntr,
+constexpr void circular_array::Cntr::Read(this Cntr const& cntr, seq_cntr::Tag,
                                           Cursor const* pos_cursor, size_t cnt,
                                           Reader&& reader, Cursor* dst_cursor) {
     detail::CheckCursor_(cntr, pos_cursor);
@@ -501,7 +586,7 @@ constexpr void circular_array::Cntr::Read(this Cntr const& cntr,
 }
 
 template <seq_cntr::IsWriter Writer>
-constexpr void circular_array::Cntr::Write(this Cntr& cntr,
+constexpr void circular_array::Cntr::Write(this Cntr& cntr, seq_cntr::Tag,
                                            Cursor const* pos_cursor, size_t cnt,
                                            Writer&& writer,
                                            Cursor* dst_cursor) {
@@ -511,7 +596,7 @@ constexpr void circular_array::Cntr::Write(this Cntr& cntr,
 }
 
 template <seq_cntr::IsReaderWriter ReaderWriter>
-constexpr void circular_array::Cntr::ReadWrite(this Cntr& cntr,
+constexpr void circular_array::Cntr::ReadWrite(this Cntr& cntr, seq_cntr::Tag,
                                                Cursor const* pos_cursor,
                                                size_t cnt,
                                                ReaderWriter&& reader_writer,
@@ -542,8 +627,8 @@ constexpr void circular_array::Cntr::IdxReadWrite(
 }
 
 template <seq_cntr::IsWriter Writer>
-constexpr void circular_array::Cntr::PushL(this Cntr& cntr, size_t cnt,
-                                           Writer&& writer,
+constexpr void circular_array::Cntr::PushL(this Cntr& cntr, seq_cntr::Tag,
+                                           size_t cnt, Writer&& writer,
                                            Cursor* dst_cursor) {
     detail::CheckCntr_(cntr);
 
@@ -583,8 +668,8 @@ constexpr void circular_array::Cntr::PushL(this Cntr& cntr, size_t cnt,
 }
 
 template <seq_cntr::IsWriter Writer>
-constexpr void circular_array::Cntr::PushR(this Cntr& cntr, size_t cnt,
-                                           Writer&& writer,
+constexpr void circular_array::Cntr::PushR(this Cntr& cntr, seq_cntr::Tag,
+                                           size_t cnt, Writer&& writer,
                                            Cursor* dst_cursor) {
     detail::CheckCntr_(cntr);
 
@@ -625,8 +710,9 @@ constexpr void circular_array::Cntr::PushR(this Cntr& cntr, size_t cnt,
 }
 
 template <seq_cntr::IsWriter Writer>
-constexpr void circular_array::Cntr::Insert(this Cntr& cntr, Cursor* pos_cursor,
-                                            size_t cnt, Writer&& writer,
+constexpr void circular_array::Cntr::Insert(this Cntr& cntr, seq_cntr::Tag,
+                                            Cursor* pos_cursor, size_t cnt,
+                                            Writer&& writer,
                                             Cursor* dst_cursor) {
     detail::CheckCursor_(cntr, pos_cursor);
 
@@ -667,7 +753,7 @@ constexpr void circular_array::Cntr::Insert(this Cntr& cntr, Cursor* pos_cursor,
 
     pos_cursor->elem = (ReferElem)(data, elem_stride, slot_cnt, rot, idx);
 
-    cntr.Write(pos_cursor, cnt, writer, dst_cursor);
+    cntr.Write(seq_cntr::Tag{}, pos_cursor, cnt, writer, dst_cursor);
 }
 
 template <seq_cntr::IsWriter Writer>
@@ -702,8 +788,8 @@ constexpr void circular_array::Cntr::IdxInsert(this Cntr& cntr, size_t idx,
 }
 
 template <seq_cntr::IsReader Reader>
-constexpr void circular_array::Cntr::PopL(this Cntr& cntr, size_t cnt,
-                                          Reader&& reader) {
+constexpr void circular_array::Cntr::PopL(this Cntr& cntr, seq_cntr::Tag,
+                                          size_t cnt, Reader&& reader) {
     detail::CheckCntr_(cntr);
 
     size_t elem_cnt{ cntr.elem_cnt };
@@ -721,8 +807,8 @@ constexpr void circular_array::Cntr::PopL(this Cntr& cntr, size_t cnt,
 }
 
 template <seq_cntr::IsReader Reader>
-constexpr void circular_array::Cntr::PopR(this Cntr& cntr, size_t cnt,
-                                          Reader&& reader) {
+constexpr void circular_array::Cntr::PopR(this Cntr& cntr, seq_cntr::Tag,
+                                          size_t cnt, Reader&& reader) {
     detail::CheckCntr_(cntr);
 
     size_t elem_cnt{ cntr.elem_cnt };
@@ -737,8 +823,9 @@ constexpr void circular_array::Cntr::PopR(this Cntr& cntr, size_t cnt,
 }
 
 template <seq_cntr::IsReader Reader>
-constexpr void circular_array::Cntr::Erase(this Cntr& cntr, Cursor* pos_cursor,
-                                           size_t cnt, Reader&& reader) {
+constexpr void circular_array::Cntr::Erase(this Cntr& cntr, seq_cntr::Tag,
+                                           Cursor* pos_cursor, size_t cnt,
+                                           Reader&& reader) {
     detail::CheckCursor_(cntr, pos_cursor);
 
     size_t idx{ pos_cursor->idx };
@@ -786,7 +873,7 @@ constexpr void circular_array::Cntr::IdxErase(this Cntr& cntr, size_t idx,
     if (elem_cnt == 0) { cntr.rot = rot = 0; }
 }
 
-constexpr void circular_array::Cntr::EraseAll(this Cntr& cntr) {
+constexpr void circular_array::Cntr::EraseAll(this Cntr& cntr, seq_cntr::Tag) {
     detail::CheckCntr_(cntr);
 
     cntr.rot = 0;
@@ -794,6 +881,7 @@ constexpr void circular_array::Cntr::EraseAll(this Cntr& cntr) {
 }
 
 constexpr void circular_array::Cntr::CopyCursor(this Cntr const& cntr,
+                                                seq_cntr::Tag,
                                                 void const* src_cursor_,
                                                 Cursor* dst_cursor) {
     Cursor const* src_cursor{ static_cast<Cursor const*>(src_cursor_) };
@@ -808,25 +896,32 @@ constexpr void circular_array::Cntr::CopyCursor(this Cntr const& cntr,
 }
 
 constexpr bool circular_array::Cntr::AreEqualCursor(this Cntr const& cntr,
+                                                    seq_cntr::Tag,
                                                     Cursor const* cursor_a,
                                                     Cursor const* cursor_b) {
-    return cntr.GetCursorIdx(cursor_a) == cntr.GetCursorIdx(cursor_b);
+    return cntr.GetCursorIdx(seq_cntr::Tag{}, cursor_a) ==
+           cntr.GetCursorIdx(seq_cntr::Tag{}, cursor_b);
 }
 
 constexpr comparison::Ordering circular_array::Cntr::CompareCursor(
-    this Cntr const& cntr, Cursor const* cursor_a, Cursor const* cursor_b) {
+    this Cntr const& cntr, seq_cntr::Tag, Cursor const* cursor_a,
+    Cursor const* cursor_b) {
     return comparison::BasicCompare(
-        meta::AutoValueWrapper<comparison::OpEnum::Order>{},
-        cntr.GetCursorIdx(cursor_a) + 1, cntr.GetCursorIdx(cursor_b) + 1);
+        comparison::OpTag::Order{},
+        cntr.GetCursorIdx(seq_cntr::Tag{}, cursor_a) + 1,
+        cntr.GetCursorIdx(seq_cntr::Tag{}, cursor_b) + 1);
 }
 
 constexpr size_t circular_array::Cntr::GetCursorDist(this Cntr const& cntr,
+                                                     seq_cntr::Tag,
                                                      Cursor const* cursor_a,
                                                      Cursor const* cursor_b) {
-    return cntr.GetCursorIdx(cursor_b) - cntr.GetCursorIdx(cursor_a);
+    return cntr.GetCursorIdx(seq_cntr::Tag{}, cursor_b) -
+           cntr.GetCursorIdx(seq_cntr::Tag{}, cursor_a);
 }
 
 constexpr size_t circular_array::Cntr::GetCursorIdx(this Cntr const& cntr,
+                                                    seq_cntr::Tag,
                                                     Cursor const* cursor_) {
     Cursor const* cursor{ static_cast<Cursor const*>(cursor_) };
 
@@ -836,20 +931,21 @@ constexpr size_t circular_array::Cntr::GetCursorIdx(this Cntr const& cntr,
 }
 
 constexpr void circular_array::Cntr::CursorStepL(this Cntr const& cntr,
+                                                 seq_cntr::Tag,
                                                  Cursor* cursor) {
-    cntr.CursorAdvanceL(cursor, 1);
+    cntr.CursorAdvanceL(seq_cntr::Tag{}, cursor, 1);
 }
 
 constexpr void circular_array::Cntr::CursorStepR(this Cntr const& cntr,
+                                                 seq_cntr::Tag,
                                                  Cursor* cursor) {
-    cntr.CursorAdvanceR(cursor, 1);
+    cntr.CursorAdvanceR(seq_cntr::Tag{}, cursor, 1);
 }
 
 constexpr void circular_array::Cntr::CursorAdvanceL(this Cntr const& cntr,
-                                                    Cursor* cursor_,
+                                                    seq_cntr::Tag,
+                                                    Cursor* cursor,
                                                     size_t step) {
-    Cursor* cursor{ static_cast<Cursor*>(cursor_) };
-
     detail::CheckCursor_(cntr, cursor);
 
     void* data{ cntr.data };
@@ -870,10 +966,9 @@ constexpr void circular_array::Cntr::CursorAdvanceL(this Cntr const& cntr,
 }
 
 constexpr void circular_array::Cntr::CursorAdvanceR(this Cntr const& cntr,
-                                                    Cursor* cursor_,
+                                                    seq_cntr::Tag,
+                                                    Cursor* cursor,
                                                     size_t step) {
-    Cursor* cursor{ static_cast<Cursor*>(cursor_) };
-
     detail::CheckCursor_(cntr, cursor);
 
     void* data{ cntr.data };
@@ -903,7 +998,7 @@ constexpr void circular_array::Cntr::AssignFromSeqCntr(
 
     /*
     TODO
-    if constexpr (IsSame<RemoveCVRef<SrcSeqCntr>, seq_cntr_ref::Ref>) {
+    if constexpr (IsSame<RemoveCVRef<SrcSeqCntr>, poly_seq_cntr::Cntr>) {
         if (src_seq_cntr.vtable ==
             &seq_cntr::GetVTable(type_wrapper::TypeWrapper<Cntr>{})) {
             auto const* src_ca_cursor{ static_cast<Cursor*>(
@@ -950,93 +1045,6 @@ constexpr void circular_array::Cntr::AssignFromSeqCntr(
         idx += cur_cnt;
         cnt -= cur_cnt;
     }
-}
-
-constexpr seq_cntr::capability::Flag
-seq_cntr::CntrTraits<circular_array::Cntr>::GetStaticEnabledCapabilityFlag() {
-    return seq_cntr::capability::FlagBuilder{
-        .GetCursorSize = true,
-
-        .GetElemSize = true,
-        .GetElemCnt = true,
-        .GetMaxElemCnt = true,
-
-        .GetLBCursor = true,
-        .GetRBCursor = true,
-
-        .PeekL = true,
-        .PeekR = true,
-
-        .Refer = true,
-        .Derefer = true,
-
-        .Read = true,
-        .Write = true,
-        .ReadWrite = true,
-
-        .PushL = true,
-        .PushR = true,
-        .Insert = true,
-
-        .PopL = true,
-        .PopR = true,
-        .Erase = true,
-        .EraseAll = true,
-
-        .CopyCursor = true,
-
-        .AreEqualCursor = true,
-        .CompareCursor = true,
-        .GetCursorDist = true,
-        .GetCursorIdx = true,
-
-        .CursorStepL = true,
-        .CursorStepR = true,
-
-        .CursorAdvanceL = true,
-        .CursorAdvanceR = true,
-    }();
-}
-
-constexpr seq_cntr::capability::Flag
-seq_cntr::CntrTraits<circular_array::Cntr>::GetStaticDisabledCapabilityFlag() {
-    return seq_cntr::capability::empty_capability_flag;
-}
-
-constexpr seq_cntr::capability::Flag
-seq_cntr::CntrTraits<circular_array::Cntr>::GetDynamicEnabledCapabilityFlag(
-    circular_array::Cntr&) {
-    return seq_cntr::capability::empty_capability_flag;
-}
-
-constexpr seq_cntr::capability::Flag
-seq_cntr::CntrTraits<circular_array::Cntr>::GetDynamicDisabledCapabilityFlag(
-    circular_array::Cntr&) {
-    return seq_cntr::capability::empty_capability_flag;
-}
-
-constexpr seq_cntr::capability::Flag seq_cntr::CntrTraits<
-    circular_array::Cntr const>::GetStaticEnabledCapabilityFlag() {
-    return seq_cntr::GetStaticEnabledCapabilityFlag<circular_array::Cntr>() &
-           seq_cntr::capability::const_capability_flag;
-}
-
-constexpr seq_cntr::capability::Flag seq_cntr::CntrTraits<
-    circular_array::Cntr const>::GetStaticDisabledCapabilityFlag() {
-    return seq_cntr::GetStaticDisabledCapabilityFlag<circular_array::Cntr>() |
-           seq_cntr::capability::non_const_capability_flag;
-}
-
-constexpr seq_cntr::capability::Flag seq_cntr::
-    CntrTraits<circular_array::Cntr const>::GetDynamicEnabledCapabilityFlag(
-        circular_array::Cntr const&) {
-    return seq_cntr::capability::empty_capability_flag;
-}
-
-constexpr seq_cntr::capability::Flag seq_cntr::
-    CntrTraits<circular_array::Cntr const>::GetDynamicDisabledCapabilityFlag(
-        circular_array::Cntr const&) {
-    return seq_cntr::capability::empty_capability_flag;
 }
 
 }  // namespace zeta::core
