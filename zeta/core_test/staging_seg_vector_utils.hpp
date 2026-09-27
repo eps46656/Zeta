@@ -2,9 +2,8 @@
 
 #include <cstdlib>
 #include <zeta/core/allocator.hpp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
-#include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/poly_allocator.hpp>
 #include <zeta/core/poly_allocator.ipp>
 #include <zeta/core/poly_seq_cntr.ipp>
@@ -37,7 +36,7 @@ struct Pack {
               this->seg_alctr,      //
               this->data_alctr,     //
           } {
-        ZETA_Core_Debug_PrintCurPos;
+        ZETA_Core_DebugUtils_Diag_LogCurPos();
     }
 
     constexpr Pack(size_t elem_stride, size_t seg_capacity,
@@ -50,7 +49,7 @@ struct Pack {
               this->data_alctr,     //
               src_sv,               //
           } {
-        ZETA_Core_Debug_PrintCurPos;
+        ZETA_Core_DebugUtils_Diag_LogCurPos();
     }
 };
 
@@ -64,7 +63,7 @@ constexpr PolySeqCntr Create(size_t elem_stride, size_t seg_capacity,
 
     auto* sv{ &pack->sv };
 
-    ZETA_Core_Debug_PrintVar(sv);
+    ZETA_Core_DebugUtils_Diag_LogVar(sv);
 
     seq_cntr_utils::AddSanitizeFunc(sv, Sanitize);
 
@@ -85,7 +84,7 @@ constexpr PolySeqCntr Create(size_t elem_stride, size_t seg_capacity,
 
     auto* sv{ &pack->sv };
 
-    ZETA_Core_Debug_PrintVar(sv);
+    ZETA_Core_DebugUtils_Diag_LogVar(sv);
 
     seq_cntr_utils::AddSanitizeFunc(sv, Sanitize);
 
@@ -100,16 +99,13 @@ constexpr void Destroy(void* sv) {
     delete pack;
 }
 
-constexpr void Sanitize(void const* sv) {
-    Pack* pack{ ZETA_Core_MemberToStruct(Pack, sv, sv) };
+constexpr void Sanitize(void const* sv_) {
+    StagingSegVector const* sv{ static_cast<StagingSegVector const*>(sv_) };
 
-    core::mem_recorder::MemRecorder seg;
-    core::mem_recorder::MemRecorder data;
+    if (sv == nullptr) { return; }
 
-    pack->sv.Sanitize(&seg, &data);
-
-    core::mem_recorder::MatchRecords(pack->seg_alctr.mem_recorder, seg);
-    core::mem_recorder::MatchRecords(pack->data_alctr.mem_recorder, data);
+    zeta::core::debug_utils::sanity::SanityCheck(
+        sv, zeta::core::debug_utils::sanity::SanityCheckScope::Complete);
 }
 
 }  // namespace zeta::core_test::staging_seg_vector_utils

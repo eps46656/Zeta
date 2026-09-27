@@ -1,6 +1,6 @@
 #pragma once
 
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/hash_utils.hpp>
 
 namespace zeta::core {
@@ -19,7 +19,7 @@ inline unsigned long long hash_utils::BasicElemHash(void const* data_,
     constexpr unsigned long long fnv_prime{ 1099511628211ULL };
 
     unsigned char const* data{ static_cast<unsigned char const*>(data_) };
-    ZETA_Core_DebugAssert(data != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(data != nullptr);
 
     unsigned long long ret{ fnv_offset_basis ^ salt };
 

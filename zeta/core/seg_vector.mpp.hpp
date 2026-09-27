@@ -6,42 +6,46 @@
 #error "EnStaging is not defined."
 #endif
 
-#pragma push_macro("Skip")
-
 #if EnStaging
 
-#if defined(ZETA_MacroGuard__seg_vector_mpp_hpp__staging_seg_vector)
-#define Skip 1
-#else
-#define ZETA_MacroGuard__seg_vector_mpp_hpp__staging_seg_vector
-#define Skip 0
+#if !defined(ZETA_MacroGuard__seg_vector_mpp_hpp__staging_seg_vector)
+#define ZETA_MacroGuard__seg_vector_mpp_hpp__staging_seg_vector 1
 #endif
 
 #else
 
-#if defined(ZETA_MacroGuard__seg_vector_mpp_hpp__seg_vector)
-#define Skip 1
-#else
-#define ZETA_MacroGuard__seg_vector_mpp_hpp__seg_vector
-#define Skip 0
+#if !defined(ZETA_MacroGuard__seg_vector_mpp_hpp__seg_vector)
+#define ZETA_MacroGuard__seg_vector_mpp_hpp__seg_vector 1
 #endif
 
 #endif
 
-#if !Skip
+#if ZETA_MacroGuard__seg_vector_mpp_hpp__staging_seg_vector == 1 || \
+    ZETA_MacroGuard__seg_vector_mpp_hpp__seg_vector == 1
+
+#if ZETA_MacroGuard__seg_vector_mpp_hpp__staging_seg_vector == 1
+#undef ZETA_MacroGuard__seg_vector_mpp_hpp__staging_seg_vector
+#define ZETA_MacroGuard__seg_vector_mpp_hpp__staging_seg_vector 2
+#endif
+
+#if ZETA_MacroGuard__seg_vector_mpp_hpp__seg_vector == 1
+#undef ZETA_MacroGuard__seg_vector_mpp_hpp__seg_vector
+#define ZETA_MacroGuard__seg_vector_mpp_hpp__seg_vector 2
+#endif
 
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/basic_bin_tree_node.hpp>
 #include <zeta/core/circular_array.hpp>
-#include <zeta/core/debug_utils.hpp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/generic_hash_table.hpp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/pool_allocator.hpp>
 #include <zeta/core/seq_cntr.hpp>
 #include <zeta/core/utils.hpp>
+
+ZETA_Core_ClangdPreambleBarrier;
 
 #if EnStaging
 
@@ -196,34 +200,35 @@ struct Cntr {
 
     template <
 #if EnStaging
-        typename OriginLikeInitArg,
+        typename OriginLikeConstructArg,
 #endif
-        typename SegAllocatorLikeInitArg, typename DataAllocatorLikeInitArg>
+        typename SegAllocatorLikeConstructArg,
+        typename DataAllocatorLikeConstructArg>
     constexpr Cntr(
 #if !EnStaging
         size_t elem_size,
 #endif
         size_t elem_stride, size_t seg_elem_slot_cnt,
 #if EnStaging
-        OriginLikeInitArg&& origin_like_init_arg,
+        OriginLikeConstructArg&& origin_like_construct_arg,
 #endif
-        SegAllocatorLikeInitArg&& seg_alctr_like_init_arg,
-        DataAllocatorLikeInitArg&& data_alctr_like_init_arg);
+        SegAllocatorLikeConstructArg&& seg_alctr_like_construct_arg,
+        DataAllocatorLikeConstructArg&& data_alctr_like_construct_arg);
 
     template <
 #if EnStaging
-        typename OriginLikeInitArg,
+        typename OriginLikeConstructArg,
 #endif
-        typename SegAllocatorLikeInitArg, typename DataAllocatorLikeInitArg,
-        typename SrcOriginLike, typename SrcSegAllocatorLike,
-        typename SrcDataAllocatorLike>
+        typename SegAllocatorLikeConstructArg,
+        typename DataAllocatorLikeConstructArg, typename SrcOriginLike,
+        typename SrcSegAllocatorLike, typename SrcDataAllocatorLike>
     constexpr Cntr(
         size_t elem_stride, size_t seg_elem_slot_cnt,
 #if EnStaging
-        OriginLikeInitArg&& origin_like_init_arg,
+        OriginLikeConstructArg&& origin_like_construct_arg,
 #endif
-        SegAllocatorLikeInitArg&& seg_alctr_like_init_arg,
-        DataAllocatorLikeInitArg&& data_alctr_like_init_arg,
+        SegAllocatorLikeConstructArg&& seg_alctr_like_construct_arg,
+        DataAllocatorLikeConstructArg&& data_alctr_like_construct_arg,
         Cntr<
 #if EnStaging
             SrcOriginLike,
@@ -231,7 +236,7 @@ struct Cntr {
             SrcSegAllocatorLike, SrcDataAllocatorLike> const& src_cntr);
 
 #if EnStaging
-    template <typename OriginLikeInitArg>
+    template <typename OriginLikeConstructArg>
 #endif
     constexpr Cntr(Cntr const& src_cntr);
 
@@ -255,7 +260,7 @@ struct Cntr {
     static constexpr seq_cntr::capability::Flag
         GetDynamicDisabledCapabilityFlag(seq_cntr::Tag);
 
-    constexpr void* GetReferedInstPtr(this Cntr const& cntr, seq_cntr::Tag);
+    constexpr void* GetReferedInstPtr(this Cntr const& self, seq_cntr::Tag);
 
     static constexpr meta::TypeWrapper<Cursor> GetCursorType(
         seq_cntr::Tag, meta::TypeWrapper<Cntr>);
@@ -265,134 +270,134 @@ struct Cntr {
 
     static constexpr size_t GetCursorSize(seq_cntr::Tag);
 
-    constexpr size_t GetElemSize(this Cntr const& cntr, seq_cntr::Tag);
+    constexpr size_t GetElemSize(this Cntr const& self, seq_cntr::Tag);
 
-    constexpr size_t GetElemCnt(this Cntr const& cntr, seq_cntr::Tag);
+    constexpr size_t GetElemCnt(this Cntr const& self, seq_cntr::Tag);
 
-    constexpr size_t GetMaxElemCnt(this Cntr const& cntr, seq_cntr::Tag);
+    constexpr size_t GetMaxElemCnt(this Cntr const& self, seq_cntr::Tag);
 
-    constexpr void GetLBCursor(this Cntr const& cntr, seq_cntr::Tag,
+    constexpr void GetLBCursor(this Cntr const& self, seq_cntr::Tag,
                                Cursor* dst_cursor);
 
-    constexpr void GetRBCursor(this Cntr const& cntr, seq_cntr::Tag,
+    constexpr void GetRBCursor(this Cntr const& self, seq_cntr::Tag,
                                Cursor* dst_cursor);
 
-    constexpr void PeekL(this auto& cntr, seq_cntr::Tag, bool lazy_copy_elem,
+    constexpr void PeekL(this auto& self, seq_cntr::Tag, bool lazy_copy_elem,
                          seq_cntr::ElemPtrView* dst_elem_ptr_view,
                          Cursor* dst_cursor, void* dst_elem);
 
-    constexpr void PeekR(this auto& cntr, seq_cntr::Tag, bool lazy_copy_elem,
+    constexpr void PeekR(this auto& self, seq_cntr::Tag, bool lazy_copy_elem,
                          seq_cntr::ElemPtrView* dst_elem_ptr_view,
                          Cursor* dst_cursor, void* dst_elem);
 
-    constexpr void Refer(this auto& cntr, seq_cntr::Tag, size_t idx,
+    constexpr void Refer(this auto& self, seq_cntr::Tag, size_t idx,
                          bool lazy_copy_elem,
                          seq_cntr::ElemPtrView* dst_elem_ptr_view,
                          Cursor* dst_cursor, void* dst_elem);
 
-    constexpr void Derefer(this auto& cntr, seq_cntr::Tag, Cursor* pos_cursor,
+    constexpr void Derefer(this auto& self, seq_cntr::Tag, Cursor* pos_cursor,
                            bool lazy_copy_elem,
                            seq_cntr::ElemPtrView* dst_elem_ptr_view,
                            void* dst_elem);
 
     template <typename Predictor>
-    constexpr void* FindFirst(this Cntr& cntr, seq_cntr::Tag,
+    constexpr void* FindFirst(this Cntr& self, seq_cntr::Tag,
                               Predictor&& predictor, Cursor* dst_cursor,
                               void* dst_elem);
 
     template <typename Reader>
-    constexpr void Read(this Cntr const& cntr, seq_cntr::Tag,
+    constexpr void Read(this Cntr const& self, seq_cntr::Tag,
                         Cursor* pos_cursor, size_t cnt, Reader&& reader,
                         Cursor* dst_cursor);
 
     template <typename Writer>
-    constexpr void Write(this Cntr& cntr, seq_cntr::Tag, Cursor* pos_cursor,
+    constexpr void Write(this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor,
                          size_t cnt, Writer&& writer, Cursor* dst_cursor);
 
     template <typename ReaderWriter>
-    constexpr void ReadWrite(this Cntr& cntr, seq_cntr::Tag, Cursor* pos_cursor,
+    constexpr void ReadWrite(this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor,
                              size_t cnt, ReaderWriter&& reader_writer,
                              Cursor* dst_cursor);
 
     template <typename Writer>
-    constexpr void PushL(this Cntr& cntr, seq_cntr::Tag, size_t cnt,
+    constexpr void PushL(this Cntr& self, seq_cntr::Tag, size_t cnt,
                          Writer&& writer, Cursor* dst_cursor);
 
     template <typename Writer>
-    constexpr void PushR(this Cntr& cntr, seq_cntr::Tag, size_t cnt,
+    constexpr void PushR(this Cntr& self, seq_cntr::Tag, size_t cnt,
                          Writer&& writer, Cursor* dst_cursor);
 
     template <typename Writer>
-    constexpr void Insert(this Cntr& cntr, seq_cntr::Tag, Cursor* pos_cursor,
+    constexpr void Insert(this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor,
                           size_t cnt, Writer&& writer, Cursor* dst_cursor);
 
     template <typename Reader>
-    constexpr void PopL(this Cntr& cntr, seq_cntr::Tag, size_t cnt,
+    constexpr void PopL(this Cntr& self, seq_cntr::Tag, size_t cnt,
                         Reader&& reader);
 
     template <typename Reader>
-    constexpr void PopR(this Cntr& cntr, seq_cntr::Tag, size_t cnt,
+    constexpr void PopR(this Cntr& self, seq_cntr::Tag, size_t cnt,
                         Reader&& reader);
 
     template <typename Reader>
-    constexpr void Erase(this Cntr& cntr, seq_cntr::Tag, Cursor* pos_cursor,
+    constexpr void Erase(this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor,
                          size_t cnt, Reader&& reader);
 
-    constexpr void EraseAll(this Cntr& cntr, seq_cntr::Tag);
+    constexpr void EraseAll(this Cntr& self, seq_cntr::Tag);
 
-    constexpr void Reset(this Cntr& cntr);
+    constexpr void Reset(this Cntr& self);
 
 #if EnStaging
     template <typename OriginOriginLike, typename OriginSegAllocator,
-              typename OriginDataAllocator, typename NewOriginLikeInitArg>
-    constexpr void Collapse(this Cntr& cntr,
-                            Cntr<OriginOriginLike, OriginSegAllocator,
-                                 OriginDataAllocator> const& origin_cntr,
-                            NewOriginLikeInitArg&& new_origin_like_init_arg);
+              typename OriginDataAllocator, typename NewOriginLikeConstructArg>
+    constexpr void Collapse(
+        this Cntr& self,
+        Cntr<OriginOriginLike, OriginSegAllocator, OriginDataAllocator> const&
+            origin_cntr,
+        NewOriginLikeConstructArg&& new_origin_like_construct_arg);
 
-    constexpr void WriteBack(this Cntr& cntr, int write_back_strategy,
+    constexpr void WriteBack(this Cntr& self, int write_back_strategy,
                              unsigned long long cost_coeff_read,
                              unsigned long long cost_coeff_write,
                              unsigned long long cost_coeff_insert,
                              unsigned long long cost_coeff_erase);
 #endif
 
-    constexpr void CopyCursor(this Cntr const& cntr, seq_cntr::Tag,
+    constexpr void CopyCursor(this Cntr const& self, seq_cntr::Tag,
                               Cursor* src_cursor, Cursor* dst_cursor);
 
-    constexpr bool AreEqualCursor(this Cntr const& cntr, seq_cntr::Tag,
+    constexpr bool AreEqualCursor(this Cntr const& self, seq_cntr::Tag,
                                   Cursor* cursor_a, Cursor* cursor_b);
 
-    constexpr comparison::Ordering CompareCursor(this Cntr const& cntr,
+    constexpr comparison::Ordering CompareCursor(this Cntr const& self,
                                                  seq_cntr::Tag,
                                                  Cursor* cursor_a,
                                                  Cursor* cursor_b);
 
-    constexpr size_t GetCursorDist(this Cntr const& cntr, seq_cntr::Tag,
+    constexpr size_t GetCursorDist(this Cntr const& self, seq_cntr::Tag,
                                    Cursor* cursor_a, Cursor* cursor_b);
 
-    constexpr size_t GetCursorIdx(this Cntr const& cntr, seq_cntr::Tag,
+    constexpr size_t GetCursorIdx(this Cntr const& self, seq_cntr::Tag,
                                   Cursor* cursor);
 
-    constexpr void CursorStepL(this Cntr const& cntr, seq_cntr::Tag,
+    constexpr void CursorStepL(this Cntr const& self, seq_cntr::Tag,
                                Cursor* cursor);
 
-    constexpr void CursorStepR(this Cntr const& cntr, seq_cntr::Tag,
+    constexpr void CursorStepR(this Cntr const& self, seq_cntr::Tag,
                                Cursor* cursor);
 
-    constexpr void CursorAdvanceL(this Cntr const& cntr, seq_cntr::Tag,
+    constexpr void CursorAdvanceL(this Cntr const& self, seq_cntr::Tag,
                                   Cursor* cursor, size_t step);
 
-    constexpr void CursorAdvanceR(this Cntr const& cntr, seq_cntr::Tag,
+    constexpr void CursorAdvanceR(this Cntr const& self, seq_cntr::Tag,
                                   Cursor* cursor, size_t step);
 
-    constexpr void PrintState(this Cntr const& cntr);
+    constexpr void PrintState(this Cntr const& self);
 
-    constexpr Stats GetStats(this Cntr const& cntr);
+    constexpr Stats GetStats(this Cntr const& self);
 
-    constexpr void Sanitize(this Cntr const& cntr,
-                            mem_recorder::MemRecorder* dst_seg,
-                            mem_recorder::MemRecorder* dst_data);
+    static constexpr void SanityCheck(
+        void const* cntr, debug_utils::sanity::SanityCheckScope scope);
 };
 
 }  // namespace zeta::core::Namespace
@@ -402,5 +407,3 @@ struct Cntr {
 #pragma pop_macro("CntrTplArgList")
 
 #endif
-
-#pragma pop_macro("Skip")

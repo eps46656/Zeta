@@ -1,9 +1,9 @@
 #pragma once
 
-#include <zeta/core/elem_stream.hpp>
 #include <zeta/core/error.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/integral_endec.hpp>
+#include <zeta/core/seq_endpoint.hpp>
 
 namespace zeta::core::vlq_utils {
 
@@ -12,7 +12,7 @@ template <integral::IsIntegral Integral, size_t UnitWidth>
 constexpr size_t EstimateEncodedUnitCnt(
     Integral value, meta::ValueWrapper<size_t, UnitWidth> unit_width);
 
-template <elem_stream::acceptor::IsAcceptor Acceptor,
+template <seq_endpoint::acceptor::IsAcceptor Acceptor,
           integral_endec::IsEndiannessLike EndiannessLike,
           integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
           integral::IsIntegral SrcIntegral>
@@ -32,7 +32,7 @@ struct DecodeResult {
     Integra value;
 };
 
-template <elem_stream::provider::IsProvider Provider,
+template <seq_endpoint::provider::IsProvider Provider,
           integral_endec::IsEndiannessLike EndiannessLike,
           integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
           integral::IsIntegral DstIntegral>

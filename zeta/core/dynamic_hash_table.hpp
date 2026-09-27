@@ -2,11 +2,11 @@
 
 #include <zeta/core/assoc_cntr.hpp>
 #include <zeta/core/basic_llist_node.hpp>
-#include <zeta/core/debug_utils.hpp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/generic_hash_table.hpp>
 #include <zeta/core/lifecycle.hpp>
-#include <zeta/core/mem_recorder.hpp>
+
+ZETA_Core_ClangdPreambleBarrier;
 
 #pragma push_macro("CntrTplParamList")
 #define CntrTplParamList(suffix)                                  \
@@ -22,7 +22,7 @@
 
 namespace zeta::core::dynamic_hash_table {
 
-ZETA_Core_StaticAssert(alignof(void*) % 4 == 0);
+static_assert(alignof(void*) % 4 == 0);
 
 using LListNode = basic_llist_node::Node<void*, meta::AutoValueWrapper<false>,
                                          meta::AutoValueWrapper<false>>;
@@ -34,7 +34,7 @@ struct Node {
 
     unsigned char data[] __attribute__((aligned(max_align)));
 
-    constexpr void Init();
+    constexpr void Construct();
 };
 
 template <typename ElemHasherLike>
@@ -42,9 +42,9 @@ struct NodeHasherWrapper {
     ElemHasherLike elem_hasher;
 
     template <typename... Args>
-    constexpr void Init(Args&&... args);
+    constexpr void Construct(Args&&... args);
 
-    constexpr void Deinit();
+    constexpr void Destruct();
 
     constexpr unsigned long long Hash(generic_hash_table::Node const* ghtn,
                                       unsigned long long salt) const;
@@ -55,9 +55,9 @@ struct NodeComparatorWrapper {
     ElemComparatorLike elem_cmptr;
 
     template <typename... Args>
-    constexpr void Init(Args&&... args);
+    constexpr void Construct(Args&&... args);
 
-    constexpr void Deinit();
+    constexpr void Destruct();
 
     template <comparison::IsOpTag OpTag>
     constexpr auto Compare(OpTag, generic_hash_table::Node const* ghtn_a,
@@ -97,20 +97,21 @@ struct Cntr {
 
     NodeAllocatorLike node_alctr;
 
-    template <typename HasherLikeInitArg, typename ComparatorLikeInitArg,
-              typename SaltRandomEngineLikeInitArg,
-              typename NodeAllocatorLikeInitArg,
-              typename TableNodeAllocatorLikeInitArg>
-    constexpr void Init(
+    template <typename HasherLikeConstructArg,
+              typename ComparatorLikeConstructArg,
+              typename SaltRandomEngineLikeConstructArg,
+              typename NodeAllocatorLikeConstructArg,
+              typename TableNodeAllocatorLikeConstructArg>
+    constexpr void Construct(
         this Cntr& cntr, size_t elem_size,
         generic_hash_table::RehashingConfig const& rehashing_config,
-        HasherLikeInitArg&& elem_hasher_init_arg,
-        ComparatorLikeInitArg&& elem_cmptr_init_arg,
-        SaltRandomEngineLikeInitArg&& salt_random_engine_init_arg,
-        NodeAllocatorLikeInitArg&& node_alctr_init_arg,
-        TableNodeAllocatorLikeInitArg&& table_node_alctr_init_arg);
+        HasherLikeConstructArg&& elem_hasher_construct_arg,
+        ComparatorLikeConstructArg&& elem_cmptr_construct_arg,
+        SaltRandomEngineLikeConstructArg&& salt_random_engine_construct_arg,
+        NodeAllocatorLikeConstructArg&& node_alctr_construct_arg,
+        TableNodeAllocatorLikeConstructArg&& table_node_alctr_construct_arg);
 
-    constexpr void Deinit(this Cntr& cntr);
+    constexpr void Destruct(this Cntr& cntr);
 
     constexpr void* GetReferedInstPtr(this Cntr const& cntr);
 

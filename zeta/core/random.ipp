@@ -1,13 +1,13 @@
 #pragma once
 
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/integral_math.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/random.hpp>
 
-namespace zeta ::core {
+namespace zeta::core {
 
 template <typename Engine>
 constexpr bool random::IsConst() {
@@ -27,14 +27,15 @@ auto random::Fetch(Engine& engine) {
 
     using Integral = decltype(ret);
 
-    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegral<Integral>);
 
-    ZETA_Core_StaticAssert(bit_cnt <= integral::WidthOf<Integral>);
+    static_assert(bit_cnt <= integral::WidthOf<Integral>);
 
-    ZETA_Core_DebugAssert(static_cast<Integral>(0) <= ret);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(static_cast<Integral>(0) <= ret);
 
     if constexpr (bit_cnt < integral::WidthOf<Integral>) {
-        ZETA_Core_DebugAssert(ret < (static_cast<Integral>(1) << bit_cnt));
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(
+            ret < (static_cast<Integral>(1) << bit_cnt));
     }
 
     return ret;
@@ -55,9 +56,9 @@ template <typename UnsignedIntegral, typename Engine>
 UnsignedIntegral random::GetRandomInt(Engine& engine) {
     (CheckContract<Engine>)(engine);
 
-    ZETA_Core_StaticAssert(!(IsConst<Engine>)());
+    static_assert(!(IsConst<Engine>)());
 
-    ZETA_Core_StaticAssert(integral::IsUnsignedIntegral<UnsignedIntegral>);
+    static_assert(integral::IsUnsignedIntegral<UnsignedIntegral>);
 
     UnsignedIntegral ret{ static_cast<UnsignedIntegral>((Fetch)(engine)) };
 
@@ -79,11 +80,11 @@ template <typename Engine, typename Integral>
 Integral random::GetRandomInt(Engine& engine, Integral min, Integral max) {
     (CheckContract<Engine>)(engine);
 
-    ZETA_Core_StaticAssert(!(IsConst<Engine>)());
+    static_assert(!(IsConst<Engine>)());
 
-    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegral<Integral>);
 
-    ZETA_Core_DebugAssert(min <= max);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(min <= max);
 
     constexpr size_t bit_cnt{ (GetBitCnt<Engine>)() };
 

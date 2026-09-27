@@ -4,7 +4,7 @@
 #include <zeta/core/comparison.ipp>
 #include <zeta/core/comparison_utils.ipp>
 #include <zeta/core/datetime.hpp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/integral_utils.ipp>
 #include <zeta/core/utils.ipp>
 
@@ -213,7 +213,7 @@ constexpr bool datetime::YearMonthDayHourMinSec::IsValid(
         } else if constexpr (meta::IsSame<TimeStandardLike, TimeStandard>) {
             return time_standard_like;
         } else {
-            ZETA_Core_StaticAssert(false);
+            static_assert(false);
         }
     } };
 
@@ -253,7 +253,7 @@ constexpr bool datetime::YearMonthDayHourMinSec::IsValid(
                *ymd == self_ymd;
     }
 
-    ZETA_Core_Unreachable();
+    ZETA_Core_DebugUtils_Diag_Unreachable();
 }
 
 constexpr bool datetime::IsLeapYear(BaseIntegral year) {
@@ -267,7 +267,8 @@ constexpr unsigned datetime::GetYearDayOffsetFromMonthDay(bool is_leap_year,
 
 constexpr datetime::MonthDay datetime::GetMonthDayFromYearDayOffset(
     bool is_leap_year, unsigned day_offset_in_year) {
-    ZETA_Core_DebugAssert(day_offset_in_year < 365U + is_leap_year);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(day_offset_in_year <
+                                            365U + is_leap_year);
 
     unsigned cur_month{ day_offset_in_year / 31 + 1 };
 
@@ -371,7 +372,7 @@ constexpr datetime::BaseIntegral datetime::GetGlobalSecOffsetFromYearMonthDay(
         } else if constexpr (meta::IsSame<TimeStandardLike, TimeStandard>) {
             return time_standard_like;
         } else {
-            ZETA_Core_StaticAssert(false);
+            static_assert(false);
         }
     }() };
 
@@ -395,7 +396,7 @@ constexpr datetime::BaseIntegral datetime::GetGlobalSecOffsetFromYearMonthDay(
         return sec_offset;
     }
 
-    ZETA_Core_Unreachable();
+    ZETA_Core_DebugUtils_Diag_Unreachable();
 }
 
 namespace datetime::detail {
@@ -447,7 +448,7 @@ datetime::GetYearMonthDayHourMinSecFromGlobalSecOffset(
         } else if constexpr (meta::IsSame<TimeStandardLike, TimeStandard>) {
             return time_standard_like;
         } else {
-            ZETA_Core_StaticAssert(false);
+            static_assert(false);
         }
     }() };
 
@@ -528,7 +529,7 @@ datetime::GetYearMonthDayHourMinSecFromGlobalSecOffset(
                                         (*op_global_sec_offset)[1]);
     }
 
-    ZETA_Core_Unreachable();
+    ZETA_Core_DebugUtils_Diag_Unreachable();
 }
 
 }  // namespace zeta::core

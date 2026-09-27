@@ -1,6 +1,7 @@
 #pragma once
 
 #include <zeta/core/ascii.hpp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/json_utils.hpp>
 #include <zeta/core/lifecycle.hpp>
 #include <zeta/core/utils.ipp>
@@ -27,6 +28,12 @@ constexpr bool IsTokenEnd_(unicode::unichar_t cp) {
 namespace json_utils::detail {
 
 template <typename CodepointAcceptorLike>
+constexpr void CheckEncoder_(Encoder<CodepointAcceptorLike> const& encoder) {
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < encoder.depth);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(encoder.depth <= encoder.max_depth);
+}
+
+template <typename CodepointAcceptorLike>
 constexpr void MakeNewline_(Encoder<CodepointAcceptorLike>& encoder) {
     auto& cpa{ meta::GetInstRef(encoder.cpa_like) };
 
@@ -42,14 +49,15 @@ constexpr void MakeNewline_(Encoder<CodepointAcceptorLike>& encoder) {
     case FormatConfig::Newline::Type::None: break;
 
     case FormatConfig::Newline::Type::LF:
-        elem_stream::acceptor::Transfer(cpa, lf_str, sizeof(unicode::unichar_t),
-                                        sizeof(unicode::unichar_t), 1);
+        seq_endpoint::acceptor::Transfer(cpa, lf_str,
+                                         sizeof(unicode::unichar_t),
+                                         sizeof(unicode::unichar_t), 1);
         break;
 
     case FormatConfig::Newline::Type::CRLF:
-        elem_stream::acceptor::Transfer(cpa, crlf_str,
-                                        sizeof(unicode::unichar_t),
-                                        sizeof(unicode::unichar_t), 2);
+        seq_endpoint::acceptor::Transfer(cpa, crlf_str,
+                                         sizeof(unicode::unichar_t),
+                                         sizeof(unicode::unichar_t), 2);
 
         break;
     }
@@ -73,9 +81,9 @@ constexpr void MakeColon_(Encoder<CodepointAcceptorLike>& encoder) {
     unicode::unichar_t const* str_end{ colon_str + 2 +
                                        fmt_config.space.after_colon };
 
-    elem_stream::acceptor::Transfer(cpa, str_beg, sizeof(unicode::unichar_t),
-                                    sizeof(unicode::unichar_t),
-                                    static_cast<size_t>(str_end - str_beg));
+    seq_endpoint::acceptor::Transfer(cpa, str_beg, sizeof(unicode::unichar_t),
+                                     sizeof(unicode::unichar_t),
+                                     static_cast<size_t>(str_end - str_beg));
 }
 
 template <typename CodepointAcceptorLike>
@@ -98,9 +106,9 @@ constexpr void MakeComma_(Encoder<CodepointAcceptorLike>& encoder) {
                                             FormatConfig::Newline::Type::None &&
                                         fmt_config.space.after_colon) };
 
-    elem_stream::acceptor::Transfer(cpa, str_beg, sizeof(unicode::unichar_t),
-                                    sizeof(unicode::unichar_t),
-                                    static_cast<size_t>(str_end - str_beg));
+    seq_endpoint::acceptor::Transfer(cpa, str_beg, sizeof(unicode::unichar_t),
+                                     sizeof(unicode::unichar_t),
+                                     static_cast<size_t>(str_end - str_beg));
 }
 
 template <typename CodepointAcceptorLike>
@@ -127,27 +135,23 @@ constexpr void MakeIndent_(Encoder<CodepointAcceptorLike>& encoder) {
         break;
     }
 
-    elem_stream::acceptor::Transfer(
+    seq_endpoint::acceptor::Transfer(
         cpa, &indent_char, sizeof(unicode::unichar_t), 0,
         static_cast<size_t>(fmt_ctx.indent_level) *
             static_cast<size_t>(fmt_config.indent.cnt));
 }
 
 template <typename CodepointAcceptorLike>
-constexpr void SendLastElem_(Encoder<CodepointAcceptorLike>& encoder,
-                             bool allow_as_obj_key) {
-    ZETA_Core_DebugAssert(0 < encoder.depth);
+constexpr utils::TryResult<meta::Monostate, EncReason> SendLastElem_(
+    Encoder<CodepointAcceptorLike>& encoder, bool allow_as_obj_key) {
+    detail::CheckEncoder_(encoder);
 
     EncInnerState& state{ encoder.states[encoder.depth - 1] };
 
-    ZETA_Core_Debug_PrintVar(static_cast<unsigned char>(state));
-
     switch (state) {
     case EncInnerState::ReceivingValue: {
-        ZETA_Core_Debug_PrintCurPos;
         --encoder.depth;
-
-        return;
+        return utils::TryResultValueTag{};
     }
 
     case EncInnerState::ReceivingArrayElemOrFinishLead:
@@ -161,13 +165,15 @@ constexpr void SendLastElem_(Encoder<CodepointAcceptorLike>& encoder,
 
         state = EncInnerState::ReceivingArrayElemOrFinishTrail;
 
-        return;
+        return utils::TryResultValueTag{};
     }
 
     case EncInnerState::ReceivingObjectKeyOrFinishLead:
     case EncInnerState::ReceivingObjectKeyOrFinishTrail: {
-        ZETA_Core_Debug_PrintCurPos;
-        ZETA_Core_DebugAssert(allow_as_obj_key);
+        if (!allow_as_obj_key) {
+            return { utils::TryResultReasonTag{},
+                     EncReason::UnexpectedValueAsObjectKey };
+        }
 
         if (state == EncInnerState::ReceivingObjectKeyOrFinishTrail) {
             detail::MakeComma_(encoder);
@@ -178,7 +184,7 @@ constexpr void SendLastElem_(Encoder<CodepointAcceptorLike>& encoder,
 
         state = EncInnerState::ReceivingObjectValue;
 
-        return;
+        return utils::TryResultValueTag{};
     }
 
     case EncInnerState::ReceivingObjectValue: {
@@ -186,10 +192,10 @@ constexpr void SendLastElem_(Encoder<CodepointAcceptorLike>& encoder,
 
         state = EncInnerState::ReceivingObjectKeyOrFinishTrail;
 
-        return;
+        return utils::TryResultValueTag{};
     }
 
-    default: ZETA_Core_Unreachable();
+    default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 }
 
@@ -198,7 +204,7 @@ constexpr void SendLastElem_(Encoder<CodepointAcceptorLike>& encoder,
 template <typename CodepointAcceptorLike>
 constexpr json_utils::EncState
 json_utils::Encoder<CodepointAcceptorLike>::GetState(this Encoder& self) {
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckEncoder_(self);
 
     EncInnerState& state{ self.states[self.depth - 1] };
 
@@ -240,11 +246,13 @@ json_utils::Encoder<CodepointAcceptorLike>::GetState(this Encoder& self) {
 }
 
 template <typename CodepointAcceptorLike>
-template <typename CodeAcceptorLikeInitArg>
+template <typename CodeAcceptorLikeConstructArg>
 constexpr json_utils::Encoder<CodepointAcceptorLike>::Encoder(
-    CodeAcceptorLikeInitArg&& cpa_like_init_arg, FormatConfig const& fmt_config)
-    : cpa_like{ ZETA_Core_Lifecycle_UnpackInitArg(
-          CodepointAcceptorLike, CodeAcceptorLikeInitArg, cpa_like_init_arg) },
+    CodeAcceptorLikeConstructArg&& cpa_like_construct_arg,
+    FormatConfig const& fmt_config)
+    : cpa_like{ ZETA_Core_Lifecycle_UnpackConstructArg(
+          CodepointAcceptorLike, CodeAcceptorLikeConstructArg,
+          cpa_like_construct_arg) },
       fmt_ctx{ fmt_config, 0 } {
     this->depth = 1;
     this->states[0] = EncInnerState::ReceivingValue;
@@ -253,20 +261,24 @@ constexpr json_utils::Encoder<CodepointAcceptorLike>::Encoder(
 template <typename CodepointAcceptorLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::EncReason>
 json_utils::Encoder<CodepointAcceptorLike>::SendNull(this Encoder& self) {
+    detail::CheckEncoder_(self);
+
     constexpr unicode::unichar_t null_str[]{ ascii::CharCodeTable::n,
                                              ascii::CharCodeTable::u,
                                              ascii::CharCodeTable::l,
                                              ascii::CharCodeTable::l };
 
-    ZETA_Core_DebugAssert(0 < self.depth);
+    {
+        auto result{ detail::SendLastElem_(self, false) };
 
-    ZETA_Core_DebugAssert(self.depth < self.max_depth);
+        if (result.HasReason()) {
+            return { utils::TryResultReasonTag{}, result.GetReason() };
+        }
+    }
 
-    detail::SendLastElem_(self, false);
-
-    elem_stream::acceptor::Transfer(self.cpa_like, &null_str,
-                                    sizeof(unicode::unichar_t),
-                                    sizeof(unicode::unichar_t), 4);
+    seq_endpoint::acceptor::Transfer(self.cpa_like, &null_str,
+                                     sizeof(unicode::unichar_t),
+                                     sizeof(unicode::unichar_t), 4);
 
     return utils::TryResultValueTag{};
 }
@@ -275,11 +287,15 @@ template <typename CodepointAcceptorLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::EncReason>
 json_utils::Encoder<CodepointAcceptorLike>::SendBoolean(this Encoder& self,
                                                         bool value) {
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckEncoder_(self);
 
-    ZETA_Core_DebugAssert(self.depth < self.max_depth);
+    {
+        auto result{ detail::SendLastElem_(self, false) };
 
-    detail::SendLastElem_(self, false);
+        if (result.HasReason()) {
+            return { utils::TryResultReasonTag{}, result.GetReason() };
+        }
+    }
 
     constexpr unicode::unichar_t false_str[]{ ascii::CharCodeTable::f,
                                               ascii::CharCodeTable::a,
@@ -292,9 +308,9 @@ json_utils::Encoder<CodepointAcceptorLike>::SendBoolean(this Encoder& self,
                                              ascii::CharCodeTable::u,
                                              ascii::CharCodeTable::e };
 
-    elem_stream::acceptor::Transfer(self.cpa_like, value ? true_str : false_str,
-                                    sizeof(unicode::unichar_t),
-                                    sizeof(unicode::unichar_t), value ? 4 : 5);
+    seq_endpoint::acceptor::Transfer(
+        self.cpa_like, value ? true_str : false_str, sizeof(unicode::unichar_t),
+        sizeof(unicode::unichar_t), value ? 4 : 5);
 
     return utils::TryResultValueTag{};
 }
@@ -303,18 +319,26 @@ template <typename CodepointAcceptorLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::EncReason>
 json_utils::Encoder<CodepointAcceptorLike>::SendNumericSign(this Encoder& self,
                                                             bool is_neg) {
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckEncoder_(self);
 
-    ZETA_Core_DebugAssert(self.depth < self.max_depth);
+    if (self.depth == self.max_depth) {
+        return { utils::TryResultReasonTag{}, EncReason::DepthOverflow };
+    }
 
-    detail::SendLastElem_(self, false);
+    {
+        auto result{ detail::SendLastElem_(self, false) };
+
+        if (result.HasReason()) {
+            return { utils::TryResultReasonTag{}, result.GetReason() };
+        }
+    }
 
     constexpr unicode::unichar_t minus{ ascii::CharCodeTable::minus };
 
     if (is_neg) {
-        elem_stream::acceptor::Transfer(self.cpa_like, &minus,
-                                        sizeof(unicode::unichar_t),
-                                        sizeof(unicode::unichar_t), 1);
+        seq_endpoint::acceptor::Transfer(self.cpa_like, &minus,
+                                         sizeof(unicode::unichar_t),
+                                         sizeof(unicode::unichar_t), 1);
     }
 
     self.states[self.depth++] = EncInnerState::ReceivingNumericIntPartDigit;
@@ -326,14 +350,11 @@ template <typename CodepointAcceptorLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::EncReason>
 json_utils::Encoder<CodepointAcceptorLike>::SendNumericIntPartDigit(
     this Encoder& self, unsigned char digit) {
-    ZETA_Core_DebugAssert(0 < self.depth);
-
-    ZETA_Core_Debug_PrintVar(
-        static_cast<unsigned char>(self.states[self.depth - 1]));
+    detail::CheckEncoder_(self);
 
     EncInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         state == EncInnerState::ReceivingNumericIntPartDigit ||
         state == EncInnerState::ReceivingNumericIntPartDigitOrNext);
 
@@ -344,9 +365,9 @@ json_utils::Encoder<CodepointAcceptorLike>::SendNumericIntPartDigit(
     unicode::unichar_t cp{ static_cast<unicode::unichar_t>(
         static_cast<unsigned char>(ascii::CharCodeTable::num_0 + digit)) };
 
-    elem_stream::acceptor::Transfer(self.cpa_like, &cp,
-                                    sizeof(unicode::unichar_t),
-                                    sizeof(unicode::unichar_t), 1);
+    seq_endpoint::acceptor::Transfer(self.cpa_like, &cp,
+                                     sizeof(unicode::unichar_t),
+                                     sizeof(unicode::unichar_t), 1);
 
     if (state == EncInnerState::ReceivingNumericIntPartDigit) {
         state = digit == 0 ? EncInnerState::ReceivingNumericFracPartDigitOrNext
@@ -360,14 +381,11 @@ template <typename CodepointAcceptorLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::EncReason>
 json_utils::Encoder<CodepointAcceptorLike>::SendNumericFracPartDigit(
     this Encoder& self, unsigned char digit) {
-    ZETA_Core_DebugAssert(0 < self.depth);
-
-    ZETA_Core_Debug_PrintVar(
-        static_cast<unsigned char>(self.states[self.depth - 1]));
+    detail::CheckEncoder_(self);
 
     EncInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         state == EncInnerState::ReceivingNumericIntPartDigitOrNext ||
         state == EncInnerState::ReceivingNumericFracPartDigitOrNext);
 
@@ -381,15 +399,15 @@ json_utils::Encoder<CodepointAcceptorLike>::SendNumericFracPartDigit(
     if (state == EncInnerState::ReceivingNumericIntPartDigitOrNext) {
         unicode::unichar_t cp[]{ ascii::CharCodeTable::point, digit_cp };
 
-        elem_stream::acceptor::Transfer(self.cpa_like, cp,
-                                        sizeof(unicode::unichar_t),
-                                        sizeof(unicode::unichar_t), 2);
+        seq_endpoint::acceptor::Transfer(self.cpa_like, cp,
+                                         sizeof(unicode::unichar_t),
+                                         sizeof(unicode::unichar_t), 2);
 
         state = EncInnerState::ReceivingNumericFracPartDigitOrNext;
     } else {
-        elem_stream::acceptor::Transfer(self.cpa_like, &digit_cp,
-                                        sizeof(unicode::unichar_t),
-                                        sizeof(unicode::unichar_t), 1);
+        seq_endpoint::acceptor::Transfer(self.cpa_like, &digit_cp,
+                                         sizeof(unicode::unichar_t),
+                                         sizeof(unicode::unichar_t), 1);
     }
 
     return utils::TryResultValueTag{};
@@ -399,11 +417,11 @@ template <typename CodepointAcceptorLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::EncReason>
 json_utils::Encoder<CodepointAcceptorLike>::SendNumericExpPartE(
     this Encoder& self, unicode::unichar_t e) {
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckEncoder_(self);
 
     EncInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         state == EncInnerState::ReceivingNumericIntPartDigitOrNext ||
         state == EncInnerState::ReceivingNumericFracPartDigitOrNext);
 
@@ -413,9 +431,9 @@ json_utils::Encoder<CodepointAcceptorLike>::SendNumericExpPartE(
 
     unicode::unichar_t cp{ static_cast<unicode::unichar_t>(e) };
 
-    elem_stream::acceptor::Transfer(self.cpa_like, &cp,
-                                    sizeof(unicode::unichar_t),
-                                    sizeof(unicode::unichar_t), 1);
+    seq_endpoint::acceptor::Transfer(self.cpa_like, &cp,
+                                     sizeof(unicode::unichar_t),
+                                     sizeof(unicode::unichar_t), 1);
 
     state = EncInnerState::ReceivingNumericExpPartSignOrNext;
 
@@ -426,12 +444,12 @@ template <typename CodepointAcceptorLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::EncReason>
 json_utils::Encoder<CodepointAcceptorLike>::SendNumericExpPartSign(
     this Encoder& self, unicode::unichar_t sign) {
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckEncoder_(self);
 
     EncInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(state ==
-                          EncInnerState::ReceivingNumericExpPartSignOrNext);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        state == EncInnerState::ReceivingNumericExpPartSignOrNext);
 
     if (sign != unicode::null_codepoint &&
         sign != ascii::CharCodeTable::minus &&
@@ -442,9 +460,9 @@ json_utils::Encoder<CodepointAcceptorLike>::SendNumericExpPartSign(
     if (sign != ascii::CharCodeTable::empty) {
         unicode::unichar_t cp{ static_cast<unicode::unichar_t>(sign) };
 
-        elem_stream::acceptor::Transfer(self.cpa_like, &cp,
-                                        sizeof(unicode::unichar_t),
-                                        sizeof(unicode::unichar_t), 1);
+        seq_endpoint::acceptor::Transfer(self.cpa_like, &cp,
+                                         sizeof(unicode::unichar_t),
+                                         sizeof(unicode::unichar_t), 1);
     }
 
     state = EncInnerState::ReceivingNumericExpPartDigit;
@@ -456,11 +474,11 @@ template <typename CodepointAcceptorLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::EncReason>
 json_utils::Encoder<CodepointAcceptorLike>::SendNumericExpPartDigit(
     this Encoder& self, unsigned char digit) {
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckEncoder_(self);
 
     EncInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         state == EncInnerState::ReceivingNumericExpPartSignOrNext ||
         state == EncInnerState::ReceivingNumericExpPartDigit ||
         state == EncInnerState::ReceivingNumericExpPartDigitOrNext);
@@ -472,9 +490,9 @@ json_utils::Encoder<CodepointAcceptorLike>::SendNumericExpPartDigit(
     unicode::unichar_t cp{ static_cast<unicode::unichar_t>(
         static_cast<unsigned char>(ascii::CharCodeTable::num_0 + digit)) };
 
-    elem_stream::acceptor::Transfer(self.cpa_like, &cp,
-                                    sizeof(unicode::unichar_t),
-                                    sizeof(unicode::unichar_t), 1);
+    seq_endpoint::acceptor::Transfer(self.cpa_like, &cp,
+                                     sizeof(unicode::unichar_t),
+                                     sizeof(unicode::unichar_t), 1);
 
     state = EncInnerState::ReceivingNumericExpPartDigitOrNext;
 
@@ -485,17 +503,19 @@ template <typename CodepointAcceptorLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::EncReason>
 json_utils::Encoder<CodepointAcceptorLike>::SendStringStart(
     this Encoder& self) {
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckEncoder_(self);
 
-    ZETA_Core_DebugAssert(self.depth < self.max_depth);
+    if (self.depth == self.max_depth) {
+        return { utils::TryResultReasonTag{}, EncReason::DepthOverflow };
+    }
 
-    detail::SendLastElem_(self, true);
+    detail::SendLastElem_(self, true).CheckHasValue();
 
     constexpr unicode::unichar_t cp{ ascii::CharCodeTable::double_quote };
 
-    elem_stream::acceptor::Transfer(self.cpa_like, &cp,
-                                    sizeof(unicode::unichar_t),
-                                    sizeof(unicode::unichar_t), 1);
+    seq_endpoint::acceptor::Transfer(self.cpa_like, &cp,
+                                     sizeof(unicode::unichar_t),
+                                     sizeof(unicode::unichar_t), 1);
 
     self.states[self.depth++] = EncInnerState::ReceivingStringCharOrFinish;
 
@@ -506,11 +526,12 @@ template <typename CodepointAcceptorLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::EncReason>
 json_utils::Encoder<CodepointAcceptorLike>::SendStringChar(
     this Encoder& self, unicode::unichar_t cp) {
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckEncoder_(self);
 
     EncInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(state == EncInnerState::ReceivingStringCharOrFinish);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        state == EncInnerState::ReceivingStringCharOrFinish);
 
     if (0x10FFFF < cp || (0xD800 <= cp && cp <= 0xDFFF)) {
         return { utils::TryResultReasonTag{}, EncReason::UnexpectedChar };
@@ -555,9 +576,9 @@ json_utils::Encoder<CodepointAcceptorLike>::SendStringChar(
     if (hit_escape) {
         send_cp_buffer[0] = ascii::CharCodeTable::backslash;
 
-        elem_stream::acceptor::Transfer(self.cpa_like, send_cp_buffer,
-                                        sizeof(unicode::unichar_t),
-                                        sizeof(unicode::unichar_t), 2);
+        seq_endpoint::acceptor::Transfer(self.cpa_like, send_cp_buffer,
+                                         sizeof(unicode::unichar_t),
+                                         sizeof(unicode::unichar_t), 2);
 
         return utils::TryResultValueTag{};
     }
@@ -595,69 +616,79 @@ json_utils::Encoder<CodepointAcceptorLike>::SendStringChar(
     if (cp <= 0xFFFF) { goto SINGLE_U_ESCAPE; }
     goto DOUBLE_U_ESCAPE;
 
-DIRECT: {
-    elem_stream::acceptor::Transfer(self.cpa_like, &cp,
-                                    sizeof(unicode::unichar_t),
-                                    sizeof(unicode::unichar_t), 1);
+DIRECT:
+    {
+        seq_endpoint::acceptor::Transfer(self.cpa_like, &cp,
+                                         sizeof(unicode::unichar_t),
+                                         sizeof(unicode::unichar_t), 1);
 
-    return utils::TryResultValueTag{};
-}
+        return utils::TryResultValueTag{};
+    }
 
-SINGLE_U_ESCAPE: {
-    send_cp_buffer[0] = ascii::CharCodeTable::backslash;
-    send_cp_buffer[1] = ascii::CharCodeTable::u;
+SINGLE_U_ESCAPE:
+    {
+        send_cp_buffer[0] = ascii::CharCodeTable::backslash;
+        send_cp_buffer[1] = ascii::CharCodeTable::u;
 
-    to_hex_4(send_cp_buffer + 2, cp);
+        to_hex_4(send_cp_buffer + 2, cp);
 
-    elem_stream::acceptor::Transfer(self.cpa_like, send_cp_buffer,
-                                    sizeof(unicode::unichar_t),
-                                    sizeof(unicode::unichar_t), 6);
+        seq_endpoint::acceptor::Transfer(self.cpa_like, send_cp_buffer,
+                                         sizeof(unicode::unichar_t),
+                                         sizeof(unicode::unichar_t), 6);
 
-    return utils::TryResultValueTag{};
-}
+        return utils::TryResultValueTag{};
+    }
 
-DOUBLE_U_ESCAPE: {
-    cp -= 0x10000;
+DOUBLE_U_ESCAPE:
+    {
+        cp -= 0x10000;
 
-    send_cp_buffer[0] = ascii::CharCodeTable::backslash;
-    send_cp_buffer[1] = ascii::CharCodeTable::u;
+        send_cp_buffer[0] = ascii::CharCodeTable::backslash;
+        send_cp_buffer[1] = ascii::CharCodeTable::u;
 
-    to_hex_4(send_cp_buffer + 2, cp / 0x400 + unicode::surrogate_h_range_min);
+        to_hex_4(send_cp_buffer + 2,
+                 cp / 0x400 + unicode::surrogate_h_range_min);
 
-    send_cp_buffer[6] = ascii::CharCodeTable::backslash;
-    send_cp_buffer[7] = ascii::CharCodeTable::u;
+        send_cp_buffer[6] = ascii::CharCodeTable::backslash;
+        send_cp_buffer[7] = ascii::CharCodeTable::u;
 
-    to_hex_4(send_cp_buffer + 8, cp % 0x400 + unicode::surrogate_l_range_min);
+        to_hex_4(send_cp_buffer + 8,
+                 cp % 0x400 + unicode::surrogate_l_range_min);
 
-    elem_stream::acceptor::Transfer(self.cpa_like, send_cp_buffer,
-                                    sizeof(unicode::unichar_t),
-                                    sizeof(unicode::unichar_t), 12);
+        seq_endpoint::acceptor::Transfer(self.cpa_like, send_cp_buffer,
+                                         sizeof(unicode::unichar_t),
+                                         sizeof(unicode::unichar_t), 12);
 
-    return utils::TryResultValueTag{};
-}
+        return utils::TryResultValueTag{};
+    }
 }
 
 template <typename CodepointAcceptorLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::EncReason>
 json_utils::Encoder<CodepointAcceptorLike>::SendArrayStart(this Encoder& self) {
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckEncoder_(self);
 
-    ZETA_Core_DebugAssert(self.depth < self.max_depth);
+    if (self.depth == self.max_depth) {
+        return { utils::TryResultReasonTag{}, EncReason::DepthOverflow };
+    }
 
-    detail::SendLastElem_(self, false);
+    {
+        auto result{ detail::SendLastElem_(self, false) };
+
+        if (result.HasReason()) {
+            return { utils::TryResultReasonTag{}, result.GetReason() };
+        }
+    }
 
     constexpr unicode::unichar_t bracket_l{ ascii::CharCodeTable::bracket_l };
 
-    elem_stream::acceptor::Transfer(self.cpa_like, &bracket_l,
-                                    sizeof(unicode::unichar_t),
-                                    sizeof(unicode::unichar_t), 1);
+    seq_endpoint::acceptor::Transfer(self.cpa_like, &bracket_l,
+                                     sizeof(unicode::unichar_t),
+                                     sizeof(unicode::unichar_t), 1);
 
     ++self.fmt_ctx.indent_level;
 
     self.states[self.depth++] = EncInnerState::ReceivingArrayElemOrFinishLead;
-
-    ZETA_Core_Debug_PrintVar(
-        static_cast<unsigned char>(self.states[self.depth - 1]));
 
     return utils::TryResultValueTag{};
 }
@@ -666,17 +697,25 @@ template <typename CodepointAcceptorLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::EncReason>
 json_utils::Encoder<CodepointAcceptorLike>::SendObjectStart(
     this Encoder& self) {
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckEncoder_(self);
 
-    ZETA_Core_DebugAssert(self.depth < self.max_depth);
+    if (self.depth == self.max_depth) {
+        return { utils::TryResultReasonTag{}, EncReason::DepthOverflow };
+    }
 
-    detail::SendLastElem_(self, false);
+    {
+        auto result{ detail::SendLastElem_(self, false) };
+
+        if (result.HasReason()) {
+            return { utils::TryResultReasonTag{}, result.GetReason() };
+        }
+    }
 
     constexpr unicode::unichar_t brace_l{ ascii::CharCodeTable::brace_l };
 
-    elem_stream::acceptor::Transfer(self.cpa_like, &brace_l,
-                                    sizeof(unicode::unichar_t),
-                                    sizeof(unicode::unichar_t), 1);
+    seq_endpoint::acceptor::Transfer(self.cpa_like, &brace_l,
+                                     sizeof(unicode::unichar_t),
+                                     sizeof(unicode::unichar_t), 1);
 
     ++self.fmt_ctx.indent_level;
 
@@ -688,7 +727,7 @@ json_utils::Encoder<CodepointAcceptorLike>::SendObjectStart(
 template <typename CodepointAcceptorLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::EncReason>
 json_utils::Encoder<CodepointAcceptorLike>::SendFinish(this Encoder& self) {
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckEncoder_(self);
 
     EncInnerState& state{ self.states[self.depth - 1] };
 
@@ -700,9 +739,9 @@ json_utils::Encoder<CodepointAcceptorLike>::SendFinish(this Encoder& self) {
     case EncInnerState::ReceivingStringCharOrFinish: {
         constexpr unicode::unichar_t cp{ ascii::CharCodeTable::double_quote };
 
-        elem_stream::acceptor::Transfer(self.cpa_like, &cp,
-                                        sizeof(unicode::unichar_t),
-                                        sizeof(unicode::unichar_t), 1);
+        seq_endpoint::acceptor::Transfer(self.cpa_like, &cp,
+                                         sizeof(unicode::unichar_t),
+                                         sizeof(unicode::unichar_t), 1);
 
         break;
     }
@@ -721,9 +760,9 @@ json_utils::Encoder<CodepointAcceptorLike>::SendFinish(this Encoder& self) {
             detail::MakeIndent_(self);
         }
 
-        elem_stream::acceptor::Transfer(self.cpa_like, &bracket_r,
-                                        sizeof(unicode::unichar_t),
-                                        sizeof(unicode::unichar_t), 1);
+        seq_endpoint::acceptor::Transfer(self.cpa_like, &bracket_r,
+                                         sizeof(unicode::unichar_t),
+                                         sizeof(unicode::unichar_t), 1);
 
         break;
     }
@@ -739,18 +778,15 @@ json_utils::Encoder<CodepointAcceptorLike>::SendFinish(this Encoder& self) {
             detail::MakeIndent_(self);
         }
 
-        elem_stream::acceptor::Transfer(self.cpa_like, &brace_r,
-                                        sizeof(unicode::unichar_t),
-                                        sizeof(unicode::unichar_t), 1);
+        seq_endpoint::acceptor::Transfer(self.cpa_like, &brace_r,
+                                         sizeof(unicode::unichar_t),
+                                         sizeof(unicode::unichar_t), 1);
 
         break;
     }
 
-    default: ZETA_Core_Unreachable();
+    default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
-
-    ZETA_Core_Debug_PrintVar(static_cast<unsigned char>(state));
-    ZETA_Core_Debug_PrintVar(self.depth);
 
     if (self.depth == 1) {
         state = EncInnerState::Finished;
@@ -764,18 +800,19 @@ json_utils::Encoder<CodepointAcceptorLike>::SendFinish(this Encoder& self) {
 namespace json_utils::detail {
 
 template <typename CodepointProviderLike>
-constexpr void CheckValueDeserializer_(
-    json_utils::Decoder<CodepointProviderLike> const& td) {
-    ZETA_Core_DebugAssert(td.depth <= td.max_depth);
+constexpr void CheckDecoder_(
+    json_utils::Decoder<CodepointProviderLike> const& decoder) {
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < decoder.depth);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(decoder.depth <= decoder.max_depth);
 }
 
-template <elem_stream::provider::IsProvider CodepointProviderLike>
+template <seq_endpoint::provider::IsProvider CodepointProviderLike>
 constexpr bool CodepointIsEnd_(
     json_utils::Decoder<CodepointProviderLike> const& decoder) {
     auto& cpp{ meta::GetInstRef(decoder.cpp_like) };
 
     return decoder.buffer_state != BufferState::HasCodepointUnfetched &&
-           elem_stream::provider::IsEnd(cpp);
+           seq_endpoint::provider::IsEnd(cpp);
 }
 
 template <typename CodepointProviderLike>
@@ -785,9 +822,9 @@ constexpr unicode::unichar_t CodepointFetch_(
 
     if (decoder.buffer_state == BufferState::Empty ||
         decoder.buffer_state == BufferState::HasCodepointFetched) {
-        elem_stream::provider::Transfer(cpp, &decoder.buffer_codepoint,
-                                        sizeof(unicode::unichar_t),
-                                        sizeof(unicode::unichar_t), 1);
+        seq_endpoint::provider::Transfer(cpp, &decoder.buffer_codepoint,
+                                         sizeof(unicode::unichar_t),
+                                         sizeof(unicode::unichar_t), 1);
     }
 
     decoder.buffer_state = BufferState::HasCodepointFetched;
@@ -798,8 +835,8 @@ constexpr unicode::unichar_t CodepointFetch_(
 template <typename CodepointProviderLike>
 constexpr void CodepointRevert_(
     json_utils::Decoder<CodepointProviderLike>& decoder) {
-    ZETA_Core_DebugAssert(decoder.buffer_state ==
-                          BufferState::HasCodepointFetched);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(decoder.buffer_state ==
+                                            BufferState::HasCodepointFetched);
 
     decoder.buffer_state = BufferState::HasCodepointUnfetched;
 }
@@ -808,7 +845,6 @@ template <typename CodepointProviderLike>
 constexpr utils::TryResult<meta::Monostate, DecReason> DiscoverNextElem_(
     json_utils::Decoder<CodepointProviderLike>& decoder) {
     if (decoder.depth == decoder.max_depth - 1) {
-        ZETA_Core_Debug_PrintCurPos;
         decoder.states[decoder.depth++] = DecInnerState::Corrupted;
         return { utils::TryResultReasonTag{}, DecReason::DepthOverflow };
     }
@@ -818,7 +854,6 @@ constexpr utils::TryResult<meta::Monostate, DecReason> DiscoverNextElem_(
     do {
         if (detail::CodepointIsEnd_(decoder)) {
             if (0 < decoder.depth) {
-                ZETA_Core_Debug_PrintCurPos;
                 decoder.states[decoder.depth++] = DecInnerState::Corrupted;
                 return { utils::TryResultReasonTag{},
                          DecReason::UnexpectedEnd };
@@ -869,8 +904,6 @@ constexpr utils::TryResult<meta::Monostate, DecReason> DiscoverNextElem_(
             return { utils::TryResultReasonTag{}, DecReason::SequenceEnd };
         }
 
-        ZETA_Core_Debug_PrintCurPos;
-
         decoder.states[decoder.depth++] = DecInnerState::Corrupted;
         return { utils::TryResultReasonTag{}, DecReason::UnexpectedChar };
     }
@@ -881,21 +914,12 @@ constexpr utils::TryResult<meta::Monostate, DecReason> DiscoverNextElem_(
     }
 
     case ascii::CharCodeTable::brace_r: {
-        ZETA_Core_Debug_PrintCurPos;
-
-        ZETA_Core_Debug_PrintVar(
-            static_cast<unsigned char>(decoder.states[decoder.depth - 1]));
-
         if (0 < decoder.depth && decoder.states[decoder.depth - 1] ==
                                      DecInnerState::SendingObjectValue) {
-            ZETA_Core_Debug_PrintCurPos;
-
             decoder.states[decoder.depth - 1] =
                 DecInnerState::SendingObjectFinish;
             return { utils::TryResultReasonTag{}, DecReason::SequenceEnd };
         }
-
-        ZETA_Core_Debug_PrintCurPos;
 
         decoder.states[decoder.depth++] = DecInnerState::Corrupted;
         return { utils::TryResultReasonTag{}, DecReason::UnexpectedChar };
@@ -908,10 +932,6 @@ constexpr utils::TryResult<meta::Monostate, DecReason> DiscoverNextElem_(
         return utils::TryResultValueTag{};
     }
 
-    ZETA_Core_Debug_PrintCurPos;
-
-    ZETA_Core_Debug_PrintVar(static_cast<unsigned char>(cp));
-
     decoder.states[decoder.depth++] = DecInnerState::Corrupted;
 
     return { utils::TryResultReasonTag{}, DecReason::UnexpectedChar };
@@ -920,21 +940,21 @@ constexpr utils::TryResult<meta::Monostate, DecReason> DiscoverNextElem_(
 }  // namespace json_utils::detail
 
 template <typename CodepointProviderLike>
-template <typename... CodeProviderLikeInitArgs>
+template <typename... CodeProviderLikeConstructArgs>
 constexpr json_utils::Decoder<CodepointProviderLike>::Decoder(
-    CodeProviderLikeInitArgs&&... cpp_like_init_args)
+    CodeProviderLikeConstructArgs&&... cpp_like_construct_args)
     : depth{ 0 },
       buffer_state{ BufferState::Empty },
-      cpp_like{ ZETA_Core_Lifecycle_UnpackInitArgs(CodepointProviderLike,
-                                                   CodeProviderLikeInitArgs,
-                                                   cpp_like_init_args) } {
+      cpp_like{ ZETA_Core_Lifecycle_UnpackConstructArgs(
+          CodepointProviderLike, CodeProviderLikeConstructArgs,
+          cpp_like_construct_args) } {
     detail::DiscoverNextElem_(*this).Discard();
 }
 
 template <typename CodepointProviderLike>
 constexpr json_utils::DecState
 json_utils::Decoder<CodepointProviderLike>::GetState(this Decoder& self) {
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckDecoder_(self);
 
     DecInnerState& state{ self.states[self.depth - 1] };
 
@@ -1001,15 +1021,12 @@ json_utils::Decoder<CodepointProviderLike>::GetState(this Decoder& self) {
 template <typename CodepointProviderLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::DecReason>
 json_utils::Decoder<CodepointProviderLike>::ReceiveNull(this Decoder& self) {
-    detail::CheckValueDeserializer_(self);
-
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckDecoder_(self);
 
     DecInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(state == DecInnerState::SendingNull);
-
-    ZETA_Core_DebugAssert(!detail::CodepointIsEnd_(self));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(state ==
+                                            DecInnerState::SendingNull);
 
     constexpr unicode::unichar_t expected_cp[]{
         ascii::CharCodeTable::n,  //
@@ -1020,13 +1037,13 @@ json_utils::Decoder<CodepointProviderLike>::ReceiveNull(this Decoder& self) {
 
     for (int i{ 0 }; i < 4; ++i) {
         if (detail::CodepointIsEnd_(self)) {
-            ZETA_Core_DebugAssert(i != 0);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(i != 0);
             state = DecInnerState::Corrupted;
             return { utils::TryResultReasonTag{}, DecReason::UnexpectedEnd };
         }
 
         if (detail::CodepointFetch_(self) != expected_cp[i]) {
-            ZETA_Core_DebugAssert(i != 0);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(i != 0);
             state = DecInnerState::Corrupted;
             return { utils::TryResultReasonTag{}, DecReason::UnexpectedChar };
         }
@@ -1044,15 +1061,14 @@ json_utils::Decoder<CodepointProviderLike>::ReceiveNull(this Decoder& self) {
 template <typename CodepointProviderLike>
 constexpr utils::TryResult<bool, json_utils::DecReason>
 json_utils::Decoder<CodepointProviderLike>::ReceiveBoolean(this Decoder& self) {
-    detail::CheckValueDeserializer_(self);
-
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckDecoder_(self);
 
     DecInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(state == DecInnerState::SendingBoolean);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(state ==
+                                            DecInnerState::SendingBoolean);
 
-    ZETA_Core_DebugAssert(!detail::CodepointIsEnd_(self));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(!detail::CodepointIsEnd_(self));
 
     constexpr unicode::unichar_t expected_false_cp[]{
         ascii::CharCodeTable::f,  //
@@ -1119,13 +1135,12 @@ template <typename CodepointProviderLike>
 constexpr utils::TryResult<bool, json_utils::DecReason>
 json_utils::Decoder<CodepointProviderLike>::ReceiveNumericSign(
     this Decoder& self) {
-    detail::CheckValueDeserializer_(self);
-
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckDecoder_(self);
 
     DecInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(state == DecInnerState::SendingNumericSign);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(state ==
+                                            DecInnerState::SendingNumericSign);
 
     if (detail::CodepointIsEnd_(self)) {
         state = DecInnerState::Corrupted;
@@ -1158,13 +1173,11 @@ template <typename CodepointProviderLike>
 constexpr utils::TryResult<unsigned char, json_utils::DecReason>
 json_utils::Decoder<CodepointProviderLike>::ReceiveNumericIntPartDigit(
     this Decoder& self) {
-    detail::CheckValueDeserializer_(self);
-
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckDecoder_(self);
 
     DecInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         state == DecInnerState::SendingNumericIntPartDigitLead ||
         state == DecInnerState::SendingNumericIntPartDigitTrail ||
         state == DecInnerState::SendingNumericIntPartDigitFinish);
@@ -1230,7 +1243,7 @@ json_utils::Decoder<CodepointProviderLike>::ReceiveNumericIntPartDigit(
 
         return { utils::TryResultReasonTag{}, DecReason::UnexpectedChar };
 
-    default: ZETA_Core_Unreachable();
+    default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 }
 
@@ -1238,13 +1251,12 @@ template <typename CodepointProviderLike>
 constexpr utils::TryResult<unsigned char, json_utils::DecReason>
 json_utils::Decoder<CodepointProviderLike>::ReceiveNumericFracPartDigit(
     this Decoder& self) {
-    detail::CheckValueDeserializer_(self);
-
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckDecoder_(self);
 
     DecInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(state == DecInnerState::SendingNumericFracPartDigit);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        state == DecInnerState::SendingNumericFracPartDigit);
 
     if (detail::CodepointIsEnd_(self)) {
         state = DecInnerState::Corrupted;
@@ -1281,15 +1293,12 @@ template <typename CodepointProviderLike>
 constexpr utils::TryResult<unicode::unichar_t, json_utils::DecReason>
 json_utils::Decoder<CodepointProviderLike>::ReceiveNumericExpPartE(
     this Decoder& self) {
-    detail::CheckValueDeserializer_(self);
-
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckDecoder_(self);
 
     DecInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_Debug_PrintVar(static_cast<unsigned char>(state));
-
-    ZETA_Core_DebugAssert(state == DecInnerState::SendingNumericExpPartE);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        state == DecInnerState::SendingNumericExpPartE);
 
     if (detail::CodepointIsEnd_(self)) {
         state = DecInnerState::Corrupted;
@@ -1300,10 +1309,8 @@ json_utils::Decoder<CodepointProviderLike>::ReceiveNumericExpPartE(
 
     unicode::unichar_t e{ cp };
 
-    ZETA_Core_Debug_PrintVar(cp);
-
-    ZETA_Core_DebugAssert(cp == ascii::CharCodeTable::e ||
-                          cp == ascii::CharCodeTable::E);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cp == ascii::CharCodeTable::e ||
+                                            cp == ascii::CharCodeTable::E);
 
     state = DecInnerState::SendingNumericExpPartSign;
 
@@ -1314,12 +1321,12 @@ template <typename CodepointProviderLike>
 constexpr utils::TryResult<unicode::unichar_t, json_utils::DecReason>
 json_utils::Decoder<CodepointProviderLike>::ReceiveNumericExpPartSign(
     this Decoder& self) {
-    detail::CheckValueDeserializer_(self);
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckDecoder_(self);
 
     DecInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(state == DecInnerState::SendingNumericExpPartSign);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        state == DecInnerState::SendingNumericExpPartSign);
 
     if (detail::CodepointIsEnd_(self)) {
         state = DecInnerState::Corrupted;
@@ -1349,17 +1356,15 @@ template <typename CodepointProviderLike>
 constexpr utils::TryResult<unsigned char, json_utils::DecReason>
 json_utils::Decoder<CodepointProviderLike>::ReceiveNumericExpPartDigit(
     this Decoder& self) {
-    detail::CheckValueDeserializer_(self);
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckDecoder_(self);
 
     DecInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         state == DecInnerState::SendingNumericExpPartDigitLead ||
         state == DecInnerState::SendingNumericExpPartDigitTrail);
 
     if (detail::CodepointIsEnd_(self)) {
-        ZETA_Core_Debug_PrintCurPos;
         state = DecInnerState::Corrupted;
         return { utils::TryResultReasonTag{}, DecReason::UnexpectedEnd };
     }
@@ -1368,7 +1373,6 @@ json_utils::Decoder<CodepointProviderLike>::ReceiveNumericExpPartDigit(
 
     if (ascii::CharCodeTable::num_0 <= cp &&
         cp <= ascii::CharCodeTable::num_9) {
-        ZETA_Core_Debug_PrintCurPos;
         state = DecInnerState::SendingNumericExpPartDigitTrail;
 
         return { utils::TryResultValueTag{},
@@ -1377,15 +1381,11 @@ json_utils::Decoder<CodepointProviderLike>::ReceiveNumericExpPartDigit(
 
     if (state == DecInnerState::SendingNumericExpPartDigitTrail &&
         detail::IsTokenEnd_(cp)) {
-        ZETA_Core_Debug_PrintCurPos;
-
         state = DecInnerState::SendingNumericFinish;
         detail::CodepointRevert_(self);
 
         return { utils::TryResultReasonTag{}, DecReason::NoValue };
     }
-
-    ZETA_Core_Debug_PrintCurPos;
 
     state = DecInnerState::Corrupted;
 
@@ -1396,9 +1396,7 @@ template <typename CodepointProviderLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::DecReason>
 json_utils::Decoder<CodepointProviderLike>::ReceiveStringStart(
     this Decoder& self) {
-    detail::CheckValueDeserializer_(self);
-
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckDecoder_(self);
 
     DecInnerState& state{ self.states[self.depth - 1] };
 
@@ -1427,13 +1425,12 @@ template <typename CodepointProviderLike>
 constexpr utils::TryResult<unicode::unichar_t, json_utils::DecReason>
 json_utils::Decoder<CodepointProviderLike>::ReceiveStringChar(
     this Decoder& self) {
-    detail::CheckValueDeserializer_(self);
-
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckDecoder_(self);
 
     DecInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(state == DecInnerState::SendingStringChar);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(state ==
+                                            DecInnerState::SendingStringChar);
 
     if (detail::CodepointIsEnd_(self)) {
         state = DecInnerState::Corrupted;
@@ -1598,13 +1595,12 @@ template <typename CodepointProviderLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::DecReason>
 json_utils::Decoder<CodepointProviderLike>::ReceiveArrayStart(
     this Decoder& self) {
-    detail::CheckValueDeserializer_(self);
-
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckDecoder_(self);
 
     DecInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(state == DecInnerState::SendingArrayStart);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(state ==
+                                            DecInnerState::SendingArrayStart);
 
     unicode::unichar_t cp;
 
@@ -1631,20 +1627,18 @@ template <typename CodepointProviderLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::DecReason>
 json_utils::Decoder<CodepointProviderLike>::ReceiveArrayElem(
     this Decoder& self) {
-    detail::CheckValueDeserializer_(self);
-
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckDecoder_(self);
 
     DecInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(state == DecInnerState::SendingArrayElemLead ||
-                          state == DecInnerState::SendingArrayElemTrail);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        state == DecInnerState::SendingArrayElemLead ||
+        state == DecInnerState::SendingArrayElemTrail);
 
     unicode::unichar_t cp;
 
     do {
         if (detail::CodepointIsEnd_(self)) {
-            ZETA_Core_Debug_PrintCurPos;
             state = DecInnerState::Corrupted;
             return { utils::TryResultReasonTag{}, DecReason::UnexpectedEnd };
         }
@@ -1668,16 +1662,14 @@ json_utils::Decoder<CodepointProviderLike>::ReceiveArrayElem(
     case DecInnerState::SendingArrayElemTrail:
         if (cp != ascii::CharCodeTable::comma) {
             state = DecInnerState::Corrupted;
-            ZETA_Core_Debug_PrintVar(cp);
+
             return { utils::TryResultReasonTag{}, DecReason::UnexpectedChar };
         }
 
         break;
 
-    default: ZETA_Core_Unreachable();
+    default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
-
-    ZETA_Core_Debug_PrintCurPos;
 
     return detail::DiscoverNextElem_(self);
 }
@@ -1686,13 +1678,12 @@ template <typename CodepointProviderLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::DecReason>
 json_utils::Decoder<CodepointProviderLike>::ReceiveObjectStart(
     this Decoder& self) {
-    detail::CheckValueDeserializer_(self);
-
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckDecoder_(self);
 
     DecInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(state == DecInnerState::SendingObjectStart);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(state ==
+                                            DecInnerState::SendingObjectStart);
 
     unicode::unichar_t cp;
 
@@ -1719,20 +1710,18 @@ template <typename CodepointProviderLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::DecReason>
 json_utils::Decoder<CodepointProviderLike>::ReceiveObjectKey(
     this Decoder& self) {
-    detail::CheckValueDeserializer_(self);
-
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckDecoder_(self);
 
     DecInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(state == DecInnerState::SendingObjectKeyLead ||
-                          state == DecInnerState::SendingObjectKeyTrail);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        state == DecInnerState::SendingObjectKeyLead ||
+        state == DecInnerState::SendingObjectKeyTrail);
 
     unicode::unichar_t cp;
 
     do {
         if (detail::CodepointIsEnd_(self)) {
-            ZETA_Core_Debug_PrintCurPos;
             state = DecInnerState::Corrupted;
             return { utils::TryResultReasonTag{}, DecReason::UnexpectedEnd };
         }
@@ -1752,13 +1741,12 @@ json_utils::Decoder<CodepointProviderLike>::ReceiveObjectKey(
 
     case DecInnerState::SendingObjectKeyTrail:
         if (cp != ascii::CharCodeTable::comma) {
-            ZETA_Core_Debug_PrintVar(cp);
             return { utils::TryResultReasonTag{}, DecReason::UnexpectedChar };
         }
 
         break;
 
-    default: ZETA_Core_Unreachable();
+    default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 
     state = DecInnerState::SendingObjectValue;
@@ -1768,13 +1756,9 @@ json_utils::Decoder<CodepointProviderLike>::ReceiveObjectKey(
     if (self.states[self.depth - 1] != DecInnerState::Corrupted &&
         self.states[self.depth - 1] != DecInnerState::SendingObjectFinish &&
         self.states[self.depth - 1] != DecInnerState::SendingStringStart) {
-        ZETA_Core_Debug_PrintVar(
-            static_cast<unsigned char>(self.states[self.depth - 1]));
         self.states[self.depth - 1] = DecInnerState::Corrupted;
         return { utils::TryResultReasonTag{}, DecReason::UnexpectedChar };
     }
-
-    ZETA_Core_Debug_PrintCurPos;
 
     return ret;
 }
@@ -1783,19 +1767,17 @@ template <typename CodepointProviderLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::DecReason>
 json_utils::Decoder<CodepointProviderLike>::ReceiveObjectValue(
     this Decoder& self) {
-    detail::CheckValueDeserializer_(self);
-
-    ZETA_Core_DebugAssert(0 < self.depth);
+    detail::CheckDecoder_(self);
 
     DecInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(state == DecInnerState::SendingObjectValue);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(state ==
+                                            DecInnerState::SendingObjectValue);
 
     unicode::unichar_t cp;
 
     do {
         if (detail::CodepointIsEnd_(self)) {
-            ZETA_Core_Debug_PrintCurPos;
             state = DecInnerState::Corrupted;
             return { utils::TryResultReasonTag{}, DecReason::UnexpectedEnd };
         }
@@ -1816,18 +1798,18 @@ json_utils::Decoder<CodepointProviderLike>::ReceiveObjectValue(
 template <typename CodepointProviderLike>
 constexpr utils::TryResult<meta::Monostate, json_utils::DecReason>
 json_utils::Decoder<CodepointProviderLike>::ReceiveFinish(this Decoder& self) {
-    detail::CheckValueDeserializer_(self);
+    detail::CheckDecoder_(self);
 
-    ZETA_Core_DebugAssert(0 < self.depth);
+    DecInnerState& state{ self.states[self.depth - 1] };
 
-    ZETA_Core_DebugAssert(
-        self.states[self.depth - 1] == DecInnerState::SendingNumericFinish ||
-        self.states[self.depth - 1] == DecInnerState::SendingStringFinish ||
-        self.states[self.depth - 1] == DecInnerState::SendingArrayFinish ||
-        self.states[self.depth - 1] == DecInnerState::SendingObjectFinish);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        state == DecInnerState::SendingNumericFinish ||
+        state == DecInnerState::SendingStringFinish ||
+        state == DecInnerState::SendingArrayFinish ||
+        state == DecInnerState::SendingObjectFinish);
 
     if (self.depth == 1) {
-        self.states[0] = DecInnerState::Finished;
+        state = DecInnerState::Finished;
     } else {
         --self.depth;
     }

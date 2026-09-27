@@ -3,10 +3,9 @@
 #include <zeta/core/allocator.ipp>
 #include <zeta/core/assoc_cntr.hpp>
 #include <zeta/core/basic_llist_node.ipp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/dynamic_hash_table.hpp>
-#include <zeta/core/elem_stream.ipp>
 #include <zeta/core/generic_hash_table.hpp>
 #include <zeta/core/generic_hash_table.ipp>
 #include <zeta/core/integral.hpp>
@@ -17,6 +16,7 @@
 #include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/ptr_utils.ipp>
+#include <zeta/core/seq_endpoint.ipp>
 #include <zeta/core/utils.ipp>
 
 #pragma push_macro("CntrTplParamList")
@@ -43,15 +43,15 @@ dynamic_hash_table::NodeHasherWrapper<ElemHasherLike>::Hash(
 template <typename ElemComparatorLike>
 template <typename... Args>
 constexpr void
-dynamic_hash_table::NodeComparatorWrapper<ElemComparatorLike>::Init(
+dynamic_hash_table::NodeComparatorWrapper<ElemComparatorLike>::Construct(
     Args&&... args) {
-    lifecycle::Init(this->elem_cmptr, meta::Forward<Args>(args)...);
+    lifecycle::Construct(this->elem_cmptr, meta::Forward<Args>(args)...);
 }
 
 template <typename ElemComparatorLike>
 constexpr void
-dynamic_hash_table::NodeComparatorWrapper<ElemComparatorLike>::Deinit() {
-    lifecycle::Deinit(this->elem_cmptr);
+dynamic_hash_table::NodeComparatorWrapper<ElemComparatorLike>::Deconstruct() {
+    lifecycle::Deconstruct(this->elem_cmptr);
 }
 
 template <typename ElemComparatorLike>
@@ -76,9 +76,9 @@ dynamic_hash_table::KeyNodeComparatorWrapper<KeyNodeComparatorLike>::Compare(
         ZETA_Core_MemberToStruct(Node, ghtn, ghtn_b)->data);
 }
 
-constexpr void dynamic_hash_table::Node::Init() {
-    this->lln.Init();
-    this->ghtn.Init();
+constexpr void dynamic_hash_table::Node::Construct() {
+    this->lln.Construct();
+    this->ghtn.Construct();
 }
 
 namespace dynamic_hash_table::detail {
@@ -87,21 +87,21 @@ template <CntrTplParamList>
 void CheckCntr_(Cntr<CntrTplArgList> const& cntr) {
     size_t elem_size{ cntr.elem_size };
 
-    ZETA_Core_DebugAssert(0 < elem_size);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < elem_size);
 
-    ZETA_Core_DebugAssert(elem_size % alignof(Node) == 0);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(elem_size % alignof(Node) == 0);
 }
 
 template <CntrTplParamList>
 void CheckCursor_(Cntr<CntrTplArgList> const& cntr, Cursor const* cursor) {
     (CheckCntr_)(cntr);
 
-    ZETA_Core_DebugAssert(cursor != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cursor != nullptr);
 
-    ZETA_Core_DebugAssert(cursor->cntr == &cntr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cursor->cntr == &cntr);
 
     if (cntr.lln != cursor->lln) {
-        ZETA_Core_DebugAssert(cntr.ght.Contain(
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(cntr.ght.Contain(
             &ZETA_Core_MemberToStruct(Node, lln, cursor->lln)->ghtn));
     }
 }
@@ -109,19 +109,23 @@ void CheckCursor_(Cntr<CntrTplArgList> const& cntr, Cursor const* cursor) {
 }  // namespace dynamic_hash_table::detail
 
 template <CntrTplParamList>
-template <typename ElemHasherLikeInitArg, typename ElemComparatorLikeInitArg,
-          typename SaltRandomEngineLikeInitArg,
-          typename NodeAllocatorLikeInitArg,
-          typename TableNodeAllocatorLikeInitArg>
-constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Init(
+template <typename ElemHasherLikeConstructArg,
+          typename ElemComparatorLikeConstructArg,
+          typename SaltRandomEngineLikeConstructArg,
+          typename NodeAllocatorLikeConstructArg,
+          typename TableNodeAllocatorLikeConstructArg>
+constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Construct(
     this Cntr& cntr, size_t elem_size,
     generic_hash_table::RehashingConfig const& rehashing_config,
-    ElemHasherLikeInitArg&& elem_hash_init_arg,
-    ElemComparatorLikeInitArg&& elem_cmptr_init_arg,
-    SaltRandomEngineLikeInitArg&& salt_random_engine_init_arg,
-    NodeAllocatorLikeInitArg&& node_alctr_like_init_arg,
-    TableNodeAllocatorLikeInitArg&& table_node_alctr_init_arg) {
-    ZETA_Core_DebugAssert(0 < elem_size);
+    ElemHasherLikeConstructArg&& elem_hash_construct_arg,
+    ElemComparatorLikeConstructArg&& elem_cmptr_construct_arg,
+    SaltRandomEngineLikeConstructArg&& salt_random_engine_construct_arg,
+    NodeAllocatorLikeConstructArg&& node_alctr_like_construct_arg,
+    TableNodeAllocatorLikeConstructArg&& table_node_alctr_construct_arg)
+    : ght{
+          //
+      } {
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < elem_size);
 
     cntr.elem_size = elem_size =
         integral_math::AlignUp(elem_size, alignof(Node));
@@ -129,28 +133,30 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Init(
     cntr.lln = static_cast<LListNode*>(allocator::SafeAllocate(
         cntr.node_alctr, alignof(LListNode), sizeof(LListNode)));
 
-    cntr.lln->Init();
+    cntr.lln->Construct();
 
-    cntr.ght.Init(
+    cntr.ght.Construct(
         rehashing_config,
-        meta::Forward<ElemHasherLikeInitArg>(elem_hash_init_arg),
-        meta::Forward<ElemComparatorLikeInitArg>(elem_cmptr_init_arg),
-        meta::Forward<SaltRandomEngineLikeInitArg>(salt_random_engine_init_arg),
-        meta::Forward<TableNodeAllocatorLikeInitArg>(
-            table_node_alctr_init_arg));
+        meta::Forward<ElemHasherLikeConstructArg>(elem_hash_construct_arg),
+        meta::Forward<ElemComparatorLikeConstructArg>(elem_cmptr_construct_arg),
+        meta::Forward<SaltRandomEngineLikeConstructArg>(
+            salt_random_engine_construct_arg),
+        meta::Forward<TableNodeAllocatorLikeConstructArg>(
+            table_node_alctr_construct_arg));
 
-    lifecycle::Init(cntr.node_alctr, meta::Forward<NodeAllocatorLikeInitArg>(
-                                         node_alctr_like_init_arg));
+    lifecycle::Construct(cntr.node_alctr,
+                         meta::Forward<NodeAllocatorLikeConstructArg>(
+                             node_alctr_like_construct_arg));
 }
 
 template <CntrTplParamList>
-constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Deinit(
+constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Deconstruct(
     this Cntr& cntr) {
     detail::CheckCntr_(cntr);
 
     cntr.EraseAll();
 
-    cntr.ght.Deinit();
+    cntr.ght.Deconstruct();
 
     allocator::Deallocate(cntr.node_alctr, cntr.lln);
 }
@@ -413,10 +419,10 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Insert(
         cntr.node_alctr, alignof(Node),
         __builtin_offsetof(Node, data[cntr.elem_size]))) };
 
-    node->Init();
+    node->Construct();
 
-    elem_stream::provider::Transfer(writer, node->data, cntr.elem_size,
-                                    cntr.elem_size, 1);
+    seq_endpoint::provider::Transfer(writer, node->data, cntr.elem_size, cntr.elem_size,
+                           1);
 
     cntr.ght.Insert(key, key_hasher, key_elem_cmptr, &node->ghtn);
 
@@ -435,7 +441,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PopL(this Cntr& cntr,
                                                               Reader&& reader) {
     detail::CheckCntr_(cntr);
 
-    ZETA_Core_DebugAssert(cnt <= cntr.GetElemCnt());
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= cntr.GetElemCnt());
 
     for (; 0 < cnt; --cnt) {
         LListNode* lln{ llist::GetR(cntr.lln) };
@@ -446,8 +452,8 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PopL(this Cntr& cntr,
 
         cntr.ght.Extract(&node->ghtn);
 
-        elem_stream::acceptor::Transfer(reader, node->data, cntr.elem_size,
-                                        cntr.elem_size, 1);
+        seq_endpoint::acceptor::Transfer(reader, node->data, cntr.elem_size,
+                               cntr.elem_size, 1);
 
         allocator::Deallocate(cntr.node_alctr, node);
     }
@@ -460,7 +466,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PopR(this Cntr& cntr,
                                                               Reader&& reader) {
     detail::CheckCntr_(cntr);
 
-    ZETA_Core_DebugAssert(cnt <= cntr.GetElemCnt());
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= cntr.GetElemCnt());
 
     for (; 0 < cnt; --cnt) {
         LListNode* lln{ llist::GetL(cntr.lln) };
@@ -471,8 +477,8 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PopR(this Cntr& cntr,
 
         cntr.ght.Extract(&node->ghtn);
 
-        elem_stream::acceptor::Transfer(reader, node->data, cntr.elem_size,
-                                        cntr.elem_size, 1);
+        seq_endpoint::acceptor::Transfer(reader, node->data, cntr.elem_size,
+                               cntr.elem_size, 1);
 
         allocator::Deallocate(cntr.node_alctr, node);
     }
@@ -485,7 +491,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Erase(
     detail::CheckCursor_(cntr, pos_cursor);
 
     for (; 0 < cnt; --cnt) {
-        ZETA_Core_DebugAssert(cntr.lln != pos_cursor->lln);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(cntr.lln != pos_cursor->lln);
 
         LListNode* lln{ pos_cursor->lln };
 
@@ -497,8 +503,8 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Erase(
 
         cntr.ght.Extract(&node->ghtn);
 
-        elem_stream::acceptor::Transfer(reader, node->data, cntr.elem_size,
-                                        cntr.elem_size, 1);
+        seq_endpoint::acceptor::Transfer(reader, node->data, cntr.elem_size,
+                               cntr.elem_size, 1);
 
         allocator::Deallocate(cntr.node_alctr, node);
     }
@@ -573,9 +579,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Sanitize(
 
     cntr.ght.Sanitize(dst_table, &htn_records);
 
-    if (dst_node != nullptr) {
-        mem_recorder::Record(*dst_node, cntr.lln, sizeof(LListNode));
-    }
+    if (dst_node != nullptr) { dst_node->Record(cntr.lln, sizeof(LListNode)); }
 
     size_t node_size{ __builtin_offsetof(Node, data[cntr.elem_size]) };
 
@@ -586,14 +590,14 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Sanitize(
 
         Node* node{ ZETA_Core_MemberToStruct(Node, lln, lln) };
 
-        if (dst_node != nullptr) {
-            mem_recorder::Record(*dst_node, node, node_size);
-        }
+        if (dst_node != nullptr) { dst_node->Record(node, node_size); }
 
-        ZETA_Core_DebugAssert(mem_recorder::Unrecord(htn_records, &node->ghtn));
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(
+            htn_records.Unrecord(&node->ghtn));
     }
 
-    ZETA_Core_DebugAssert(mem_recorder::GetSize(htn_records) == 0);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        mem_recorder::GetSize(htn_records) == 0);
 }
 
 template <CntrTplParamList>

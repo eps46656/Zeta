@@ -95,8 +95,8 @@ struct BinFSProvider {
 
     size_t Transfer(this BinFSProvider& self, void* data, size_t elem_size,
                     size_t elem_stride, size_t elem_cnt) {
-        ZETA_Core_DebugAssert(elem_size == 1);
-        ZETA_Core_DebugAssert(elem_stride == 1);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(elem_size == 1);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(elem_stride == 1);
 
         if (elem_stride == 1) {
             self.bin_fs.read(static_cast<char*>(data),
@@ -107,8 +107,8 @@ struct BinFSProvider {
             self.bin_fs.read(reinterpret_cast<char*>(read_buffer),
                              static_cast<long long>(elem_cnt));
 
-            zeta::core::utils::ElemCopy(data, read_buffer, 1, elem_stride, 1,
-                                        elem_cnt);
+            zeta::core::utils::LinSeqCopy(data, read_buffer, 1, elem_stride, 1,
+                                          elem_cnt);
         }
 
         return elem_cnt;
@@ -125,13 +125,13 @@ struct BinFSAcceptor {
 
     size_t Transfer(this BinFSAcceptor& self, void const* data,
                     size_t elem_size, size_t elem_stride, size_t elem_cnt) {
-        ZETA_Core_DebugAssert(elem_size == 1);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(elem_size == 1);
 
         unsigned char cri_buffer[1024];
         unsigned char write_buffer[1024];
 
-        zeta::core::utils::ElemCopy(write_buffer, data, 1, 1, elem_stride,
-                                    elem_cnt);
+        zeta::core::utils::LinSeqCopy(write_buffer, data, 1, 1, elem_stride,
+                                      elem_cnt);
 
         self.re_bin_fs.read(reinterpret_cast<char*>(cri_buffer),
                             static_cast<long long>(elem_cnt));
@@ -139,26 +139,26 @@ struct BinFSAcceptor {
         int cmp{ std::memcmp(write_buffer, cri_buffer, elem_cnt) };
 
         if (cmp != 0) {
-            ZETA_Core_Debug_PrintVar(cri_buffer[0]);
-            ZETA_Core_Debug_PrintVar(cri_buffer[1]);
-            ZETA_Core_Debug_PrintVar(cri_buffer[2]);
-            ZETA_Core_Debug_PrintVar(cri_buffer[3]);
+            ZETA_Core_DebugUtils_Diag_LogVar(cri_buffer[0]);
+            ZETA_Core_DebugUtils_Diag_LogVar(cri_buffer[1]);
+            ZETA_Core_DebugUtils_Diag_LogVar(cri_buffer[2]);
+            ZETA_Core_DebugUtils_Diag_LogVar(cri_buffer[3]);
 
-            ZETA_Core_Debug_PrintVar(elem_cnt);
+            ZETA_Core_DebugUtils_Diag_LogVar(elem_cnt);
 
-            ZETA_Core_Debug_PrintVar(
+            ZETA_Core_DebugUtils_Diag_LogVar(
                 static_cast<unsigned char const*>(write_buffer)[0]);
 
-            ZETA_Core_Debug_PrintVar(
+            ZETA_Core_DebugUtils_Diag_LogVar(
                 static_cast<unsigned char const*>(write_buffer)[1]);
 
-            ZETA_Core_Debug_PrintVar(
+            ZETA_Core_DebugUtils_Diag_LogVar(
                 static_cast<unsigned char const*>(write_buffer)[2]);
 
-            ZETA_Core_Debug_PrintVar(
+            ZETA_Core_DebugUtils_Diag_LogVar(
                 static_cast<unsigned char const*>(write_buffer)[3]);
 
-            ZETA_Core_DebugAssert(cmp == 0);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(cmp == 0);
         }
 
         self.bin_fs.write(reinterpret_cast<char const*>(write_buffer),
@@ -201,13 +201,13 @@ inline void main1(int num) {
         };
 
         if (!is_valid) {
-            ZETA_Core_PrintVar(header.magic[0]);
-            ZETA_Core_PrintVar(header.magic[1]);
-            ZETA_Core_PrintVar(header.magic[2]);
-            ZETA_Core_PrintVar(header.magic[3]);
-            ZETA_Core_PrintVar(header.region_attr_size);
+            ZETA_Core_DebugUtils_Logging_ImmLogVar(header.magic[0]);
+            ZETA_Core_DebugUtils_Logging_ImmLogVar(header.magic[1]);
+            ZETA_Core_DebugUtils_Logging_ImmLogVar(header.magic[2]);
+            ZETA_Core_DebugUtils_Logging_ImmLogVar(header.magic[3]);
+            ZETA_Core_DebugUtils_Logging_ImmLogVar(header.region_attr_size);
 
-            ZETA_Core_DebugAssert(false);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(false);
             return;
         }
 
@@ -218,7 +218,7 @@ inline void main1(int num) {
         auto [is_valid, header]{ config.ToHeader() };
 
         if (!is_valid) {
-            ZETA_Core_DebugAssert(false);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(false);
             return;
         }
 
@@ -247,14 +247,16 @@ inline void main1(int num) {
 
     while (decoder.state !=
            zeta::core::object_state_notation::DecoderState::Finished) {
-        ZETA_Core_Debug_PrintCurPos;
+        ZETA_Core_DebugUtils_Diag_LogCurPos();
 
-        ZETA_Core_Debug_PrintVar(zeta::core::meta::ToUnderlying(decoder.state));
-        ZETA_Core_Debug_PrintVar(zeta::core::meta::ToUnderlying(encoder.state));
+        ZETA_Core_DebugUtils_Diag_LogVar(
+            zeta::core::meta::ToUnderlying(decoder.state));
+        ZETA_Core_DebugUtils_Diag_LogVar(
+            zeta::core::meta::ToUnderlying(encoder.state));
 
         switch (decoder.state) {
         case zeta::core::object_state_notation::DecoderState::SendingNodeTag: {
-            ZETA_Core_Debug_PrintCurPos;
+            ZETA_Core_DebugUtils_Diag_LogCurPos();
 
             encoder.SendNodeTag(decoder.ReceiveNodeTag().GetValue())
                 .CheckHasValue();
@@ -265,7 +267,7 @@ inline void main1(int num) {
         case zeta::core::object_state_notation::DecoderState::SendingNameString:
         case zeta::core::object_state_notation::DecoderState::
             SendingObjTypeString: {
-            zeta::core::lin_seq_elem_stream::Acceptor str_reader{
+            zeta::core::lin_seq_endpoint::acceptor::Acceptor str_reader{
                 .data = str_buffer,
                 .elem_size = 1,
                 .elem_stride = 1,
@@ -277,17 +279,17 @@ inline void main1(int num) {
                     .GetValue()
             };
 
-            ZETA_Core_DebugAssert(str_size < str_buffer_size);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(str_size < str_buffer_size);
 
             if (!encoder.SendStringOctet(
-                    zeta::core::lin_seq_elem_stream::Provider{
+                    zeta::core::lin_seq_endpoint::provider::Provider{
                         .data = str_buffer,
                         .elem_size = 1,
                         .elem_stride = 1,
                         .elem_cnt = str_size,
                     },
                     str_size)) {
-                ZETA_Core_DebugAssert(false);
+                ZETA_Core_DebugUtils_Diag_PromiseAssert(false);
                 return;
             }
 
@@ -314,8 +316,8 @@ inline void main1(int num) {
 
             encoder.SendIntegralDescriptor(integral_descriptor).CheckHasValue();
 
-            ZETA_Core_Debug_PrintVar(integral_descriptor.is_signed);
-            ZETA_Core_Debug_PrintVar(integral_descriptor.size);
+            ZETA_Core_DebugUtils_Diag_LogVar(integral_descriptor.is_signed);
+            ZETA_Core_DebugUtils_Diag_LogVar(integral_descriptor.size);
 
             break;
         }
@@ -354,47 +356,47 @@ inline void main1(int num) {
         }
 
         default:
-            ZETA_Core_Debug_PrintVar(
+            ZETA_Core_DebugUtils_Diag_LogVar(
                 zeta::core::meta::ToUnderlying(decoder.state));
 
-            ZETA_Core_DebugAssert(false);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(false);
             return;
         }
 
-        ZETA_Core_DebugAssert(
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(
             decoder.state !=
             zeta::core::object_state_notation::DecoderState::Corrupted);
 
-        ZETA_Core_DebugAssert(
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(
             encoder.state !=
             zeta::core::object_state_notation::EncoderState::Corrupted);
 
         zeta::core::debug_utils::ClearDebugStrStream();
     }
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         encoder.state ==
         zeta::core::object_state_notation::EncoderState::Finished);
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         decoder.state ==
         zeta::core::object_state_notation::DecoderState::Finished);
 
     {
-        ZETA_Core_DebugAssert(!bin_fs.eof());
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(!bin_fs.eof());
         char dummy;
         bin_fs.read(&dummy, 1);
-        ZETA_Core_DebugAssert(bin_fs.eof());
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(bin_fs.eof());
     }
 
     {
-        ZETA_Core_DebugAssert(!cri_bin_fs.eof());
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(!cri_bin_fs.eof());
         char dummy;
         cri_bin_fs.read(&dummy, 1);
-        ZETA_Core_DebugAssert(cri_bin_fs.eof());
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(cri_bin_fs.eof());
     }
 
-    ZETA_Core_PrintVar("complete");
+    ZETA_Core_DebugUtils_Logging_ImmLogVar("complete");
 
     bin_fs.close();
     re_bin_fs.close();
@@ -402,10 +404,10 @@ inline void main1(int num) {
 
 int main() {
     for (int num{ 0 }; num < 100; ++num) {
-        ZETA_Core_PrintVar(num);
+        ZETA_Core_DebugUtils_Logging_ImmLogVar(num);
         main1(num);
     }
 
-    ZETA_Core_PrintVar("ok");
+    ZETA_Core_DebugUtils_Logging_ImmLogVar("ok");
     return 0;
 }

@@ -1,9 +1,9 @@
 #pragma once
 
 #include <zeta/core/bin_tree.ipp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
+#include <zeta/core/debug_utils/memory.ipp>
 #include <zeta/core/define.hpp>
-#include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/rbtree.hpp>
 #include <zeta/core/utils.ipp>
@@ -17,7 +17,7 @@ constexpr unsigned rbtree::GetColor(Node* n) {
 
 template <rbtree::IsNode Node>
 constexpr void rbtree::SetColor(Node* n, unsigned color) {
-    ZETA_Core_StaticAssert(!bin_tree::IsConst<Node>());
+    static_assert(!bin_tree::IsConst<Node>());
 
     n->SetColor(Tag{}, color);
 }
@@ -48,7 +48,7 @@ namespace rbtree::detail {
 
 template <IsNode Node>
 constexpr Node* InsertBalance_(Node* n) {
-    ZETA_Core_DebugAssert(n != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
 
     for (;;) {
         Node* np{ bin_tree::GetP(n) };
@@ -84,33 +84,32 @@ constexpr Node* InsertBalance_(Node* n) {
 }  // namespace rbtree::detail
 
 #pragma push_macro("Insert_")
-#define Insert_(D, E)                                               \
-                                                                    \
-    ZETA_Core_DebugAssert(pos != n);                                \
-    ZETA_Core_DebugAssert(n != nullptr);                            \
-                                                                    \
-    ZETA_Core_DebugAssert(bin_tree::GetP(n) == nullptr);            \
-    ZETA_Core_DebugAssert(bin_tree::Get##D(n) == nullptr);          \
-    ZETA_Core_DebugAssert(bin_tree::Get##E(n) == nullptr);          \
-                                                                    \
-    if (pos == nullptr) {                                           \
-        if ((GetColor)(n) != black) { (SetColor)(n, black); }       \
-        return n;                                                   \
-    }                                                               \
-                                                                    \
-    if ((GetColor)(n) != red) { (SetColor)(n, red); }               \
-                                                                    \
-    Node* pos_d{ (bin_tree::Get##D)(pos) };                         \
-                                                                    \
-    if (pos_d == nullptr) {                                         \
-        bin_tree::Attatch##D(pos, n);                               \
-    } else {                                                        \
-        bin_tree::Attatch##E(bin_tree::GetMost##E(pos_d).first, n); \
-    }                                                               \
-                                                                    \
-    return detail::InsertBalance_(n);                               \
-                                                                    \
-    ZETA_Core_StaticAssert(true)
+#define Insert_(D, E)                                                        \
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(pos != n);                       \
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);                   \
+                                                                             \
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(bin_tree::GetP(n) == nullptr);   \
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(bin_tree::Get##D(n) == nullptr); \
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(bin_tree::Get##E(n) == nullptr); \
+                                                                             \
+    if (pos == nullptr) {                                                    \
+        if ((GetColor)(n) != black) { (SetColor)(n, black); }                \
+        return n;                                                            \
+    }                                                                        \
+                                                                             \
+    if ((GetColor)(n) != red) { (SetColor)(n, red); }                        \
+                                                                             \
+    Node* pos_d{ (bin_tree::Get##D)(pos) };                                  \
+                                                                             \
+    if (pos_d == nullptr) {                                                  \
+        bin_tree::Attatch##D(pos, n);                                        \
+    } else {                                                                 \
+        bin_tree::Attatch##E(bin_tree::GetMost##E(pos_d).first, n);          \
+    }                                                                        \
+                                                                             \
+    return detail::InsertBalance_(n);                                        \
+                                                                             \
+    static_assert(true)
 
 template <rbtree::IsNode Node>
 constexpr Node* rbtree::InsertL(Node* pos, Node* n) {
@@ -126,16 +125,18 @@ constexpr Node* rbtree::InsertR(Node* pos, Node* n) {
 
 template <rbtree::IsNode Node>
 constexpr Node* rbtree::Insert(Node* pos_l, Node* pos_r, Node* n) {
-    ZETA_Core_DebugAssert(pos_l != n);
-    ZETA_Core_DebugAssert(pos_r != n);
-    ZETA_Core_DebugAssert(n != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(pos_l != n);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(pos_r != n);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
 
-    ZETA_Core_DebugAssert(bin_tree::GetP(n) == nullptr);
-    ZETA_Core_DebugAssert(bin_tree::GetL(n) == nullptr);
-    ZETA_Core_DebugAssert(bin_tree::GetR(n) == nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(bin_tree::GetP(n) == nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(bin_tree::GetL(n) == nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(bin_tree::GetR(n) == nullptr);
 
-    ZETA_Core_DebugAssert(pos_l == nullptr || bin_tree::StepR(pos_l) == pos_r);
-    ZETA_Core_DebugAssert(pos_r == nullptr || bin_tree::StepL(pos_r) == pos_l);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(pos_l == nullptr ||
+                                            bin_tree::StepR(pos_l) == pos_r);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(pos_r == nullptr ||
+                                            bin_tree::StepL(pos_r) == pos_l);
 
     if (pos_l == nullptr && pos_r == nullptr) {
         if ((GetColor)(n) != black) { (SetColor)(n, black); }
@@ -155,17 +156,17 @@ constexpr Node* rbtree::Insert(Node* pos_l, Node* pos_r, Node* n) {
 }
 
 #pragma push_macro("GeneralInsert_")
-#define GeneralInsert_(D, E)                                      \
-                                                                  \
-    if (pos == nullptr) {                                         \
-        return Insert##E(bin_tree::GetMost##E(root).first, n);    \
-    }                                                             \
-                                                                  \
-    ZETA_Core_DebugAssert(root == bin_tree::GetMostP(pos).first); \
-                                                                  \
-    return Insert##D(pos, n);                                     \
-                                                                  \
-    ZETA_Core_StaticAssert(true)
+#define GeneralInsert_(D, E)                                                \
+    if (pos == nullptr) {                                                   \
+        return Insert##E(bin_tree::GetMost##E(root).first, n);              \
+    }                                                                       \
+                                                                            \
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(root ==                         \
+                                            bin_tree::GetMostP(pos).first); \
+                                                                            \
+    return Insert##D(pos, n);                                               \
+                                                                            \
+    static_assert(true)
 
 template <rbtree::IsNode Node>
 constexpr Node* rbtree::GeneralInsertL(Node* root, Node* pos, Node* n) {
@@ -245,7 +246,7 @@ void ExtractBalance_(Node* n) {
 
 template <rbtree::IsNode Node>
 constexpr Node* rbtree::Extract(Node* pos) {
-    ZETA_Core_DebugAssert(pos != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(pos != nullptr);
 
     Node* n{ pos };
 
@@ -310,7 +311,7 @@ constexpr Node* rbtree::Extract(Node* pos) {
 
                 break;
 
-            default: ZETA_Core_Unreachable();
+            default: ZETA_Core_DebugUtils_Diag_Unreachable();
             }
         }
     }
@@ -327,31 +328,39 @@ constexpr Node* rbtree::Extract(Node* pos) {
 namespace rbtree::detail {
 
 template <IsNode Node>
-size_t SanitizeRecursive_(mem_recorder::MemRecorder* dst_mr, Node* n) {
+size_t SanitizeRecursive_(debug_utils::memory::MemRecorder* dst_mr, Node* n) {
     if (n == nullptr) { return 0; }
 
     Node* nl{ bin_tree::GetL(n) };
     Node* nr{ bin_tree::GetR(n) };
 
-    if (nl != nullptr) { ZETA_Core_DebugAssert(bin_tree::GetP(nl) == n); }
-    if (nr != nullptr) { ZETA_Core_DebugAssert(bin_tree::GetP(nr) == n); }
+    if (nl != nullptr) {
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(bin_tree::GetP(nl) == n);
+    }
 
-    size_t lbh{ SanitizeRecursive_(dst_mr, nl) };
+    if (nr != nullptr) {
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(bin_tree::GetP(nr) == n);
+    }
 
-    if (dst_mr != nullptr) { mem_recorder::Record(*dst_mr, n, sizeof(void*)); }
+    size_t lbh{ (SanitizeRecursive_)(dst_mr, nl) };
 
-    size_t rbh{ SanitizeRecursive_(dst_mr, nr) };
+    if (dst_mr != nullptr) { dst_mr->Add(n, sizeof(void*)); }
 
-    ZETA_Core_DebugAssert(lbh == rbh);
+    size_t rbh{ (SanitizeRecursive_)(dst_mr, nr) };
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(lbh == rbh);
 
     unsigned nc{ (GetColor)(n) };
 
-    ZETA_Core_DebugAssert(nc == black || nc == red);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(nc == black || nc == red);
 
     if (nc == black) { return lbh + 1; }
 
-    ZETA_Core_DebugAssert(nl == nullptr || (GetColor)(nl) == black);
-    ZETA_Core_DebugAssert(nr == nullptr || (GetColor)(nr) == black);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(nl == nullptr ||
+                                            (GetColor)(nl) == black);
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(nr == nullptr ||
+                                            (GetColor)(nr) == black);
 
     return lbh;
 }
@@ -359,22 +368,14 @@ size_t SanitizeRecursive_(mem_recorder::MemRecorder* dst_mr, Node* n) {
 }  // namespace rbtree::detail
 
 template <rbtree::IsNode Node>
-constexpr void rbtree::Sanitize(mem_recorder::MemRecorder* dst_mr, Node* root) {
+constexpr void rbtree::SanityCheck(debug_utils::memory::MemRecorder* dst_mr,
+                                   Node* root) {
     if (root == nullptr) { return; }
 
-    ZETA_Core_DebugAssert(bin_tree::GetP(root) == nullptr);
-    ZETA_Core_DebugAssert((GetColor)(root) == black);
-
-    mem_recorder::MemRecorder* origin_dst_mr{ dst_mr };
-
-    if (dst_mr == nullptr) { dst_mr = mem_recorder::Create(); }
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(bin_tree::GetP(root) == nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert((GetColor)(root) == black);
 
     detail::SanitizeRecursive_(dst_mr, root);
-
-    if (origin_dst_mr != dst_mr) {
-        mem_recorder::Destroy(dst_mr);
-        dst_mr = origin_dst_mr;
-    }
 }
 
 }  // namespace zeta::core

@@ -1,7 +1,7 @@
 #include <vector>
 #include <zeta/core/bin_tree.ipp>
 #include <zeta/core/debug_utils.hpp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/fixed_point.ipp>
 #include <zeta/core/integral.hpp>
@@ -49,7 +49,7 @@ inline zeta::core::pair::Pair<FP, double> Gen() {
 inline void main1() {
     unsigned seed{ static_cast<unsigned>(time(nullptr)) };
 
-    ZETA_Core_PrintVar(seed);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(seed);
 
     for (size_t i{ 0 }; i < 1024; ++i) {
         size_t num{ zeta::core_test::GetRandomInt<size_t>(0,
@@ -111,18 +111,19 @@ inline void main1() {
 
         double rel_err{ std::abs(err / expected) };
 
-        ZETA_Core_PrintVar(ans);
-        ZETA_Core_PrintVar(expected);
-        ZETA_Core_PrintVar(rel_err);
+        ZETA_Core_DebugUtils_Logging_ImmLogVar(ans);
+        ZETA_Core_DebugUtils_Logging_ImmLogVar(expected);
+        ZETA_Core_DebugUtils_Logging_ImmLogVar(rel_err);
 
-        ZETA_Core_DebugAssert(expected < 1e-6 || rel_err < 1e-6);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(expected < 1e-6 ||
+                                                rel_err < 1e-6);
     }
 }
 
 inline void main2() {
     unsigned seed{ static_cast<unsigned>(time(nullptr)) };
 
-    ZETA_Core_PrintVar(seed);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(seed);
 
     for (size_t i{ 0 }; i < 1024; ++i) {
         auto [x_fp, x_d]{ Gen() };
@@ -131,20 +132,22 @@ inline void main2() {
         auto z_fp{ x_fp * y_fp };
         auto z_d{ x_d * y_d };
 
-        ZETA_Core_PrintVar(decltype(z_fp)::IntegralWidth::value);
-        ZETA_Core_PrintVar(decltype(z_fp)::FractionWidth::value);
+        ZETA_Core_DebugUtils_Logging_ImmLogVar(
+            decltype(z_fp)::IntegralWidth::value);
+        ZETA_Core_DebugUtils_Logging_ImmLogVar(
+            decltype(z_fp)::FractionWidth::value);
 
         auto floor_x_fp{ zeta::core::fixed_point::Floor(x_fp) };
 
-        ZETA_Core_PrintVar(floor_x_fp);
+        ZETA_Core_DebugUtils_Logging_ImmLogVar(floor_x_fp);
 
         double err{ z_d - ToDouble(z_fp) };
 
         double rel_err{ std::abs(err / x_d) };
 
-        ZETA_Core_PrintVar(rel_err);
+        ZETA_Core_DebugUtils_Logging_ImmLogVar(rel_err);
 
-        ZETA_Core_DebugAssert(err < 1e-6 || rel_err < 1e-6);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(err < 1e-6 || rel_err < 1e-6);
     }
 }
 

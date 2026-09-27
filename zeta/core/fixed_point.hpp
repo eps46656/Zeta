@@ -5,6 +5,8 @@
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
 
+ZETA_Core_ClangdPreambleBarrier;
+
 #pragma push_macro("FixedPointTplParamList")
 #define FixedPointTplParamList(prefix, suffix)                       \
     meta::IsValueWrapperT<bool> prefix##SignedTag##suffix,           \
@@ -31,13 +33,13 @@ struct FixedPoint {
     using IntegralWidth = IntegralWidth_;
     using FractionWidth = FractionWidth_;
 
-    ZETA_Core_StaticAssert(IntegralWidth::value <= max_integral_width);
+    static_assert(IntegralWidth::value <= max_integral_width);
 
-    ZETA_Core_StaticAssert(FractionWidth::value <= max_fraction_width);
+    static_assert(FractionWidth::value <= max_fraction_width);
 
-    ZETA_Core_StaticAssert(2 <= IntegralWidth::value + FractionWidth::value);
-    ZETA_Core_StaticAssert(IntegralWidth::value + FractionWidth::value <=
-                           max_total_width);
+    static_assert(2 <= IntegralWidth::value + FractionWidth::value);
+    static_assert(IntegralWidth::value + FractionWidth::value <=
+                  max_total_width);
 
     using Value = meta::Conditional<
         SignedTag::value,
@@ -123,10 +125,8 @@ struct comparison::BasicComparator<
     fixed_point::FixedPoint<FixedPointTplArgList(B)>> {
     template <IsOpTag OpTag>
     static constexpr auto Compare(
-        comparison::BasicComparator<
-            fixed_point::FixedPoint<FixedPointTplArgList(A)>,
-            fixed_point::FixedPoint<FixedPointTplArgList(B)>> const&,
-        OpTag, fixed_point::FixedPoint<FixedPointTplArgList(A)> const& a,
+        comparison::Tag, OpTag,
+        fixed_point::FixedPoint<FixedPointTplArgList(A)> const& a,
         fixed_point::FixedPoint<FixedPointTplArgList(B)> const& b);
 };
 

@@ -78,16 +78,16 @@ constexpr bool assoc_cntr::capability::CheckFlags(
 #define CallMethod(cap_name, method_name, ...)                              \
     if constexpr (!TestCapability((GetStaticEnabledCapabilityFlag<Cntr>)(), \
                                   cap_name)) {                              \
-        ZETA_Core_StaticAssert(!TestCapability(                             \
+        static_assert(!TestCapability(                                      \
             (GetStaticDisabledCapabilityFlag<Cntr>)(), cap_name));          \
                                                                             \
-        ZETA_Core_DebugAssert(TestCapability(                               \
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(TestCapability(             \
             (GetDynamicEnabledCapabilityFlag)(cntr), cap_name));            \
     }                                                                       \
                                                                             \
     return CntrTraits<meta::RemoveRef<Cntr>>::method_name(__VA_ARGS__);     \
                                                                             \
-    ZETA_Core_StaticAssert(true)
+    static_assert(true)
 
 template <typename Cntr>
 constexpr decltype(auto) assoc_cntr::GetReferedInstPtr(Cntr& cntr) {

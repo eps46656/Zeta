@@ -11,22 +11,26 @@ namespace zeta::core {
 namespace vlq_utils::detail {
 
 template <integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
-          elem_stream::provider::IsProvider InnerProvider>
+          seq_endpoint::provider::IsProvider InnerProvider>
 struct Provider_ {
-    ZETA_Core_StaticAssert(2 <= UnitWidth);
-    ZETA_Core_StaticAssert(UnitWidth <= integral::WidthOf<UnitIntegral>);
+    static_assert(2 <= UnitWidth);
+    static_assert(UnitWidth <= integral::WidthOf<UnitIntegral>);
 
     InnerProvider& inner_provider;
     bool digit_out_of_range : 1;
     bool is_end : 1;
 
-    static constexpr size_t GetElemSize() { return sizeof(UnitIntegral); }
+    static constexpr size_t GetElemSize(seq_endpoint::provider::Tag) {
+        return sizeof(UnitIntegral);
+    }
 
-    constexpr bool IsEnd(this Provider_ const& provider) {
+    constexpr bool IsEnd(this Provider_ const& provider,
+                         seq_endpoint::provider::Tag) {
         return provider.is_end;
     }
 
-    constexpr size_t Transfer(this Provider_& provider, void* dst,
+    constexpr size_t Transfer(this Provider_& provider,
+                              seq_endpoint::provider::Tag, void* dst,
                               size_t dst_elem_size, ptrdiff_t dst_elem_stride,
                               size_t cnt) {
         size_t transfer_elem_size{ comparison_utils::BasicMin(
@@ -45,7 +49,7 @@ struct Provider_ {
         };
 
         for (; !provider.is_end && transfer_cnt < cnt; ++transfer_cnt) {
-            size_t transferred_cnt{ elem_stream::provider::Transfer(
+            size_t transferred_cnt{ seq_endpoint::provider::Transfer(
                 provider.inner_provider, &buffer, sizeof(buffer),
                 sizeof(buffer), 1) };
 
@@ -76,22 +80,26 @@ struct Provider_ {
 };
 
 template <integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
-          elem_stream::acceptor::IsAcceptor InnerAcceptor>
+          seq_endpoint::acceptor::IsAcceptor InnerAcceptor>
 struct Acceptor_ {
-    ZETA_Core_StaticAssert(2 <= UnitWidth);
-    ZETA_Core_StaticAssert(UnitWidth <= integral::WidthOf<UnitIntegral>);
+    static_assert(2 <= UnitWidth);
+    static_assert(UnitWidth <= integral::WidthOf<UnitIntegral>);
 
     InnerAcceptor& inner_acceptor;
     UnitIntegral buffer;
     bool buffer_has_value;
 
-    static constexpr size_t GetElemSize() { return sizeof(UnitIntegral); }
-
-    constexpr bool IsEnd(this Acceptor_ const& acceptor) {
-        return elem_stream::acceptor::IsEnd(acceptor.inner_acceptor);
+    static constexpr size_t GetElemSize(seq_endpoint::acceptor::Tag) {
+        return sizeof(UnitIntegral);
     }
 
-    constexpr size_t Transfer(this Acceptor_& acceptor, void const* src,
+    constexpr bool IsEnd(this Acceptor_ const& acceptor,
+                         seq_endpoint::acceptor::Tag) {
+        return seq_endpoint::acceptor::IsEnd(acceptor.inner_acceptor);
+    }
+
+    constexpr size_t Transfer(this Acceptor_& acceptor,
+                              seq_endpoint::acceptor::Tag, void const* src,
                               size_t src_elem_size, ptrdiff_t src_elem_stride,
                               size_t cnt) {
         size_t transfer_elem_size{ comparison_utils::BasicMin(
@@ -109,7 +117,7 @@ struct Acceptor_ {
             if (acceptor.buffer_has_value) {
                 acceptor.buffer += special_value;
 
-                cur_transfer_cnt = elem_stream::acceptor::Transfer(
+                cur_transfer_cnt = seq_endpoint::acceptor::Transfer(
                     acceptor.inner_acceptor, &acceptor.buffer,
                     sizeof(acceptor.buffer), sizeof(acceptor.buffer), 1);
 
@@ -157,7 +165,7 @@ constexpr size_t vlq_utils::EstimateEncodedUnitCnt(
     return integral_math::CeilDiv(need_bit_cnt, UnitWidth - 1);
 }
 
-template <elem_stream::acceptor::IsAcceptor Acceptor,
+template <seq_endpoint::acceptor::IsAcceptor Acceptor,
           integral_endec::IsEndiannessLike EndiannessLike,
           integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
           integral::IsIntegral SrcIntegral>
@@ -181,17 +189,17 @@ constexpr void vlq_utils::Encode(
         (EstimateEncodedUnitCnt)(src_value, unit_width), src_value) };
 
     if (vlq_acceptor.buffer_has_value) {
-        elem_stream::acceptor::Transfer(
+        seq_endpoint::acceptor::Transfer(
             vlq_acceptor.inner_acceptor, &vlq_acceptor.buffer,
             sizeof(vlq_acceptor.buffer), sizeof(vlq_acceptor.buffer), 1);
 
         vlq_acceptor.buffer_has_value = false;
     }
 
-    ZETA_Core_DebugAssert(!encode_result.value_out_of_range);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(!encode_result.value_out_of_range);
 }
 
-template <elem_stream::provider::IsProvider Provider,
+template <seq_endpoint::provider::IsProvider Provider,
           integral_endec::IsEndiannessLike EndiannessLike,
           integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
           integral::IsIntegral DstIntegral>

@@ -19,8 +19,7 @@ using PolySeqCntr = core::poly_seq_cntr::Cntr;
 namespace MultiLevelCircularArrayNS = core::multi_level_circular_array;
 
 using MultiLevelCircularArray = MultiLevelCircularArrayNS::Cntr<
-    core::value_wrapper::StaticValueWrapper<
-        core::multi_level_ptr_table::BranchNum, 4>,
+    core::meta::ValueWrapper<core::multi_level_ptr_table::BranchNum, 4>,
     core::poly_allocator::Allocator, core::poly_allocator::Allocator>;
 
 struct Pack {
@@ -28,6 +27,10 @@ struct Pack {
     std_allocator::Allocator seg_alctr;
 
     MultiLevelCircularArray mlca;
+
+    constexpr Pack(size_t elem_size, size_t elem_stride, size_t seg_slot_cnt)
+        : mlca{ elem_size, elem_stride, seg_slot_cnt, this->node_alctr,
+                this->seg_alctr } {}
 };
 
 template <typename Elem>
@@ -38,31 +41,16 @@ void Destroy(void* mlca);
 void Sanitize(void const* mlca);
 
 template <typename Elem>
-PolySeqCntr Create(size_t elem_stride, size_t seg_slot_cnt) {
-    Pack* pack{ new Pack{} };
+PolySeqCntr Create(size_t elem_size, size_t elem_stride, size_t seg_slot_cnt) {
+    Pack* pack{ new Pack{ elem_size, elem_stride, seg_slot_cnt } };
 
     auto* mlca{ &pack->mlca };
-
-    mlca->node_alctr = zeta::core::poly_allocator::MakeRef(pack->node_alctr);
-
-    mlca->seg_alctr = zeta::core::poly_allocator::MakeRef(pack->seg_alctr);
-
-    MultiLevelCircularArrayNS::Init(
-        *mlca,
-        sizeof(Elem),                          // elem_width
-        elem_stride,                           // elem_stride
-        seg_slot_cnt,                          // seg_slot_cnt
-        zeta::core::lifecycle::SkipInitTag{},  // node_alctr_init_arg
-        zeta::core::lifecycle::SkipInitTag{}   // seg_alctr_init_arg
-    );
-
-    PolySeqCntr poly_seq_cntr{ zeta::core::poly_seq_cntr::MakeRef(*mlca) };
 
     seq_cntr_utils::AddSanitizeFunc(mlca, Sanitize);
 
     seq_cntr_utils::AddDestroyFunc(mlca, Destroy);
 
-    return poly_seq_cntr;
+    return *mlca;
 }
 
 inline void Destroy(void* mlca_) {
@@ -73,7 +61,7 @@ inline void Destroy(void* mlca_) {
 
     Pack* pack{ ZETA_Core_MemberToStruct(Pack, mlca, mlca) };
 
-    MultiLevelCircularArrayNS::Deinit(pack->mlca);
+    pack->mlca.Deinit();
 
     delete pack;
 }
@@ -90,10 +78,12 @@ inline void Sanitize(void const* mlca_) {
     core::mem_recorder::MemRecorder node;
     core::mem_recorder::MemRecorder seg;
 
-    MultiLevelCircularArrayNS::Sanitize(*mlca, &node, &seg);
+    mlca->Sanitize(&node, &seg);
 
-    core::mem_recorder::MatchRecords(pack->node_alctr.mem_recorder, node);
-    core::mem_recorder::MatchRecords(pack->seg_alctr.mem_recorder, seg);
+    core::mem_recorder::MemRecorder::MatchRecords(pack->node_alctr.mem_recorder,
+                                                  node);
+    core::mem_recorder::MemRecorder::MatchRecords(pack->seg_alctr.mem_recorder,
+                                                  seg);
 }
 
 }  // namespace zeta::core_test::multi_level_circular_array_utils

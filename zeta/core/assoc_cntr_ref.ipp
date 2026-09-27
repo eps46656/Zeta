@@ -3,7 +3,7 @@
 #include <zeta/core/assoc_cntr.hpp>
 #include <zeta/core/assoc_cntr.ipp>
 #include <zeta/core/assoc_cntr_ref.hpp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/meta.hpp>
 
@@ -21,15 +21,15 @@ namespace zeta::core {
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define CallMethod_(method_ptr, cap_name, method, ...)                       \
     {                                                                        \
-        ZETA_Core_DebugAssert(                                               \
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(                             \
             TestCapability(cntr.dynamic_enabled_capability_flag, cap_name)); \
                                                                              \
         auto method_ptr{ cntr.vtable->method };                              \
-        ZETA_Core_DebugAssert(method_ptr != nullptr);                        \
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(method_ptr != nullptr);      \
                                                                              \
         return method_ptr(cntr.target_cntr, __VA_ARGS__);                    \
     }                                                                        \
-    ZETA_Core_StaticAssert(true);
+    static_assert(true);
 
 #pragma push_macro("CallMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -263,9 +263,9 @@ constexpr void assoc_cntr_ref::Cntr::CursorAdvanceR(this Cntr const& cntr,
 #pragma pop_macro("CallMethod")
 
 constexpr void assoc_cntr_ref::Cntr::Check(this Cntr const& cntr) {
-    ZETA_Core_DebugAssert(0 < cntr.elem_size);
-    ZETA_Core_DebugAssert(cntr.vtable != nullptr);
-    ZETA_Core_DebugAssert(cntr.target_cntr != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < cntr.elem_size);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cntr.vtable != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cntr.target_cntr != nullptr);
 
     assoc_cntr::capability::Flag enabled_capability_flag{
         cntr.dynamic_enabled_capability_flag
@@ -275,7 +275,7 @@ constexpr void assoc_cntr_ref::Cntr::Check(this Cntr const& cntr) {
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define CheckMethod(capability, method)                         \
-    ZETA_Core_DebugAssert(                                      \
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(                    \
         !TestCapability(enabled_capability_flag, capability) || \
         cntr.vtable->method != nullptr);
 

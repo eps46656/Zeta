@@ -11,7 +11,7 @@ from . import building_utils, utils
 from .zeta import core as zeta_core
 from .zeta import core_test as zeta_core_test
 
-FILE = utils.to_canon_path(__file__, solve_symlink=False)
+FILE = utils.to_resolved_path(__file__)
 DIR = FILE.parent
 
 zeta_dev_dir = DIR
@@ -47,9 +47,14 @@ match os.name:
 # ------------------------------------------------------------------------------
 
 zeta_core_debug_config = zeta_core.Config(
-    name="debug",
+    parent_module_chain=building_utils.ModuleChain((
+        building_utils.ModulePair(
+            name="zeta",
+            config="debug",
+        ),
+    )),
 
-    verbose=True,
+    name="debug",
 
     out_dir=zeta_out_dir / "core" / "debug",
 
@@ -61,17 +66,24 @@ zeta_core_debug_config = zeta_core.Config(
     c_include_dirs=[zeta_dev_dir],
     cpp_include_dirs=[zeta_dev_dir],
 
-    enable_debug=True,
-    enable_asan=True,
+    debug_enable=True,
+    asan_enable=True,
+
+    core_debug_utils_sanity_enable=True,
 
     opt_type="0",
     link_time_opt=False,
 )
 
 zeta_core_test_debug_config = zeta_core_test.Config(
-    name="debug",
+    parent_module_chain=building_utils.ModuleChain((
+        building_utils.ModulePair(
+            name="zeta",
+            config="debug",
+        ),
+    )),
 
-    verbose=True,
+    name="debug",
 
     out_dir=zeta_out_dir / "core_test" / "debug",
 
@@ -83,17 +95,24 @@ zeta_core_test_debug_config = zeta_core_test.Config(
     c_include_dirs=[zeta_dev_dir],
     cpp_include_dirs=[zeta_dev_dir],
 
-    enable_debug=True,
-    enable_asan=True,
+    debug_enable=True,
+    asan_enable=True,
+
+    core_debug_utils_sanity_enable=True,
 
     opt_type="0",
     link_time_opt=False,
 )
 
 zeta_core_release_config = zeta_core.Config(
-    name="release",
+    parent_module_chain=building_utils.ModuleChain((
+        building_utils.ModulePair(
+            name="zeta",
+            config="release",
+        ),
+    )),
 
-    verbose=True,
+    name="release",
 
     out_dir=zeta_out_dir / "core" / "release",
 
@@ -105,17 +124,24 @@ zeta_core_release_config = zeta_core.Config(
     c_include_dirs=[zeta_dev_dir],
     cpp_include_dirs=[zeta_dev_dir],
 
-    enable_debug=False,
-    enable_asan=False,
+    debug_enable=False,
+    asan_enable=False,
+
+    core_debug_utils_sanity_enable=False,
 
     opt_type="3",
     link_time_opt=True,
 )
 
 zeta_core_test_release_config = zeta_core_test.Config(
-    name="release",
+    parent_module_chain=building_utils.ModuleChain((
+        building_utils.ModulePair(
+            name="zeta",
+            config="release",
+        ),
+    )),
 
-    verbose=True,
+    name="release",
 
     out_dir=zeta_out_dir / "core_test" / "release",
 
@@ -127,17 +153,24 @@ zeta_core_test_release_config = zeta_core_test.Config(
     c_include_dirs=[zeta_dev_dir],
     cpp_include_dirs=[zeta_dev_dir],
 
-    enable_debug=False,
-    enable_asan=False,
+    debug_enable=False,
+    asan_enable=False,
+
+    core_debug_utils_sanity_enable=False,
 
     opt_type="3",
     link_time_opt=True,
 )
 
 zeta_core_raw_config = zeta_core.Config(
-    name="raw",
+    parent_module_chain=building_utils.ModuleChain((
+        building_utils.ModulePair(
+            name="zeta",
+            config="raw",
+        ),
+    )),
 
-    verbose=True,
+    name="raw",
 
     out_dir=zeta_out_dir / "core" / "raw",
 
@@ -149,17 +182,24 @@ zeta_core_raw_config = zeta_core.Config(
     c_include_dirs=[zeta_dev_dir],
     cpp_include_dirs=[zeta_dev_dir],
 
-    enable_debug=True,
-    enable_asan=False,
+    debug_enable=True,
+    asan_enable=False,
+
+    core_debug_utils_sanity_enable=True,
 
     opt_type="2",
     link_time_opt=False,
 )
 
 zeta_core_test_raw_config = zeta_core_test.Config(
-    name="raw",
+    parent_module_chain=building_utils.ModuleChain((
+        building_utils.ModulePair(
+            name="zeta",
+            config="raw",
+        ),
+    )),
 
-    verbose=True,
+    name="raw",
 
     out_dir=zeta_out_dir / "core_test" / "raw",
 
@@ -171,8 +211,10 @@ zeta_core_test_raw_config = zeta_core_test.Config(
     c_include_dirs=[zeta_dev_dir],
     cpp_include_dirs=[zeta_dev_dir],
 
-    enable_debug=True,
-    enable_asan=False,
+    debug_enable=True,
+    asan_enable=False,
+
+    core_debug_utils_sanity_enable=True,
 
     opt_type="2",
     link_time_opt=False,
@@ -230,24 +272,35 @@ def main():
                         dest="rebuild",
                         action="store_true")
 
-    print(f"{sys.argv[1:]}")
-
     args = parser.parse_args(sys.argv[1:])
 
-    print(f"args: {args}")
+    print(f"{utils.ANSIColorCode.cyan}args: {args}{utils.ANSIColorCode.reset}")
 
     config = configs[args.config]
 
-    builder = building_utils.Builder()
+    builder = building_utils.BuildGraph()
+
+    builder.add_act(building_utils.SimpleBuildAction(
+        name=FILE,
+        module_chain=building_utils.ModuleChain((
+            building_utils.ModulePair(
+                name="building_script",
+                config=None,
+            ),
+        )),
+        get_der_arts=lambda: [FILE],
+        get_dep_arts=lambda: tuple(),
+        run=lambda: None,
+    ))
 
     zeta_core.add_deps(builder, config.zeta_core_config)
     zeta_core_test.add_deps(builder, config.zeta_core_test_config)
 
-    builder.add_build_node(FILE, None, None)
-
     target_replace_table = {
-        "{zeta_core_out_dir}": str(config.zeta_core_config.out_dir),
-        "{zeta_core_test_out_dir}": str(config.zeta_core_test_config.out_dir),
+        "{zeta_core_out_dir}": utils.to_resolved_path(
+            config.zeta_core_config.out_dir).as_posix(),
+        "{zeta_core_test_out_dir}": utils.to_resolved_path(
+            config.zeta_core_test_config.out_dir).as_posix(),
     }
 
     target = args.target
@@ -255,34 +308,35 @@ def main():
     for k, l in target_replace_table.items():
         target = target.replace(k, l)
 
-    target = utils.to_pathlib_path(target)
-
     build_result = builder.build(target, args.rebuild)
 
-    total_build_state_str = "success" if build_result.is_success else "failed"
+    total_build_state_str = f"{utils.ANSIColorCode.green}Success{utils.ANSIColorCode.reset}" \
+        if build_result.is_success else f"{utils.ANSIColorCode.red}Failed{utils.ANSIColorCode.reset}"
 
-    print(utils.Color.yellow(total_build_state_str))
+    print(total_build_state_str)
 
     for unit_build_state, units in [
-        ("skipped_units", build_result.skipped_units),
-        ("finished_units", build_result.finished_units),
-        ("failed_units", build_result.failed_units),
-        ("unready_units", build_result.unready_units),
+        ("Skipped Artifacts", build_result.skipped_arts),
+        ("Success Artifacts", build_result.finished_arts),
+        (" Failed Artifacts", build_result.failed_arts),
+        ("Unready Artifacts", build_result.unready_arts),
     ]:
-        print(f"{utils.Color.yellow(f'{unit_build_state} build units')}:")
+        print(
+            f"{utils.ANSIColorCode.yellow}{unit_build_state}{utils.ANSIColorCode.reset}:")
 
         for i in sorted(units):
             print(f"\t{i}")
 
-    print(f"{utils.Color.yellow('target:')} {target}", sep="")
+    print(f"{utils.ANSIColorCode.cyan}Target Artifact:{utils.ANSIColorCode.reset} {target}", sep="")
 
-    print(utils.Color.yellow(total_build_state_str))
+    print(total_build_state_str)
 
     if not build_result.is_success:
         return
 
     if args.run:
-        print(f"{utils.Color.yellow(f'Running:')} {target}")
+        print(
+            f"{utils.ANSIColorCode.yellow}Running{utils.ANSIColorCode.reset}: {target}")
         os.system(str(target))
 
 

@@ -1,11 +1,12 @@
 #include <vector>
 #include <zeta/core/allocator.hpp>
-#include <zeta/core/debug_utils.hpp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
+#include <zeta/core/debug_utils/recording_allocator.ipp>
+#include <zeta/core/debug_utils/sanity.ipp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/integral_utils.hpp>
 #include <zeta/core/lifecycle.hpp>
-#include <zeta/core/lin_seq_elem_stream.ipp>
+#include <zeta/core/lin_seq_endpoint.ipp>
 #include <zeta/core/multi_level_data_table.ipp>
 #include <zeta/core/multi_level_ptr_table.ipp>
 #include <zeta/core_test/pod_value.hpp>
@@ -19,19 +20,46 @@ namespace MLDT = zeta::core::multi_level_data_table;
 struct MultiLevelPtrTableMap {
     MLPT::BranchNum branch_nums[MLPT::max_level];
 
-    MLPT::Cntr<unsigned short, zeta::core_test::std_allocator::Allocator> mlpt;
+    MLPT::Cntr<unsigned short,
+               zeta::core::debug_utils::recording_allocator::Allocator<
+                   zeta::core_test::std_allocator::Allocator>>
+        mlpt;
 
     using K =
         zeta::core::static_seq::MakeLinearStaticIntegralSeq<size_t, 0, 1, 0>;
 
-    MultiLevelPtrTableMap()
-        : branch_nums{ 5, 6, 7, 8, 9, 10, 11, 12, },
-          mlpt{
-            ZETA_Core_Lifecycle_PackInitArgs()
-            , 8, this->branch_nums } {
-        ZETA_Core_PrintCurPos;
+    static void SanityCheck(
+        void const* self_,
+        zeta::core::debug_utils::sanity::SanityCheckScope scope) {
+        auto& self{ *static_cast<MultiLevelPtrTableMap const*>(self_) };
 
-        this->Sanitize();
+        if (scope ==
+            zeta::core::debug_utils::sanity::SanityCheckScope::Complete) {
+            zeta::core::debug_utils::sanity::SanityCheck(&self.mlpt, scope);
+        }
+    }
+
+    MultiLevelPtrTableMap(std::string const& name)
+        : branch_nums{
+              5, 6, 7, 8, 9, 10, 11, 12,
+          },
+          mlpt{
+              8,
+              this->branch_nums,
+              ZETA_Core_Lifecycle_PackConstructArgs(
+                  std::make_shared<zeta::core_test::std_allocator::Allocator>(),
+                  zeta::core::debug_utils::memory::default_mem_recorder_server
+                      .MakeMemRecorderClient(name + "/mlpt.node_alctr")),
+          } {
+        ZETA_Core_DebugUtils_Logging_ImmLogCurPos();
+
+        zeta::core::debug_utils::sanity::RegisterSanityCheckFunc(
+            static_cast<void const*>(this), SanityCheck);
+    }
+
+    constexpr ~MultiLevelPtrTableMap() {
+        zeta::core::debug_utils::sanity::UnregisterSanityCheckFunc(
+            static_cast<void const*>(this));
     }
 
     template <typename Idx>
@@ -60,15 +88,6 @@ struct MultiLevelPtrTableMap {
         }
     }
 
-    void Sanitize() {
-        zeta::core::mem_recorder::MemRecorder nav_node_mem_recorder;
-
-        this->mlpt.Sanitize(&nav_node_mem_recorder);
-
-        zeta::core::mem_recorder::MatchRecords(
-            this->mlpt.nav_node_alctr_like.mem_recorder, nav_node_mem_recorder);
-    }
-
     size_t GetCapacity() { return this->mlpt.GetMaxElemCnt(); }
 
     void** Access(size_t idx) {
@@ -76,14 +95,16 @@ struct MultiLevelPtrTableMap {
 
         this->SetIdxes_(idx, idxes);
 
-        void* n{ this->mlpt.Access(zeta::core::lin_seq_elem_stream::Provider{
-            .data = idxes + (this->mlpt.level - 1),
-            .elem_size = sizeof(MLPT::BranchNum),
-            .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
-            .elem_cnt = MLPT::max_level,
-        }) };
+        void* n{ this->mlpt.Access(
+            zeta::core::lin_seq_endpoint::provider::Provider{
+                .data = idxes + (this->mlpt.level - 1),
+                .elem_size = sizeof(MLPT::BranchNum),
+                .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
+                .elem_cnt = MLPT::max_level,
+            }) };
 
-        this->Sanitize();
+        zeta::core::debug_utils::sanity::SanityCheck(
+            this, zeta::core::debug_utils::sanity::SanityCheckScope::Complete);
 
         return n == nullptr ? nullptr : static_cast<void**>(n);
     }
@@ -94,7 +115,7 @@ struct MultiLevelPtrTableMap {
         this->SetIdxes_(idx, idxes);
 
         void* n{ this->mlpt
-                     .Insert(zeta::core::lin_seq_elem_stream::Provider{
+                     .Insert(zeta::core::lin_seq_endpoint::provider::Provider{
                          .data = idxes + (this->mlpt.level - 1),
                          .elem_size = sizeof(MLPT::BranchNum),
                          .elem_stride =
@@ -103,11 +124,12 @@ struct MultiLevelPtrTableMap {
                      })
                      .first };
 
-        ZETA_Core_DebugAssert(n != nullptr);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
 
         *static_cast<void**>(n) = val;
 
-        this->Sanitize();
+        zeta::core::debug_utils::sanity::SanityCheck(
+            this, zeta::core::debug_utils::sanity::SanityCheckScope::Complete);
     }
 
     void Erase(size_t idx) {
@@ -115,14 +137,15 @@ struct MultiLevelPtrTableMap {
 
         this->SetIdxes_(idx, idxes);
 
-        this->mlpt.Erase(zeta::core::lin_seq_elem_stream::Provider{
+        this->mlpt.Erase(zeta::core::lin_seq_endpoint::provider::Provider{
             .data = idxes + (this->mlpt.level - 1),
             .elem_size = sizeof(MLPT::BranchNum),
             .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
             .elem_cnt = MLPT::max_level,
         });
 
-        this->Sanitize();
+        zeta::core::debug_utils::sanity::SanityCheck(
+            this, zeta::core::debug_utils::sanity::SanityCheckScope::Complete);
     }
 
     size_t FindPrev(size_t idx) {
@@ -131,20 +154,21 @@ struct MultiLevelPtrTableMap {
         this->SetIdxes_(idx, idxes);
 
         void* n{ this->mlpt.FindPrevIncl(
-            zeta::core::lin_seq_elem_stream::Provider{
+            zeta::core::lin_seq_endpoint::provider::Provider{
                 .data = idxes + (this->mlpt.level - 1),
                 .elem_size = sizeof(MLPT::BranchNum),
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
                 .elem_cnt = MLPT::max_level,
             },
-            zeta::core::lin_seq_elem_stream::Acceptor{
+            zeta::core::lin_seq_endpoint::acceptor::Acceptor{
                 .data = idxes + (this->mlpt.level - 1),
                 .elem_size = sizeof(MLPT::BranchNum),
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
                 .elem_cnt = MLPT::max_level,
             }) };
 
-        this->Sanitize();
+        zeta::core::debug_utils::sanity::SanityCheck(
+            this, zeta::core::debug_utils::sanity::SanityCheckScope::Complete);
 
         return n == nullptr ? static_cast<size_t>(-1) : GetIdx_(idxes);
     }
@@ -154,20 +178,21 @@ struct MultiLevelPtrTableMap {
         SetIdxes_(idx, idxes);
 
         void* n{ this->mlpt.FindNextIncl(
-            zeta::core::lin_seq_elem_stream::Provider{
+            zeta::core::lin_seq_endpoint::provider::Provider{
                 .data = idxes + (this->mlpt.level - 1),
                 .elem_size = sizeof(MLPT::BranchNum),
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
                 .elem_cnt = MLPT::max_level,
             },
-            zeta::core::lin_seq_elem_stream::Acceptor{
+            zeta::core::lin_seq_endpoint::acceptor::Acceptor{
                 .data = idxes + (this->mlpt.level - 1),
                 .elem_size = sizeof(MLPT::BranchNum),
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
                 .elem_cnt = MLPT::max_level,
             }) };
 
-        this->Sanitize();
+        zeta::core::debug_utils::sanity::SanityCheck(
+            this, zeta::core::debug_utils::sanity::SanityCheckScope::Complete);
 
         return n == nullptr ? static_cast<size_t>(-1) : GetIdx_(idxes);
     }
@@ -179,13 +204,13 @@ struct MultiLevelPtrTableMap {
         std::vector<std::pair<size_t, void*>> ret;
 
         void* n{ this->mlpt.FindNextIncl(
-            zeta::core::lin_seq_elem_stream::Provider{
+            zeta::core::lin_seq_endpoint::provider::Provider{
                 .data = idxes + (this->mlpt.level - 1),
                 .elem_size = sizeof(MLPT::BranchNum),
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
                 .elem_cnt = MLPT::max_level,
             },
-            zeta::core::lin_seq_elem_stream::Acceptor{
+            zeta::core::lin_seq_endpoint::acceptor::Acceptor{
                 .data = idxes + (this->mlpt.level - 1),
                 .elem_size = sizeof(MLPT::BranchNum),
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
@@ -193,17 +218,25 @@ struct MultiLevelPtrTableMap {
             }) };
 
         while (n != nullptr) {
-            ret.emplace_back(GetIdx_(idxes), *static_cast<void**>(n));
+            size_t k{ GetIdx_(idxes) };
+
+            ZETA_Core_DebugUtils_Diag_LogVar(k);
+
+            if (!ret.empty()) {
+                ZETA_Core_DebugUtils_Diag_PromiseAssert(ret.back().first < k);
+            }
+
+            ret.emplace_back(k, *static_cast<void**>(n));
 
             n = this->mlpt.FindNextExcl(
-                zeta::core::lin_seq_elem_stream::Provider{
+                zeta::core::lin_seq_endpoint::provider::Provider{
                     .data = idxes + (this->mlpt.level - 1),
                     .elem_size = sizeof(MLPT::BranchNum),
                     .elem_stride =
                         -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
                     .elem_cnt = MLPT::max_level,
                 },
-                zeta::core::lin_seq_elem_stream::Acceptor{
+                zeta::core::lin_seq_endpoint::acceptor::Acceptor{
                     .data = idxes + (this->mlpt.level - 1),
                     .elem_size = sizeof(MLPT::BranchNum),
                     .elem_stride =
@@ -220,19 +253,51 @@ template <typename T>
 struct MultiLevelDataTableMap {
     MLDT::BranchNum branch_nums[MLDT::max_level];
 
-    MLDT::Cntr<unsigned _BitInt(128), zeta::core_test::std_allocator::Allocator,
-               zeta::core_test::std_allocator::Allocator>
+    MLDT::Cntr<unsigned _BitInt(128),
+               zeta::core::debug_utils::recording_allocator::Allocator<
+                   zeta::core_test::std_allocator::Allocator>,
+               zeta::core::debug_utils::recording_allocator::Allocator<
+                   zeta::core_test::std_allocator::Allocator>>
         mldt;
 
-    MultiLevelDataTableMap(): branch_nums{ 5, 6, 7, 8, 9, 10, 11, 12, },
-        mldt{ ZETA_Core_Lifecycle_PackInitArgs(),ZETA_Core_Lifecycle_PackInitArgs()
-               , 8, this->branch_nums, sizeof(T) }
-    {
-        this->Sanitize();
+    static constexpr void SanityCheck(
+        void const* self_,
+        zeta::core::debug_utils::sanity::SanityCheckScope scope) {
+        MultiLevelDataTableMap const& self{
+            *static_cast<MultiLevelDataTableMap const*>(self_)
+        };
+
+        zeta::core::debug_utils::sanity::SanityCheck(&self.mldt, scope);
+    }
+
+    constexpr MultiLevelDataTableMap(std::string const& name)
+        : branch_nums{
+              5, 6, 7, 8, 9, 10, 11, 12,
+          },
+          mldt{
+              8,
+              this->branch_nums,
+              sizeof(T),
+              ZETA_Core_Lifecycle_PackConstructArgs(
+                  std::make_shared<zeta::core_test::std_allocator::Allocator>(),
+                  zeta::core::debug_utils::memory::default_mem_recorder_server
+                      .MakeMemRecorderClient(name + "/mldt.node_alctr")),
+              ZETA_Core_Lifecycle_PackConstructArgs(
+                  std::make_shared<zeta::core_test::std_allocator::Allocator>(),
+                  zeta::core::debug_utils::memory::default_mem_recorder_server
+                      .MakeMemRecorderClient(name + "/mldt.seg_alctr")),
+          } {
+        zeta::core::debug_utils::sanity::RegisterSanityCheckFunc(
+            static_cast<void const*>(this), SanityCheck);
+    }
+
+    constexpr ~MultiLevelDataTableMap() {
+        zeta::core::debug_utils::sanity::UnregisterSanityCheckFunc(
+            static_cast<void const*>(this));
     }
 
     template <typename Idx>
-    size_t GetIdx_(Idx* idxes) {
+    constexpr size_t GetIdx_(Idx* idxes) {
         using UnsignedIdx = zeta::core::integral::MakeUnsignedOf<Idx>;
 
         int level{ static_cast<int>(this->mldt.level) };
@@ -247,7 +312,7 @@ struct MultiLevelDataTableMap {
         return idx;
     }
 
-    void SetIdxes_(size_t idx, MLDT::BranchNum* dst_idxes) const {
+    constexpr void SetIdxes_(size_t idx, MLDT::BranchNum* dst_idxes) const {
         int level{ static_cast<int>(this->mldt.level) };
 
         for (int level_i{ 0 }; level_i < level; ++level_i) {
@@ -257,47 +322,34 @@ struct MultiLevelDataTableMap {
         }
     }
 
-    void Sanitize() {
-        zeta::core::mem_recorder::MemRecorder nav_node_mem_recorder;
+    constexpr size_t GetCapacity() { return this->mldt.GetMaxElemCnt(); }
 
-        zeta::core::mem_recorder::MemRecorder data_node_mem_recorder;
-
-        this->mldt.Sanitize(&nav_node_mem_recorder, &data_node_mem_recorder);
-
-        zeta::core::mem_recorder::MatchRecords(
-            this->mldt.nav_node_alctr_like.mem_recorder, nav_node_mem_recorder);
-
-        zeta::core::mem_recorder::MatchRecords(
-            this->mldt.data_node_alctr_like.mem_recorder,
-            data_node_mem_recorder);
-    }
-
-    size_t GetCapacity() { return this->mldt.GetMaxElemCnt(); }
-
-    T* Access(size_t idx) {
+    constexpr T* Access(size_t idx) {
         MLDT::BranchNum idxes[MLDT::max_level];
 
         this->SetIdxes_(idx, idxes);
 
-        void* n = this->mldt.Access(zeta::core::lin_seq_elem_stream::Provider{
-            .data = idxes + (this->mldt.level - 1),
-            .elem_size = sizeof(MLDT::BranchNum),
-            .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
-            .elem_cnt = MLDT::max_level,
-        });
+        void* n =
+            this->mldt.Access(zeta::core::lin_seq_endpoint::provider::Provider{
+                .data = idxes + (this->mldt.level - 1),
+                .elem_size = sizeof(MLDT::BranchNum),
+                .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
+                .elem_cnt = MLDT::max_level,
+            });
 
-        this->Sanitize();
+        zeta::core::debug_utils::sanity::SanityCheck(
+            this, zeta::core::debug_utils::sanity::SanityCheckScope::Complete);
 
         return n == nullptr ? nullptr : static_cast<T*>(n);
     }
 
-    void Insert(size_t idx, T const& val) {
+    constexpr void Insert(size_t idx, T const& val) {
         MLDT::BranchNum idxes[MLDT::max_level];
 
         this->SetIdxes_(idx, idxes);
 
         void* n{ this->mldt
-                     .Insert(zeta::core::lin_seq_elem_stream::Provider{
+                     .Insert(zeta::core::lin_seq_endpoint::provider::Provider{
                          .data = idxes + (this->mldt.level - 1),
                          .elem_size = sizeof(MLDT::BranchNum),
                          .elem_stride =
@@ -306,76 +358,80 @@ struct MultiLevelDataTableMap {
                      })
                      .first };
 
-        ZETA_Core_DebugAssert(n != nullptr);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
 
         *static_cast<T*>(n) = val;
 
-        this->Sanitize();
+        zeta::core::debug_utils::sanity::SanityCheck(
+            this, zeta::core::debug_utils::sanity::SanityCheckScope::Complete);
     }
 
-    void Erase(size_t idx) {
+    constexpr void Erase(size_t idx) {
         MLDT::BranchNum idxes[MLDT::max_level];
 
         this->SetIdxes_(idx, idxes);
 
-        this->mldt.Erase(zeta::core::lin_seq_elem_stream::Provider{
+        this->mldt.Erase(zeta::core::lin_seq_endpoint::provider::Provider{
             .data = idxes + (this->mldt.level - 1),
             .elem_size = sizeof(MLDT::BranchNum),
             .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
             .elem_cnt = MLDT::max_level,
         });
 
-        this->Sanitize();
+        zeta::core::debug_utils::sanity::SanityCheck(
+            this, zeta::core::debug_utils::sanity::SanityCheckScope::Complete);
     }
 
-    size_t FindPrev(size_t idx) {
+    constexpr size_t FindPrev(size_t idx) {
         MLDT::BranchNum idxes[MLDT::max_level];
 
         this->SetIdxes_(idx, idxes);
 
         void* n{ this->mldt.FindPrevIncl(
-            zeta::core::lin_seq_elem_stream::Provider{
+            zeta::core::lin_seq_endpoint::provider::Provider{
                 .data = idxes + (this->mldt.level - 1),
                 .elem_size = sizeof(MLDT::BranchNum),
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
                 .elem_cnt = MLDT::max_level,
             },
-            zeta::core::lin_seq_elem_stream::Acceptor{
+            zeta::core::lin_seq_endpoint::acceptor::Acceptor{
                 .data = idxes + (this->mldt.level - 1),
                 .elem_size = sizeof(MLDT::BranchNum),
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
                 .elem_cnt = MLDT::max_level,
             }) };
 
-        this->Sanitize();
+        zeta::core::debug_utils::sanity::SanityCheck(
+            this, zeta::core::debug_utils::sanity::SanityCheckScope::Complete);
 
         return n == nullptr ? static_cast<size_t>(-1) : GetIdx_(idxes);
     }
 
-    size_t FindNext(size_t idx) {
+    constexpr size_t FindNext(size_t idx) {
         MLDT::BranchNum idxes[MLDT::max_level];
         this->SetIdxes_(idx, idxes);
 
         void* n{ this->mldt.FindNextIncl(
-            zeta::core::lin_seq_elem_stream::Provider{
+            zeta::core::lin_seq_endpoint::provider::Provider{
                 .data = idxes + (this->mldt.level - 1),
                 .elem_size = sizeof(MLDT::BranchNum),
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
                 .elem_cnt = MLDT::max_level,
             },
-            zeta::core::lin_seq_elem_stream::Acceptor{
+            zeta::core::lin_seq_endpoint::acceptor::Acceptor{
                 .data = idxes + (this->mldt.level - 1),
                 .elem_size = sizeof(MLDT::BranchNum),
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
                 .elem_cnt = MLDT::max_level,
             }) };
 
-        this->Sanitize();
+        zeta::core::debug_utils::sanity::SanityCheck(
+            this, zeta::core::debug_utils::sanity::SanityCheckScope::Complete);
 
         return n == nullptr ? static_cast<size_t>(-1) : GetIdx_(idxes);
     }
 
-    std::vector<std::pair<size_t, T>> Dump() {
+    constexpr std::vector<std::pair<size_t, T>> Dump() {
         MLDT::BranchNum idxes[MLDT::max_level];
 
         this->SetIdxes_(0, idxes);
@@ -383,13 +439,13 @@ struct MultiLevelDataTableMap {
         std::vector<std::pair<size_t, T>> ret;
 
         void* n{ this->mldt.FindNextIncl(
-            zeta::core::lin_seq_elem_stream::Provider{
+            zeta::core::lin_seq_endpoint::provider::Provider{
                 .data = idxes + (this->mldt.level - 1),
                 .elem_size = sizeof(MLDT::BranchNum),
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
                 .elem_cnt = MLDT::max_level,
             },
-            zeta::core::lin_seq_elem_stream::Acceptor{
+            zeta::core::lin_seq_endpoint::acceptor::Acceptor{
                 .data = idxes + (this->mldt.level - 1),
                 .elem_size = sizeof(MLDT::BranchNum),
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
@@ -397,17 +453,23 @@ struct MultiLevelDataTableMap {
             }) };
 
         while (n != nullptr) {
-            ret.push_back({ GetIdx_(idxes), *static_cast<T*>(n) });
+            size_t k{ GetIdx_(idxes) };
+
+            if (!ret.empty()) {
+                ZETA_Core_DebugUtils_Diag_PromiseAssert(ret.back().first < k);
+            }
+
+            ret.push_back({ k, *static_cast<T*>(n) });
 
             n = this->mldt.FindNextExcl(
-                zeta::core::lin_seq_elem_stream::Provider{
+                zeta::core::lin_seq_endpoint::provider::Provider{
                     .data = idxes + (this->mldt.level - 1),
                     .elem_size = sizeof(MLDT::BranchNum),
                     .elem_stride =
                         -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
                     .elem_cnt = MLDT::max_level,
                 },
-                zeta::core::lin_seq_elem_stream::Acceptor{
+                zeta::core::lin_seq_endpoint::acceptor::Acceptor{
                     .data = idxes + (this->mldt.level - 1),
                     .elem_size = sizeof(MLDT::BranchNum),
                     .elem_stride =
@@ -462,15 +524,15 @@ template <typename T, typename CntrA, typename CntrB>
 void SyncAccess(CntrA& cntr_a, CntrB& cntr_b) {
     size_t capacity{ cntr_a.GetCapacity() };
 
-    size_t idx{ zeta::core_test::GetRandomInt<size_t>(0, capacity - 1) };
+    size_t idx{ zeta::core_test::GenUniformRandomInt<size_t>(0, capacity - 1) };
 
     T* addr_a{ static_cast<T*>(cntr_a.Access(idx)) };
     T* addr_b{ static_cast<T*>(cntr_b.Access(idx)) };
 
     if (addr_a == nullptr) {
-        ZETA_Core_DebugAssert(addr_b == nullptr);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(addr_b == nullptr);
     } else {
-        ZETA_Core_DebugAssert(*addr_a == *addr_b);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(*addr_a == *addr_b);
     }
 }
 
@@ -478,24 +540,26 @@ template <typename T, typename CntrA, typename CntrB>
 void SyncInsert(CntrA& cntr_a, CntrB& cntr_b) {
     size_t capacity{ cntr_a.GetCapacity() };
 
-    size_t idx{ zeta::core_test::GetRandomInt<size_t>(0, capacity - 1) };
+    size_t idx{ zeta::core_test::GenUniformRandomInt<size_t>(0, capacity - 1) };
 
     T val{ zeta::core_test::GetRandom<T>() };
 
     cntr_a.Insert(idx, val);
     T* addr_a{ static_cast<T*>(cntr_a.Access(idx)) };
-    ZETA_Core_DebugAssert(addr_a != nullptr && *addr_a == val);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(addr_a != nullptr &&
+                                            *addr_a == val);
 
     cntr_b.Insert(idx, val);
     T* addr_b{ static_cast<T*>(cntr_b.Access(idx)) };
-    ZETA_Core_DebugAssert(addr_b != nullptr && *addr_b == val);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(addr_b != nullptr &&
+                                            *addr_b == val);
 }
 
 template <typename CntrA, typename CntrB>
 void SyncErase(CntrA& cntr_a, CntrB& cntr_b) {
     size_t capacity{ cntr_a.GetCapacity() };
 
-    size_t idx{ zeta::core_test::GetRandomInt<size_t>(0, capacity - 1) };
+    size_t idx{ zeta::core_test::GenUniformRandomInt<size_t>(0, capacity - 1) };
 
     cntr_a.Erase(idx);
     cntr_b.Erase(idx);
@@ -505,37 +569,34 @@ template <typename CntrA, typename CntrB>
 void SyncFindPrevThenErase(CntrA& cntr_a, CntrB& cntr_b) {
     size_t capacity{ cntr_a.GetCapacity() };
 
-    size_t idx{ zeta::core_test::GetRandomInt<size_t>(0, capacity - 1) };
+    size_t idx{ zeta::core_test::GenUniformRandomInt<size_t>(0, capacity - 1) };
 
     size_t prv_idx_a{ cntr_a.FindPrev(idx) };
     size_t prv_idx_b{ cntr_b.FindPrev(idx) };
 
     if (prv_idx_a != prv_idx_b) {
-        ZETA_Core_PrintVar(prv_idx_a);
-        ZETA_Core_PrintVar(prv_idx_b);
+        ZETA_Core_DebugUtils_Logging_ImmLogVar(prv_idx_a);
+        ZETA_Core_DebugUtils_Logging_ImmLogVar(prv_idx_b);
     }
 
-    ZETA_Core_DebugAssert(prv_idx_a == prv_idx_b);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(prv_idx_a == prv_idx_b);
 
     if (prv_idx_a == static_cast<size_t>(-1)) { return; }
 
     cntr_a.Erase(prv_idx_a);
     cntr_b.Erase(prv_idx_b);
-
-    cntr_a.Sanitize();
-    cntr_b.Sanitize();
 }
 
 template <typename CntrA, typename CntrB>
 void SyncFindNextThenErase(CntrA& cntr_a, CntrB& cntr_b) {
     size_t capacity{ cntr_a.GetCapacity() };
 
-    size_t idx{ zeta::core_test::GetRandomInt<size_t>(0, capacity - 1) };
+    size_t idx{ zeta::core_test::GenUniformRandomInt<size_t>(0, capacity - 1) };
 
     size_t nxt_idx_a{ cntr_a.FindNext(idx) };
     size_t nxt_idx_b{ cntr_b.FindNext(idx) };
 
-    ZETA_Core_DebugAssert(nxt_idx_a == nxt_idx_b);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(nxt_idx_a == nxt_idx_b);
 
     if (nxt_idx_a == static_cast<size_t>(-1)) { return; }
 
@@ -547,33 +608,35 @@ template <typename CntrA, typename CntrB>
 void SyncFindPrev(CntrA& cntr_a, CntrB& cntr_b) {
     size_t capacity{ cntr_a.GetCapacity() };
 
-    size_t idx{ zeta::core_test::GetRandomInt<size_t>(0, capacity - 1) };
+    size_t idx{ zeta::core_test::GenUniformRandomInt<size_t>(0, capacity - 1) };
 
-    size_t prv_idx_a{ cntr_a.FindNext(idx) };
-    size_t prv_idx_b{ cntr_b.FindNext(idx) };
+    size_t prv_idx_a{ cntr_a.FindPrev(idx) };
+    size_t prv_idx_b{ cntr_b.FindPrev(idx) };
 
-    ZETA_Core_DebugAssert(prv_idx_a == prv_idx_b);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(prv_idx_a == prv_idx_b);
 
-    ZETA_Core_DebugAssert(cntr_a.Access(prv_idx_a) == cntr_b.Access(prv_idx_b));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cntr_a.Access(prv_idx_a) ==
+                                            cntr_b.Access(prv_idx_b));
 }
 
 template <typename CntrA, typename CntrB>
 void SyncFindNext(CntrA& cntr_a, CntrB& cntr_b) {
     size_t capacity{ cntr_a.GetCapacity() };
 
-    size_t idx{ zeta::core_test::GetRandomInt<size_t>(0, capacity - 1) };
+    size_t idx{ zeta::core_test::GenUniformRandomInt<size_t>(0, capacity - 1) };
 
     size_t nxt_idx_a{ cntr_a.FindNext(idx) };
     size_t nxt_idx_b{ cntr_b.FindNext(idx) };
 
-    ZETA_Core_DebugAssert(nxt_idx_a == nxt_idx_b);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(nxt_idx_a == nxt_idx_b);
 
-    ZETA_Core_DebugAssert(cntr_a.Access(nxt_idx_a) == cntr_b.Access(nxt_idx_b));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cntr_a.Access(nxt_idx_a) ==
+                                            cntr_b.Access(nxt_idx_b));
 }
 
 template <typename CntrA, typename CntrB>
 void SyncCompare(CntrA& cntr_a, CntrB& cntr_b) {
-    ZETA_Core_DebugAssert(cntr_a.Dump() == cntr_b.Dump());
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cntr_a.Dump() == cntr_b.Dump());
 }
 
 #define FOR_LOOP_(tmp_end, var, beg, end) \
@@ -583,16 +646,16 @@ void SyncCompare(CntrA& cntr_a, CntrB& cntr_b) {
 
 inline void main1() {
     unsigned random_seed{ static_cast<unsigned>(time(nullptr)) };
-    unsigned fixed_seed{ 1729615114 };
+    unsigned fixed_seed{ 1790008707 };
 
-    unsigned seed{ random_seed };
-    // unsigned seed = fixed_seed;
+    // unsigned seed{ random_seed };
+    unsigned seed{ fixed_seed };
 
-    ZETA_Core_PrintCurPos;
+    ZETA_Core_DebugUtils_Logging_ImmLogCurPos();
 
-    ZETA_Core_PrintVar(random_seed);
-    ZETA_Core_PrintVar(fixed_seed);
-    ZETA_Core_PrintVar(seed);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(random_seed);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(fixed_seed);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(seed);
 
     zeta::core_test::SetRandomSeed(seed);
 
@@ -600,42 +663,45 @@ inline void main1() {
     using T = zeta::core_test::PODValue;
 
     // MultiLevelPtrTableMap zeta_map;
-    MultiLevelDataTableMap<T> zeta_map;
+    MultiLevelDataTableMap<T> zeta_map{ "zeta_map" };
     StdMap<T> std_map;
 
-    ZETA_Core_PrintCurPos;
+    ZETA_Core_DebugUtils_Logging_ImmLogCurPos();
 
     FOR_LOOP(insert_i, 0, 128) {
-        ZETA_Core_PrintVar(insert_i);
+        ZETA_Core_DebugUtils_Logging_ImmLogVar(insert_i);
         SyncInsert<T>(zeta_map, std_map);
     }
 
-    ZETA_Core_PrintCurPos;
+    ZETA_Core_DebugUtils_Logging_ImmLogCurPos();
 
     FOR_LOOP(test_i, 0, 16) {
-        ZETA_Core_PrintVar(test_i);
+        ZETA_Core_DebugUtils_Logging_ImmLogVar(test_i);
 
-        ZETA_Core_PrintCurPos;
+        ZETA_Core_DebugUtils_Logging_ImmLogCurPos();
 
         FOR_LOOP(test_j, 0, 128) { SyncInsert<T>(zeta_map, std_map); }
 
-        ZETA_Core_PrintCurPos;
+        ZETA_Core_DebugUtils_Logging_ImmLogCurPos();
 
         FOR_LOOP(test_j, 0, 128) { SyncErase(zeta_map, std_map); }
 
-        ZETA_Core_PrintCurPos;
+        ZETA_Core_DebugUtils_Logging_ImmLogCurPos();
 
         FOR_LOOP(test_j, 0, 128) { SyncFindPrevThenErase(zeta_map, std_map); }
 
-        ZETA_Core_PrintCurPos;
+        ZETA_Core_DebugUtils_Logging_ImmLogCurPos();
 
-        FOR_LOOP(test_j, 0, 128) { SyncFindNextThenErase(zeta_map, std_map); }
+        FOR_LOOP(test_j, 0, 128) {
+            SyncFindNextThenErase(zeta_map, std_map);
+            SyncCompare(zeta_map, std_map);
+        }
 
-        ZETA_Core_PrintCurPos;
+        ZETA_Core_DebugUtils_Logging_ImmLogCurPos();
 
         SyncCompare(zeta_map, std_map);
 
-        ZETA_Core_PrintCurPos;
+        ZETA_Core_DebugUtils_Logging_ImmLogCurPos();
     }
 }
 
@@ -656,11 +722,13 @@ constexpr unsigned long long FindPrevBit_Base(Integral num,
 
 inline void main2() {
     for (int _{ 0 }; _ < 1'000'000; ++_) {
-        unsigned long long x{ zeta::core_test::GetRandomInt<unsigned long long>(
-            0, zeta::core::integral::RangeMaxOf<unsigned long long>) };
+        unsigned long long x{
+            zeta::core_test::GenUniformRandomInt<unsigned long long>(
+                0, zeta::core::integral::RangeMaxOf<unsigned long long>)
+        };
 
         unsigned long long pos{
-            zeta::core_test::GetRandomInt<unsigned long long>(
+            zeta::core_test::GenUniformRandomInt<unsigned long long>(
                 0, zeta::core::integral::WidthOf<unsigned long long> - 1)
         };
 
@@ -668,64 +736,71 @@ inline void main2() {
         unsigned long long b{ zeta::core::integral_bit::FindPrevBit(x, pos) };
 
         if (a != b) {
-            ZETA_Core_PrintVar(x);
-            ZETA_Core_PrintVar(pos);
-            ZETA_Core_PrintVar(a);
-            ZETA_Core_PrintVar(b);
+            ZETA_Core_DebugUtils_Logging_ImmLogVar(x);
+            ZETA_Core_DebugUtils_Logging_ImmLogVar(pos);
+            ZETA_Core_DebugUtils_Logging_ImmLogVar(a);
+            ZETA_Core_DebugUtils_Logging_ImmLogVar(b);
 
-            ZETA_Core_DebugAssert(a == b);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(a == b);
         }
     }
 }
 
 inline void main3() {
-    ZETA_Core_PrintVar(zeta::core::debug_utils::GetTypeStr<
-                       zeta::core::integral_utils::UnsignedFastIntegral<1>>());
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(
+        zeta::core::debug_utils::logging::GetTypeStr<
+            zeta::core::integral_utils::UnsignedFastIntegral<1>>());
 
-    ZETA_Core_PrintVar(zeta::core::debug_utils::GetTypeStr<
-                       zeta::core::integral_utils::UnsignedFastIntegral<7>>());
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(
+        zeta::core::debug_utils::logging::GetTypeStr<
+            zeta::core::integral_utils::UnsignedFastIntegral<7>>());
 
-    ZETA_Core_PrintVar(zeta::core::debug_utils::GetTypeStr<
-                       zeta::core::integral_utils::UnsignedFastIntegral<8>>());
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(
+        zeta::core::debug_utils::logging::GetTypeStr<
+            zeta::core::integral_utils::UnsignedFastIntegral<8>>());
 
-    ZETA_Core_PrintVar(zeta::core::debug_utils::GetTypeStr<
-                       zeta::core::integral_utils::UnsignedFastIntegral<31>>());
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(
+        zeta::core::debug_utils::logging::GetTypeStr<
+            zeta::core::integral_utils::UnsignedFastIntegral<31>>());
 
-    ZETA_Core_PrintVar(zeta::core::debug_utils::GetTypeStr<
-                       zeta::core::integral_utils::UnsignedFastIntegral<32>>());
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(
+        zeta::core::debug_utils::logging::GetTypeStr<
+            zeta::core::integral_utils::UnsignedFastIntegral<32>>());
 
-    ZETA_Core_PrintVar(zeta::core::debug_utils::GetTypeStr<
-                       zeta::core::integral_utils::UnsignedFastIntegral<63>>());
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(
+        zeta::core::debug_utils::logging::GetTypeStr<
+            zeta::core::integral_utils::UnsignedFastIntegral<63>>());
 
-    ZETA_Core_PrintVar(zeta::core::debug_utils::GetTypeStr<
-                       zeta::core::integral_utils::UnsignedFastIntegral<64>>());
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(
+        zeta::core::debug_utils::logging::GetTypeStr<
+            zeta::core::integral_utils::UnsignedFastIntegral<64>>());
 
-    ZETA_Core_PrintVar(
-        zeta::core::debug_utils::GetTypeStr<
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(
+        zeta::core::debug_utils::logging::GetTypeStr<
             zeta::core::integral_utils::UnsignedFastIntegral<127>>());
 
-    ZETA_Core_PrintVar(
-        zeta::core::debug_utils::GetTypeStr<
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(
+        zeta::core::debug_utils::logging::GetTypeStr<
             zeta::core::integral_utils::UnsignedFastIntegral<128>>());
 }
 
 int main() {
     unsigned long long beg_time{ zeta::core_test::GetTime() };
-    ZETA_Core_PrintVar(beg_time);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(beg_time);
 
     main1();
     // main2();
     // main3();
 
-    ZETA_Core_PrintVar(beg_time);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(beg_time);
 
     unsigned long long end_time{ zeta::core_test::GetTime() };
-    ZETA_Core_PrintVar(end_time);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(end_time);
 
     unsigned long long duration{ end_time - beg_time };
-    ZETA_Core_PrintVar(duration);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(duration);
 
-    ZETA_Core_PrintVar("ok");
+    ZETA_Core_DebugUtils_Logging_ImmLogVar("ok");
 
     return 0;
 }

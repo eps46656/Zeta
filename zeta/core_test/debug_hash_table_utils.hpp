@@ -46,7 +46,7 @@ AssocCntrRef Create() {
 
     pack->debug_ht.Init();
 
-    ZETA_Core_StaticAssert(
+    static_assert(
         zeta::core::assoc_cntr::IsAssocCntr<decltype(pack->debug_ht)>);
 
     // AssocCntrRef assoc_cntr_ref{ pack->debug_ht };

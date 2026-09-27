@@ -1,10 +1,10 @@
 #pragma once
 
-#include <zeta/core/elem_stream.hpp>
 #include <zeta/core/error.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/pair.hpp>
+#include <zeta/core/seq_endpoint.hpp>
 
 namespace zeta::core::integral_endec {
 
@@ -34,7 +34,7 @@ struct EncodeResult {
     bool value_out_of_range : 1;
 };
 
-template <elem_stream::acceptor::IsAcceptor Acceptor,
+template <seq_endpoint::acceptor::IsAcceptor Acceptor,
           IsEndiannessLike EndiannessLike,
           integral::IsUnsignedIntegral DigitIntegral, size_t DigitWidth,
           typename DigitCntLike, integral::IsIntegral SrcIntegral>
@@ -57,7 +57,7 @@ struct DecodeResult {
     Integral value;
 };
 
-template <elem_stream::provider::IsProvider Provider,
+template <seq_endpoint::provider::IsProvider Provider,
           IsEndiannessLike EndiannessLike,
           integral::IsUnsignedIntegral DigitIntegral, size_t DigitWidth,
           typename DigitCntLike, integral::IsIntegral DstIntegral>

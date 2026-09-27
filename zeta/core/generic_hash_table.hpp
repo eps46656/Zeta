@@ -4,13 +4,13 @@
 #include <zeta/core/array.ipp>
 #include <zeta/core/basic_bin_tree_node.hpp>
 #include <zeta/core/comparison_utils.ipp>
-#include <zeta/core/debug_utils.hpp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/fixed_point.hpp>
 #include <zeta/core/fixed_point.ipp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/multi_level_ptr_table.hpp>
+
+ZETA_Core_ClangdPreambleBarrier;
 
 #pragma push_macro("CntrTplParamList")
 #define CntrTplParamList(suffix)                                  \
@@ -62,13 +62,15 @@ constexpr UFP max_center_load_ratio{ UFP::FromIntegral(32U) };
 constexpr UFP min_drift_ratio{ UFP::FromFraction(150U, 100U) };  // 1.5
 constexpr UFP max_drift_ratio{ UFP::FromIntegral(16U) };         // 16
 
-using TreeNode =
-    basic_bin_tree_node::Node<void*,                          // LinkType
-                              meta::AutoValueWrapper<true>,   // PColorTag
-                              meta::AutoValueWrapper<false>,  // LColorTag
-                              meta::AutoValueWrapper<false>,  // RColorTag
-                              meta::AutoValueWrapper<false>,  // AccSizeTag
-                              basic_bin_tree_node::PrimaryColorTagEnum::P>;
+using TreeNode = basic_bin_tree_node::Node<
+    void*,                          // LinkType
+    meta::AutoValueWrapper<true>,   // PColorTag
+    meta::AutoValueWrapper<false>,  // LColorTag
+    meta::AutoValueWrapper<false>,  // RColorTag
+    meta::AutoValueWrapper<false>,  // AccSizeTag
+    meta::AutoValueWrapper<
+        basic_bin_tree_node::PrimaryColorTagEnum::P>  // PrimaryColorTag
+    >;
 
 }  // namespace zeta::core::generic_hash_table
 
@@ -113,7 +115,7 @@ struct Node {
 
     ZETA_Core_DebugStructPadding;
 
-    constexpr void Init();
+    constexpr void Construct();
 };
 
 template <CntrTplParamList(_)>
@@ -139,54 +141,53 @@ struct Cntr {
 
     RehashingConfig rehashing_config;
 
-    HasherLike hasher;
+    HasherLike hasher_like;
 
-    ComparatorLike cmptr;
+    ComparatorLike cmptr_like;
 
-    SaltRandomEngineLike salt_random_engine;
+    SaltRandomEngineLike salt_random_engine_like;
 
-    TableNodeAllocatorLike table_node_alctr;
+    TableNodeAllocatorLike table_node_alctr_like;
 
     template <typename NodeHashLikeInitArg, typename ComparatorInitArg,
               typename TableNodeAllocatorInitArg,
               typename SaltRandomEngineInitArg>
-    constexpr void Init(this Cntr& ght, RehashingConfig const& rehashing_config,
-                        NodeHashLikeInitArg&& hasher_init_arg,
-                        ComparatorInitArg&& cmptr_init_arg,
-                        SaltRandomEngineInitArg&& salt_random_engine_init_arg,
-                        TableNodeAllocatorInitArg&& table_node_alctr_init_arg);
+    constexpr Cntr(RehashingConfig const& rehashing_config,
+                   NodeHashLikeInitArg&& hasher_construct_arg,
+                   ComparatorInitArg&& cmptr_construct_arg,
+                   SaltRandomEngineInitArg&& salt_random_engine_construct_arg,
+                   TableNodeAllocatorInitArg&& table_node_alctr_construct_arg);
 
-    constexpr void Deinit(this Cntr& ght);
+    constexpr ~Cntr();
 
-    constexpr size_t GetNodeCnt(this Cntr const& ght);
+    constexpr size_t GetNodeCnt(this Cntr const& self);
 
-    constexpr bool Contain(this Cntr const& ght, Node const* node);
+    constexpr bool Contain(this Cntr const& self, Node const* node);
 
     template <typename Key, hash::CanHash<Key const*> KeyHasher,
               comparison::CanCompare<Key const*, Node const*> KeyElemComparator>
-    constexpr Node* Find(this Cntr const& ght, Key const* key,
+    constexpr Node* Find(this Cntr const& self, Key const* key,
                          KeyHasher const& key_hasher,
                          KeyElemComparator const& key_elem_cmptr);
 
     template <typename Key, hash::CanHash<Key const*> KeyHasher,
               comparison::CanCompare<Key const*, Node const*> KeyElemComparator>
-    constexpr void Insert(this Cntr& ght, Key const* key,
+    constexpr void Insert(this Cntr& self, Key const* key,
                           KeyHasher const& key_hasher,
                           KeyElemComparator const& key_elem_cmptr, Node* node);
 
-    constexpr void Extract(this Cntr& ght, Node* node);
+    constexpr void Extract(this Cntr& self, Node* node);
 
-    constexpr Node* ExtractAny(this Cntr& ght);
+    constexpr Node* ExtractAny(this Cntr& self);
 
-    constexpr void ExtractAll(this Cntr& ght);
+    constexpr void ExtractAll(this Cntr& self);
 
-    constexpr bool RunPending(this Cntr& ght, size_t quata);
+    constexpr bool RunPending(this Cntr& self, size_t quata);
 
     constexpr auto GetEffFactor(this Cntr const& ght);
 
-    constexpr void Sanitize(this Cntr const& ght,
-                            mem_recorder::MemRecorder* dst_table,
-                            mem_recorder::MemRecorder* dst_node);
+    static constexpr void SanityCheck(
+        void const* self, debug_utils::sanity::SanityCheckScope scope);
 };
 
 }  // namespace zeta::core::generic_hash_table

@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include <zeta/core/assoc_cntr.hpp>
 #include <zeta/core/debug_hash_table.hpp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/function_ref.ipp>
 #include <zeta/core/integral.hpp>
@@ -24,14 +24,14 @@ namespace debug_hash_table::detail {
 
 template <CntrTplParamList>
 void CheckCntr_(Cntr<CntrTplArgList> const& cntr) {
-    ZETA_Core_DebugAssert(cntr.hash_table != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cntr.hash_table != nullptr);
 }
 
 template <CntrTplParamList>
 void CheckCursor_(Cntr<CntrTplArgList> const& cntr,
                   typename Cntr<CntrTplArgList>::Cursor const* cursor) {
     (CheckCntr_)(cntr);
-    ZETA_Core_DebugAssert(cursor != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cursor != nullptr);
 }
 
 }  // namespace debug_hash_table::detail
@@ -82,7 +82,7 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::Init(this Cntr& cntr) {
         return comparison::Compare(
             *static_cast<meta::RemoveRef<decltype(meta::GetInstRef(
                 cntr.eq_proxy.elem_cmptr))> const*>(elem_cmptr),
-            comparison::OpTag::Equal{}, elem_a, elem_b);
+            comparison::OpTags::Equal{}, elem_a, elem_b);
     };
 
     cntr.hash_table =
@@ -313,7 +313,7 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::Find(
                                      void const* key, void const* elem) {
         return comparison::Compare(
             *static_cast<KeyElemComparator const*>(key_elem_cmptr),
-            comparison::OpTag::Equal{}, key, elem);
+            comparison::OpTags::Equal{}, key, elem);
     };
 
     eq_wrapper.cur_key = key;
@@ -396,7 +396,7 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::Insert(
                                      void const* elem_wrapper) {
         return comparison::Compare(
             *static_cast<KeyElemComparator const*>(key_elem_cmptr),
-            comparison::OpTag::Equal{}, key,
+            comparison::OpTags::Equal{}, key,
             static_cast<ObjWrapper const*>(elem_wrapper)->obj);
     };
 
@@ -406,8 +406,8 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::Insert(
 
     pos_cursor->obj = std::malloc(cntr.elem_size);
 
-    elem_stream::provider::Transfer(writer, pos_cursor->obj, cntr.elem_size,
-                                    cntr.elem_size, 1);
+    seq_endpoint::provider::Transfer(writer, pos_cursor->obj, cntr.elem_size,
+                                     cntr.elem_size, 1);
 
     if (dst_cursor != nullptr) {
         new (dst_cursor)
@@ -424,15 +424,15 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::PopL(this Cntr& cntr,
 
     auto* hash_table{ cntr.hash_table };
 
-    ZETA_Core_DebugAssert(cnt <= hash_table->size());
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= hash_table->size());
 
     for (size_t i{ 0 }; i < cnt; ++i) {
         auto pos_cursor{ hash_table->begin() };
 
         void* elem{ pos_cursor->obj };
 
-        elem_stream::acceptor::Transfer(reader, elem, cntr.elem_size,
-                                        cntr.elem_size, 1);
+        seq_endpoint::acceptor::Transfer(reader, elem, cntr.elem_size,
+                                         cntr.elem_size, 1);
 
         hash_table->erase(pos_cursor);
 
@@ -449,7 +449,7 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::PopR(this Cntr& cntr,
 
     auto* hash_table{ cntr.hash_table };
 
-    ZETA_Core_DebugAssert(cnt <= hash_table->size());
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= hash_table->size());
 
     for (size_t i{ 0 }; i < cnt; ++i) {
         auto pos_cursor{ hash_table->end() };
@@ -457,8 +457,8 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::PopR(this Cntr& cntr,
 
         void* elem{ pos_cursor->obj };
 
-        elem_stream::acceptor::Transfer(reader, elem, cntr.elem_size,
-                                        cntr.elem_size, 1);
+        seq_endpoint::acceptor::Transfer(reader, elem, cntr.elem_size,
+                                         cntr.elem_size, 1);
 
         hash_table->erase(pos_cursor);
 
@@ -477,12 +477,13 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::Erase(this Cntr& cntr,
     auto* hash_table{ cntr.hash_table };
 
     for (; 0 < cnt; ++cnt) {
-        ZETA_Core_DebugAssert(*pos_cursor != hash_table->end());
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(*pos_cursor !=
+                                                hash_table->end());
 
         void* elem{ (*pos_cursor)->obj };
 
-        elem_stream::acceptor::Transfer(reader, elem, cntr.elem_size,
-                                        cntr.elem_size, 1);
+        seq_endpoint::acceptor::Transfer(reader, elem, cntr.elem_size,
+                                         cntr.elem_size, 1);
 
         *pos_cursor = hash_table->erase(*pos_cursor);
 

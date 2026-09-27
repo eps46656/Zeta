@@ -5,12 +5,11 @@
 #pragma once
 
 #include <zeta/core/comparison_utils.ipp>
-#include <zeta/core/debug_utils.hpp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/function_ref.ipp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/lin_seq_elem_stream.ipp>
+#include <zeta/core/lin_seq_endpoint.ipp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/seq_cntr.hpp>
 #include <zeta/core/utils.ipp>
@@ -95,16 +94,16 @@ constexpr bool seq_cntr::capability::CheckFlags(
                                                                             \
     if constexpr (!TestCapability((GetStaticEnabledCapabilityFlag<Cntr>)(), \
                                   cap_name)) {                              \
-        ZETA_Core_StaticAssert(!TestCapability(                             \
+        static_assert(!TestCapability(                                      \
             (GetStaticDisabledCapabilityFlag<Cntr>)(), cap_name));          \
                                                                             \
-        ZETA_Core_DebugAssert(TestCapability(                               \
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(TestCapability(             \
             (GetDynamicEnabledCapabilityFlag)(cntr), cap_name));            \
     }                                                                       \
                                                                             \
     return cntr.method_name(Tag{}, __VA_ARGS__);                            \
                                                                             \
-    ZETA_Core_StaticAssert(true)
+    static_assert(true)
 
 template <seq_cntr::IsSeqCntr Cntr>
 constexpr void seq_cntr::CheckCapabilityFlags(Cntr& cntr) {
@@ -817,7 +816,8 @@ constexpr bool seq_cntr::check_operation::CanAdvanceR(size_t idx, size_t step,
 template <seq_cntr::IsSeqCntr DstCntr, seq_cntr::IsSeqCntr SrcCntr>
 void seq_cntr::RangeAssign(DstCntr& dst_cntr, SrcCntr& src_cntr, size_t dst_beg,
                            size_t src_beg, size_t cnt) {
-    ZETA_Core_DebugAssert((GetElemSize)(dst_cntr) == (GetElemSize)(src_cntr));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert((GetElemSize)(dst_cntr) ==
+                                            (GetElemSize)(src_cntr));
 
     size_t elem_size{ (GetElemSize)(dst_cntr) };
 
@@ -827,9 +827,9 @@ void seq_cntr::RangeAssign(DstCntr& dst_cntr, SrcCntr& src_cntr, size_t dst_beg,
     size_t dst_elem_cnt{ (GetElemCnt)(dst_cntr) };
     size_t src_elem_cnt{ (GetElemCnt)(src_cntr) };
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         check_operation::CanDerefer(dst_beg, cnt, dst_elem_cnt));
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         check_operation::CanDerefer(src_beg, cnt, src_elem_cnt));
 
     void const* real_dst_cntr{ (GetReferedInstPtr)(dst_cntr) };
@@ -986,15 +986,15 @@ void seq_cntr::Assign(DstCntr& dst_cntr, SrcCntr& src_cntr) {
         } else if constexpr (static_enabled_push_l) {
             FPushL;
         } else if constexpr (static_disabled_push_r) {
-            ZETA_Core_DebugAssert(dynamic_enabled_push_l);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(dynamic_enabled_push_l);
             FPushL;
         } else if constexpr (static_disabled_push_l) {
-            ZETA_Core_DebugAssert(dynamic_enabled_push_r);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(dynamic_enabled_push_r);
             FPushR;
         } else if (dynamic_enabled_push_r) {
             FPushR;
         } else {
-            ZETA_Core_DebugAssert(dynamic_enabled_push_l);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(dynamic_enabled_push_l);
             FPushL;
         }
     } else if (src_size < dst_size) {
@@ -1003,15 +1003,15 @@ void seq_cntr::Assign(DstCntr& dst_cntr, SrcCntr& src_cntr) {
         } else if constexpr (static_enabled_pop_l) {
             FPopL;
         } else if constexpr (static_disabled_pop_r) {
-            ZETA_Core_DebugAssert(dynamic_enabled_pop_l);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(dynamic_enabled_pop_l);
             FPopL;
         } else if constexpr (static_disabled_pop_l) {
-            ZETA_Core_DebugAssert(dynamic_enabled_pop_r);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(dynamic_enabled_pop_r);
             FPopR;
         } else if (dynamic_enabled_pop_r) {
             FPopR;
         } else {
-            ZETA_Core_DebugAssert(dynamic_enabled_pop_l);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(dynamic_enabled_pop_l);
             FPopL;
         }
     }

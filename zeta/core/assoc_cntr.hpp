@@ -1,14 +1,14 @@
 #pragma once
 
 #include <zeta/core/comparison.ipp>
-#include <zeta/core/debug_utils.ipp>
-#include <zeta/core/elem_stream.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/function_ref.hpp>
 #include <zeta/core/hash_ref.hpp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/lin_seq_elem_stream.hpp>
+#include <zeta/core/lin_seq_endpoint.hpp>
 #include <zeta/core/poly_comparison.hpp>
-#include <zeta/core/poly_elem_stream.hpp>
+#include <zeta/core/poly_seq_endpoint.hpp>
+#include <zeta/core/seq_endpoint.ipp>
 #include <zeta/core/utils.hpp>
 
 namespace zeta::core::assoc_cntr {
@@ -16,24 +16,25 @@ namespace zeta::core::assoc_cntr {
 constexpr size_t max_max_elem_cnt{ integral::RangeMaxOf<size_t> / 2 };
 
 template <typename Reader>
-concept IsReader = elem_stream::acceptor::IsAcceptor<Reader>;
+concept IsReader = seq_endpoint::acceptor::IsAcceptor<Reader>;
 
 template <typename Writer>
-concept IsWriter = elem_stream::provider::IsProvider<Writer>;
+concept IsWriter = seq_endpoint::provider::IsProvider<Writer>;
 
 template <typename ReaderWriter>
-concept IsReaderWriter = elem_stream::provider::IsProvider<ReaderWriter>;
+concept IsReaderWriter = seq_endpoint::provider::IsProvider<ReaderWriter>;
 
-using EmptyReader = elem_stream::acceptor::EmptyAcceptor;
-using EmptyWriter = elem_stream::provider::EmptyProvider;
-using EmptyReaderWriter = elem_stream::provider::EmptyProvider;
+using EmptyReader = seq_endpoint::acceptor::EmptyAcceptor;
+using EmptyWriter = seq_endpoint::provider::EmptyProvider;
+using EmptyReaderWriter =
+    seq_endpoint::acceptor_provider::EmptyAcceptorProvider;
 
-using LinSeqReader = lin_seq_elem_stream::Acceptor;
-using LinSeqWriter = lin_seq_elem_stream::Provider;
+using LinSeqReader = lin_seq_endpoint::acceptor::Acceptor;
+using LinSeqWriter = lin_seq_endpoint::provider::Provider;
 
-using FnReader = poly_elem_stream::acceptor::Acceptor;
-using FnWriter = poly_elem_stream::provider::Provider;
-using FnReaderWriter = poly_elem_stream::provider::Provider;
+using FnReader = poly_seq_endpoint::acceptor::Acceptor;
+using FnWriter = poly_seq_endpoint::provider::Provider;
+using FnReaderWriter = poly_seq_endpoint::acceptor_provider::AcceptorProvider;
 
 namespace capability {
 
@@ -169,11 +170,11 @@ constexpr Flag const_capability_flag{ FlagBuilder{
 #pragma pop_macro("F")
 }() };
 
-ZETA_Core_StaticAssert((non_const_capability_flag & const_capability_flag) ==
-                       empty_capability_flag);
+static_assert((non_const_capability_flag & const_capability_flag) ==
+              empty_capability_flag);
 
-ZETA_Core_StaticAssert((non_const_capability_flag | const_capability_flag) ==
-                       full_capability_flag);
+static_assert((non_const_capability_flag | const_capability_flag) ==
+              full_capability_flag);
 
 constexpr bool CheckFlags(capability::Flag static_enabled_capability_flag,
                           capability::Flag static_disabled_capability_flag);
@@ -224,9 +225,9 @@ concept IsAssocCntr = requires(
     size_t size_val, ElemPtrView* elem_ptr_view_ptr,
     hash::ArchetypeHasher key_hasher,
     comparison::ArchetypeComparator key_elem_cmptr,
-    elem_stream::acceptor::ArchetypeAcceptor reader,
-    elem_stream::provider::ArchetypeProvider writer,
-    elem_stream::provider::ArchetypeProvider reader_writer,
+    seq_endpoint::acceptor::ArchetypeAcceptor reader,
+    seq_endpoint::provider::ArchetypeProvider writer,
+    seq_endpoint::provider::ArchetypeProvider reader_writer,
     comparison::Ordering ordering_val, meta::AlwaysMatchedTag unused) {
     requires requires {
         requires meta::IsSame<

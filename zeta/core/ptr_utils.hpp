@@ -79,24 +79,22 @@ concept IsLinkType = requires {
                  integral::IsSignedIntegral<meta::RemoveVolatile<LinkType>>;
 };
 
-template <IsLinkType LinkType_, typename ColorTag_>
+template <IsLinkType LinkType_, meta::IsValueWrapperT<bool> ColorTag_>
 struct AugPtrTpl {
     using LinkType = LinkType_;
     using ColorTag = ColorTag_;
 
-    ZETA_Core_StaticAssert(meta::IsValueWrapperT<ColorTag, bool>);
-
-    static constexpr bool IsRelLink{
+    static constexpr bool is_rel_link{
         !meta::IsSame<meta::RemoveVolatile<LinkType>, void*>
     };
 
     LinkType link;
 
     constexpr void* GetPtr(this AugPtrTpl const& self)
-        requires(!IsRelLink && !ColorTag::value);
+        requires(!is_rel_link && !ColorTag::value);
 
     constexpr void* GetPtr(this AugPtrTpl const& self, size_t align)
-        requires(!IsRelLink);
+        requires(!is_rel_link);
 
     constexpr void* GetPtr(this AugPtrTpl const& self, void const* base)
         requires ColorTag::value;
@@ -105,17 +103,17 @@ struct AugPtrTpl {
                            void const* base);
 
     constexpr unsigned GetColor(this AugPtrTpl const& self, size_t align)
-        requires(!IsRelLink && ColorTag::value);
+        requires(!is_rel_link && ColorTag::value);
 
     constexpr unsigned GetColor(this AugPtrTpl const& self, size_t align,
                                 void const* base)
         requires ColorTag::value;
 
     constexpr void SetPtr(this AugPtrTpl& self, void* ptr)
-        requires(!IsRelLink && !ColorTag::value);
+        requires(!is_rel_link && !ColorTag::value);
 
     constexpr void SetPtr(this AugPtrTpl& self, size_t align, void* ptr)
-        requires(!IsRelLink);
+        requires(!is_rel_link);
 
     constexpr void SetPtr(this AugPtrTpl& self, void const* base, void* ptr)
         requires(!ColorTag::value);
@@ -124,7 +122,7 @@ struct AugPtrTpl {
                           void* ptr);
 
     constexpr void SetColor(this AugPtrTpl& self, size_t align, unsigned color)
-        requires(!IsRelLink && ColorTag::value);
+        requires(!is_rel_link && ColorTag::value);
 
     constexpr void SetColor(this AugPtrTpl& self, size_t align,
                             void const* base, unsigned color)
@@ -132,7 +130,7 @@ struct AugPtrTpl {
 
     constexpr void SetPtrColor(this AugPtrTpl& self, size_t align, void* ptr,
                                unsigned color)
-        requires(!IsRelLink && ColorTag::value);
+        requires(!is_rel_link && ColorTag::value);
 
     constexpr void SetPtrColor(this AugPtrTpl& self, size_t align,
                                void const* base, void* ptr, unsigned color)

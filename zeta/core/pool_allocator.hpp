@@ -5,43 +5,33 @@
 #include <zeta/core/integral.hpp>
 #include <zeta/core/lifecycle.hpp>
 #include <zeta/core/mem_recorder.hpp>
-
-#pragma push_macro("AllocatorTplParamList")
-#define AllocatorTplParamList                               \
-    typename ReuseStrategyTag, typename ReleaseStrategyTag, \
-        typename SrcAllocatorLike
-
-#pragma push_macro("AllocatorTplArgList")
-#define AllocatorTplArgList \
-    ReuseStrategyTag, ReleaseStrategyTag, SrcAllocatorLike
+#include <zeta/core/meta.hpp>
 
 namespace zeta::core::pool_allocator {
 
-struct ReuseStrategy {
-    struct Oldest {};
-    struct Latest {};
+enum struct ReuseStrategy : unsigned char {
+    Oldest = 0,
+    Latest = 1,
 };
 
-struct ReleaseStrategy {
-    struct Never {};
-    struct Oldest {};
-    struct Latest {};
+enum struct ReleaseStrategy : unsigned char {
+    Never = 0,
+    Oldest = 1,
+    Latest = 2,
 };
 
 template <typename ReuseStrategyTag_, typename ReleaseStrategyTag_,
           typename SrcAllocatorLike_>
-struct Allocator {
+struct AllocatorBase {
     using ReuseStrategyTag = ReuseStrategyTag_;
     using ReleaseStrategyTag = ReleaseStrategyTag_;
     using SrcAllocatorLike = SrcAllocatorLike_;
 
-    ZETA_Core_StaticAssert(
-        meta::IsAnySame<ReuseStrategyTag, ReuseStrategy::Oldest,
-                        ReuseStrategy::Latest>);
+    static_assert(meta::IsValueWrapperT<ReuseStrategyTag, ReuseStrategy>);
 
-    ZETA_Core_StaticAssert(
-        meta::IsAnySame<ReleaseStrategyTag, ReleaseStrategy::Oldest,
-                        ReleaseStrategy::Latest>);
+    static_assert(meta::IsValueWrapperT<ReleaseStrategyTag, ReleaseStrategy>);
+
+    static_assert(allocator::IsAllocator<meta::RemoveCVRef<SrcAllocatorLike>>);
 
     size_t cnt;
     size_t capacity;
@@ -51,68 +41,75 @@ struct Allocator {
 };
 
 template <typename ReuseStrategyTag_, typename SrcAllocatorLike_>
-struct Allocator<ReuseStrategyTag_, ReleaseStrategy::Never, SrcAllocatorLike_> {
+struct AllocatorBase<ReuseStrategyTag_,
+                     meta::AutoValueWrapper<ReleaseStrategy::Never>,
+                     SrcAllocatorLike_> {
     using ReuseStrategyTag = ReuseStrategyTag_;
-    using ReleaseStrategyTag = ReleaseStrategy::Never;
+    using ReleaseStrategyTag = meta::AutoValueWrapper<ReleaseStrategy::Never>;
     using SrcAllocatorLike = SrcAllocatorLike_;
 
-    ZETA_Core_StaticAssert(
-        meta::IsAnySame<ReuseStrategyTag, ReuseStrategy::Oldest,
-                        ReuseStrategy::Latest>);
+    static_assert(meta::IsValueWrapperT<ReuseStrategyTag, ReuseStrategy>);
 
-    SrcAllocatorLike src_allocator;
+    static_assert(allocator::IsAllocator<meta::RemoveCVRef<SrcAllocatorLike>>);
+
     void* head;
     void* tail;
+    SrcAllocatorLike src_allocator;
+
+    template <typename SrcAllocatorLikeConstructArg>
+    constexpr AllocatorBase(
+        SrcAllocatorLikeConstructArg&& src_allocator_like_construct_arg);
 };
 
 template <typename ReuseStrategyTag_>
-struct Allocator<ReuseStrategyTag_, ReleaseStrategy::Never, void> {
+struct AllocatorBase<ReuseStrategyTag_,
+                     meta::AutoValueWrapper<ReleaseStrategy::Never>, void> {
     using ReuseStrategyTag = ReuseStrategyTag_;
-    using ReleaseStrategyTag = ReleaseStrategy::Never;
+    using ReleaseStrategyTag = meta::AutoValueWrapper<ReleaseStrategy::Never>;
     using SrcAllocatorLike = void;
 
-    ZETA_Core_StaticAssert(
-        meta::IsAnySame<ReuseStrategyTag, ReuseStrategy::Oldest,
-                        ReuseStrategy::Latest>);
+    static_assert(meta::IsValueWrapperT<ReuseStrategyTag, ReuseStrategy>);
 
     void* head;
     void* tail;
 };
 
 template <typename ReuseStrategyTag, typename ReleaseStrategyTag,
-          typename SrcAllocatorLike, typename SrcAllocatorLikeInitArg,
-          typename = meta::EnableIf<!meta::IsSame<SrcAllocatorLike, void>>>
-void Init(Allocator<ReuseStrategyTag, ReleaseStrategyTag, SrcAllocatorLike>& pa,
-          SrcAllocatorLikeInitArg&& src_allocator_like_init_arg);
+          typename SrcAllocatorLike>
+struct Allocator : public AllocatorBase<ReuseStrategyTag, ReleaseStrategyTag,
+                                        SrcAllocatorLike> {
+    static constexpr ReuseStrategy reuse_strategy{
+        meta::GetValueWrapperValue<ReuseStrategyTag>
+    };
 
-template <typename ReuseStrategyTag, typename ReleaseStrategyTag>
-void Init(Allocator<ReuseStrategyTag, ReleaseStrategyTag, void>& pa);
+    static constexpr ReleaseStrategy release_strategy{
+        meta::GetValueWrapperValue<ReleaseStrategyTag>
+    };
 
-template <AllocatorTplParamList>
-void Deinit(Allocator<AllocatorTplArgList>& pa);
+    constexpr Allocator()
+        requires meta::IsSame<SrcAllocatorLike, void>;
 
-template <AllocatorTplParamList>
-size_t GetAlign(Allocator<AllocatorTplArgList> const& pa);
+    template <typename SrcAllocatorLikeConstructArg>
+    constexpr Allocator(
+        SrcAllocatorLikeConstructArg&& src_allocator_like_construct_arg)
+        requires(!meta::IsSame<SrcAllocatorLike, void>);
 
-template <AllocatorTplParamList>
-void* Allocate(Allocator<AllocatorTplArgList>& pa, size_t size);
+    constexpr ~Allocator();
 
-template <AllocatorTplParamList>
-void Deallocate(Allocator<AllocatorTplArgList>& pa, void* ptr);
+    constexpr size_t GetAlign(this Allocator const& self);
 
-template <AllocatorTplParamList,
-          typename = meta::EnableIf<
-              !meta::IsSame<ReleaseStrategyTag, ReleaseStrategy::Never>>>
-void Release(Allocator<AllocatorTplArgList>& pa, size_t cnt);
+    constexpr void* Allocate(this Allocator& self, size_t size);
 
-template <AllocatorTplParamList>
-void Sanitize(Allocator<AllocatorTplArgList>& pa,
-              mem_recorder::MemRecorder* mr);
+    constexpr void Deallocate(this Allocator& self, void* ptr);
+
+    constexpr void Release(this Allocator& self, size_t cnt)
+        requires(release_strategy != ReleaseStrategy::Never);
+
+    constexpr void SanityCheck(this Allocator& self,
+                               mem_recorder::MemRecorder* mr);
+};
 
 }  // namespace zeta::core::pool_allocator
-
-#pragma pop_macro("AllocatorTplParamList")
-#pragma pop_macro("AllocatorTplArgList")
 
 /*
 

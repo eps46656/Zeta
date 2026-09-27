@@ -18,24 +18,29 @@ using PolySeqCntr = core::poly_seq_cntr::Cntr;
 
 namespace SegVectorNS = core::seg_vector;
 
-using SegVector = SegVectorNS::Cntr<core::poly_allocator::Allocator,
-                                    core::poly_allocator::Allocator>;
+using SegVector =
+    SegVectorNS::Cntr<zeta::core::debug_utils::recording_allocator::Allocator<
+                          zeta::core_test::std_allocator::Allocator>,
+                      zeta::core::debug_utils::recording_allocator::Allocator<
+                          zeta::core_test::std_allocator::Allocator>>;
 
 struct Pack {
-    std_allocator::Allocator seg_alctr;
-    std_allocator::Allocator data_alctr;
-
     SegVector sv;
 
-    constexpr Pack(size_t elem_size, size_t elem_stride, size_t seg_capacity)
-        : seg_alctr{},
-          data_alctr{},
-          sv{
-              elem_size,         //
-              elem_stride,       //
-              seg_capacity,      //
-              this->seg_alctr,   //
-              this->data_alctr,  //
+    constexpr Pack(std::string const& name, size_t elem_size,
+                   size_t elem_stride, size_t seg_capacity)
+        : sv{
+              elem_size,     //
+              elem_stride,   //
+              seg_capacity,  //
+              ZETA_Core_Lifecycle_PackConstructArgs(
+                  std::make_shared<zeta::core_test::std_allocator::Allocator>(),
+                  zeta::core::debug_utils::memory::default_mem_recorder_server
+                      .MakeMemRecorderClient(name + "/sv.seg_alctr")),  //
+              ZETA_Core_Lifecycle_PackConstructArgs(
+                  std::make_shared<zeta::core_test::std_allocator::Allocator>(),
+                  zeta::core::debug_utils::memory::default_mem_recorder_server
+                      .MakeMemRecorderClient(name + "/sv.data_alctr")),  //
           } {}
 };
 
@@ -45,9 +50,9 @@ constexpr void Destroy(void* sv);
 
 constexpr void Sanitize(void const* sv);
 
-constexpr PolySeqCntr Create(size_t elem_size, size_t elem_stride,
-                             size_t seg_capacity) {
-    Pack* pack{ new Pack{ elem_size, elem_stride, seg_capacity } };
+constexpr PolySeqCntr Create(std::string const& name, size_t elem_size,
+                             size_t elem_stride, size_t seg_capacity) {
+    Pack* pack{ new Pack{ name, elem_size, elem_stride, seg_capacity } };
 
     auto* sv{ &pack->sv };
 
@@ -75,15 +80,8 @@ constexpr void Sanitize(void const* sv_) {
 
     if (sv == nullptr) { return; }
 
-    Pack* pack{ ZETA_Core_MemberToStruct(Pack, sv, sv) };
-
-    core::mem_recorder::MemRecorder seg;
-    core::mem_recorder::MemRecorder data;
-
-    sv->Sanitize(&seg, &data);
-
-    core::mem_recorder::MatchRecords(pack->seg_alctr.mem_recorder, seg);
-    core::mem_recorder::MatchRecords(pack->data_alctr.mem_recorder, data);
+    zeta::core::debug_utils::sanity::SanityCheck(
+        sv, zeta::core::debug_utils::sanity::SanityCheckScope::Complete);
 }
 
 }  // namespace zeta::core_test::seg_vector_utils

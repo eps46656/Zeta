@@ -92,7 +92,7 @@ def get_clang_lang(lang: utils.Language):
 @beartype.beartype
 def print_cmd(cmd: typing.Iterable[str]):
     cmd = " ".join(cmd)
-    print(utils.Color.cyan(f"{cmd=}"))
+    print(f"{utils.ANSIColorCode.purple}cmd: \"{cmd}{utils.ANSIColorCode.reset}\"")
 
 
 @beartype.beartype
@@ -100,7 +100,7 @@ def parse_ast(
     src: utils.PathLike,
     args: list[str],
 ) -> clang.cindex.TranslationUnit:
-    src = utils.to_canon_path(src, solve_symlink=True)
+    src = utils.to_resolved_path(src)
 
     assert src.is_file(), src.as_posix()
 
@@ -127,10 +127,8 @@ def get_including_pairs(
 ) -> set[tuple[pathlib.Path, pathlib.Path]]:
     return {
         (
-            utils.to_canon_path(
-                include.location.file.name, solve_symlink=True),
-            utils.to_canon_path(
-                include.include.name, solve_symlink=True),
+            utils.to_resolved_path(include.location.file.name),
+            utils.to_resolved_path(include.include.name),
         )
         for include in tu.get_includes()
     }
@@ -140,18 +138,18 @@ def get_including_pairs(
 def get_include_files(
     tu: clang.cindex.TranslationUnit
 ) -> set[pathlib.Path]:
-    src = utils.to_canon_path(tu.spelling, solve_symlink=True)
+    src = utils.to_resolved_path(tu.spelling)
 
     print(f"{src=}")
 
     include_files: set[pathlib.Path] = set()
 
     for from_file, to_file in get_including_pairs(tu):
-        from_file = utils.to_canon_path(from_file, solve_symlink=True)
-        to_file = utils.to_canon_path(to_file, solve_symlink=True)
+        from_file = utils.to_resolved_path(from_file)
+        to_file = utils.to_resolved_path(to_file)
 
-        if from_file == src:
-            include_files.add(to_file)
+        # if from_file == src:
+        include_files.add(to_file)
 
     return set(sorted(include_files))
 
@@ -191,9 +189,7 @@ def find_unqualified_calls(
 
 @beartype.beartype
 @dataclasses.dataclass
-class LLVMCompilerConfig:
-    verbose: bool
-
+class LLVMToolchainConfig:
     target: utils.Target
 
     base_dir: typing.Optional[utils.PathLike]
@@ -216,9 +212,7 @@ class LLVMCompilerConfig:
 
 @beartype.beartype
 class LLVMToolchain:
-    def __init__(self, config: LLVMCompilerConfig):
-        self.verbose = config.verbose
-
+    def __init__(self, config: LLVMToolchainConfig):
         self.target = copy.copy(config.target)
 
         self.base_dir = config.base_dir
@@ -242,11 +236,15 @@ class LLVMToolchain:
             utils.Language.CPP: config.cpp_standard,
         }
 
-        self.c_include_dirs = list(map(
-            utils.to_pathlib_path, config.c_include_dirs))
+        self.c_include_dirs = [
+            utils.to_resolved_path(c_include_dir)
+            for c_include_dir in config.c_include_dirs
+        ]
 
-        self.cpp_include_dirs = list(map(
-            utils.to_pathlib_path, config.cpp_include_dirs))
+        self.cpp_include_dirs = [
+            utils.to_resolved_path(cpp_include_dir)
+            for cpp_include_dir in config.cpp_include_dirs
+        ]
 
         self.enable_debug = config.enable_debug
         self.enable_asan = config.enable_asan
@@ -269,7 +267,7 @@ class LLVMToolchain:
         # Set common compile arguments
 
         compile_args = [
-            f"-v" if self.verbose else "",
+            f"--verbose",
             f"--target={self.clang_triple}",
             f"-m64",
 
@@ -287,15 +285,17 @@ class LLVMToolchain:
 
             "-Werror",
             f"-O{self.opt_type}",
+
+            "-fconstexpr-depth=4096",
+            "-ftemplate-depth=4096",
         ]
 
         if self.enable_debug:
             compile_args.extend([
                 "-g",
+
                 "-fno-omit-frame-pointer",
                 "-fno-optimize-sibling-calls",
-
-                "-DZETA_Core_EnableDebug=1",
             ])
 
         if self.enable_asan:
@@ -323,7 +323,7 @@ class LLVMToolchain:
 
             f"--std={self.standard[utils.Language.C]}",
 
-            *(f"--include-directory={include_dir.as_posix()}"
+            *(f"--include-directory={utils.to_resolved_path(include_dir)}"
               for include_dir in self.c_include_dirs),
         ]
 
@@ -343,7 +343,7 @@ class LLVMToolchain:
 
             f"--std={self.standard[utils.Language.CPP]}",
 
-            *(f"--include-directory={include_dir}"
+            *(f"--include-directory={utils.to_resolved_path(include_dir)}"
               for include_dir in self.cpp_include_dirs),
 
             "-Wold-style-cast",
@@ -368,20 +368,24 @@ class LLVMToolchain:
 
         # ----------------------------------------------------------------------
 
+        clang_rt_dir = utils.to_resolved_path(self.run_command_(
+            "clang", "--print-resource-dir", capture_output=True
+        ).stdout.strip())
+
+        print(f"{utils.to_resolved_path(clang_rt_dir).as_posix()=}")
+
         self.to_exe_args = [
-            "--verbose" if self.verbose else "",
+            "--verbose",
             f"--target={self.clang_triple}",
             "-m64",
-            *(f"--include-directory={include_dir}"
+            *(f"--include-directory={utils.to_resolved_path(include_dir)}"
               for include_dir in self.c_include_dirs),
             # "-lstdc++",
             # "-lm",
 
             # "-lC:/Program Files/clang+llvm-19.1.4-x86_64-pc-windows-msvc/lib/clang/19/lib/windows/clang_rt.builtins-x86_64",
 
-            "-lC:/Users/yu46656/anaconda3/envs/ZetaDevelop_2025_0806/Library/lib/clang/20/lib/windows/clang_rt.builtins-x86_64.lib",
-
-            # "-lclang_rt.builtins-x86_64",
+            f"-lclang_rt.builtins-x86_64",
 
             # f"-frandomize-layout-seed={self.randomize_layout_seed}",
         ]
@@ -394,8 +398,6 @@ class LLVMToolchain:
 
                 "-fno-omit-frame-pointer",
                 "-fno-optimize-sibling-calls",
-
-                "-DZETA_Core_EnableDebug=1",
             ])
 
         if self.enable_asan:
@@ -488,62 +490,14 @@ class LLVMToolchain:
             ],
         ))
 
-    def get_including_files_(
-        self,
-        src: utils.PathLike,
-        lang: utils.Language,
-    ) -> set[pathlib.Path]:
-        return get_include_files(parse_ast(
-            src,
-            [
-                *self.compile_args[lang.base],
-                f"-fsyntax-only",
-                "--language", get_clang_lang(lang),
-            ],
-        ))
-
-    def get_including_files(
-        self,
-        src: utils.PathLike,
-        lang: utils.Language,
-        cache_file: typing.Optional[utils.PathLike] = None,
-    ) -> set[pathlib.Path]:
-        if cache_file is None:
-            use_cache = False
-        else:
-            cache_file = utils.to_pathlib_path(cache_file)
-
-            use_cache = cache_file.is_file() and \
-                1e-3 <= cache_file.stat().st_mtime - src.stat().st_mtime
-
-        if use_cache:
-            return {
-                utils.to_canon_path(val, solve_symlink=True)
-                for val in utils.read_json(cache_file)
-            }
-
-        if lang == utils.Language.C_CPP_HEADER:
-            include_files = set(sorted(set.union(
-                self.get_including_files_(src, utils.Language.C_HEADER),
-                self.get_including_files_(src, utils.Language.CPP_HEADER),
-            )))
-        else:
-            include_files = self.get_including_files_(src, lang)
-
-        if cache_file is not None:
-            utils.write_json(
-                cache_file, [val.as_posix() for val in include_files])
-
-        return include_files
-
     def compile_to_obj(
         self,
         dst: utils.PathLike,
         src: utils.PathLike,
         lang: utils.Language,
     ) -> None:
-        dst = utils.to_pathlib_path(dst)
-        src = utils.to_pathlib_path(src)
+        dst = utils.to_resolved_path(dst)
+        src = utils.to_resolved_path(src)
 
         dst.parent.mkdir(parents=True, exist_ok=True)
 
@@ -562,8 +516,8 @@ class LLVMToolchain:
         src: utils.PathLike,
         lang: utils.Language,
     ) -> None:
-        dst = utils.to_pathlib_path(dst)
-        src = utils.to_pathlib_path(src)
+        dst = utils.to_resolved_path(dst)
+        src = utils.to_resolved_path(src)
 
         dst.parent.mkdir(parents=True, exist_ok=True)
 
@@ -582,8 +536,8 @@ class LLVMToolchain:
         dst: utils.PathLike,
         srcs: typing.Iterable[utils.PathLike],
     ) -> None:
-        dst = utils.to_pathlib_path(dst)
-        srcs = map(utils.to_pathlib_path, srcs)
+        dst = utils.to_resolved_path(dst)
+        srcs = (utils.to_resolved_path(src) for src in srcs)
 
         dst.parent.mkdir(parents=True, exist_ok=True)
 
@@ -598,8 +552,8 @@ class LLVMToolchain:
         dst: utils.PathLike,
         srcs: typing.Iterable[utils.PathLike]
     ) -> None:
-        dst = utils.to_pathlib_path(dst)
-        srcs = map(utils.to_pathlib_path, srcs)
+        dst = utils.to_resolved_path(dst)
+        srcs = (utils.to_resolved_path(src) for src in srcs)
 
         self.run_command_(
             self.executables["clang"],
@@ -610,282 +564,97 @@ class LLVMToolchain:
 
 
 @beartype.beartype
-class DirectIncludeFileRepo:
+class ClangFile:
     def __init__(
-        self,
-        llvm_compiler: LLVMToolchain,
-        records: dict[str, typing.Any],
-    ):
-        self.llvm_compiler = llvm_compiler
-        self.records = records
-
-    @staticmethod
-    def from_json_file(
-        llvm_compiler: LLVMToolchain,
-        path: utils.PathLike,
-    ) -> DirectIncludeFileRepo:
-        path = utils.to_pathlib_path(path)
-        records = utils.read_json(path) if path.is_file() else dict()
-        return DirectIncludeFileRepo(llvm_compiler, records)
-
-    def save_to_json_file(self, path: utils.PathLike) -> None:
-        utils.write_json(path, self.records)
-
-    def get_include_files(
         self,
         path: utils.PathLike,
         lang: utils.Language,
-    ) -> list[pathlib.Path]:
-        path = utils.to_canon_path(path, solve_symlink=True)
-        path_str = path.as_posix()
-
-        assert path.exists(), path
-
-        cur_mtime = path.stat().st_mtime
-
-        if path_str not in self.records or 1e-3 <= cur_mtime - float(self.records[path_str]["mtime"]):
-            direct_include_files = self.llvm_compiler.get_include_files(
-                path, lang).direct_include_files
-
-            self.records[path_str] = {
-                "mtime": f"{cur_mtime:.12f}",
-                "include_files": [
-                    utils.to_canon_path(
-                        direct_include_file, solve_symlink=True).as_posix()
-                    for direct_include_file in direct_include_files
-                ],
-            }
-
-        return [
-            utils.to_pathlib_path(_)
-            for _ in self.records[path_str]["include_files"]
-        ]
-
-
-@beartype.beartype
-@dataclasses.dataclass
-class ModuleContext:
-    builder: building_utils.Builder
-    llvm_toolchain: LLVMToolchain
-    base_dir: pathlib.Path
-    build_dir: pathlib.Path
-    config_name: str
-    commom_deps: typing.Sequence[object]
-
-    build_nodes: dict[typing.Hashable, building_utils.BuildNode]
-
-
-@beartype.beartype
-class CCPPFileBuildNode(building_utils.BuildNode):
-    def __init__(
-        self,
-        module_context: ModuleContext,
-        file: utils.PathLike,
-        langs: utils.Language | typing.Iterable[utils.Language],
-        additional_deps: set[object],
-    ) -> None:
-        self.module_context = module_context
-
-        self.file = utils.to_canon_path(file, solve_symlink=True)
-
-        self.langs: tuple[utils.Language] = \
-            (langs,) if isinstance(langs, utils.Language) \
-            else tuple(sorted(set(langs)))
-
-        self.additional_deps: set[object] = set(additional_deps)
-
-        self.cached_parsed_tu: typing.Optional[clang.cindex.TranslationUnit] = None
+        toolchain: LLVMToolchain,
+        include_files_cache: typing.Optional[utils.PathLike] = None,
+    ):
+        self.path = utils.to_resolved_path(path)
+        self.lang = lang
+        self.toolchain = toolchain
+        self.include_files_cache = None if include_files_cache is None \
+            else utils.to_resolved_path(include_files_cache)
 
     @functools.cached_property
-    def get_identity(self) -> tuple[str, str]:
-        return (self.file.as_posix(), self.module_context.config_name)
+    def ast(self) -> clang.cindex.TranslationUnit:
+        return self.toolchain.parse_ast(self.path, self.lang)
 
-    @functools.cached_property
-    def get_time_source(self) -> pathlib.Path:
-        return self.file
+    @functools.cache
+    def get_include_files_from_ast_(self) -> set[pathlib.Path]:
+        include_files = set(
+            utils.to_resolved_path(include_file)
+            for include_file in get_include_files(self.ast)
+        )
 
-    @functools.cached_property
-    def get_deps(self) -> set[pathlib.Path]:
-        cache_file = self.module_context.build_dir / \
-            self.module_context.config_name / \
-            f"{self.file.name}.file_including_files.json"
-
-        if cache_file.is_file() and \
-                1e-3 <= cache_file.stat().st_mtime - self.file.stat().st_mtime:
-            include_files = [
-                utils.to_canon_path(val, solve_symlink=True)
-                for val in utils.read_json(cache_file)
-            ]
-        else:
-            include_files: set[pathlib.Path] = set()
-
-            for lang in self.langs:
-                for include_file in get_include_files(
-                        self.module_context.llvm_toolchain.parse_ast(
-                            self.file, lang)):
-                    if include_file.is_relative_to(self.module_context.base_dir):
-                        include_files.add(include_file)
-
-            include_files = sorted(include_files)
-
-            utils.write_json(cache_file, [
-                val.as_posix() for val in include_files
+        if self.include_files_cache is not None:
+            utils.write_json(self.include_files_cache, [
+                include_file.as_posix() for include_file in include_files
             ])
 
-        return {
-            *self.module_context.commom_deps,
+        return include_files
 
-            *(
-                (val.as_posix(), self.module_context.config_name)
-                for val in include_files
-            ),
+    @functools.cache
+    def get_include_files_(self) -> set[pathlib.Path]:
+        path_mtime = utils.get_file_mtime(self.path)
 
-            *self.additional_deps,
+        include_files_cache_mtime = utils.get_file_mtime(
+            self.include_files_cache)
+
+        if not utils.is_causally_ordered(path_mtime, include_files_cache_mtime):
+            return self.get_include_files_from_ast_()
+
+        include_files = {
+            utils.to_resolved_path(include_file)
+            for include_file in utils.read_json(self.include_files_cache)
         }
 
-    def build(self) -> None:
-        print(f"Checking {self.file}...")
+        max_include_file_mtime = max((
+            utils.get_file_mtime(include_file) for include_file in include_files
+        ), default=float("-inf"))
 
+        return include_files if utils.is_causally_ordered(
+            max_include_file_mtime, include_files_cache_mtime) \
+            else self.get_include_files_from_ast_()
 
-T = typing.TypeVar("T", bound=building_utils.BuildNode)
-
-
-@beartype.beartype
-def try_add_build_node_into_module(
-    module_context: ModuleContext,
-    build_node: T,
-) -> tuple[T, bool]:
-    if build_node.get_identity() in module_context.build_nodes:
-        old_build_node = module_context.build_nodes[build_node.get_identity()]
-        assert build_node == old_build_node
-        return (old_build_node, False)
-
-    module_context.build_nodes[build_node.get_identity()] = build_node
-    module_context.builder.add_build_node(build_node)
-    return (build_node, True)
+    def get_include_files(self) -> set[pathlib.Path]:
+        return set(self.get_include_files_())
 
 
 @beartype.beartype
-def add_c_cpp_file_build_node(
-    module_context: ModuleContext,
-    c_cpp_file: utils.PathLike,
-    langs: utils.Language | typing.Iterable[utils.Language],
-    additional_deps: typing.Sequence[typing.Hashable],
-) -> tuple[CCPPFileBuildNode, bool]:
-    c_cpp_file = utils.to_canon_path(c_cpp_file, solve_symlink=True)
+class BCBuildAction:
+    def __init__(
+        self,
+        module_chain: building_utils.ModuleChain,
+        file_bc: utils.PathLike,
+        file_src: utils.PathLike,
+        lang: utils.Language,
+        base_deps: typing.Iterable[utils.PathLike],
+        toolchain: LLVMToolchain,
+    ) -> None:
+        self.module_chain = module_chain
 
-    build_node = CCPPFileBuildNode(
-        module_context,
-        c_cpp_file,
-        langs,
-        additional_deps,
-    )
+        self.name = utils.to_resolved_path(file_bc)
 
-    return typing.cast(
-        tuple[CCPPFileBuildNode, bool],
-        try_add_build_node_into_module(module_context, build_node),
-    )
+        self.file_src = utils.to_resolved_path(file_src)
 
+        self.lang = lang
 
-@beartype.beartype
-def add_c_cpp_file_to_bc_file_build_node(
-    module_context: ModuleContext,
-    bc_file: utils.PathLike,
-    c_cpp_file: utils.PathLike,
-    lang: utils.Language,
-    additional_deps: typing.Sequence[typing.Hashable],
-) -> tuple[building_utils.BuildNode, bool]:
-    bc_file = utils.to_canon_path(bc_file, solve_symlink=True)
+        assert lang == utils.Language.C_SOURCE or lang == utils.Language.CPP_SOURCE
 
-    assert lang.base != lang
-    assert lang.enmacro != lang
+        self.base_deps = set(base_deps)
 
-    c_cpp_file_build_node = add_c_cpp_file_build_node(
-        module_context, c_cpp_file, lang)[0]
+        self.toolchain = toolchain
 
-    identity = (bc_file.as_posix(), module_context.config_name)
+    def get_der_arts(self) -> list[pathlib.Path]:
+        return [self.name]
 
-    time_source = bc_file
+    def get_dep_arts(self) -> list[pathlib.Path]:
+        return [*self.base_deps, self.file_src]
 
-    deps = {
-        *module_context.commom_deps,
-        c_cpp_file_build_node.get_identity(),
-        *additional_deps,
-    }
+    def run(self) -> None:
+        print(f"Compiling {self.name} from {self.file_src}...")
 
-    build_node = building_utils.BasicBuildNode(
-        get_identity=lambda: identity,
-        get_time_source=lambda: time_source,
-        get_deps=lambda: deps,
-        build=lambda: module_context.llvm_toolchain.compile_to_bc(
-            bc_file, c_cpp_file, lang),
-    )
-
-    return typing.cast(
-        tuple[building_utils.BuildNode, bool],
-        try_add_build_node_into_module(module_context, build_node),
-    )
-
-
-@beartype.beartype
-def add_c_cpp_module(
-    module_context: ModuleContext,
-    dir: utils.PathLike,
-    module_name: str,
-    build_dir: utils.PathLike,
-):
-    dir = utils.to_canon_path(dir, solve_symlink=True)
-    build_dir = utils.to_canon_path(build_dir, solve_symlink=True)
-
-    h_file = dir / f"{module_name}.h"
-    hpp_file = dir / f"{module_name}.hpp"
-    ipp_file = dir / f"{module_name}.ipp"
-    c_file = dir / f"{module_name}.c"
-    cpp_file = dir / f"{module_name}.cpp"
-    bc_file = build_dir / module_context.config_name / f"{module_name}.bc"
-
-    assert not c_file.exists() or not cpp_file.exists()
-
-    is_macro = module_name.endswith(".mpp")
-
-    if h_file.exists():
-        add_c_cpp_file_build_node(
-            h_file,
-            utils.Language.MACRO_C_HEADER
-            if is_macro else utils.Language.C_HEADER
-        )
-
-    if hpp_file.exists():
-        add_c_cpp_file_build_node(
-            hpp_file,
-            utils.Language.MACRO_CPP_HEADER
-            if is_macro else utils.Language.CPP_HEADER
-        )
-
-    if ipp_file.exists():
-        add_c_cpp_file_build_node(
-            ipp_file,
-            utils.Language.MACRO_CPP_HEADER
-            if is_macro else utils.Language.CPP_HEADER
-        )
-
-    if c_file.exists():
-        add_c_cpp_file_build_node(
-            c_file,
-            utils.Language.MACRO_C_SOURCE
-            if is_macro else utils.Language.C_SOURCE
-        )
-
-        if not is_macro:
-            add_c_cpp_file_to_bc_file_build_node(
-                bc_file, c_file, utils.Language.C_SOURCE)
-
-    if cpp_file.exists():
-        add_c_cpp_file_build_node(
-            cpp_file,
-            utils.Language.MACRO_CPP_SOURCE
-            if is_macro else utils.Language.CPP_SOURCE
-        )
-
-        if not is_macro:
-            add_c_cpp_to_bc(bc_file, cpp_file, utils.Language.CPP_SOURCE)
+        self.toolchain.compile_to_bc(self.name, self.file_src, self.lang)

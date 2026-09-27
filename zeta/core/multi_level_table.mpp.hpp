@@ -5,38 +5,44 @@
 #error "EnDataNode is not defined."
 #endif
 
-#pragma push_macro("Skip")
-
 #if EnDataNode
 
-#if defined(ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_data_table)
-#define Skip 1
-#else
-#define ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_data_table
-#define Skip 0
+#if !defined(ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_data_table)
+#define ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_data_table 1
 #endif
 
 #else
 
-#if defined(ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_ptr_table)
-#define Skip 1
-#else
-#define ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_ptr_table
-#define Skip 0
+#if !defined(ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_ptr_table)
+#define ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_ptr_table 1
 #endif
 
 #endif
 
-#if !Skip
+#if ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_data_table == 1 || \
+    ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_ptr_table == 1
+
+#if ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_data_table == 1
+#undef ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_data_table
+#define ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_data_table 2
+#endif
+
+#if ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_ptr_table == 1
+#undef ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_ptr_table
+#define ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_ptr_table 2
+#endif
 
 #include <zeta/core/allocator.hpp>
+#include <zeta/core/debug_utils/sanity.hpp>
 #include <zeta/core/define.hpp>
-#include <zeta/core/elem_stream.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/integral_utils.hpp>
-#include <zeta/core/mem_recorder.hpp>
+#include <zeta/core/lifecycle.hpp>
 #include <zeta/core/ptr_utils.hpp>
+#include <zeta/core/seq_endpoint.hpp>
 #include <zeta/core/utils.hpp>
+
+ZETA_Core_ClangdPreambleBarrier;
 
 #if EnDataNode
 
@@ -75,7 +81,7 @@ template <integral::IsIntegral ActiveMap_>
 struct DataNode {
     using ActiveMap = ActiveMap_;
 
-    ZETA_Core_StaticAssert(integral::IsUnsignedIntegral<ActiveMap>);
+    static_assert(integral::IsUnsignedIntegral<ActiveMap>);
 
     ZETA_Core_DebugStructPadding;
 
@@ -120,28 +126,56 @@ struct Cntr {
 #endif
 
     /**
-     * @brief Initialize the cntr.
+     * @brief Constructialize the cntr.
      *
      * @param cntr The target cntr.
      */
-    template <typename NavNodeAllocatorInitArg
+    template <typename NavNodeAllocatorConstructArg
 #if EnDataNode
               ,
-              typename DataNodeAllocatorInitArg
+              typename DataNodeAllocatorConstructArg
 #endif
               >
-    constexpr Cntr(NavNodeAllocatorInitArg&& nav_node_alctr_init_arg,
+    constexpr Cntr(lifecycle::DirectConstructTag, unsigned level,
+                   BranchNum const* branch_nums,
 #if EnDataNode
-                   DataNodeAllocatorInitArg&& data_node_alctr_init_arg,
+                   size_t elem_stride,
 #endif
-                   unsigned level, BranchNum const* branch_nums
+                   size_t elem_cnt, void* root,
+                   NavNodeAllocatorConstructArg&& nav_node_alctr_construct_arg
 #if EnDataNode
                    ,
-                   size_t stride
+                   DataNodeAllocatorConstructArg&& data_node_alctr_construct_arg
+#endif
+    );
+
+    /**
+     * @brief Constructialize the cntr.
+     *
+     * @param cntr The target cntr.
+     */
+    template <typename NavNodeAllocatorConstructArg
+#if EnDataNode
+              ,
+              typename DataNodeAllocatorConstructArg
+#endif
+              >
+    constexpr Cntr(unsigned level, BranchNum const* branch_nums,
+#if EnDataNode
+                   size_t elem_stride,
+#endif
+                   NavNodeAllocatorConstructArg&& nav_node_alctr_construct_arg
+#if EnDataNode
+                   ,
+                   DataNodeAllocatorConstructArg&& data_node_alctr_construct_arg
 #endif
     );
 
     constexpr ~Cntr();
+
+    constexpr void Destruct(this Cntr& cntr);
+
+    constexpr void DisownDestruct(this Cntr& cntr);
 
     /**
      * @brief Get the size of cntr. Assume the value does not overflow max range
@@ -159,47 +193,30 @@ struct Cntr {
      */
     constexpr size_t GetMaxElemCnt(this Cntr& cntr);
 
-    /**
-     * @brief Get the reference of target entry by indexes.
-     *
-     * @param cntr The target cntr.
-     * @param branch_idx The branch index of target entry in each level.
-     *
-     * @return The reference of target entry. If the it is not inserted, return
-     * nullptr.
-     */
-    template <elem_stream::provider::IsProvider SrcBranchIdxesProvier>
+    template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvier>
     constexpr auto Access(this auto& cntr,
                           SrcBranchIdxesProvier&& src_branch_idxes_provider)
         -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
-    template <elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    template <seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
     constexpr auto FindFirst(this auto& cntr,
                              DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
         -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
-    template <elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    template <seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
     constexpr auto FindLast(this auto& cntr,
                             DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
         -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
-    /**
-     * @brief Find the first entry before idx.
-     *
-     * @param cntr The target cntr.
-     * @param idx The beginning index of searching, inclusivly.
-     *
-     * @return The reference of target entry.
-     */
-    template <elem_stream::provider::IsProvider SrcBranchIdxesProvider,
-              elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider,
+              seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
     constexpr auto FindPrevIncl(
         this auto& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider,
         DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
         -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
-    template <elem_stream::provider::IsProvider SrcBranchIdxesProvider,
-              elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider,
+              seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
     constexpr auto FindPrevExcl(
         this auto& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider,
         DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
@@ -213,21 +230,21 @@ struct Cntr {
      *
      * @return The reference of target entry.
      */
-    template <elem_stream::provider::IsProvider SrcBranchIdxesProvider,
-              elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider,
+              seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
     constexpr auto FindNextIncl(
         this auto& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider,
         DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
         -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
-    template <elem_stream::provider::IsProvider SrcBranchIdxesProvider,
-              elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider,
+              seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
     constexpr auto FindNextExcl(
         this auto& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider,
         DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
         -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
 
-    template <elem_stream::provider::IsProvider SrcBranchIdxesProvider>
+    template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider>
     constexpr pair::Pair<void*, bool> Insert(
         this Cntr& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider);
 
@@ -240,7 +257,7 @@ struct Cntr {
      *
      * @return The reference of target entry.
      */
-    template <elem_stream::provider::IsProvider SrcBranchIdxesProvider>
+    template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider>
     constexpr bool Erase(this Cntr& cntr,
                          SrcBranchIdxesProvider&& src_branch_idxes_provider);
 
@@ -251,13 +268,10 @@ struct Cntr {
      */
     constexpr void EraseAll(this Cntr& cntr);
 
-    constexpr void Sanitize(this Cntr& cntr,
-                            mem_recorder::MemRecorder* dst_nav_node
-#if EnDataNode
-                            ,
-                            mem_recorder::MemRecorder* dst_data_node
+#if ZETA_Core_DebugUtils_Sanity_Enable
+    static constexpr void SanityCheck(
+        void const* cntr, debug_utils::sanity::SanityCheckScope scope);
 #endif
-    );
 };
 
 }  // namespace zeta::core::Namespace
@@ -265,5 +279,3 @@ struct Cntr {
 #pragma pop_macro("Namespace")
 
 #endif
-
-#pragma pop_macro("Skip")

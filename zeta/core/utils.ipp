@@ -1,7 +1,6 @@
 #pragma once
 
-#include <zeta/core/debug_utils.hpp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/integral_math.ipp>
@@ -55,8 +54,8 @@ pair::Pair<Node*, size_t> utils::GetMostLink(Node* n,
 constexpr int utils::MemCompare(void const* a, void const* b, size_t size) {
     if (a == b || size == 0) { return 0; }
 
-    ZETA_Core_DebugAssert(a != nullptr);
-    ZETA_Core_DebugAssert(b != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(a != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(b != nullptr);
 
     return __builtin_memcmp(a, b, size);
 }
@@ -67,8 +66,8 @@ constexpr void utils::MemSwap(void* x_, void* y_, size_t size) {
 
     if (x == y || size == 0) { return; }
 
-    ZETA_Core_DebugAssert(x != nullptr);
-    ZETA_Core_DebugAssert(y != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(x != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(y != nullptr);
 
     for (size_t i{ 0 }; i < size; ++i) { Swap(x[i], y[i]); }
 }
@@ -76,8 +75,8 @@ constexpr void utils::MemSwap(void* x_, void* y_, size_t size) {
 constexpr void utils::MemCopy(void* dst, void const* src, size_t size) {
     if (dst == src || size == 0) { return; }
 
-    ZETA_Core_DebugAssert(dst != nullptr);
-    ZETA_Core_DebugAssert(src != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(src != nullptr);
 
     __builtin_memcpy(dst, src, size);
 }
@@ -85,8 +84,8 @@ constexpr void utils::MemCopy(void* dst, void const* src, size_t size) {
 constexpr void utils::MemMove(void* dst, void const* src, size_t size) {
     if (dst == src || size == 0) { return; }
 
-    ZETA_Core_DebugAssert(dst != nullptr);
-    ZETA_Core_DebugAssert(src != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(src != nullptr);
 
     __builtin_memmove(dst, src, size);
 }
@@ -96,7 +95,7 @@ constexpr void* utils::MemRotate(void* data_, size_t l_size, size_t r_size) {
 
     if (l_size == 0 && r_size == 0) { return data; }
 
-    ZETA_Core_DebugAssert(data != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(data != nullptr);
 
     char* ret{ data + r_size };
 
@@ -114,50 +113,21 @@ constexpr void* utils::MemRotate(void* data_, size_t l_size, size_t r_size) {
     return ret;
 }
 
-constexpr int utils::ElemCompare(void const* a_, void const* b_,
-                                 size_t elem_size, size_t a_elem_stride,
-                                 size_t b_elem_stride, size_t cnt) {
-    auto const* a{ static_cast<char const*>(a_) };
-    auto const* b{ static_cast<char const*>(b_) };
-
-    ZETA_Core_DebugAssert(0 < elem_size);
-    ZETA_Core_DebugAssert(elem_size <= a_elem_stride);
-    ZETA_Core_DebugAssert(elem_size <= b_elem_stride);
-
-    if (cnt == 0) { return 0; }
-
-    if (elem_size == a_elem_stride && elem_size == b_elem_stride) {
-        ZETA_Core_PrintCurPos;
-        return MemCompare(a, b, elem_size * cnt);
-    }
-
-    for (; 0 < cnt; a += a_elem_stride, b += b_elem_stride, --cnt) {
-        int cmp{ MemCompare(a, b, elem_size) };
-
-        if (cmp != 0) {
-            ZETA_Core_PrintVar(cmp);
-            return cmp;
-        }
-    }
-
-    return 0;
-}
-
 namespace utils::detail {
 
-template <integral::IsIntegral DiffIntegral>
+template <integral::IsIntegral StrideIntegral>
 constexpr void EquistrideLinSeqCopy_(void* dst_, void const* src_,
-                                     size_t elem_size, DiffIntegral elem_stride,
-                                     size_t cnt) {
+                                     size_t elem_size,
+                                     StrideIntegral elem_stride, size_t cnt) {
     char* dst{ static_cast<char*>(dst_) };
     char const* src{ static_cast<char const*>(src_) };
 
     if (dst == src || elem_size == 0 || cnt == 0) { return; }
 
-    ZETA_Core_DebugAssert(dst != nullptr);
-    ZETA_Core_DebugAssert(src != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(src != nullptr);
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         elem_stride == 0 ||
         elem_size <= static_cast<size_t>(integral_math::Abs(elem_stride)));
 
@@ -166,9 +136,9 @@ constexpr void EquistrideLinSeqCopy_(void* dst_, void const* src_,
         return;
     }
 
-    DiffIntegral shift{ elem_stride * static_cast<DiffIntegral>(cnt - 1) };
+    StrideIntegral shift{ elem_stride * static_cast<StrideIntegral>(cnt - 1) };
 
-    if constexpr (integral::IsSignedIntegral<DiffIntegral>) {
+    if constexpr (integral::IsSignedIntegral<StrideIntegral>) {
         if (elem_stride < 0) {
             dst += shift;
             src += shift;
@@ -204,41 +174,53 @@ constexpr void utils::EquistrideLinSeqCopy(void* dst_, void const* src_,
                                              cnt);
 }
 
-constexpr void utils::ElemCopy(void* dst_, void const* src_, size_t elem_size,
-                               ptrdiff_t dst_elem_stride,
-                               ptrdiff_t src_elem_stride, size_t cnt) {
+namespace utils::detail {
+
+template <integral::IsIntegral StrideIntegral>
+constexpr void LinSeqCopy_(void* dst_, void const* src_, size_t elem_size,
+                           StrideIntegral dst_elem_stride,
+                           StrideIntegral src_elem_stride, size_t cnt) {
     auto* dst{ static_cast<char*>(dst_) };
     auto const* src{ static_cast<char const*>(src_) };
 
     if (dst == src || cnt == 0) { return; }
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         dst_elem_stride == 0 ||
         elem_size <= static_cast<size_t>(integral_math::Abs(dst_elem_stride)));
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         src_elem_stride == 0 ||
         elem_size <= static_cast<size_t>(integral_math::Abs(src_elem_stride)));
 
-    ZETA_Core_DebugAssert(cnt <= 1 || dst_elem_stride != 0 ||
-                          src_elem_stride == 0);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= 1 || dst_elem_stride != 0 ||
+                                            src_elem_stride == 0);
 
     if (elem_size == 0 || cnt == 0) { return; }
 
-    ZETA_Core_DebugAssert(dst != nullptr);
-    ZETA_Core_DebugAssert(src != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(src != nullptr);
 
     if (dst_elem_stride == 0 || cnt == 1) {  // src_elem_stride == 0
         (MemCopy)(dst, src, elem_size);
         return;
     }
 
-    if (cnt == 1 || (0 <= dst_elem_stride &&
-                     elem_size == static_cast<size_t>(dst_elem_stride) &&
-                     0 <= src_elem_stride &&
-                     elem_size == static_cast<size_t>(src_elem_stride))) {
+    if (elem_size == static_cast<size_t>(dst_elem_stride) &&
+        elem_size == static_cast<size_t>(src_elem_stride)) {
         (MemCopy)(dst, src, elem_size * cnt);
         return;
+    }
+
+    if constexpr (integral::IsSignedIntegral<StrideIntegral>) {
+        StrideIntegral neg_elem_size{ static_cast<StrideIntegral>(elem_size) };
+
+        if (neg_elem_size == dst_elem_stride &&
+            neg_elem_size == src_elem_stride) {
+            size_t shift{ elem_size * (cnt - 1) };
+            (MemCopy)(dst - shift, src - shift, shift + elem_size);
+            return;
+        }
     }
 
     for (size_t i{ 0 }; i < cnt;
@@ -247,21 +229,37 @@ constexpr void utils::ElemCopy(void* dst_, void const* src_, size_t elem_size,
     }
 }
 
+}  // namespace utils::detail
+
+constexpr void utils::LinSeqCopy(void* dst, void const* src, size_t elem_size,
+                                 size_t dst_elem_stride, size_t src_elem_stride,
+                                 size_t cnt) {
+    detail::LinSeqCopy_<size_t>(dst, src, elem_size, dst_elem_stride,
+                                src_elem_stride, cnt);
+}
+
+constexpr void utils::LinSeqCopy(void* dst, void const* src, size_t elem_size,
+                                 ptrdiff_t dst_elem_stride,
+                                 ptrdiff_t src_elem_stride, size_t cnt) {
+    detail::LinSeqCopy_<ptrdiff_t>(dst, src, elem_size, dst_elem_stride,
+                                   src_elem_stride, cnt);
+}
+
 namespace utils::detail {
 
-template <integral::IsIntegral DiffIntegral>
+template <integral::IsIntegral StrideIntegral>
 constexpr void EquistrideLinSeqMove_(void* dst_, void const* src_,
-                                     size_t elem_size, DiffIntegral elem_stride,
-                                     size_t cnt) {
+                                     size_t elem_size,
+                                     StrideIntegral elem_stride, size_t cnt) {
     char* dst{ static_cast<char*>(dst_) };
     char const* src{ static_cast<char const*>(src_) };
 
     if (dst == src || elem_size == 0 || cnt == 0) { return; }
 
-    ZETA_Core_DebugAssert(dst != nullptr);
-    ZETA_Core_DebugAssert(src != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(src != nullptr);
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         elem_stride == 0 ||
         elem_size <= static_cast<size_t>(integral_math::Abs(elem_stride)));
 
@@ -270,7 +268,7 @@ constexpr void EquistrideLinSeqMove_(void* dst_, void const* src_,
         return;
     }
 
-    DiffIntegral shift{ elem_stride * static_cast<DiffIntegral>(cnt - 1) };
+    StrideIntegral shift{ elem_stride * static_cast<StrideIntegral>(cnt - 1) };
 
     if (elem_stride < 0) {
         dst += shift;
@@ -349,27 +347,26 @@ constexpr void utils::EquistrideLinSeqMove(void* dst_, void const* src_,
                                              cnt);
 }
 
-constexpr void utils::ElemMove(void* dst_, void const* src_, size_t elem_size,
-                               size_t dst_elem_stride, size_t src_elem_stride,
-                               size_t cnt) {
+constexpr void utils::LinSeqMove(void* dst_, void const* src_, size_t elem_size,
+                                 size_t dst_elem_stride, size_t src_elem_stride,
+                                 size_t cnt) {
     auto* dst{ static_cast<char*>(dst_) };
     auto const* src{ static_cast<char const*>(src_) };
 
-    ZETA_Core_DebugAssert(dst_elem_stride == 0 || elem_size <= dst_elem_stride);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_elem_stride == 0 ||
+                                            elem_size <= dst_elem_stride);
 
-    ZETA_Core_DebugAssert(src_elem_stride == 0 || elem_size <= src_elem_stride);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(src_elem_stride == 0 ||
+                                            elem_size <= src_elem_stride);
 
-    ZETA_Core_DebugAssert(cnt <= 1 || dst_elem_stride != 0 ||
-                          src_elem_stride == 0);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= 1 || dst_elem_stride != 0 ||
+                                            src_elem_stride == 0);
     // can not process when multiple src elems move to single dst elem.
 
     if (elem_size == 0 || cnt == 0) { return; }
 
-    ZETA_Core_DebugAssert(0 <= dst_elem_stride && 0 <= src_elem_stride);
-    // TODO: can not process negative stride
-
-    ZETA_Core_DebugAssert(dst != nullptr);
-    ZETA_Core_DebugAssert(src != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(src != nullptr);
 
     if (dst_elem_stride == 0 || cnt == 1) {  // src_elem_stride == 0
         (MemMove)(dst, src, elem_size);
@@ -393,8 +390,8 @@ constexpr void utils::ElemMove(void* dst_, void const* src_, size_t elem_size,
     }
 
     if (dst_end <= src || src_end <= dst) {
-        (ElemCopy)(dst, src, elem_size, static_cast<ptrdiff_t>(dst_elem_stride),
-                   static_cast<ptrdiff_t>(src_elem_stride), cnt);
+        (LinSeqCopy)(dst, src, elem_size, dst_elem_stride, src_elem_stride,
+                     cnt);
         return;
     }
 
@@ -427,25 +424,25 @@ constexpr void utils::ElemMove(void* dst_, void const* src_, size_t elem_size,
         char const* src_mid{ src + src_elem_stride * (cur_beg + cur_l_cnt) };
 
         if (dst_mid <= src_mid) {
-            ZETA_Core_DebugAssert(buffer_i < buffer_capacity);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(buffer_i < buffer_capacity);
 
             begs[buffer_i] = cur_beg + cur_l_cnt;
             cnts[buffer_i] = cur_r_cnt;
             ++buffer_i;
 
-            ZETA_Core_DebugAssert(buffer_i < buffer_capacity);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(buffer_i < buffer_capacity);
 
             begs[buffer_i] = cur_beg;
             cnts[buffer_i] = cur_l_cnt;
             ++buffer_i;
         } else {
-            ZETA_Core_DebugAssert(buffer_i < buffer_capacity);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(buffer_i < buffer_capacity);
 
             begs[buffer_i] = cur_beg;
             cnts[buffer_i] = cur_l_cnt;
             ++buffer_i;
 
-            ZETA_Core_DebugAssert(buffer_i < buffer_capacity);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(buffer_i < buffer_capacity);
 
             begs[buffer_i] = cur_beg + cur_l_cnt;
             cnts[buffer_i] = cur_r_cnt;
@@ -454,21 +451,21 @@ constexpr void utils::ElemMove(void* dst_, void const* src_, size_t elem_size,
     }
 }
 
-constexpr void* utils::ElemRotate(void* data_, size_t width, size_t stride,
-                                  size_t l_size, size_t r_size) {
+constexpr void* utils::LinSeqRotate(void* data_, size_t width, size_t stride,
+                                    size_t l_size, size_t r_size) {
     auto* data{ static_cast<char*>(data_) };
 
     if (width == 0 || stride == 0) { return data; }
 
-    ZETA_Core_DebugAssert(width <= stride);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(width <= stride);
 
     if (width == stride) {
-        return MemRotate(data, stride * l_size, stride * r_size);
+        return (MemRotate)(data, stride * l_size, stride * r_size);
     }
 
     if (l_size == 0 && r_size == 0) { return data; }
 
-    ZETA_Core_DebugAssert(data != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(data != nullptr);
 
     char* ret{ data + stride * r_size };
 
@@ -478,7 +475,7 @@ constexpr void* utils::ElemRotate(void* data_, size_t width, size_t stride,
         char* jter{ iter + l_size };
 
         for (; jter != end; iter += stride, jter += stride) {
-            MemSwap(iter, jter, width);
+            (MemSwap)(iter, jter, width);
         }
 
         r_size %= l_size;
@@ -488,59 +485,10 @@ constexpr void* utils::ElemRotate(void* data_, size_t width, size_t stride,
     return ret;
 }
 
-template <typename XIterator, typename YIterator>
-constexpr int utils::SeqCompare(XIterator x, YIterator y, size_t size) {
-    if (x == y) { return 0; }
-
-    for (size_t i{ 0 }; i < size; ++i, ++x, ++y) {
-        int cmp{ ThreeWayCompare(*x, *y) };
-        if (cmp != 0) { return cmp; }
-    }
-
-    return 0;
-}
-
-template <typename DstIterator, typename SrcIterator>
-constexpr void utils::SeqCopy(DstIterator dst, SrcIterator src, size_t size) {
-    if (dst == src) { return; }
-
-    for (size_t i{ 0 }; i < size; ++i, ++dst, ++src) { *dst = *src; }
-}
-
-template <typename DstIterator, typename SrcIterator>
-constexpr void utils::SeqMove(DstIterator dst, SrcIterator src, size_t size) {
-    if (dst == src) { return; }
-
-    if (dst < src) {
-        SeqCopy(dst, src, size);
-        return;
-    }
-
-    SrcIterator src_end{ src + size };
-
-    if (src_end <= dst) {
-        SeqCopy(dst, src, size);
-        return;
-    }
-
-    DstIterator dst_end{ dst + size };
-
-    for (size_t i{ 0 }; i < size; ++i) { *(--dst_end) = *(--src_end); }
-}
-
-template <typename Iterator>
-constexpr Iterator utils::SeqRotate(Iterator beg, Iterator mid, Iterator end) {
-    // TODO
-
-    ZETA_Core_Unused(beg);
-    ZETA_Core_Unused(mid);
-    ZETA_Core_Unused(end);
-}
-
 template <typename UnsignedIntegral>
 constexpr UnsignedIntegral utils::SimpleUnsignedIntegralHash(
     UnsignedIntegral x, UnsignedIntegral salt) {
-    ZETA_Core_StaticAssert(integral::IsUnsignedIntegral<UnsignedIntegral>);
+    static_assert(integral::IsUnsignedIntegral<UnsignedIntegral>);
 
     x ^= salt;
 
@@ -596,7 +544,7 @@ constexpr int utils::Choose2(bool cond0, bool cond1,
     case 0b01: return 0;
     case 0b10: return 1;
     case 0b11: return static_cast<int>((SimpleRandomRotate)(random_seed) % 2);
-    default: ZETA_Core_Unreachable();
+    default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 }
 
@@ -615,7 +563,7 @@ constexpr int utils::Choose3(bool cond0, bool cond1, bool cond2,
     case 0b110:
         return static_cast<int>((SimpleRandomRotate)(random_seed) % 2) + 1;
     case 0b111: return static_cast<int>((SimpleRandomRotate)(random_seed) % 3);
-    default: ZETA_Core_Unreachable();
+    default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 }
 
@@ -652,40 +600,40 @@ constexpr bool utils::TryResult<Value, Reason>::HasReason(
 template <typename Value, typename Reason>
 constexpr void utils::TryResult<Value, Reason>::CheckHasValue(
     this TryResult const& self) {
-    ZETA_Core_DebugAssert(self.HasValue());
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(self.HasValue());
 }
 
 template <typename Value, typename Reason>
-constexpr void utils::TryResult<Value, Reason>::CheckHasError(
+constexpr void utils::TryResult<Value, Reason>::CheckHasReason(
     this TryResult const& self) {
-    ZETA_Core_DebugAssert(self.HasReason());
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(self.HasReason());
 }
 
 template <typename Value, typename Reason>
 constexpr Value const& utils::TryResult<Value, Reason>::GetValue(
     this TryResult const& self) {
-    ZETA_Core_DebugAssert(self.type == TryResultType::Value);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(self.type == TryResultType::Value);
     return self.value;
 }
 
 template <typename Value, typename Reason>
 constexpr Value& utils::TryResult<Value, Reason>::GetValue(
     this TryResult& self) {
-    ZETA_Core_DebugAssert(self.type == TryResultType::Value);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(self.type == TryResultType::Value);
     return self.value;
 }
 
 template <typename Value, typename Reason>
 constexpr Reason const& utils::TryResult<Value, Reason>::GetReason(
     this TryResult const& self) {
-    ZETA_Core_DebugAssert(self.type == TryResultType::Reason);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(self.type == TryResultType::Reason);
     return self.reason;
 }
 
 template <typename Value, typename Reason>
 constexpr Reason& utils::TryResult<Value, Reason>::GetReason(
     this TryResult& self) {
-    ZETA_Core_DebugAssert(self.type == TryResultType::Reason);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(self.type == TryResultType::Reason);
     return self.reason;
 }
 

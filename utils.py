@@ -137,17 +137,13 @@ def to_pathlib_path(path: PathLike) -> pathlib.Path:
 
 
 @beartype.beartype
-def to_canon_path(
-    path: PathLike,
-    *,
-    solve_symlink: bool,
-) -> pathlib.Path:
-    path = to_pathlib_path(path)
+def to_absolute_path(path: PathLike) -> pathlib.Path:
+    return to_pathlib_path(path).absolute()
 
-    if solve_symlink:
-        return path.resolve()
-    else:
-        return path.absolute()
+
+@beartype.beartype
+def to_resolved_path(path: PathLike) -> pathlib.Path:
+    return to_pathlib_path(path).resolve()
 
 
 @beartype.beartype
@@ -157,6 +153,31 @@ def is_subpath(path: PathLike, possible_parent: PathLike) -> bool:
         return True
     except:
         return False
+
+
+@beartype.beartype
+def get_file_mtime(path: PathLike) -> float:
+    path = to_pathlib_path(path)
+    return path.stat().st_mtime if path.exists() else float("-inf")
+
+
+causal_order_eps = 1e-3
+
+
+@beartype.beartype
+def is_causally_ordered(
+    path_or_mtime_expected_before: float | PathLike,
+    path_or_mtime_expected_after: float | PathLike,
+) -> bool:
+    time_expected_before = path_or_mtime_expected_before if isinstance(
+        path_or_mtime_expected_before, float) \
+        else get_file_mtime(path_or_mtime_expected_before)
+
+    time_expected_after = path_or_mtime_expected_after if isinstance(
+        path_or_mtime_expected_after, float) \
+        else get_file_mtime(path_or_mtime_expected_after)
+
+    return time_expected_before + causal_order_eps < time_expected_after
 
 
 @beartype.beartype
@@ -343,31 +364,16 @@ def compare_to_key(cmp: typing.Callable[[object, object], int]):
     return lambda obj: CompareWrapper(obj, cmp)
 
 
-class Color(enum.StrEnum):
-    red = "red"
-    orange = "orange"
-    yellow = "yellow"
-    cyan = "cyan"
+class ANSIColorCode:
+    reset = "\033[0m"
 
-    def __call__(self, x: object) -> str:
-        return termcolor.colored(str(x), self.value)
+    red = "\033[38;5;196m"
+    orange = "\033[38;5;208m"
+    yellow = "\033[38;5;220m"
+    green = "\033[38;5;46m"
+    cyan = "\033[38;5;87m"
+    purple = "\033[38;5;99m"
 
-
-@beartype.beartype
-def to_color(x: object, color: Color) -> str:
-    return termcolor.colored(str(x), Color.cyan.value)
-
-
-@beartype.beartype
-def to_red(x: object) -> str:
-    return termcolor.colored(str(x), Color.red.value)
-
-
-@beartype.beartype
-def to_yellow(x: object) -> str:
-    termcolor.colored(str(x), Color.yellow.value)
-
-
-@beartype.beartype
-def to_cyan(x: object) -> str:
-    return termcolor.colored(str(x), Color.cyan.value)
+    success = "\033[38;5;46m"
+    warning = "\033[38;5;208m"
+    error = "\033[38;5;196m"

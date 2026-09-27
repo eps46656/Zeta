@@ -1,6 +1,6 @@
 #pragma once
 
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/integral_bit.ipp>
@@ -26,10 +26,10 @@ constexpr auto integral_math::Compare(OpTag op, NumA a, NumB b) {
                 op, static_cast<integral::MakeUnsignedOf<NumA>>(a), b);
         }
 
-        if constexpr (meta::IsSame<OpTag, comparison::OpTag::Order>) {
+        if constexpr (meta::IsSame<OpTag, comparison::OpTags::Order>) {
             return comparison::Ordering::Less;
         } else {
-            return (meta::ToUnderlying(op.value) & comparison::less_bit) != 0;
+            return (meta::ToUnderlying(op.value) & comparison::Bits::less) != 0;
         }
     }
 
@@ -39,15 +39,15 @@ constexpr auto integral_math::Compare(OpTag op, NumA a, NumB b) {
                 op, a, static_cast<integral::MakeUnsignedOf<NumB>>(b));
         }
 
-        if constexpr (meta::IsSame<OpTag, comparison::OpTag::Order>) {
+        if constexpr (meta::IsSame<OpTag, comparison::OpTags::Order>) {
             return comparison::Ordering::Greater;
         } else {
-            return (meta::ToUnderlying(op.value) & comparison::greater_bit) !=
+            return (meta::ToUnderlying(op.value) & comparison::Bits::greater) !=
                    0;
         }
     }
 
-    ZETA_Core_Unreachable();
+    ZETA_Core_DebugUtils_Diag_Unreachable();
 }
 
 template <integral::IsIntegral Num>
@@ -61,46 +61,47 @@ constexpr Num integral_math::Abs(Num x) {
 
 template <typename Num>
 constexpr Num integral_math::CeilDiv(Num x, Num y) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Num>);
+    static_assert(integral::IsIntegral<Num>);
 
-    ZETA_Core_DebugAssert(static_cast<Num>(0) < y);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < y);
 
-    return x / y + static_cast<Num>(x % y != static_cast<Num>(0) ? 1 : 0);
+    return x / y + static_cast<Num>(x % y != 0 ? 1 : 0);
 }
 
 template <typename Num>
 constexpr Num integral_math::AlignDown(Num val, Num align) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Num>);
+    static_assert(integral::IsIntegral<Num>);
 
-    ZETA_Core_DebugAssert(static_cast<Num>(0) < align);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < align);
 
     return val - val % align;
 }
 
 template <typename Num>
 constexpr Num integral_math::AlignUp(Num val, Num align) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Num>);
+    static_assert(integral::IsIntegral<Num>);
 
-    ZETA_Core_DebugAssert(static_cast<Num>(0) < align);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < align);
 
     Num res{ val % align };
 
-    return res == static_cast<Num>(0) ? val : val + (align - res);
+    return res == 0 ? val : val + (align - res);
 }
 
 template <typename Num>
 constexpr bool integral_math::IsPowerOf2(Num num) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Num>);
+    static_assert(integral::IsIntegral<Num>);
 
-    return static_cast<Num>(0) < num && integral_bit::PopCount(num) == 1;
+    return 0 < num && integral_bit::PopCount(num) == 1;
 }
 
 template <typename Base, typename Exp>
 constexpr Base integral_math::PowerOf2Minus1(Exp exp) {
-    ZETA_Core_DebugAssert(static_cast<Exp>(0) <= exp);
-    ZETA_Core_DebugAssert(exp <= static_cast<Exp>(integral::WidthOf<Base>));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= exp);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        exp <= static_cast<Exp>(integral::WidthOf<Base>));
 
-    if (exp == static_cast<Exp>(0)) { return static_cast<Base>(0); }
+    if (exp == 0) { return 0; }
 
     Base x{ static_cast<Base>(1) };
 
@@ -114,21 +115,20 @@ constexpr Base integral_math::PowerOf2Minus1(Exp exp) {
 
 template <typename Base, typename Exp>
 constexpr Base integral_math::PowerOf2(Exp exp) {
-    ZETA_Core_DebugAssert(static_cast<Exp>(0) <= exp);
-    ZETA_Core_DebugAssert(exp < static_cast<Exp>(integral::WidthOf<Base>));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= exp);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        exp < static_cast<Exp>(integral::WidthOf<Base>));
+
     return static_cast<Base>(static_cast<Base>(1) << exp);
 }
 
 template <typename Base, typename Exp>
 constexpr Base integral_math::Power(Base base, Exp exp) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Exp>);
+    static_assert(integral::IsIntegral<Exp>);
 
-    constexpr Base base_0{ static_cast<Base>(0) };
-    constexpr Base base_1{ static_cast<Base>(1) };
-
-    if (exp == static_cast<Exp>(0)) {
-        ZETA_Core_DebugAssert(base != base_0);
-        return base_1;
+    if (exp == 0) {
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(base != 0);
+        return 1;
     }
 
     if constexpr (integral::IsIntegral<Base>) {
@@ -137,14 +137,14 @@ constexpr Base integral_math::Power(Base base, Exp exp) {
         }
     }
 
-    ZETA_Core_DebugAssert(static_cast<Exp>(0) <= exp);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= exp);
 
-    Base ret{ base_1 };
+    Base ret{ 1 };
 
     for (;;) {
-        if (exp % static_cast<Exp>(2) != static_cast<Exp>(0)) { ret *= base; }
+        if (exp % static_cast<Exp>(2) != 0) { ret *= base; }
         exp /= static_cast<Exp>(2);
-        if (exp == static_cast<Exp>(0)) { break; }
+        if (exp == 0) { break; }
         base *= base;
     }
 
@@ -153,9 +153,9 @@ constexpr Base integral_math::Power(Base base, Exp exp) {
 
 template <typename Num>
 constexpr unsigned long long integral_math::FloorLog2(Num num) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Num>);
+    static_assert(integral::IsIntegral<Num>);
 
-    ZETA_Core_DebugAssert(static_cast<Num>(0) < num);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < num);
 
     return integral_bit::CLZ(static_cast<Num>(1)) - 1ULL -
            integral_bit::CLZ(num);
@@ -163,9 +163,9 @@ constexpr unsigned long long integral_math::FloorLog2(Num num) {
 
 template <typename Num>
 constexpr unsigned long long integral_math::CeilLog2(Num num) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Num>);
+    static_assert(integral::IsIntegral<Num>);
 
-    ZETA_Core_DebugAssert(static_cast<Num>(0) < num);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < num);
 
     return num == static_cast<Num>(1)
                ? 0ULL
@@ -177,11 +177,11 @@ namespace integral_math::detail {
 
 template <bool IsCeil, typename Num, typename Base>
 constexpr unsigned long long Log_(Num num_, Base base_) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Num>);
-    ZETA_Core_StaticAssert(integral::IsIntegral<Base>);
+    static_assert(integral::IsIntegral<Num>);
+    static_assert(integral::IsIntegral<Base>);
 
-    ZETA_Core_DebugAssert(static_cast<Num>(0) < num_);
-    ZETA_Core_DebugAssert(static_cast<Base>(1) < base_);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < num_);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(1 < base_);
 
     unsigned long long approx_ans{ (FloorLog2)(num_) / (CeilLog2)(base_) };
 
@@ -280,12 +280,12 @@ constexpr unsigned long long integral_math::CeilLog(Num num, Base base) {
 
 template <typename Num>
 constexpr Num integral_math::FloorSqrt(Num num) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Num>);
+    static_assert(integral::IsIntegral<Num>);
 
-    ZETA_Core_DebugAssert(static_cast<Num>(0) <= num);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= num);
 
     if (num <= static_cast<Num>(3)) {
-        return static_cast<Num>(num == static_cast<Num>(0) ? 0 : 1);
+        return static_cast<Num>(num == 0 ? 0 : 1);
     }
 
     Num x{ static_cast<Num>(1) << (((CeilLog2)(num) + 1) / 2) };
@@ -296,7 +296,7 @@ constexpr Num integral_math::FloorSqrt(Num num) {
         x = y;
     }
 
-    __buildin_unreachable();
+    ZETA_Core_DebugUtils_Diag_Unreachable();
 }
 
 template <typename Num>
@@ -307,25 +307,19 @@ constexpr Num integral_math::CeilSqrt(Num num) {
 
 template <typename Num>
 constexpr auto integral_math::GCD(Num x, Num y) {
-    if (x == static_cast<Num>(0)) {
-        return y == static_cast<Num>(0) ? static_cast<Num>(1) : y;
-    }
+    if (x == 0) { return y == 0 ? static_cast<Num>(1) : y; }
 
     for (;;) {
-        if (y == static_cast<Num>(0)) {
-            return x < static_cast<Num>(0) ? -x : x;
-        }
+        if (y == 0) { return x < 0 ? -x : x; }
 
         x %= y;
 
-        if (x == static_cast<Num>(0)) {
-            return y < static_cast<Num>(0) ? -y : y;
-        }
+        if (x == 0) { return y < 0 ? -y : y; }
 
         y %= x;
     }
 
-    ZETA_Core_Unreachable();
+    ZETA_Core_DebugUtils_Diag_Unreachable();
 }
 
 template <typename Num>

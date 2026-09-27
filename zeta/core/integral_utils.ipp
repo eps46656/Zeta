@@ -1,7 +1,7 @@
 #pragma once
 
 #include <zeta/core/comparison.ipp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/integral_utils.hpp>
 #include <zeta/core/utils.hpp>
 
@@ -9,7 +9,7 @@ namespace zeta::core {
 
 template <typename Integral>
 constexpr Integral integral_utils::FromString(char const* str) {
-    ZETA_Core_DebugAssert(*str != '\0');
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(*str != '\0');
 
     bool is_neg{ false };
 
@@ -20,7 +20,7 @@ constexpr Integral integral_utils::FromString(char const* str) {
         ++str;
     }
 
-    ZETA_Core_DebugAssert(*str != '\0');
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(*str != '\0');
 
     Integral ret{ 0 };
 
@@ -34,7 +34,7 @@ constexpr Integral integral_utils::FromString(char const* str) {
                 if (c == '\'') { continue; }
                 if (c == '\0') { break; }
 
-                ZETA_Core_DebugAssert('0' <= c && c <= '1');
+                ZETA_Core_DebugUtils_Diag_PromiseAssert('0' <= c && c <= '1');
 
                 ret *= 2;
                 ret += static_cast<Integral>(c - '0');
@@ -48,7 +48,7 @@ constexpr Integral integral_utils::FromString(char const* str) {
                 if (c == '\'') { continue; }
                 if (c == '\0') { break; }
 
-                ZETA_Core_DebugAssert('0' <= c && c <= '7');
+                ZETA_Core_DebugUtils_Diag_PromiseAssert('0' <= c && c <= '7');
 
                 ret *= 8;
                 ret += static_cast<Integral>(c - '0');
@@ -62,7 +62,7 @@ constexpr Integral integral_utils::FromString(char const* str) {
                 if (c == '\'') { continue; }
                 if (c == '\0') { break; }
 
-                ZETA_Core_DebugAssert('0' <= c && c <= '9');
+                ZETA_Core_DebugUtils_Diag_PromiseAssert('0' <= c && c <= '9');
 
                 ret *= 10;
                 ret += static_cast<Integral>(c - '0');
@@ -76,9 +76,9 @@ constexpr Integral integral_utils::FromString(char const* str) {
                 if (c == '\'') { continue; }
                 if (c == '\0') { break; }
 
-                ZETA_Core_DebugAssert(('0' <= c && c <= '9') ||
-                                      ('a' <= c && c <= 'f') ||
-                                      ('A' <= c && c <= 'F'));
+                ZETA_Core_DebugUtils_Diag_PromiseAssert(
+                    ('0' <= c && c <= '9') || ('a' <= c && c <= 'f') ||
+                    ('A' <= c && c <= 'F'));
 
                 ret *= 16;
 
@@ -100,7 +100,7 @@ constexpr Integral integral_utils::FromString(char const* str) {
         if (c == '\'') { continue; }
         if (c == '\0') { break; }
 
-        ZETA_Core_DebugAssert('0' <= c && c <= '9');
+        ZETA_Core_DebugUtils_Diag_PromiseAssert('0' <= c && c <= '9');
 
         ret *= 10;
         ret += static_cast<Integral>(c - '0');
@@ -108,135 +108,5 @@ constexpr Integral integral_utils::FromString(char const* str) {
 
     return is_neg ? -ret : ret;
 }
-
-/*
-template <integral::IsIntegral DstIntegral, integral::IsIntegral SrcIntegral>
-constexpr DstIntegral integral_utils::LossyDetectingCast(SrcIntegral const& a,
-                                                         bool& no_lossy) {
-    DstIntegral dst{ static_cast<DstIntegral>(a) };
-
-    no_lossy &=
-        !((MathCompare)(meta::AutoValueWrapper<comparison::Ordering::Less>{}, a,
-                        integral::RangeMinOf<DstIntegral>) ||
-          (MathCompare)(meta::AutoValueWrapper<comparison::Ordering::Less>{},
-                        integral::RangeMaxOf<DstIntegral>, a));
-
-    return dst;
-}
-
-template <integral::IsIntegral Integral>
-constexpr Integral integral_utils::LossyDetectingAdd(Integral const& a,
-                                                     Integral const& b,
-                                                     bool& no_lossy) {
-    Integral dst;
-
-    no_lossy &= !__builtin_add_overflow(a, b, &dst);
-
-    return dst;
-}
-
-template <integral::IsIntegral Integral>
-constexpr Integral integral_utils::LossyDetectingSub(Integral const& a,
-                                                     Integral const& b,
-                                                     bool& no_lossy) {
-    Integral dst;
-
-    no_lossy &= !__builtin_sub_overflow(a, b, &dst);
-
-    return dst;
-}
-
-template <integral::IsIntegral Integral>
-constexpr Integral integral_utils::LossyDetectingMul(Integral const& a,
-                                                     Integral const& b,
-                                                     bool& no_lossy) {
-    Integral dst;
-
-    no_lossy &= !__builtin_mul_overflow(a, b, &dst);
-
-    return dst;
-}
-
-template <integral::IsIntegral Integral>
-constexpr integral_utils::LossyDetectingIntegral<
-    Integral>::LossyDetectingIntegral()
-    : value{ 0 }, no_lossy{ true } {}
-
-template <integral::IsIntegral Integral>
-constexpr integral_utils::LossyDetectingIntegral<
-    Integral>::LossyDetectingIntegral(Integral const& value)
-    : value{ value }, no_lossy{ true } {}
-
-template <integral::IsIntegral Integral>
-constexpr integral_utils::LossyDetectingIntegral<
-    Integral>::LossyDetectingIntegral(Integral const& value, bool no_lossy)
-    : value{ value }, no_lossy{ no_lossy } {}
-
-template <integral::IsIntegral Integral>
-template <integral::IsIntegral OtherIntegral>
-constexpr integral_utils::LossyDetectingIntegral<Integral>::
-    LossyDetectingIntegral(LossyDetectingIntegral<OtherIntegral> const& other) {
-    this->no_lossy = false;
-
-    this->value = (LossyDetectingCast<Integral, OtherIntegral>)(other.value,
-                                                                this->no_lossy);
-}
-
-template <integral::IsIntegral Integral>
-constexpr integral_utils::LossyDetectingIntegral<Integral>
-integral_utils::operator+(LossyDetectingIntegral<Integral> const& a) {
-    return a;
-}
-
-template <integral::IsIntegral Integral>
-constexpr integral_utils::LossyDetectingIntegral<Integral>
-integral_utils::operator-(LossyDetectingIntegral<Integral> const& a) {
-    return { -a.value, a.no_lossy };
-}
-
-template <integral::IsIntegral Integral>
-constexpr integral_utils::LossyDetectingIntegral<Integral>
-integral_utils::operator+(LossyDetectingIntegral<Integral> const& a,
-                          LossyDetectingIntegral<Integral> const& b) {
-    LossyDetectingIntegral<Integral> dst{ .no_lossy =
-                                              a.no_lossy && b.no_lossy };
-
-    dst.value = (LossyDetectingAdd)(a.value, b.value, dst.no_lossy);
-
-    return dst;
-}
-
-template <integral::IsIntegral Integral>
-constexpr integral_utils::LossyDetectingIntegral<Integral>
-integral_utils::operator-(LossyDetectingIntegral<Integral> const& a,
-                          LossyDetectingIntegral<Integral> const& b) {
-    LossyDetectingIntegral<Integral> dst{ .no_lossy =
-                                              a.no_lossy && b.no_lossy };
-
-    dst.value = (LossyDetectingSub)(a.value, b.value, dst.no_lossy);
-
-    return dst;
-}
-
-template <integral::IsIntegral Integral>
-constexpr integral_utils::LossyDetectingIntegral<Integral>
-integral_utils::operator*(LossyDetectingIntegral<Integral> const& a,
-                          LossyDetectingIntegral<Integral> const& b) {
-    LossyDetectingIntegral<Integral> dst{ .no_lossy =
-                                              a.no_lossy && b.no_lossy };
-
-    dst.value = (LossyDetectingMul)(a.value, b.value, dst.no_lossy);
-
-    return dst;
-}
-
-template <integral::IsIntegral Integral>
-constexpr integral_utils::LossyDetectingIntegral<Integral>
-integral_utils::operator/(LossyDetectingIntegral<Integral> const& a,
-                          LossyDetectingIntegral<Integral> const& b) {
-    return { .value = a.value / b.value,
-             .no_lossy = b.value != 0 && a.no_lossy && b.no_lossy };
-}
-*/
 
 }  // namespace zeta::core

@@ -5,20 +5,22 @@
 #endif
 
 #include <zeta/core/allocator.ipp>
-#include <zeta/core/debug_utils.hpp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
+#include <zeta/core/debug_utils/memory.ipp>
+#include <zeta/core/debug_utils/recording_allocator.ipp>
 #include <zeta/core/define.hpp>
-#include <zeta/core/elem_stream.ipp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/integral_bit.ipp>
 #include <zeta/core/integral_math.ipp>
 #include <zeta/core/integral_utils.ipp>
 #include <zeta/core/lifecycle.hpp>
-#include <zeta/core/lin_seq_elem_stream.ipp>
-#include <zeta/core/mem_recorder.hpp>
+#include <zeta/core/lin_seq_endpoint.ipp>
 #include <zeta/core/multi_level_table.mpp.hpp>
 #include <zeta/core/ptr_utils.ipp>
+#include <zeta/core/seq_endpoint.ipp>
 #include <zeta/core/utils.hpp>
+
+ZETA_Core_ClangdPreambleBarrier;
 
 #if EnDataNode
 
@@ -59,38 +61,36 @@ namespace Namespace::detail {
 
 template <CntrTplParamList>
 constexpr void CheckCntr_  // NOLINT(misc-use-internal-linkage)
-    (Cntr<CntrTplArgList>& cntr) {
+    (Cntr<CntrTplArgList> const& cntr) {
     unsigned level{ cntr.level };
-    ZETA_Core_DebugAssert(0 < level);
-    ZETA_Core_DebugAssert(level <= max_level);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < level);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(level <= max_level);
 
     BranchNum const* branch_nums{ cntr.branch_nums };
 
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
         BranchNum branch_num{ branch_nums[level_i] };
 
-        ZETA_Core_DebugAssert(min_branch_num <= branch_num);
-        ZETA_Core_DebugAssert(branch_num <= integral::WidthOf<ActiveMap>);
-        ZETA_Core_DebugAssert(branch_num <= max_branch_num);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(min_branch_num <= branch_num);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(branch_num <=
+                                                integral::WidthOf<ActiveMap>);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(branch_num <= max_branch_num);
     }
 }
 
-template <elem_stream::provider::IsProvider SrcBranchIdxesProvider>
+template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider>
 constexpr BranchNum PullBranchIdx_(
     SrcBranchIdxesProvider& src_branch_idxes_provider, BranchNum branch_num) {
-    ZETA_Core_DebugAssert(
-        !elem_stream::provider::IsEnd(src_branch_idxes_provider));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        !seq_endpoint::provider::IsEnd(src_branch_idxes_provider));
 
     BranchNum branch_idx;
 
-    elem_stream::provider::Transfer(src_branch_idxes_provider, &branch_idx,
-                                    sizeof(BranchNum), sizeof(BranchNum), 1);
+    seq_endpoint::provider::Transfer(src_branch_idxes_provider, &branch_idx,
+                                     sizeof(BranchNum), sizeof(BranchNum), 1);
 
-    ZETA_Core_Debug_PrintVar(branch_idx);
-    ZETA_Core_Debug_PrintVar(branch_num);
-
-    ZETA_Core_DebugAssert(integral_math::Compare(comparison::OpTag::Less{},
-                                                 branch_idx, branch_num));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(integral_math::Compare(
+        comparison::OpTags::Less{}, branch_idx, branch_num));
 
     return branch_idx;
 }
@@ -126,8 +126,8 @@ constexpr NavNode<ActiveMap>*
 template <allocator::IsAllocator NavNodeAllocator,
           integral::IsUnsignedIntegral ActiveMap>
 constexpr void DeallocateNavNode_  // NOLINT(misc-use-internal-linkage)
-    (NavNodeAllocator& node_alctr, NavNode<ActiveMap>* node) {
-    allocator::Deallocate(node_alctr, node);
+    (NavNodeAllocator& nav_node_alctr, NavNode<ActiveMap>* node) {
+    allocator::Deallocate(nav_node_alctr, node);
 }
 
 #if EnDataNode
@@ -167,60 +167,119 @@ constexpr void DeallocateDataNode_  // NOLINT(misc-use-internal-linkage)
 }  // namespace Namespace::detail
 
 template <CntrTplParamList>
-template <typename NavNodeAllocatorInitArg
+template <typename NavNodeAllocatorConstructArg
 #if EnDataNode
           ,
-          typename DataNodeAllocatorInitArg
+          typename DataNodeAllocatorConstructArg
 #endif
           >
 constexpr Namespace::Cntr<CntrTplArgList>::Cntr(
-    NavNodeAllocatorInitArg&& nav_node_alctr_init_arg,
+    lifecycle::DirectConstructTag, unsigned level, BranchNum const* branch_nums,
 #if EnDataNode
-    DataNodeAllocatorInitArg&& data_node_alctr_init_arg,
+    size_t elem_stride,
 #endif
-    unsigned level, BranchNum const* branch_nums
+    size_t elem_cnt, void* root,
+    NavNodeAllocatorConstructArg&& nav_node_alctr_construct_arg
 #if EnDataNode
     ,
-    size_t elem_stride
+    DataNodeAllocatorConstructArg&& data_node_alctr_construct_arg
 #endif
     )
-    : nav_node_alctr_like{ ZETA_Core_Lifecycle_UnpackInitArg(
-          NavNodeAllocatorLike, NavNodeAllocatorInitArg,
-          nav_node_alctr_init_arg) }
+    : level{ level },
+      branch_nums{ branch_nums },
+#if EnDataNode
+      elem_stride{ elem_stride },
+#endif
+      elem_cnt{ elem_cnt },
+      root{ root },
+      nav_node_alctr_like{ ZETA_Core_Lifecycle_UnpackConstructArg(
+          NavNodeAllocatorLike, NavNodeAllocatorConstructArg,
+          nav_node_alctr_construct_arg) }
 #if EnDataNode
       ,
-      data_node_alctr_like{ ZETA_Core_Lifecycle_UnpackInitArg(
-          DataNodeAllocatorLike, DataNodeAllocatorInitArg,
-          data_node_alctr_init_arg) }
+      data_node_alctr_like{ ZETA_Core_Lifecycle_UnpackConstructArg(
+          DataNodeAllocatorLike, DataNodeAllocatorConstructArg,
+          data_node_alctr_construct_arg) }
 #endif
 {
-    ZETA_Core_DebugAssert(0 < level);
-    ZETA_Core_DebugAssert(level <= max_level);
+    detail::CheckCntr_(*this);
+
+    zeta::core::debug_utils::sanity::RegisterSanityCheckFunc(this,
+                                                             (SanityCheck));
+}
+
+template <CntrTplParamList>
+template <typename NavNodeAllocatorConstructArg
+#if EnDataNode
+          ,
+          typename DataNodeAllocatorConstructArg
+#endif
+          >
+constexpr Namespace::Cntr<CntrTplArgList>::Cntr(
+    unsigned level, BranchNum const* branch_nums,
+#if EnDataNode
+    size_t elem_stride,
+#endif
+    NavNodeAllocatorConstructArg&& nav_node_alctr_construct_arg
+#if EnDataNode
+    ,
+    DataNodeAllocatorConstructArg&& data_node_alctr_construct_arg
+#endif
+    )
+    : nav_node_alctr_like{ ZETA_Core_Lifecycle_UnpackConstructArg(
+          NavNodeAllocatorLike, NavNodeAllocatorConstructArg,
+          nav_node_alctr_construct_arg) }
+#if EnDataNode
+      ,
+      data_node_alctr_like{ ZETA_Core_Lifecycle_UnpackConstructArg(
+          DataNodeAllocatorLike, DataNodeAllocatorConstructArg,
+          data_node_alctr_construct_arg) }
+#endif
+{
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < level);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(level <= max_level);
 
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
         BranchNum branch_num{ branch_nums[level_i] };
 
-        ZETA_Core_DebugAssert(min_branch_num <= branch_num);
-        ZETA_Core_DebugAssert(branch_num <= integral::WidthOf<ActiveMap>);
-        ZETA_Core_DebugAssert(branch_num <= max_branch_num);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(min_branch_num <= branch_num);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(branch_num <=
+                                                integral::WidthOf<ActiveMap>);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(branch_num <= max_branch_num);
     }
 
     this->level = level;
     this->branch_nums = branch_nums;
 
 #if EnDataNode
-    ZETA_Core_DebugAssert(0 < elem_stride);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < elem_stride);
     this->elem_stride = elem_stride;
 #endif
 
     this->elem_cnt = 0;
 
     this->root = nullptr;
+
+    zeta::core::debug_utils::sanity::RegisterSanityCheckFunc(this,
+                                                             (SanityCheck));
 }
 
 template <CntrTplParamList>
 constexpr Namespace::Cntr<CntrTplArgList>::~Cntr() {
-    this->EraseAll();
+    this->Destruct();
+}
+
+template <CntrTplParamList>
+constexpr void Namespace::Cntr<CntrTplArgList>::Destruct(this Cntr& cntr) {
+    cntr.EraseAll();
+
+    zeta::core::debug_utils::sanity::UnregisterSanityCheckFunc(&cntr);
+}
+
+template <CntrTplParamList>
+constexpr void Namespace::Cntr<CntrTplArgList>::DisownDestruct(
+    this Cntr& cntr) {
+    zeta::core::debug_utils::sanity::UnregisterSanityCheckFunc(&cntr);
 }
 
 template <CntrTplParamList>
@@ -250,7 +309,7 @@ constexpr size_t Namespace::Cntr<CntrTplArgList>::GetMaxElemCnt(
 }
 
 template <CntrTplParamList>
-template <elem_stream::provider::IsProvider SrcBranchIdxesProvider>
+template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider>
 constexpr auto Namespace::Cntr<CntrTplArgList>::Access(
     this auto& cntr,
     SrcBranchIdxesProvider&&
@@ -301,7 +360,7 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::Access(
 }
 
 template <CntrTplParamList>
-template <elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+template <seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindFirst(
     this auto& cntr,
     DstBranchIdxesAcceptor&&
@@ -312,7 +371,7 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindFirst(
     constexpr BranchNum zero{ 0 };
 
     return cntr.FindNextIncl(
-        lin_seq_elem_stream::Provider{
+        lin_seq_endpoint::provider::Provider{
             .data = &zero,
             .elem_size = sizeof(BranchNum),
             .elem_stride = 0,
@@ -322,7 +381,7 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindFirst(
 }
 
 template <CntrTplParamList>
-template <elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+template <seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindLast(
     this auto& cntr,
     DstBranchIdxesAcceptor&&
@@ -334,21 +393,23 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindLast(
         BranchNum const* branch_nums;
         size_t elem_cnt;
 
-        static constexpr bool GetElemSize(elem_stream::provider::Tag) {
+        static constexpr bool GetElemSize(seq_endpoint::provider::Tag) {
             return sizeof(BranchNum);
         }
 
-        static constexpr bool IsEnd(elem_stream::provider::Tag) {
+        static constexpr bool IsEnd(seq_endpoint::provider::Tag) {
             return false;
         }
 
         constexpr size_t Transfer(this SrcBranchIdxesProvider& self,
-                                  elem_stream::provider::Tag, void* dst_,
+                                  seq_endpoint::provider::Tag, void* dst_,
                                   size_t elem_size, ptrdiff_t elem_stride,
                                   size_t elem_cnt) {
-            ZETA_Core_DebugAssert(elem_size == sizeof(BranchNum));
-            ZETA_Core_DebugAssert(elem_stride == sizeof(BranchNum));
-            ZETA_Core_DebugAssert(elem_cnt == self.elem_cnt);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(elem_size ==
+                                                    sizeof(BranchNum));
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(elem_stride ==
+                                                    sizeof(BranchNum));
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(elem_cnt == self.elem_cnt);
 
             BranchNum* dst{ static_cast<BranchNum*>(dst_) };
 
@@ -368,8 +429,8 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindLast(
 }
 
 template <CntrTplParamList>
-template <elem_stream::provider::IsProvider SrcBranchIdxesProvider,
-          elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider,
+          seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
     this auto& cntr,
     SrcBranchIdxesProvider&&
@@ -395,7 +456,7 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
             branch_idxes[level_i] = branch_nums[level_i] - 1;
         }
 
-        elem_stream::acceptor::Transfer(
+        seq_endpoint::acceptor::Transfer(
             dst_branch_idxes_acceptor, branch_idxes + (level - 1),
             sizeof(BranchNum), -static_cast<ptrdiff_t>(sizeof(BranchNum)),
             level);
@@ -436,7 +497,7 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
             }
 #endif
 
-            elem_stream::provider::Transfer(
+            seq_endpoint::provider::Transfer(
                 src_branch_idxes_provider, branch_idxes + (level - 1),
                 sizeof(BranchNum), -static_cast<ptrdiff_t>(sizeof(BranchNum)),
                 level);
@@ -462,7 +523,7 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
                     branch_idxes[level_i] = branch_nums[level_i] - 1;
                 }
 
-                elem_stream::acceptor::Transfer(
+                seq_endpoint::acceptor::Transfer(
                     dst_branch_idxes_acceptor, branch_idxes + (level - 1),
                     sizeof(BranchNum),
                     -static_cast<ptrdiff_t>(sizeof(BranchNum)), level);
@@ -508,7 +569,7 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
                 branch_nums[level_i] - 1));
     }
 
-    elem_stream::acceptor::Transfer(
+    seq_endpoint::acceptor::Transfer(
         dst_branch_idxes_acceptor, branch_idxes + (level - 1),
         sizeof(BranchNum), -static_cast<ptrdiff_t>(sizeof(BranchNum)), level);
 
@@ -521,8 +582,8 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
 }
 
 template <CntrTplParamList>
-template <elem_stream::provider::IsProvider SrcBranchIdxesProvider,
-          elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider,
+          seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevExcl(
     this auto& cntr,
     SrcBranchIdxesProvider&&
@@ -551,7 +612,7 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevExcl(
         branch_idxes[level_i] = branch_nums[level_i] - 1;
     }
 
-    elem_stream::provider::Transfer(
+    seq_endpoint::provider::Transfer(
         src_branch_idxes_provider, branch_idxes + (level - 1),
         sizeof(BranchNum), -static_cast<ptrdiff_t>(sizeof(BranchNum)), level);
 
@@ -559,12 +620,19 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevExcl(
 
 L1:;
 
-    return cntr.FindPrevIncl(branch_idxes, dst_branch_idxes_acceptor);
+    return cntr.FindPrevIncl(
+        lin_seq_endpoint::provider::Provider{
+            .data = branch_idxes + (level - 1),
+            .elem_size = sizeof(BranchNum),
+            .elem_stride = -static_cast<ptrdiff_t>(sizeof(BranchNum)),
+            .elem_cnt = level,
+        },
+        dst_branch_idxes_acceptor);
 }
 
 template <CntrTplParamList>
-template <elem_stream::provider::IsProvider SrcBranchIdxesProvider,
-          elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider,
+          seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
     this auto& cntr,
     SrcBranchIdxesProvider&&
@@ -586,8 +654,8 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
     if (root == nullptr) {
         constexpr BranchNum zero{ 0 };
 
-        elem_stream::acceptor::Transfer(dst_branch_idxes_acceptor, &zero,
-                                        sizeof(BranchNum), 0, level);
+        seq_endpoint::acceptor::Transfer(dst_branch_idxes_acceptor, &zero,
+                                         sizeof(BranchNum), 0, level);
 
         return nullptr;
     }
@@ -625,7 +693,7 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
             }
 #endif
 
-            elem_stream::acceptor::Transfer(
+            seq_endpoint::acceptor::Transfer(
                 dst_branch_idxes_acceptor, branch_idxes + (level - 1),
                 sizeof(BranchNum), -static_cast<ptrdiff_t>(sizeof(BranchNum)),
                 level);
@@ -646,8 +714,8 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
         if (level_i == level) {
             constexpr BranchNum zero{ 0 };
 
-            elem_stream::acceptor::Transfer(dst_branch_idxes_acceptor, &zero,
-                                            sizeof(BranchNum), 0, level);
+            seq_endpoint::acceptor::Transfer(dst_branch_idxes_acceptor, &zero,
+                                             sizeof(BranchNum), 0, level);
 
             return nullptr;
         }
@@ -689,7 +757,7 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
                 0));
     }
 
-    elem_stream::acceptor::Transfer(
+    seq_endpoint::acceptor::Transfer(
         dst_branch_idxes_acceptor, branch_idxes + (level - 1),
         sizeof(BranchNum), -static_cast<ptrdiff_t>(sizeof(BranchNum)), level);
 
@@ -702,8 +770,8 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
 }
 
 template <CntrTplParamList>
-template <elem_stream::provider::IsProvider SrcBranchIdxesProvider,
-          elem_stream::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider,
+          seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextExcl(
     this auto& cntr,
     SrcBranchIdxesProvider&&
@@ -735,8 +803,8 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextExcl(
     {
         constexpr BranchNum zero{ 0 };
 
-        elem_stream::acceptor::Transfer(dst_branch_idxes_acceptor, &zero,
-                                        sizeof(BranchNum), 0, level);
+        seq_endpoint::acceptor::Transfer(dst_branch_idxes_acceptor, &zero,
+                                         sizeof(BranchNum), 0, level);
     }
 
     return nullptr;
@@ -744,17 +812,17 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextExcl(
 L1:;
 
     return cntr.FindNextIncl(
-        lin_seq_elem_stream::Provider{
-            .data = branch_idxes,
+        lin_seq_endpoint::provider::Provider{
+            .data = branch_idxes + (level - 1),
             .elem_size = sizeof(BranchNum),
-            .elem_stride = sizeof(BranchNum),
+            .elem_stride = -static_cast<ptrdiff_t>(sizeof(BranchNum)),
             .elem_cnt = level,
         },
         dst_branch_idxes_acceptor);
 }
 
 template <CntrTplParamList>
-template <elem_stream::provider::IsProvider SrcBranchIdxesProvider>
+template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider>
 constexpr pair::Pair<void*, bool> Namespace::Cntr<CntrTplArgList>::Insert(
     this Cntr& cntr,
     SrcBranchIdxesProvider&&
@@ -762,17 +830,17 @@ constexpr pair::Pair<void*, bool> Namespace::Cntr<CntrTplArgList>::Insert(
 ) {
     detail::CheckCntr_(cntr);
 
-    auto& nav_node_alctr{ meta::GetInstRef(cntr.nav_node_alctr_like) };
-
-#if EnDataNode
-    auto& data_node_alctr{ meta::GetInstRef(cntr.data_node_alctr_like) };
-#endif
-
     unsigned level{ cntr.level };
     BranchNum const* branch_nums{ cntr.branch_nums };
 
 #if EnDataNode
     size_t elem_stride{ cntr.elem_stride };
+#endif
+
+    auto& nav_node_alctr{ meta::GetInstRef(cntr.nav_node_alctr_like) };
+
+#if EnDataNode
+    auto& data_node_alctr{ meta::GetInstRef(cntr.data_node_alctr_like) };
 #endif
 
     if (cntr.root == nullptr) {
@@ -854,7 +922,7 @@ constexpr pair::Pair<void*, bool> Namespace::Cntr<CntrTplArgList>::Insert(
 }
 
 template <CntrTplParamList>
-template <elem_stream::provider::IsProvider SrcBranchIdxesProvider>
+template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider>
 constexpr bool Namespace::Cntr<CntrTplArgList>::Erase(
     this Cntr& cntr,
     SrcBranchIdxesProvider&&
@@ -868,7 +936,12 @@ constexpr bool Namespace::Cntr<CntrTplArgList>::Erase(
 
     void* node{ cntr.root };
 
-    if (node == nullptr) { return false; }
+    ZETA_Core_DebugUtils_Diag_LogCurPos();
+
+    if (node == nullptr) {
+        ZETA_Core_DebugUtils_Diag_LogCurPos();
+        return false;
+    }
 
     auto& nav_node_alctr{ meta::GetInstRef(cntr.nav_node_alctr_like) };
 
@@ -876,10 +949,14 @@ constexpr bool Namespace::Cntr<CntrTplArgList>::Erase(
     auto& data_node_alctr{ meta::GetInstRef(cntr.data_node_alctr_like) };
 #endif
 
+    ZETA_Core_DebugUtils_Diag_LogCurPos();
+
     void* nodes[max_level];
     size_t branch_idxes[max_level];
 
     for (unsigned level_i{ level - 1 };; --level_i) {
+        ZETA_Core_DebugUtils_Diag_LogVar(level_i);
+
         nodes[level_i] = node;
 
         if (level_i == 0) { break; }
@@ -891,11 +968,15 @@ constexpr bool Namespace::Cntr<CntrTplArgList>::Erase(
         if (!detail::TestActiveMap_(
                 static_cast<NavNode<ActiveMap>*>(node)->active_map,
                 cur_branch_idx)) {
+            ZETA_Core_DebugUtils_Diag_LogCurPos();
+
             return false;
         }
 
         node = static_cast<NavNode<ActiveMap>*>(node)->ptrs[cur_branch_idx];
     }
+
+    ZETA_Core_DebugUtils_Diag_LogCurPos();
 
     BranchNum last_branch_idx{ detail::PullBranchIdx_(src_branch_idxes_provider,
                                                       branch_nums[0]) };
@@ -905,16 +986,22 @@ constexpr bool Namespace::Cntr<CntrTplArgList>::Erase(
             static_cast<EnDataNodeTernary(DataNode, NavNode) < ActiveMap>* >
                 (node)->active_map,
             last_branch_idx)) {
+        ZETA_Core_DebugUtils_Diag_LogCurPos();
+
         return false;
     }
 
     --cntr.elem_cnt;
 
     for (unsigned level_i{ 0 }; level_i < level; ++level_i) {
+        ZETA_Core_DebugUtils_Diag_LogVar(level_i);
+
         node = nodes[level_i];
 
 #if EnDataNode
         if (level_i == 0) {
+            ZETA_Core_DebugUtils_Diag_LogCurPos();
+
             auto* data_node{ static_cast<DataNode<ActiveMap>*>(node) };
 
             data_node->active_map -= static_cast<ActiveMap>(1)
@@ -926,16 +1013,23 @@ constexpr bool Namespace::Cntr<CntrTplArgList>::Erase(
         } else
 #endif
         {
+            ZETA_Core_DebugUtils_Diag_LogCurPos();
+
             auto* nav_node{ static_cast<NavNode<ActiveMap>*>(node) };
 
             nav_node->active_map -= static_cast<ActiveMap>(1)
                                     << branch_idxes[level_i];
 
-            if (nav_node->active_map != 0) { return true; }
+            if (nav_node->active_map != 0) {
+                ZETA_Core_DebugUtils_Diag_LogCurPos();
+                return true;
+            }
 
             detail::DeallocateNavNode_(nav_node_alctr, nav_node);
         }
     }
+
+    ZETA_Core_DebugUtils_Diag_LogCurPos();
 
     cntr.root = nullptr;
 
@@ -992,34 +1086,36 @@ constexpr void Namespace::Cntr<CntrTplArgList>::EraseAll(this Cntr& cntr) {
     cntr.root = nullptr;
 }
 
+#if ZETA_Core_DebugUtils_Sanity_Enable
+
 namespace Namespace::detail {
 
 template <integral::IsUnsignedIntegral ActiveMap>
-size_t SanitizeRecursive_  // NOLINT(
-                           // misc-no-recursion,
-                           // misc-use-internal-linkage)
-    (mem_recorder::MemRecorder& dst_nav_node,
+size_t SanityCheckRecursive_  // NOLINT(
+                              // misc-no-recursion,
+                              // misc-use-internal-linkage)
+    (debug_utils::memory::MemRecorder& scanned_nav_node_recorder,
 #if EnDataNode
-     mem_recorder::MemRecorder& dst_data_node,
+     debug_utils::memory::MemRecorder& checking_data_node_recorder,
 #endif
      unsigned level_i, BranchNum const* branch_nums,
 #if EnDataNode
      size_t elem_stride,
 #endif
      void* node) {
-    ZETA_Core_DebugAssert(*static_cast<ActiveMap*>(node) != 0);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(*static_cast<ActiveMap*>(node) !=
+                                            0);
 
 #if EnDataNode
     if (level_i == 0) {
-        mem_recorder::Record(
-            dst_data_node, node,
-            detail::GetDataNodeSize_(elem_stride, branch_nums[0],
-                                     meta::TypeWrapper<ActiveMap>{}));
+        checking_data_node_recorder.Add(
+            node, detail::GetDataNodeSize_(elem_stride, branch_nums[0],
+                                           meta::TypeWrapper<ActiveMap>{}));
 
         size_t ret{ static_cast<size_t>(integral_bit::PopCount(
             static_cast<DataNode<ActiveMap>*>(node)->active_map)) };
 
-        ZETA_Core_DebugAssert(0 < ret);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < ret);
 
         size_t k{ 0 };
 
@@ -1029,22 +1125,21 @@ size_t SanitizeRecursive_  // NOLINT(
                 static_cast<BranchNum>(i));
         }
 
-        ZETA_Core_DebugAssert(k == ret);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(k == ret);
 
         return ret;
     }
 #endif
 
-    mem_recorder::Record(
-        dst_nav_node, node,
-        detail::GetNavNodeSize_<ActiveMap>(branch_nums[level_i]));
+    scanned_nav_node_recorder.Add(
+        node, detail::GetNavNodeSize_<ActiveMap>(branch_nums[level_i]));
 
 #if !EnDataNode
     if (level_i == 0) {
         size_t ret{ static_cast<size_t>(integral_bit::PopCount(
             static_cast<NavNode<ActiveMap>*>(node)->active_map)) };
 
-        ZETA_Core_DebugAssert(0 < ret);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < ret);
 
         size_t k{ 0 };
 
@@ -1053,7 +1148,7 @@ size_t SanitizeRecursive_  // NOLINT(
                 static_cast<NavNode<ActiveMap>*>(node)->active_map, i);
         }
 
-        ZETA_Core_DebugAssert(k == ret);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(k == ret);
 
         return ret;
     }
@@ -1067,19 +1162,19 @@ size_t SanitizeRecursive_  // NOLINT(
          (idx = integral_bit::FindNextBit(nav_node->active_map, idx)) <
          integral::WidthOf<ActiveMap>;
          ++idx) {
-        ZETA_Core_DebugAssert(idx < branch_nums[level_i]);
-        ZETA_Core_DebugAssert((TestActiveMap_)(nav_node->active_map,
-                                               static_cast<BranchNum>(idx)));
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(idx < branch_nums[level_i]);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert((
+            TestActiveMap_)(nav_node->active_map, static_cast<BranchNum>(idx)));
 
-        size += SanitizeRecursive_<ActiveMap>(dst_nav_node,
+        size += (SanityCheckRecursive_<ActiveMap>)(scanned_nav_node_recorder,
 #if EnDataNode
-                                              dst_data_node,
+                                                   checking_data_node_recorder,
 #endif
-                                              level_i - 1, branch_nums,
+                                                   level_i - 1, branch_nums,
 #if EnDataNode
-                                              elem_stride,
+                                                   elem_stride,
 #endif
-                                              nav_node->ptrs[idx]);
+                                                   nav_node->ptrs[idx]);
     }
 
     return size;
@@ -1088,19 +1183,22 @@ size_t SanitizeRecursive_  // NOLINT(
 }  // namespace Namespace::detail
 
 template <CntrTplParamList>
-constexpr void Namespace::Cntr<CntrTplArgList>::Sanitize(
-    this Cntr& cntr, mem_recorder::MemRecorder* dst_nav_node
-#if EnDataNode
-    ,
-    mem_recorder::MemRecorder* dst_data_node
-#endif
-) {
-#if !ZETA_Core_EnableDebug
-    ZETA_Core_Unused(cntr);
-    ZETA_Core_Unused(dst_nav_node);
-    ZETA_Core_Unused(dst_data_node);
-#else
+constexpr void Namespace::Cntr<CntrTplArgList>::SanityCheck(
+    void const* cntr_, debug_utils::sanity::SanityCheckScope scope) {
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cntr_ != nullptr);
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        scope == debug_utils::sanity::SanityCheckScope::Basic ||
+        scope == debug_utils::sanity::SanityCheckScope::Complete);
+
+    Cntr const& cntr{ *static_cast<Cntr const*>(cntr_) };
+
     detail::CheckCntr_(cntr);
+
+    debug_utils::sanity::ExpandFinishedSanityCheckScope(
+        cntr_, debug_utils::sanity::SanityCheckScope::Basic);
+
+    if (scope == debug_utils::sanity::SanityCheckScope::Basic) { return; }
 
     unsigned level{ cntr.level };
     BranchNum const* branch_nums{ cntr.branch_nums };
@@ -1111,23 +1209,35 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Sanitize(
 
     void* root{ cntr.root };
 
-    mem_recorder::MemRecorder* origin_dst_nav_node{ dst_nav_node };
+    auto& nav_node_alctr{ meta::GetInstRef(cntr.nav_node_alctr_like) };
 
 #if EnDataNode
-    mem_recorder::MemRecorder* origin_dst_data_node{ dst_data_node };
+    auto& data_node_alctr{ meta::GetInstRef(cntr.data_node_alctr_like) };
 #endif
 
-    if (dst_nav_node == nullptr) { dst_nav_node = mem_recorder::Create(); }
+    if (!meta::IsPointer<NavNodeAllocatorLike> &&
+        !meta::IsRef<NavNodeAllocatorLike>) {
+        debug_utils::sanity::SanityCheck(&nav_node_alctr, scope);
+    }
 
 #if EnDataNode
-    if (dst_data_node == nullptr) { dst_data_node = mem_recorder::Create(); }
+    if (!meta::IsPointer<DataNodeAllocatorLike> &&
+        !meta::IsRef<DataNodeAllocatorLike>) {
+        debug_utils::sanity::SanityCheck(&data_node_alctr, scope);
+    }
+#endif
+
+    debug_utils::memory::MemRecorder scanned_nav_node_recorder;
+
+#if EnDataNode
+    debug_utils::memory::MemRecorder scanned_data_node_recorder;
 #endif
 
     size_t size{ root == nullptr ? 0
-                                 : detail::SanitizeRecursive_<ActiveMap>(
-                                       *dst_nav_node,
+                                 : detail::SanityCheckRecursive_<ActiveMap>(
+                                       scanned_nav_node_recorder,
 #if EnDataNode
-                                       *dst_data_node,
+                                       scanned_data_node_recorder,
 #endif
                                        level - 1, branch_nums,
 #if EnDataNode
@@ -1135,21 +1245,40 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Sanitize(
 #endif
                                        root) };
 
-    ZETA_Core_DebugAssert(size == cntr.elem_cnt);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(size == cntr.elem_cnt);
 
-    if (origin_dst_nav_node != dst_nav_node) {
-        mem_recorder::Destroy(dst_nav_node);
-        dst_nav_node = origin_dst_nav_node;
+    if constexpr (debug_utils::recording_allocator::IsRecordingAllocator<
+                      meta::RemoveCVRef<decltype(nav_node_alctr)>>) {
+        scanned_nav_node_recorder.InChargeOf(nav_node_alctr.GetMemRecorder());
+    } else {
+        ZETA_Core_DebugUtils_Logging_ImmLogMsg(
+            "\033[38;5;208m"
+            "WARNING" ZETA_Core_DebugUtils_Logging_ValColorCode
+            ": nav_node_alctr is not a "                        //
+            ZETA_Core_DebugUtils_Logging_ValSecondaryColorCode  //
+            "zeta::core::debug_utils::recording_allocator::RecordingAllocator"  //
+            ZETA_Core_DebugUtils_Logging_ValColorCode  //
+            ", skip matching memory.");
     }
 
 #if EnDataNode
-    if (origin_dst_data_node != dst_data_node) {
-        mem_recorder::Destroy(dst_data_node);
-        dst_data_node = origin_dst_data_node;
+    if constexpr (debug_utils::recording_allocator::IsRecordingAllocator<
+                      meta::RemoveCVRef<decltype(data_node_alctr)>>) {
+        scanned_data_node_recorder.InChargeOf(data_node_alctr.GetMemRecorder());
+    } else {
+        ZETA_Core_DebugUtils_Logging_ImmLogMsg(
+            "\033[38;5;208m"
+            "WARNING" ZETA_Core_DebugUtils_Logging_ValColorCode
+            ": data_node_alctr is not a "                       //
+            ZETA_Core_DebugUtils_Logging_ValSecondaryColorCode  //
+            "zeta::core::debug_utils::recording_allocator::RecordingAllocator"  //
+            ZETA_Core_DebugUtils_Logging_ValColorCode  //
+            ", skip matching memory.");
     }
 #endif
-#endif
 }
+
+#endif
 
 }  // namespace zeta::core
 

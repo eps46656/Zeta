@@ -1,6 +1,6 @@
 #pragma once
 
-#include <zeta/core/elem_stream.hpp>
+#include <zeta/core/seq_endpoint.hpp>
 #include <zeta/core/unicode.hpp>
 
 namespace zeta::core::utf8 {
@@ -40,6 +40,9 @@ struct EncodeResult {
 
 constexpr EncodeResult Encode(unicode::unichar_t codepoint);
 
+constexpr EncodeResult EncodeWithLevelHint(unicode::unichar_t codepoint,
+                                           unsigned level);
+
 struct DecodeResult {
     enum struct ResultType : unsigned char {
         Success = 0,
@@ -56,8 +59,6 @@ struct DecodeResult {
     unicode::unichar_t codepoint;
     unsigned char consumed_octet_cnt;
 };
-
-constexpr DecodeResult Decode(unsigned char const* octets, size_t octet_cnt);
 
 struct Encoder {
     enum struct ResultEnum : unsigned char {
@@ -76,15 +77,15 @@ struct Encoder {
 
     constexpr Encoder();
 
-    template <elem_stream::provider::IsProvider Provider>
+    template <seq_endpoint::provider::IsProvider Provider>
     constexpr ResultEnum Encode(this Encoder& self, Provider&& provider);
 
-    template <elem_stream::acceptor::IsAcceptor Acceptor>
-    constexpr size_t Push(this Encoder& self, Acceptor&& acceptor);
+    template <seq_endpoint::acceptor::IsAcceptor Acceptor>
+    constexpr size_t Pull(this Encoder& self, Acceptor&& acceptor);
 
-    template <elem_stream::provider::IsProvider Provider,
-              elem_stream::acceptor::IsAcceptor Acceptor>
-    constexpr bool EncodeAndPush(this Encoder& self, Provider&& provider,
+    template <seq_endpoint::provider::IsProvider Provider,
+              seq_endpoint::acceptor::IsAcceptor Acceptor>
+    constexpr bool EncodeAndPull(this Encoder& self, Provider&& provider,
                                  Acceptor&& acceptor);
 };
 
@@ -108,15 +109,15 @@ struct Decoder {
 
     constexpr Decoder();
 
-    template <elem_stream::provider::IsProvider Provider>
+    template <seq_endpoint::provider::IsProvider Provider>
     constexpr ResultEnum Decode(this Decoder& self, Provider&& provider);
 
-    template <elem_stream::acceptor::IsAcceptor Acceptor>
-    constexpr bool Push(this Decoder& self, Acceptor&& acceptor);
+    template <seq_endpoint::acceptor::IsAcceptor Acceptor>
+    constexpr bool Pull(this Decoder& self, Acceptor&& acceptor);
 
-    template <elem_stream::provider::IsProvider Provider,
-              elem_stream::acceptor::IsAcceptor Acceptor>
-    constexpr bool DecodeAndPush(this Decoder& self, Provider&& provider,
+    template <seq_endpoint::provider::IsProvider Provider,
+              seq_endpoint::acceptor::IsAcceptor Acceptor>
+    constexpr bool DecodeAndPull(this Decoder& self, Provider&& provider,
                                  Acceptor&& acceptor);
 };
 

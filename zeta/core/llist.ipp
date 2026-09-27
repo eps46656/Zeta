@@ -1,6 +1,6 @@
 #pragma once
 
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/llist.hpp>
 
@@ -23,13 +23,13 @@ constexpr LListNode* llist::GetR(LListNode* n) {
 
 template <typename LListNode>
 void llist::SetL(LListNode* n, LListNode* m) {
-    ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
+    static_assert(!(IsConst<LListNode>)());
     NodeTraits<LListNode>::SetL(n, m);
 }
 
 template <typename LListNode>
 void llist::SetR(LListNode* n, LListNode* m) {
-    ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
+    static_assert(!(IsConst<LListNode>)());
     NodeTraits<LListNode>::SetR(n, m);
 }
 
@@ -72,13 +72,13 @@ template <typename LListNode>
 void llist::InsertL(LListNode* n, LListNode* m) {
     (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
+    static_assert(!(IsConst<LListNode>)());
 
-    ZETA_Core_DebugAssert(n != nullptr);
-    ZETA_Core_DebugAssert(m != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(m != nullptr);
 
-    ZETA_Core_DebugAssert((GetL)(m) == m);
-    ZETA_Core_DebugAssert((GetR)(m) == m);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert((GetL)(m) == m);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert((GetR)(m) == m);
 
     LListNode* nl{ (GetL)(n) };
     LListNode* nr{ n };
@@ -94,13 +94,13 @@ template <typename LListNode>
 void llist::InsertR(LListNode* n, LListNode* m) {
     (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
+    static_assert(!(IsConst<LListNode>)());
 
-    ZETA_Core_DebugAssert(n != nullptr);
-    ZETA_Core_DebugAssert(m != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(m != nullptr);
 
-    ZETA_Core_DebugAssert((GetL)(m) == m);
-    ZETA_Core_DebugAssert((GetR)(m) == m);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert((GetL)(m) == m);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert((GetR)(m) == m);
 
     LListNode* nl{ n };
     LListNode* nr{ (GetR)(n) };
@@ -116,9 +116,9 @@ template <typename LListNode>
 void llist::Extract(LListNode* n) {
     (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
+    static_assert(!(IsConst<LListNode>)());
 
-    ZETA_Core_DebugAssert(n != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
 
     LListNode* nl{ (GetL)(n) };
     LListNode* nr{ (GetR)(n) };
@@ -134,11 +134,11 @@ template <typename LListNode>
 void llist::InsertSegL(LListNode* n, LListNode* m_beg, LListNode* m_end) {
     (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
+    static_assert(!(IsConst<LListNode>)());
 
-    ZETA_Core_DebugAssert(n != nullptr);
-    ZETA_Core_DebugAssert(m_beg != nullptr);
-    ZETA_Core_DebugAssert(m_end != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(m_beg != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(m_end != nullptr);
 
     LListNode* nl{ (GetL)(n) };
     LListNode* nr{ n };
@@ -160,11 +160,11 @@ template <typename LListNode>
 void llist::InsertSegR(LListNode* n, LListNode* m_beg, LListNode* m_end) {
     (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
+    static_assert(!(IsConst<LListNode>)());
 
-    ZETA_Core_DebugAssert(n != nullptr);
-    ZETA_Core_DebugAssert(m_beg != nullptr);
-    ZETA_Core_DebugAssert(m_end != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(m_beg != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(m_end != nullptr);
 
     LListNode* nl{ n };
     LListNode* nr{ (GetR)(n) };
@@ -186,10 +186,10 @@ template <typename LListNode>
 void llist::ExtractSeg(LListNode* n_beg, LListNode* n_end) {
     (CheckContract<LListNode>)();
 
-    ZETA_Core_StaticAssert(!(IsConst<LListNode>)());
+    static_assert(!(IsConst<LListNode>)());
 
-    ZETA_Core_DebugAssert(n_beg != nullptr);
-    ZETA_Core_DebugAssert(n_end != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(n_beg != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(n_end != nullptr);
 
     LListNode* nl{ (GetL)(n_beg) };
     LListNode* nr{ (GetR)(n_end) };

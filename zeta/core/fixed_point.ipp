@@ -3,11 +3,13 @@
 #pragma once
 
 #include <zeta/core/comparison_utils.ipp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/fixed_point.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
+
+ZETA_Core_ClangdPreambleBarrier;
 
 #pragma push_macro("FixedPointTplParamList")
 #define FixedPointTplParamList(prefix, suffix)                       \
@@ -405,7 +407,7 @@ constexpr auto fixed_point::FromFraction(
 
     */
 
-    ZETA_Core_DebugAssert(denom != 0);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(denom != 0);
 
     constexpr bool any_signed{ integral::IsSignedIntegral<Num> ||
                                integral::IsSignedIntegral<Denom> };
@@ -461,13 +463,13 @@ constexpr auto fixed_point::MathCompare(
     FixedPoint<FixedPointTplArgList(B)> const& b) {
     if constexpr (ASignedTag::value && !BSignedTag::value) {
         if (a.value < 0) {
-            return (meta::ToUnderlying(op) & comparison::less_bit) != 0;
+            return (meta::ToUnderlying(op) & comparison::Bits::less) != 0;
         }
     }
 
     if constexpr (!ASignedTag::value && BSignedTag::value) {
         if (b.value < 0) {
-            return (meta::ToUnderlying(op) & comparison::greater_bit) != 0;
+            return (meta::ToUnderlying(op) & comparison::Bits::greater) != 0;
         }
     }
 
@@ -496,10 +498,8 @@ template <comparison::IsOpTag OpTag>
 constexpr auto
 comparison::BasicComparator<fixed_point::FixedPoint<FixedPointTplArgList(A)>,
                             fixed_point::FixedPoint<FixedPointTplArgList(B)>>::
-    Compare(comparison::BasicComparator<
-                fixed_point::FixedPoint<FixedPointTplArgList(A)>,
-                fixed_point::FixedPoint<FixedPointTplArgList(B)>> const&,
-            OpTag op, fixed_point::FixedPoint<FixedPointTplArgList(A)> const& a,
+    Compare(comparison::Tag, OpTag op,
+            fixed_point::FixedPoint<FixedPointTplArgList(A)> const& a,
             fixed_point::FixedPoint<FixedPointTplArgList(B)> const& b) {
     return fixed_point::MathCompare(op, a, b);
 }

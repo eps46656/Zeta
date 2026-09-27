@@ -1,10 +1,10 @@
 #pragma once
 
 #include <zeta/core/comparison_utils.ipp>
-#include <zeta/core/elem_stream.ipp>
 #include <zeta/core/integral_endec.hpp>
 #include <zeta/core/integral_math.ipp>
 #include <zeta/core/pair.ipp>
+#include <zeta/core/seq_endpoint.ipp>
 #include <zeta/core/utils.hpp>
 
 namespace zeta::core {
@@ -12,7 +12,7 @@ namespace zeta::core {
 template <integral::IsUnsignedIntegral Integral>
 constexpr integral_endec::CanonicalizeResult<Integral>
 integral_endec::CanonicalizeIntegral(Integral value, Integral range_max) {
-    ZETA_Core_DebugAssert(0 < range_max);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < range_max);
 
     bool out_of_range{ false };
 
@@ -41,7 +41,7 @@ integral_endec::CanonicalizeIntegral(Integral value, Integral range_max) {
     };
 }
 
-template <elem_stream::acceptor::IsAcceptor Acceptor,
+template <seq_endpoint::acceptor::IsAcceptor Acceptor,
           integral_endec::IsEndiannessLike EndiannessLike,
           integral::IsUnsignedIntegral DigitIntegral, size_t DigitWidth,
           typename DigitCntLike, integral::IsIntegral SrcIntegral>
@@ -88,19 +88,19 @@ constexpr integral_endec::EncodeResult integral_endec::Encode(
         } else if constexpr (meta::IsSame<EndiannessLike, Endianness>) {
             return endianness_like;
         } else {
-            ZETA_Core_StaticAssert(false);
+            static_assert(false);
         }
     }() };
 
     size_t digit_cnt{ [=]() -> size_t {
         if constexpr (meta::IsValueWrapperT<DigitCntLike, size_t>) {
-            ZETA_Core_StaticAssert(0 < DigitCntLike::value);
+            static_assert(0 < DigitCntLike::value);
             return DigitCntLike::value;
         } else if constexpr (meta::IsSame<DigitCntLike, size_t>) {
-            ZETA_Core_DebugAssert(0 < digit_cnt_like);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < digit_cnt_like);
             return digit_cnt_like;
         } else {
-            ZETA_Core_StaticAssert(false);
+            static_assert(false);
         }
     }() };
 
@@ -157,13 +157,14 @@ constexpr integral_endec::EncodeResult integral_endec::Encode(
 
         proc_highest_eff_digit(buffer[eff_digit_cnt - 1]);
 
-        elem_stream::acceptor::Transfer(acceptor, buffer, sizeof(DigitIntegral),
-                                        sizeof(DigitIntegral), eff_digit_cnt);
+        seq_endpoint::acceptor::Transfer(acceptor, buffer,
+                                         sizeof(DigitIntegral),
+                                         sizeof(DigitIntegral), eff_digit_cnt);
 
         if (0 < exc_digit_cnt) {
             buffer[0] = is_neg ? digit_range_max : 0;
 
-            elem_stream::acceptor::Transfer(
+            seq_endpoint::acceptor::Transfer(
                 acceptor, buffer, sizeof(DigitIntegral), 0, exc_digit_cnt);
         }
 
@@ -174,7 +175,7 @@ constexpr integral_endec::EncodeResult integral_endec::Encode(
         if (0 < exc_digit_cnt) {
             buffer[0] = is_neg ? digit_range_max : 0;
 
-            elem_stream::acceptor::Transfer(
+            seq_endpoint::acceptor::Transfer(
                 acceptor, buffer, sizeof(DigitIntegral), 0, exc_digit_cnt);
         }
 
@@ -183,22 +184,23 @@ constexpr integral_endec::EncodeResult integral_endec::Encode(
                 op_src_value %
                 (static_cast<OpUnsignedIntegral>(digit_range_max) + 1U));
 
-            ZETA_Core_Debug_PrintVar(buffer[i]);
+            ZETA_Core_DebugUtils_Diag_LogVar(buffer[i]);
 
             op_src_value >>= DigitWidth;
 
-            ZETA_Core_Debug_PrintVar(op_src_value);
+            ZETA_Core_DebugUtils_Diag_LogVar(op_src_value);
         }
 
         proc_highest_eff_digit(buffer[0]);
 
-        elem_stream::acceptor::Transfer(acceptor, buffer, sizeof(DigitIntegral),
-                                        sizeof(DigitIntegral), eff_digit_cnt);
+        seq_endpoint::acceptor::Transfer(acceptor, buffer,
+                                         sizeof(DigitIntegral),
+                                         sizeof(DigitIntegral), eff_digit_cnt);
 
         break;
     }
 
-    default: ZETA_Core_Unreachable();
+    default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 
     if (is_neg) {
@@ -212,7 +214,7 @@ constexpr integral_endec::EncodeResult integral_endec::Encode(
     };
 }
 
-template <elem_stream::provider::IsProvider Provider,
+template <seq_endpoint::provider::IsProvider Provider,
           integral_endec::IsEndiannessLike EndiannessLike,
           integral::IsUnsignedIntegral DigitIntegral, size_t DigitWidth,
           typename DigitCntLike, integral::IsIntegral DstIntegral>
@@ -247,7 +249,7 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
         } else if constexpr (meta::IsSame<EndiannessLike, Endianness>) {
             return endianness_like;
         } else {
-            ZETA_Core_StaticAssert(false);
+            static_assert(false);
         }
     }() };
 
@@ -265,13 +267,13 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
                                    integral_endec::VariableOctetCntTag>) {
             return 0;
         } else if constexpr (meta::IsValueWrapperT<DigitCntLike, size_t>) {
-            ZETA_Core_StaticAssert(0 < DigitCntLike::value);
+            static_assert(0 < DigitCntLike::value);
             return DigitCntLike::value;
         } else if constexpr (meta::IsSame<DigitCntLike, size_t>) {
-            ZETA_Core_DebugAssert(0 < digit_cnt_like);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < digit_cnt_like);
             return digit_cnt_like;
         } else {
-            ZETA_Core_StaticAssert(false);
+            static_assert(false);
         }
     }() };
 
@@ -296,11 +298,11 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
 
     auto transfer_digits{ [&provider, &pad_zero](DigitIntegral* dst,
                                                  size_t elem_cnt) -> void {
-        size_t transfer_elem_cnt{ elem_stream::provider::Transfer(
+        size_t transfer_elem_cnt{ seq_endpoint::provider::Transfer(
             provider, dst, sizeof(DigitIntegral), sizeof(DigitIntegral),
             elem_cnt) };
 
-        ZETA_Core_DebugAssert(transfer_elem_cnt <= elem_cnt);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(transfer_elem_cnt <= elem_cnt);
 
         if (transfer_elem_cnt == elem_cnt) { return; }
 
@@ -405,7 +407,7 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
         DigitIntegral* buffer_l{ buffer_b };
 
         if (digit_cnt == 0) {
-            eff_digit_cnt = elem_stream::provider::Transfer(
+            eff_digit_cnt = seq_endpoint::provider::Transfer(
                 provider, buffer_l, sizeof(DigitIntegral),
                 sizeof(DigitIntegral), dst_int_digit_cnt);
 
@@ -413,7 +415,7 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
 
             if (eff_digit_cnt == dst_int_digit_cnt) {
                 for (;;) {
-                    size_t cur_act_digit_cnt{ elem_stream::provider::Transfer(
+                    size_t cur_act_digit_cnt{ seq_endpoint::provider::Transfer(
                         provider, buffer_h, sizeof(DigitIntegral),
                         sizeof(DigitIntegral), op_un_int_digit_cnt) };
 
@@ -458,7 +460,7 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
             size_t last_eff_digit_cnt;
 
             for (;; exceeded = true) {
-                last_eff_digit_cnt = elem_stream::provider::Transfer(
+                last_eff_digit_cnt = seq_endpoint::provider::Transfer(
                     provider, buffer_l, sizeof(DigitIntegral),
                     sizeof(DigitIntegral), buffer_digit_cnt);
 
@@ -532,7 +534,7 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
                 eff_digit_cnt_h = 0;
                 eff_digit_cnt_l = dst_int_digit_cnt;
             } else {
-                elem_stream::provider::Transfer(
+                seq_endpoint::provider::Transfer(
                     provider, buffer_l, sizeof(DigitIntegral),
                     sizeof(DigitIntegral), digit_cnt);
 

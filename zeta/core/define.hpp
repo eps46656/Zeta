@@ -20,8 +20,6 @@
 
 #define ZETA_Core_TmpName ZETA_Core_UniqueName(ZETA_tmp_)
 
-#define ZETA_Core_StaticAssert(...) static_assert((__VA_ARGS__), "")
-
 #define ZETA_Core_ImmPrint 1
 
 #define ZETA_Core_PtrToAddr(x) (reinterpret_cast<uintptr_t>(x))
@@ -32,6 +30,17 @@
     ((reinterpret_cast<struct_type*>(                                  \
         const_cast<char*>(reinterpret_cast<char const*>(member_ptr)) - \
         __builtin_offsetof(ZETA_Core_Identity(struct_type), member_name))))
+
+#define ZETA_Core_NotAutoDestruct_(tmp_mem, type, name) \
+    alignas(type) unsigned char tmp_mem[sizeof(type)];  \
+    type* name{ reinterpret_cast<type*>(tmp_mem) };     \
+    new (tmp_mem) type
+
+#define ZETA_Core_NotAutoDestruct(type, name)                               \
+    ZETA_Core_NotAutoDestruct_(ZETA_Core_TmpName, ZETA_Core_Identity(type), \
+                               name)
+
+#define ZETA_Core_ClangdPreambleBarrier static_assert(true)
 
 namespace zeta::core {
 

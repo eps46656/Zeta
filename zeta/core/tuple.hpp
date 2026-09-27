@@ -14,7 +14,7 @@ struct ElemWrapper_ {
 
 template <typename StaticSeq, typename... Elems>
 struct Tuple_ {
-    ZETA_Core_StaticAssert(false);
+    static_assert(false);
 };
 
 template <size_t... Idxes, typename... Elems>

@@ -4,6 +4,8 @@
 #include <zeta/core/llist.hpp>
 #include <zeta/core/ptr_utils.hpp>
 
+ZETA_Core_ClangdPreambleBarrier;
+
 #pragma push_macro("NodeTplParamList")
 #define NodeTplParamList(suffix)                           \
     typename LinkType##suffix, typename LColorTag##suffix, \
@@ -27,22 +29,22 @@ struct Node {
         ptr_utils::AugPtrTpl<LinkType, LColorTag>::IsRelLink
     };
 
-    void Init();
+    constexpr void Construct(this Node& self);
 
-    Node* GetLPtr();
-    Node* GetRPtr();
+    constexpr Node* GetLPtr(this Node& self);
+    constexpr Node* GetRPtr(this Node& self);
 
-    Node const* GetLPtr() const;
-    Node const* GetRPtr() const;
+    constexpr Node const* GetLPtr(this Node const& self);
+    constexpr Node const* GetRPtr(this Node const& self);
 
-    int GetLColor() const;
-    int GetRColor() const;
+    constexpr unsigned GetLColor(this Node const& self);
+    constexpr unsigned GetRColor(this Node const& self);
 
-    void SetLPtr(Node* m);
-    void SetRPtr(Node* m);
+    constexpr void SetLPtr(this Node& self, Node* m);
+    constexpr void SetRPtr(this Node& self, Node* m);
 
-    void SetLColor(int color);
-    void SetRColor(int color);
+    constexpr void SetLColor(this Node& self, unsigned color);
+    constexpr void SetRColor(this Node& self, unsigned color);
 }
 #if ZETA_Core_ullong_width == 32
 __attribute__((aligned(4)));
@@ -80,11 +82,11 @@ struct llist::NodeTraits<
     static basic_llist_node::Node<NodeTplArgList>* GetR(
         basic_llist_node::Node<NodeTplArgList>* n);
 
-    static void SetL(basic_llist_node::Node<NodeTplArgList>* n,
-                     basic_llist_node::Node<NodeTplArgList>* m);
+    static constexpr void SetL(basic_llist_node::Node<NodeTplArgList>* n,
+                               basic_llist_node::Node<NodeTplArgList>* m);
 
-    static void SetR(basic_llist_node::Node<NodeTplArgList>* n,
-                     basic_llist_node::Node<NodeTplArgList>* m);
+    static constexpr void SetR(basic_llist_node::Node<NodeTplArgList>* n,
+                               basic_llist_node::Node<NodeTplArgList>* m);
 };
 
 }  // namespace zeta::core

@@ -7,21 +7,25 @@ namespace zeta::core::comparison {
 
 struct Tag {};
 
-constexpr unsigned less_bit{ 0b001 };
-constexpr unsigned equal_bit{ 0b010 };
-constexpr unsigned greater_bit{ 0b100 };
+struct Bits {
+    using Value = unsigned;
 
-enum struct Op : unsigned char {
-    Order = 0b1000,
-    Equal = equal_bit,
-    NotEqual = less_bit | greater_bit,
-    Less = less_bit,
-    LessEqual = less_bit | equal_bit,
-    Greater = greater_bit,
-    GreaterEqual = greater_bit | equal_bit,
+    static constexpr Value less{ 0b001 };
+    static constexpr Value equal{ 0b010 };
+    static constexpr Value greater{ 0b100 };
 };
 
-struct OpTag {
+enum struct Op : unsigned char {
+    Order = 0,
+    Equal = Bits::equal,
+    NotEqual = Bits::less | Bits::greater,
+    Less = Bits::less,
+    LessEqual = Bits::less | Bits::equal,
+    Greater = Bits::greater,
+    GreaterEqual = Bits::greater | Bits::equal,
+};
+
+struct OpTags {
     using Order = meta::AutoValueWrapper<Op::Order>;
     using Equal = meta::AutoValueWrapper<Op::Equal>;
     using NotEqual = meta::AutoValueWrapper<Op::NotEqual>;
@@ -32,51 +36,54 @@ struct OpTag {
 };
 
 template <typename T>
-concept IsOpTag = meta::IsAnySame<T,                   //
-                                  OpTag::Order,        //
-                                  OpTag::Equal,        //
-                                  OpTag::NotEqual,     //
-                                  OpTag::Less,         //
-                                  OpTag::LessEqual,    //
-                                  OpTag::Greater,      //
-                                  OpTag::GreaterEqual  //
+concept IsOpTag = meta::IsAnySame<T,                    //
+                                  OpTags::Order,        //
+                                  OpTags::Equal,        //
+                                  OpTags::NotEqual,     //
+                                  OpTags::Less,         //
+                                  OpTags::LessEqual,    //
+                                  OpTags::Greater,      //
+                                  OpTags::GreaterEqual  //
                                   >;
 
 enum struct Ordering : unsigned char {
-    Less = less_bit,
-    Equal = equal_bit,
-    Greater = greater_bit,
+    Less = Bits::less,
+    Equal = Bits::equal,
+    Greater = Bits::greater,
 };
+
+template <IsOpTag OpTag>
+constexpr auto DecayOrdering(OpTag, Ordering ordering);
 
 template <typename Comparator, typename A, typename B>
 concept CanCompare = requires(Comparator const& cmptr, Tag tag, A const& a,
                               B const& b) {
     requires meta::IsSame<
-        meta::RemoveCVRef<decltype(cmptr.Compare(tag, OpTag::Order{}, a, b))>,
+        meta::RemoveCVRef<decltype(cmptr.Compare(tag, OpTags::Order{}, a, b))>,
         Ordering>;
 
     requires meta::IsSame<
-        meta::RemoveCVRef<decltype(cmptr.Compare(tag, OpTag::Equal{}, a, b))>,
+        meta::RemoveCVRef<decltype(cmptr.Compare(tag, OpTags::Equal{}, a, b))>,
         bool>;
 
     requires meta::IsSame<meta::RemoveCVRef<decltype(cmptr.Compare(
-                              tag, OpTag::NotEqual{}, a, b))>,
+                              tag, OpTags::NotEqual{}, a, b))>,
                           bool>;
 
     requires meta::IsSame<
-        meta::RemoveCVRef<decltype(cmptr.Compare(tag, OpTag::Less{}, a, b))>,
+        meta::RemoveCVRef<decltype(cmptr.Compare(tag, OpTags::Less{}, a, b))>,
         bool>;
 
     requires meta::IsSame<meta::RemoveCVRef<decltype(cmptr.Compare(
-                              tag, OpTag::LessEqual{}, a, b))>,
+                              tag, OpTags::LessEqual{}, a, b))>,
                           bool>;
 
-    requires meta::IsSame<
-        meta::RemoveCVRef<decltype(cmptr.Compare(tag, OpTag::Greater{}, a, b))>,
-        bool>;
+    requires meta::IsSame<meta::RemoveCVRef<decltype(cmptr.Compare(
+                              tag, OpTags::Greater{}, a, b))>,
+                          bool>;
 
     requires meta::IsSame<meta::RemoveCVRef<decltype(cmptr.Compare(
-                              tag, OpTag::GreaterEqual{}, a, b))>,
+                              tag, OpTags::GreaterEqual{}, a, b))>,
                           bool>;
 };
 
@@ -87,21 +94,22 @@ constexpr decltype(auto) Compare(Comparator const& cmptr, OpTag, A const& a,
 
 template <typename A, typename B>
 struct NativeOperatorComparatorAdapter {
-    static constexpr Ordering Compare(Tag, OpTag::Order, A const& a,
+    static constexpr Ordering Compare(Tag, OpTags::Order, A const& a,
                                       B const& b);
 
-    static constexpr bool Compare(Tag, OpTag::Equal, A const& a, B const& b);
+    static constexpr bool Compare(Tag, OpTags::Equal, A const& a, B const& b);
 
-    static constexpr bool Compare(Tag, OpTag::NotEqual, A const& a, B const& b);
-
-    static constexpr bool Compare(Tag, OpTag::Less, A const& a, B const& b);
-
-    static constexpr bool Compare(Tag, OpTag::LessEqual, A const& a,
+    static constexpr bool Compare(Tag, OpTags::NotEqual, A const& a,
                                   B const& b);
 
-    static constexpr bool Compare(Tag, OpTag::Greater, A const& a, B const& b);
+    static constexpr bool Compare(Tag, OpTags::Less, A const& a, B const& b);
 
-    static constexpr bool Compare(Tag, OpTag::GreaterEqual, A const& a,
+    static constexpr bool Compare(Tag, OpTags::LessEqual, A const& a,
+                                  B const& b);
+
+    static constexpr bool Compare(Tag, OpTags::Greater, A const& a, B const& b);
+
+    static constexpr bool Compare(Tag, OpTags::GreaterEqual, A const& a,
                                   B const& b);
 };
 

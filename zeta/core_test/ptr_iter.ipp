@@ -125,7 +125,8 @@ PtrIter<Value>& operator-=(PtrIter<Value> const& ptr_iter, ptrdiff_t step) {
 template <typename ValueA, typename ValueB>
 ptrdiff_t operator-(PtrIter<ValueA> const& ptr_iter_a,
                     PtrIter<ValueB> const& ptr_iter_b) {
-    ZETA_Core_DebugAssert(ptr_iter_a.stride == ptr_iter_b.stride);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(ptr_iter_a.stride ==
+                                            ptr_iter_b.stride);
 
     ptrdiff_t diff{
         static_cast<core::meta::Conditional<core::meta::IsConst<ValueB>,
@@ -135,7 +136,7 @@ ptrdiff_t operator-(PtrIter<ValueA> const& ptr_iter_a,
                                             char const*, char*>>(ptr_iter_a.ptr)
     };
 
-    ZETA_Core_DebugAssert(diff % ptr_iter_a.stride == 0);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(diff % ptr_iter_a.stride == 0);
 
     return diff / ptr_iter_a.stride;
 }

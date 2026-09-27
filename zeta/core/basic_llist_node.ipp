@@ -1,8 +1,10 @@
 #pragma once
 
 #include <zeta/core/basic_llist_node.hpp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/llist.hpp>
+
+ZETA_Core_ClangdPreambleBarrier;
 
 #pragma push_macro("NodeTplParamList")
 #define NodeTplParamList \
@@ -14,76 +16,83 @@
 namespace zeta::core {
 
 template <NodeTplParamList>
-void basic_llist_node::Node<NodeTplArgList>::Init() {
+constexpr void basic_llist_node::Node<NodeTplArgList>::Construct(
+    this Node& self) {
     if constexpr (LColorTag::value) {
-        this->l.SetPtrColor(alignof(Node), this, this, 0);
+        self.l.SetPtrColor(alignof(Node), &self, &self, 0);
     } else {
-        this->l.SetPtr(alignof(Node), this, this);
+        self.l.SetPtr(alignof(Node), &self, &self);
     }
 
     if constexpr (RColorTag::value) {
-        this->r.SetPtrColor(alignof(Node), this, this, 0);
+        self.r.SetPtrColor(alignof(Node), &self, &self, 0);
     } else {
-        this->r.SetPtr(alignof(Node), this, this);
+        self.r.SetPtr(alignof(Node), &self, &self);
     }
 }
 
 template <NodeTplParamList>
-basic_llist_node::Node<NodeTplArgList>*
-basic_llist_node::Node<NodeTplArgList>::GetLPtr() {
-    return static_cast<Node*>(this->l.GetPtr(alignof(Node), this));
+constexpr basic_llist_node::Node<NodeTplArgList>*
+basic_llist_node::Node<NodeTplArgList>::GetLPtr(this Node& self) {
+    return static_cast<Node*>(self.l.GetPtr(alignof(Node), &self));
 }
 
 template <NodeTplParamList>
-basic_llist_node::Node<NodeTplArgList>*
-basic_llist_node::Node<NodeTplArgList>::GetRPtr() {
-    return static_cast<Node*>(this->r.GetPtr(alignof(Node), this));
+constexpr basic_llist_node::Node<NodeTplArgList>*
+basic_llist_node::Node<NodeTplArgList>::GetRPtr(this Node& self) {
+    return static_cast<Node*>(self.r.GetPtr(alignof(Node), &self));
 }
 
 template <NodeTplParamList>
-basic_llist_node::Node<NodeTplArgList> const*
-basic_llist_node::Node<NodeTplArgList>::GetLPtr() const {
-    return const_cast<Node*>(this)->GetLPtr();
+constexpr basic_llist_node::Node<NodeTplArgList> const*
+basic_llist_node::Node<NodeTplArgList>::GetLPtr(this Node const& self) {
+    return const_cast<Node&>(self).GetLPtr();
 }
 
 template <NodeTplParamList>
-basic_llist_node::Node<NodeTplArgList> const*
-basic_llist_node::Node<NodeTplArgList>::GetRPtr() const {
-    return const_cast<Node*>(this)->GetRPtr();
+constexpr basic_llist_node::Node<NodeTplArgList> const*
+basic_llist_node::Node<NodeTplArgList>::GetRPtr(this Node const& self) {
+    return const_cast<Node&>(self).GetRPtr();
 }
 
 template <NodeTplParamList>
-int basic_llist_node::Node<NodeTplArgList>::GetLColor() const {
-    return this->l.GetColor(alignof(Node), this);
+constexpr unsigned basic_llist_node::Node<NodeTplArgList>::GetLColor(
+    this Node const& self) {
+    return self.l.GetColor(alignof(Node), &self);
 }
 
 template <NodeTplParamList>
-int basic_llist_node::Node<NodeTplArgList>::GetRColor() const {
-    return this->r.GetColor(alignof(Node), this);
+constexpr unsigned basic_llist_node::Node<NodeTplArgList>::GetRColor(
+    this Node const& self) {
+    return self.r.GetColor(alignof(Node), &self);
 }
 
 template <NodeTplParamList>
-void basic_llist_node::Node<NodeTplArgList>::SetLPtr(Node* m) {
-    ZETA_Core_DebugAssert(m != nullptr);
+constexpr void basic_llist_node::Node<NodeTplArgList>::SetLPtr(this Node& self,
+                                                               Node* m) {
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(m != nullptr);
 
-    this->l.SetPtr(alignof(Node), this, m);
+    self.l.SetPtr(alignof(Node), &self, m);
 }
 
 template <NodeTplParamList>
-void basic_llist_node::Node<NodeTplArgList>::SetRPtr(Node* m) {
-    ZETA_Core_DebugAssert(m != nullptr);
+constexpr void basic_llist_node::Node<NodeTplArgList>::SetRPtr(this Node& self,
+                                                               Node* m) {
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(m != nullptr);
 
-    this->r.SetPtr(alignof(Node), this, m);
+    self.r.SetPtr(alignof(Node), &self, m);
 }
 
 template <NodeTplParamList>
-void basic_llist_node::Node<NodeTplArgList>::SetLColor(int color) {
-    this->l.SetColor(alignof(Node), this, color);
+constexpr void basic_llist_node::Node<NodeTplArgList>::SetLColor(
+    this Node& self, unsigned color) {
+    self.l.SetColor(alignof(Node), &self, color);
 }
 
 template <NodeTplParamList>
-void basic_llist_node::Node<NodeTplArgList>::SetRColor(int color) {
-    this->r.SetColor(alignof(Node), this, color);
+constexpr void basic_llist_node::Node<NodeTplArgList>::SetRColor(
+    this Node& self, unsigned color) {
+    self.r.SetColor(alignof(Node), &self, color);
 }
 
 template <NodeTplParamList>
@@ -127,14 +136,14 @@ llist::NodeTraits<basic_llist_node::Node<NodeTplArgList> const>::GetR(
 }
 
 template <NodeTplParamList>
-void llist::NodeTraits<basic_llist_node::Node<NodeTplArgList>>::SetL(
+constexpr void llist::NodeTraits<basic_llist_node::Node<NodeTplArgList>>::SetL(
     basic_llist_node::Node<NodeTplArgList>* n,
     basic_llist_node::Node<NodeTplArgList>* m) {
     n->SetLPtr(m);
 }
 
 template <NodeTplParamList>
-void llist::NodeTraits<basic_llist_node::Node<NodeTplArgList>>::SetR(
+constexpr void llist::NodeTraits<basic_llist_node::Node<NodeTplArgList>>::SetR(
     basic_llist_node::Node<NodeTplArgList>* n,
     basic_llist_node::Node<NodeTplArgList>* m) {
     n->SetRPtr(m);

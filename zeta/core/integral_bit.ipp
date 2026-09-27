@@ -1,6 +1,6 @@
 #pragma once
 
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/integral_bit.hpp>
@@ -30,21 +30,21 @@ struct integral_bit::IntegralTraits<Integral> {
     template <>                                                            \
     struct integral_bit::IntegralTraits<type> {                            \
         static constexpr unsigned long long PopCount(type num) {           \
-            ZETA_Core_DebugAssert(static_cast<type>(0) <= num);            \
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= num);             \
                                                                            \
             return static_cast<unsigned long long>(                        \
                 __builtin_popcountg(integral::MakeUnsignedOf<type>(num))); \
         }                                                                  \
                                                                            \
         static constexpr unsigned long long CLZ(type num) {                \
-            ZETA_Core_DebugAssert(static_cast<type>(0) < num);             \
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < num);              \
                                                                            \
             return static_cast<unsigned long long>(                        \
                 __builtin_clzg(integral::MakeUnsignedOf<type>(num)));      \
         }                                                                  \
                                                                            \
         static constexpr unsigned long long CTZ(type num) {                \
-            ZETA_Core_DebugAssert(static_cast<type>(0) < num);             \
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < num);              \
                                                                            \
             return static_cast<unsigned long long>(                        \
                 __builtin_ctzg(integral::MakeUnsignedOf<type>(num)));      \
@@ -68,19 +68,19 @@ F(signed long long)
 template <size_t N>
 struct integral_bit::IntegralTraits<unsigned _BitInt(N)> {
     static constexpr unsigned long long PopCount(unsigned _BitInt(N) num) {
-        ZETA_Core_DebugAssert(static_cast<unsigned _BitInt(N)>(0) <= num);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= num);
 
         return static_cast<unsigned long long>(__builtin_popcountg(num));
     }
 
     static constexpr unsigned long long CLZ(unsigned _BitInt(N) num) {
-        ZETA_Core_DebugAssert(static_cast<unsigned _BitInt(N)>(0) < num);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < num);
 
         return static_cast<unsigned long long>(__builtin_clzg(num));
     }
 
     static constexpr unsigned long long CTZ(unsigned _BitInt(N) num) {
-        ZETA_Core_DebugAssert(static_cast<unsigned _BitInt(N)>(0) < num);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < num);
 
         return static_cast<unsigned long long>(__builtin_ctzg(num));
     }
@@ -89,21 +89,21 @@ struct integral_bit::IntegralTraits<unsigned _BitInt(N)> {
 template <size_t N>
 struct integral_bit::IntegralTraits<signed _BitInt(N)> {
     static constexpr unsigned long long PopCount(signed _BitInt(N) num) {
-        ZETA_Core_DebugAssert(static_cast<signed _BitInt(N)>(0) <= num);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= num);
 
         return static_cast<unsigned long long>(
             __builtin_popcountg(static_cast<unsigned _BitInt(N)>(num)));
     }
 
     static constexpr unsigned long long CLZ(signed _BitInt(N) num) {
-        ZETA_Core_DebugAssert(static_cast<signed _BitInt(N)>(0) < num);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < num);
 
         return static_cast<unsigned long long>(
             __builtin_clzg(static_cast<unsigned _BitInt(N)>(num)));
     }
 
     static constexpr unsigned long long CTZ(signed _BitInt(N) num) {
-        ZETA_Core_DebugAssert(static_cast<signed _BitInt(N)>(0) < num);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < num);
 
         return static_cast<unsigned long long>(
             __builtin_ctzg(static_cast<unsigned _BitInt(N)>(num)));
@@ -112,9 +112,9 @@ struct integral_bit::IntegralTraits<signed _BitInt(N)> {
 
 template <typename Integral>
 constexpr unsigned long long integral_bit::BasicPopCount(Integral num) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegral<Integral>);
 
-    ZETA_Core_DebugAssert(static_cast<Integral>(0) <= num);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= num);
 
     return __builtin_popcountg(
         static_cast<unsigned _BitInt(integral::WidthOf<Integral>)>(num));
@@ -127,9 +127,9 @@ constexpr unsigned long long integral_bit::PopCount(Integral num) {
 
 template <typename Integral>
 constexpr unsigned long long integral_bit::BasicCLZ(Integral num) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegral<Integral>);
 
-    ZETA_Core_DebugAssert(static_cast<Integral>(0) < num);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < num);
 
     return __builtin_clzg(
         static_cast<unsigned _BitInt(integral::WidthOf<Integral>)>(num));
@@ -142,9 +142,9 @@ constexpr unsigned long long integral_bit::CLZ(Integral num) {
 
 template <typename Integral>
 constexpr unsigned long long integral_bit::BasicCTZ(Integral num) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegral<Integral>);
 
-    ZETA_Core_DebugAssert(static_cast<Integral>(0) < num);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < num);
 
     return __builtin_ctzg(
         static_cast<unsigned _BitInt(integral::WidthOf<Integral>)>(num));
@@ -158,14 +158,14 @@ constexpr unsigned long long integral_bit::CTZ(Integral num) {
 template <typename Integral>
 constexpr unsigned long long integral_bit::FindPrevBit(Integral num_,
                                                        unsigned long long pos) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegral<Integral>);
 
     constexpr unsigned long long w{ integral::WidthOf<Integral> };
 
-    ZETA_Core_DebugAssert(static_cast<Integral>(0) <= num_);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= num_);
 
-    ZETA_Core_DebugAssert(0 <= pos);
-    ZETA_Core_DebugAssert(pos < w);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= pos);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(pos < w);
 
     using UnsignedIntegral = integral::MakeUnsignedOf<Integral>;
 
@@ -173,23 +173,22 @@ constexpr unsigned long long integral_bit::FindPrevBit(Integral num_,
 
     num <<= w - 1 - pos;
 
-    return num == static_cast<UnsignedIntegral>(0)
-               ? integral::RangeMaxOf<unsigned long long>
-               : (CLZ)(static_cast<UnsignedIntegral>(1)) - w + 1 + pos -
-                     (CLZ)(num);
+    return num == 0 ? integral::RangeMaxOf<unsigned long long>
+                    : (CLZ)(static_cast<UnsignedIntegral>(1)) - w + 1 + pos -
+                          (CLZ)(num);
 }
 
 template <typename Integral>
 constexpr unsigned long long integral_bit::FindNextBit(Integral num_,
                                                        unsigned long long pos) {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegral<Integral>);
 
     constexpr unsigned long long w{ integral::WidthOf<Integral> };
 
-    ZETA_Core_DebugAssert(static_cast<Integral>(0) <= num_);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= num_);
 
-    ZETA_Core_DebugAssert(0 <= pos);
-    ZETA_Core_DebugAssert(pos < w);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= pos);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(pos < w);
 
     using UnsignedIntegral = integral::MakeUnsignedOf<Integral>;
 
@@ -197,9 +196,8 @@ constexpr unsigned long long integral_bit::FindNextBit(Integral num_,
 
     num >>= pos;
 
-    return num == static_cast<UnsignedIntegral>(0)
-               ? integral::RangeMaxOf<unsigned long long>
-               : pos + (CTZ)(num);
+    return num == 0 ? integral::RangeMaxOf<unsigned long long>
+                    : pos + (CTZ)(num);
 }
 
 }  // namespace zeta::core

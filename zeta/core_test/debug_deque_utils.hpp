@@ -3,7 +3,7 @@
 #include <cstdlib>
 #include <zeta/core/debug_deque.hpp>
 #include <zeta/core/debug_deque.ipp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/seq_cntr.hpp>
 #include <zeta/core/seq_cntr.ipp>
 #include <zeta/core_test/seq_cntr_utils.hpp>
@@ -33,7 +33,7 @@ constexpr PolySeqCntr Create() {
 
     auto* dd{ &pack->debug_deque };
 
-    ZETA_Core_StaticAssert(core::seq_cntr::IsSeqCntr<DebugDeque>);
+    static_assert(core::seq_cntr::IsSeqCntr<DebugDeque>);
 
     seq_cntr_utils::AddSanitizeFunc(dd, Sanitize);
 

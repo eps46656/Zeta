@@ -1,7 +1,7 @@
 #pragma once
 
 #include <zeta/core/allocator.hpp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 
 namespace zeta::core {
@@ -10,7 +10,7 @@ namespace zeta::core {
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define CallMethod(method_name, ...)              \
     return alctr.method_name(Tag{}, __VA_ARGS__); \
-    ZETA_Core_StaticAssert(true)
+    static_assert(true)
 
 template <typename Allocator>
 constexpr decltype(auto) allocator::GetReferedInstPtr(Allocator& alctr) {
@@ -21,7 +21,7 @@ template <typename Allocator>
 constexpr decltype(auto) allocator::GetAlign(Allocator& alctr) {
     size_t align{ alctr.GetAlign(Tag{}) };
 
-    ZETA_Core_DebugAssert(0 < align);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < align);
 
     return align;
 }
@@ -43,13 +43,14 @@ constexpr decltype(auto) allocator::SafeAllocate(Allocator& alctr, size_t align,
                                                  size_t size) {
     size_t self_align{ (GetAlign)(alctr) };
 
-    ZETA_Core_DebugAssert(0 < align);
-    ZETA_Core_DebugAssert(self_align % align == 0);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < align);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(self_align % align == 0);
 
     void* ptr{ (Allocate)(alctr, size) };
 
-    ZETA_Core_DebugAssert(ptr != nullptr);
-    ZETA_Core_DebugAssert(__builtin_is_aligned(ptr, self_align));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(ptr != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        __builtin_is_aligned(ptr, self_align));
 
     return ptr;
 }

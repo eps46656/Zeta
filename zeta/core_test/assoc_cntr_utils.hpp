@@ -10,7 +10,7 @@
 #include <zeta/core/assoc_cntr.ipp>
 #include <zeta/core/assoc_cntr_ref.hpp>
 #include <zeta/core/comparison.ipp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/hash.hpp>
 
@@ -18,62 +18,63 @@ namespace zeta::core_test::assoc_cntr_utils {
 
 using AssocCntrVTable = core::assoc_cntr::VTable;
 
-inline auto& GetSanitizeFuncs() {
+constexpr auto& GetSanitizeFuncs() {
     static std::unordered_map<void const*, void (*)(void const* ac)> instance;
     return instance;
 }
 
-inline void AddSanitizeFunc(void const* ac, void (*Sanitize)(void const* ac)) {
+constexpr void AddSanitizeFunc(void const* ac,
+                               void (*Sanitize)(void const* ac)) {
     auto& map{ GetSanitizeFuncs() };
 
     auto iter{ map.insert({ ac, Sanitize }).first };
 
-    ZETA_Core_DebugAssert(iter->second == Sanitize);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(iter->second == Sanitize);
 }
 
-inline void Sanitize(void* ac) {
+constexpr void Sanitize(void* ac) {
     if (ac == nullptr) { return; }
 
     auto& map{ GetSanitizeFuncs() };
 
     auto iter{ map.find(ac) };
-    ZETA_Core_DebugAssert(iter != map.end());
-    ZETA_Core_DebugAssert(iter->second != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(iter != map.end());
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(iter->second != nullptr);
 
     iter->second(ac);
 }
 
-inline void Sanitize(core::assoc_cntr_ref::Cntr const* ac) {
+constexpr void Sanitize(core::assoc_cntr_ref::Cntr const* ac) {
     Sanitize(ac->target_cntr);
 }
 
-inline auto& GetDestroyFuncs() {
+constexpr auto& GetDestroyFuncs() {
     static std::unordered_map<void*, void (*)(void* sc)> instance;
     return instance;
 }
 
-inline void AddDestroyFunc(void* ac, void (*Destroy)(void* ac)) {
+constexpr void AddDestroyFunc(void* ac, void (*Destroy)(void* ac)) {
     auto& map{ GetDestroyFuncs() };
 
     auto iter{ map.insert({ ac, Destroy }).first };
 
-    ZETA_Core_DebugAssert(iter->second == Destroy);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(iter->second == Destroy);
 }
 
-inline void Destroy(void* ac) {
+constexpr void Destroy(void* ac) {
     if (ac == nullptr) { return; }
 
     auto& map{ GetDestroyFuncs() };
 
     auto iter{ map.find(ac) };
 
-    ZETA_Core_DebugAssert(iter != map.end());
-    ZETA_Core_DebugAssert(iter->second != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(iter != map.end());
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(iter->second != nullptr);
 
     iter->second(ac);
 }
 
-inline void Destroy(core::assoc_cntr_ref::Cntr* ac) {
+constexpr void Destroy(core::assoc_cntr_ref::Cntr* ac) {
     Destroy(ac->target_cntr);
 }
 
@@ -93,7 +94,7 @@ Elem* Find(AssocCntr* ac, Key const& key) {
         //
     }
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         core::assoc_cntr::Derefer(*ac, &cursor, true, nullptr, nullptr) ==
         elem_find_with_key);
 
@@ -101,8 +102,8 @@ Elem* Find(AssocCntr* ac, Key const& key) {
 
     if constexpr (core::meta::IsSame<core::meta::RemoveCVRef<Key>,
                                      core::meta::RemoveCVRef<Elem> >) {
-        ZETA_Core_DebugAssert(core::comparison::BasicCompare(
-            core::comparison::OpTag::Equal{}, key, *elem_find_with_key));
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(core::comparison::BasicCompare(
+            core::comparison::OpTags::Equal{}, key, *elem_find_with_key));
     }
 
     return elem_find_with_key;
@@ -117,13 +118,14 @@ Elem* Insert(AssocCntr* ac, Elem const& elem) {
 
     Sanitize(ac);
 
-    ZETA_Core_DebugAssert(core::assoc_cntr::Derefer(*ac, &cursor, true, nullptr,
-                                                    nullptr) == ins_elem);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        core::assoc_cntr::Derefer(*ac, &cursor, true, nullptr, nullptr) ==
+        ins_elem);
 
-    ZETA_Core_DebugAssert(ins_elem != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(ins_elem != nullptr);
 
-    ZETA_Core_DebugAssert(core::comparison::BasicCompare(
-        core::comparison::OpTag::Equal{}, elem, *ins_elem));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(core::comparison::BasicCompare(
+        core::comparison::OpTags::Equal{}, elem, *ins_elem));
 
     return ins_elem;
 }
@@ -139,15 +141,16 @@ bool Erase(AssocCntr* ac, Key const& key) {
 
     Sanitize(ac);
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         core::assoc_cntr::Derefer(*ac, &cursor, true, nullptr) == elem);
 
     if (elem == nullptr) { return false; }
 
-    ZETA_Core_DebugAssert(core::comparison::BasicCompare(key, *elem) == 0);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        core::comparison::BasicCompare(key, *elem) == 0);
 
     size_t old_size{ core::assoc_cntr::GetElemCnt(*ac) };
-    ZETA_Core_DebugAssert(0 < old_size);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < old_size);
 
     core::assoc_cntr::Erase(*ac, &cursor);
 
@@ -155,19 +158,20 @@ bool Erase(AssocCntr* ac, Key const& key) {
 
     size_t new_size{ core::assoc_cntr::GetElemCnt(*ac) };
 
-    ZETA_Core_DebugAssert(old_size - 1 == new_size);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(old_size - 1 == new_size);
 
     return true;
 }
 
 template <typename AssocCntr>
 size_t SyncGetElemCnt(std::vector<AssocCntr*> const& acs) {
-    ZETA_Core_DebugAssert(!acs.empty());
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(!acs.empty());
 
     size_t size{ core::assoc_cntr::GetElemCnt(*acs[0]) };
 
     for (auto ac : acs) {
-        ZETA_Core_DebugAssert(size == core::assoc_cntr::GetElemCnt(*ac));
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(
+            size == core::assoc_cntr::GetElemCnt(*ac));
     }
 
     return size;
@@ -175,7 +179,7 @@ size_t SyncGetElemCnt(std::vector<AssocCntr*> const& acs) {
 
 template <typename AssocCntr, typename Key, typename Elem>
 Elem* SyncFind(std::vector<AssocCntr*> const& acs, Key const& key) {
-    ZETA_Core_DebugAssert(!acs.empty());
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(!acs.empty());
 
     size_t size{ SyncGetElemCnt(acs) };
     ZETA_Core_Unused(size);
@@ -185,11 +189,13 @@ Elem* SyncFind(std::vector<AssocCntr*> const& acs, Key const& key) {
     for (auto ac : acs) {
         Elem* cur_elem{ Find<AssocCntr, Key, Elem>(ac, key) };
 
-        ZETA_Core_DebugAssert((elem == nullptr) == (cur_elem == nullptr));
+        ZETA_Core_DebugUtils_Diag_PromiseAssert((elem == nullptr) ==
+                                                (cur_elem == nullptr));
 
         if (elem != nullptr) {
-            ZETA_Core_DebugAssert(core::comparison::BasicCompare(
-                core::comparison::OpTag::Equal{}, *elem, *cur_elem));
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(
+                core::comparison::BasicCompare(
+                    core::comparison::OpTags::Equal{}, *elem, *cur_elem));
         }
     }
 
@@ -202,7 +208,7 @@ bool SyncInsert(std::vector<AssocCntr*> const& acs, Elem const& elem) {
 
     for (auto ac : acs) { Insert(ac, elem); }
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         (SyncFind<AssocCntr, Elem, Elem>(acs, elem) != nullptr));
 
     return true;
@@ -214,7 +220,7 @@ bool SyncErase(std::vector<AssocCntr*> const& acs, Elem const& elem) {
 
     for (auto ac : acs) { Erase<AssocCntr, Elem, Elem>(ac, elem); }
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         (SyncFind<AssocCntr, Elem, Elem>(acs, elem) == nullptr));
 
     return true;
@@ -236,21 +242,22 @@ void Contain(AssocCntrA* a, AssocCntrB* b) {
         auto a_elem{ static_cast<Elem*>(
             core::assoc_cntr::Derefer(*a, &a_iter, true, nullptr)) };
 
-        ZETA_Core_DebugAssert(a_elem != nullptr);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(a_elem != nullptr);
 
         Elem* b_elem{ Find<AssocCntrB, Elem, Elem>(b, *a_elem) };
 
-        ZETA_Core_DebugAssert(b_elem != nullptr);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(b_elem != nullptr);
 
-        ZETA_Core_DebugAssert(*a_elem == *b_elem);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(*a_elem == *b_elem);
 
         core::assoc_cntr::CursorStepR(*a, &a_iter);
     }
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         core::assoc_cntr::Derefer(*a, &a_iter, true, nullptr) == nullptr);
 
-    ZETA_Core_DebugAssert(core::assoc_cntr::GetElemCnt(*a) == size);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(core::assoc_cntr::GetElemCnt(*a) ==
+                                            size);
 }
 
 template <typename AssocCntrA, typename AssocCntrB, typename Elem>

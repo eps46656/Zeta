@@ -1,11 +1,13 @@
 #pragma once
 
 #include <zeta/core/comparison_utils.ipp>
-#include <zeta/core/elem_stream.hpp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/integral_endec.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/pair.hpp>
+#include <zeta/core/seq_endpoint.hpp>
 #include <zeta/core/unicode.hpp>
+#include <zeta/core/utf8.hpp>
 #include <zeta/core/utils.hpp>
 
 namespace zeta::core::object_state_notation {
@@ -21,7 +23,7 @@ enum struct NodeType : unsigned char {
 constexpr unsigned min_region_attr_size{ 4 };
 constexpr unsigned max_region_attr_size{ comparison_utils::BasicMin(
     8U, (integral::WidthOf<unsigned long long> + 7) / 8) };
-ZETA_Core_StaticAssert(min_region_attr_size <= max_region_attr_size);
+static_assert(min_region_attr_size <= max_region_attr_size);
 
 constexpr size_t max_integral_size{ integral::RangeMaxOf<size_t> / 2 };
 
@@ -99,11 +101,11 @@ struct IntegralDescriptor {
         this IntegralDescriptor const& self);
 };
 
-template <elem_stream::acceptor::IsAcceptor Acceptor>
+template <seq_endpoint::acceptor::IsAcceptor Acceptor>
 constexpr bool EncodeHeaderToOctets(Acceptor&& acceptor,
                                     Header const& src_header);
 
-template <elem_stream::provider::IsProvider Provider>
+template <seq_endpoint::provider::IsProvider Provider>
 constexpr bool DecodeHeaderFromOctets(Provider&& provider, Header& dst_header);
 
 enum struct EncoderState : unsigned char {
@@ -118,11 +120,21 @@ enum struct EncoderState : unsigned char {
     ReceivingIntegralOrFinish = 8,
     ReceivingFinish = 9,
     Finished = 10,
-    Corrupted = static_cast<unsigned char>(-1),
+    Corrupted = 255,
 };
 
-template <elem_stream::acceptor::IsAcceptor Acceptor>
+enum struct EncoderReason : unsigned char {
+    InvalidValue = 0,
+    SequenceEnd,
+    DepthOverflow,
+    IntegralSignednesssMismatch = 3,
+    Corrupted,
+};
+
+template <typename AcceptorLike_>
 struct Encoder {
+    using AcceptorLike = AcceptorLike_;
+
     static constexpr unsigned max_depth{ 32 };
 
     Config config;
@@ -144,25 +156,28 @@ struct Encoder {
         unsigned short max_octet_cnt;
     } integral_chunk_buffer;
 
-    Acceptor& acceptor;
+    AcceptorLike acceptor_like;
 
-    constexpr Encoder(Config const& config,
-                      unsigned char* integral_chunk_buffer_data,
-                      unsigned short integral_chunk_buffer_max_octet_cnt,
-                      Acceptor& acceptor);
+    template <typename AcceptorLikeAcceptorLikeConstructArgArg>
+    constexpr Encoder(
+        Config const& config, unsigned char* integral_chunk_buffer_data,
+        unsigned short integral_chunk_buffer_max_octet_cnt,
+        AcceptorLikeAcceptorLikeConstructArgArg&& acceptor_like_init_arg);
 
-    constexpr utils::TryResult<meta::Monostate, meta::Monostate> SendNodeTag(
+    constexpr utils::TryResult<meta::Monostate, EncoderReason> SendNodeTag(
         this Encoder& self, NodeTag const& src_node_tag);
 
-    template <elem_stream::provider::IsProvider Provider>
-    constexpr utils::TryResult<meta::Monostate, meta::Monostate>
-    SendStringOctet(this Encoder& self, Provider&& provider, size_t size);
+    constexpr utils::TryResult<size_t, utf8::Encoder::ResultEnum>
+    SendStringChar(this Encoder& self, unicode::unichar_t c);
 
     template <integral::IsIntegral Integral>
-    constexpr utils::TryResult<meta::Monostate, meta::Monostate> SendRegionAttr(
-        this Encoder& self, Integral region_beg, Integral region_size);
+    constexpr utils::TryResult<
+        pair::Pair<integral_endec::EncodeResult, integral_endec::EncodeResult>,
+        EncoderReason>
+    SendRegionAttr(this Encoder& self, Integral region_beg,
+                   Integral region_size);
 
-    constexpr utils::TryResult<meta::Monostate, meta::Monostate>
+    constexpr utils::TryResult<meta::Monostate, EncoderReason>
     SendIntegralDescriptor(this Encoder& self,
                            IntegralDescriptor const& src_integral_descriptor);
 
@@ -185,13 +200,23 @@ enum struct DecoderState : unsigned char {
     SendingIntegralDescriptor = 5,
     SendingListElemCnt = 6,
     SendingIntegral = 7,
-    SendingFinish = 9,
-    Finished = 10,
-    Corrupted = static_cast<unsigned char>(-1),
+    SendingFinish = 8,
+    Finished = 11,
+    Corrupted = 255,
 };
 
-template <elem_stream::provider::IsProvider Provider>
+enum struct DecoderReason : unsigned char {
+    None,
+    SequenceEnd,
+    DepthOverflow,
+    IntegralSignednesssMismatch = 3,
+    Corrupted,
+};
+
+template <typename ProviderLike_>
 struct Decoder {
+    using ProviderLike = ProviderLike_;
+
     static constexpr unsigned max_depth{ 32 };
 
     Config config;
@@ -202,39 +227,45 @@ struct Decoder {
 
     size_t res_elem_cnts[max_depth];
 
-    bool has_buffer_node_tag;
-    NodeTag buffer_node_tag;
+    NodeTag node_tag;
 
-    IntegralDescriptor integral_descriptor_buffer;
+    IntegralDescriptor integral_descriptor;
 
     unsigned char integral_chunk_res_elem_cnt;
 
-    Provider& provider;
+    ProviderLike provider_like;
 
-    constexpr Decoder(Config const& config, Provider& provider);
+    template <typename ProviderLikeAcceptorLikeConstructArgArg>
+    constexpr Decoder(
+        Config const& config,
+        ProviderLikeAcceptorLikeConstructArgArg&& provider_like_init_arg);
 
-    constexpr utils::TryResult<NodeTag, meta::Monostate> ReceiveNodeTag(
+    constexpr utils::TryResult<NodeTag, DecoderReason> ReceiveNodeTag(
         this Decoder& self);
 
-    template <elem_stream::acceptor::IsAcceptor Accetpr>
-    constexpr utils::TryResult<unicode::unichar_t, meta::Monostate>
+    template <seq_endpoint::acceptor::IsAcceptor Accetpr>
+    constexpr utils::TryResult<unicode::unichar_t, DecoderReason>
     ReceiveStringChar(this Decoder& self);
 
     template <integral::IsIntegral Integral>
-    constexpr utils::TryResult<pair::Pair<Integral, Integral>, meta::Monostate>
-    ReceiveRegionAttr(this Decoder& self);
+    constexpr utils::TryResult<
+        pair::Pair<integral_endec::DecodeResult<Integral>,
+                   integral_endec::DecodeResult<Integral>>,
+        DecoderReason>
+    ReceiveRegionAttr(this Decoder& self, meta::TypeWrapper<Integral>);
 
-    constexpr utils::TryResult<IntegralDescriptor, meta::Monostate>
+    constexpr utils::TryResult<IntegralDescriptor, DecoderReason>
     ReceiveIntegralDescriptor(this Decoder& self);
 
-    constexpr utils::TryResult<size_t, meta::Monostate> ReceiveListElemCnt(
+    constexpr utils::TryResult<size_t, DecoderReason> ReceiveListElemCnt(
         this Decoder& self);
 
     template <integral::IsIntegral Integral>
-    constexpr utils::TryResult<Integral, meta::Monostate> ReceiveIntegral(
-        this Decoder& self);
+    constexpr utils::TryResult<integral_endec::DecodeResult<Integral>,
+                               DecoderReason>
+    ReceiveIntegral(this Decoder& self, meta::TypeWrapper<Integral>);
 
-    constexpr utils::TryResult<meta::Monostate, meta::Monostate> ReceiveFinish(
+    constexpr utils::TryResult<meta::Monostate, DecoderReason> ReceiveFinish(
         this Decoder& self);
 };
 

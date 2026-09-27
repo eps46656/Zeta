@@ -1,5 +1,5 @@
 #include <string>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/tuple.hpp>
 #include <zeta/core/type_list.hpp>
 #include <zeta/core/utils.ipp>
@@ -51,7 +51,8 @@ inline void main1() {
 inline void main2() {
     zeta::core::tuple::Tuple<int, float, double> t1;
 
-    ZETA_Core_PrintVar(sizeof(zeta::core::tuple::Tuple<int, float, double>));
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(
+        sizeof(zeta::core::tuple::Tuple<int, float, double>));
 
     std::cout << "Tuple<int, float, double>: "
               << zeta::core::debug_utils::GetTypeStr<decltype(t1)>()
@@ -66,24 +67,26 @@ inline void main2() {
         static_cast<short>(2),
     };
 
-    ZETA_Core_PrintVar(sizeof(zeta::core::tuple::Tuple<int, int, long>));
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(
+        sizeof(zeta::core::tuple::Tuple<int, int, long>));
     // 12
 
-    ZETA_Core_PrintVar(sizeof(zeta::core::tuple::Tuple<double, int, int>));
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(
+        sizeof(zeta::core::tuple::Tuple<double, int, int>));
     // 16
 
-    ZETA_Core_PrintVar(
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(
         sizeof(zeta::core::tuple::Tuple<double, char, char, char>));
     // 16
 
-    ZETA_Core_PrintVar(
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(
         alignof(zeta::core::tuple::Tuple<double, char, char, char>));
 
-    ZETA_Core_PrintVar(
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(
         sizeof(zeta::core::tuple::Tuple<char, int, double, char, char, char>));
     // 24
 
-    ZETA_Core_PrintVar(
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(
         alignof(zeta::core::tuple::Tuple<char, int, double, char, char, char>));
 
     std::cout << "Tuple<char, short, int, long>: "

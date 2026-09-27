@@ -31,7 +31,7 @@ namespace detail {
 
 template <typename TA, typename TB>
 struct IsMatched_ {
-    ZETA_Core_StaticAssert(
+    static_assert(
         !((IsSame<TA, NeverMatchedTag> && IsSame<TB, AlwaysMatchedTag>) ||
           (IsSame<TA, AlwaysMatchedTag> && IsSame<TB, NeverMatchedTag>)));
 
@@ -378,41 +378,6 @@ template <typename T>
 constexpr T&& Forward(RemoveRef<T>& t) {
     return static_cast<T&&>(t);
 }
-
-namespace detail {
-
-template <typename, typename Func, typename... Args>
-struct IsInvocable_ {
-    static constexpr bool value{ false };
-};
-
-template <typename Func, typename... Args>
-struct IsInvocable_<VoidT<decltype(Declval<Func>()(Declval<Args>()...))>, Func,
-                    Args...> {
-    static constexpr bool value{ true };
-};
-
-template <typename, typename Ret, typename Func, typename... Args>
-struct IsInvocableR_ {
-    static constexpr bool value{ false };
-};
-
-template <typename Ret, typename Func, typename... Args>
-struct IsInvocableR_<
-    EnableIf<IsConvertible<decltype(Declval<Func>()(Declval<Args>()...)), Ret>>,
-    Ret, Func, Args...> {
-    static constexpr bool value{ true };
-};
-
-}  // namespace detail
-
-template <typename Func, typename... Args>
-constexpr bool IsInvocable{ detail::IsInvocable_<void, Func, Args...>::value };
-
-template <typename Ret, typename Func, typename... Args>
-constexpr bool IsInvocableR{
-    detail::IsInvocableR_<void, Ret, Func, Args...>::value
-};
 
 template <typename Type_>
 struct TypeWrapper {

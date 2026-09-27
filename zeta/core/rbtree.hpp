@@ -1,9 +1,9 @@
 #pragma once
 
 #include <zeta/core/bin_tree.hpp>
+#include <zeta/core/debug_utils/memory.hpp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
-#include <zeta/core/mem_recorder.hpp>
 
 namespace zeta::core::rbtree {
 
@@ -49,6 +49,7 @@ template <IsNode Node>
 constexpr Node* Extract(Node* pos);
 
 template <IsNode Node>
-constexpr void Sanitize(mem_recorder::MemRecorder* dst_mr, Node* root);
+constexpr void SanityCheck(debug_utils::memory::MemRecorder* dst_mr,
+                           Node* root);
 
 }  // namespace zeta::core::rbtree

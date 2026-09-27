@@ -55,7 +55,7 @@ AssocCntrRef Create() {
 
     new (&pack->dht.node_alctr) std_allocator::Allocator;
 
-    pack->dht.Init(
+    pack->dht.Construct(
         sizeof(Elem),
         // elem_width
 
@@ -67,23 +67,24 @@ AssocCntrRef Create() {
         },
         // rehashing_config
 
-        core::lifecycle::MakeInitArgsTuple(   //
-            core::hash::BasicHasher<Elem>{},  //
-            core::meta::TypeWrapper<Elem>{}   //
+        core::lifecycle::MakeConstructArgsTuple(  //
+            core::hash::BasicHasher<Elem>{},      //
+            core::meta::TypeWrapper<Elem>{}       //
             ),
-        // elem_hash_init_arg
+        // elem_hash_construct_arg
 
-        core::lifecycle::MakeInitArgsTuple(                   //
+        core::lifecycle::MakeConstructArgsTuple(              //
             core::comparison::BasicComparator<Elem, Elem>{},  //
             core::meta::TypeWrapper<Elem>{},                  //
             core::meta::TypeWrapper<Elem>{}                   //
             ),
-        // elem_cmptr_init_argd
+        // elem_cmptr_construct_argd
 
-        core::lifecycle::SkipInitTag{},  // salt_random_engine_init_arg
+        core::lifecycle::
+            SkipConstructTag{},  // salt_random_engine_construct_arg
 
-        core::lifecycle::SkipInitTag{},  // node_alctr_init_arg
-        core::lifecycle::SkipInitTag{}   // table_node_alctr_init_arg
+        core::lifecycle::SkipConstructTag{},  // node_alctr_construct_arg
+        core::lifecycle::SkipConstructTag{}   // table_node_alctr_construct_arg
     );
 
     if (false) {
@@ -103,20 +104,20 @@ AssocCntrRef Create() {
 
         bool bool_val{ false };
 
-        ZETA_Core_StaticAssert(requires {
+        static_assert(requires {
             zeta::core::assoc_cntr::CntrTraits<Cntr>::Find(
                 pack->dht, const_void_ptr, key_hasher, key_elem_cmptr, bool_val,
                 elem_ptr_view_ptr, void_ptr, void_ptr);
         });
 
-        ZETA_Core_StaticAssert(
-            requires(Cntr& cntr, bool bool_val, void* void_ptr,
-                     void const* const_void_ptr,
-                     DynamicHashTableNS::Cursor* cursor, size_t size_val,
-                     zeta::core::elem_stream::acceptor::ArchetAcceptor reader) {
-                zeta::core::assoc_cntr::CntrTraits<Cntr>::Erase(
-                    cntr, cursor, size_val, reader);
-            });
+        static_assert(requires(
+            Cntr& cntr, bool bool_val, void* void_ptr,
+            void const* const_void_ptr, DynamicHashTableNS::Cursor* cursor,
+            size_t size_val,
+            zeta::core::seq_endpoint::acceptor::ArchetAcceptor reader) {
+            zeta::core::assoc_cntr::CntrTraits<Cntr>::Erase(cntr, cursor,
+                                                            size_val, reader);
+        });
     }
 
     AssocCntrRef assoc_cntr_ref{ pack->dht };
@@ -131,7 +132,7 @@ AssocCntrRef Create() {
 inline void Sanitize(void const* dht_) {
     auto const* dht{ static_cast<DynamicHashTable const*>(dht_) };
 
-#if ZETA_Core_EnableDebug
+#if ZETA_Core_DebugEnable
     DynamicHashTablePack* pack{ ZETA_Core_MemberToStruct(DynamicHashTablePack,
                                                          dht, dht) };
 
@@ -140,11 +141,10 @@ inline void Sanitize(void const* dht_) {
 
     pack->dht.Sanitize(&table_recorder, &node_recorder);
 
-    core::mem_recorder::MatchRecords(
+    core::mem_recorder::MemRecorder::MatchRecords(
         pack->dht.ght.table_node_alctr.mem_recorder, table_recorder);
-    core::mem_recorder::MatchRecords(pack->dht.node_alctr.mem_recorder,
-                                     node_recorder);
-
+    core::mem_recorder::MemRecorder::MatchRecords(
+        pack->dht.node_alctr.mem_recorder, node_recorder);
 #endif
 }
 
@@ -154,7 +154,7 @@ inline void Destroy(void* dht_) {
     DynamicHashTablePack* pack{ ZETA_Core_MemberToStruct(DynamicHashTablePack,
                                                          dht, dht) };
 
-    dht->Deinit();
+    dht->Deconstruct();
 
     std::free(pack);
 }

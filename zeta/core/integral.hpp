@@ -67,32 +67,30 @@ concept IsUnsignedIntegral =
 
 template <typename Integral>
 constexpr size_t WidthOf{ []() {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegral<Integral>);
     return IntegralTraits<Integral>::width;
 }() };
 
 template <typename Integral>
 using TryMakeUnsignedOf = decltype([]() {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegral<Integral>);
 
     using UnsignedIntegral = IntegralTraits<Integral>::UnsignedType;
 
-    ZETA_Core_StaticAssert(
-        meta::IsSame<UnsignedIntegral, meta::NeverMatchedTag> ||
-        integral::IsIntegral<UnsignedIntegral>);
+    static_assert(meta::IsSame<UnsignedIntegral, meta::NeverMatchedTag> ||
+                  integral::IsIntegral<UnsignedIntegral>);
 
     return meta::TypeWrapper<UnsignedIntegral>{};
 }())::Type;
 
 template <typename Integral>
 using TryMakeSignedOf = decltype([]() {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegral<Integral>);
 
     using SignedIntegral = IntegralTraits<Integral>::SignedType;
 
-    ZETA_Core_StaticAssert(
-        meta::IsSame<SignedIntegral, meta::NeverMatchedTag> ||
-        integral::IsIntegral<SignedIntegral>);
+    static_assert(meta::IsSame<SignedIntegral, meta::NeverMatchedTag> ||
+                  integral::IsIntegral<SignedIntegral>);
 
     return meta::TypeWrapper<SignedIntegral>{};
 }())::Type;
@@ -101,7 +99,7 @@ template <typename Integral>
 using MakeUnsignedOf = decltype([]() {
     using UnsignedIntegral = TryMakeUnsignedOf<Integral>;
 
-    ZETA_Core_StaticAssert(integral::IsIntegral<UnsignedIntegral>);
+    static_assert(integral::IsIntegral<UnsignedIntegral>);
 
     return meta::TypeWrapper<UnsignedIntegral>{};
 }())::Type;
@@ -110,7 +108,7 @@ template <typename Integral>
 using MakeSignedOf = decltype([]() {
     using SignedIntegral = TryMakeSignedOf<Integral>;
 
-    ZETA_Core_StaticAssert(integral::IsIntegral<SignedIntegral>);
+    static_assert(integral::IsIntegral<SignedIntegral>);
 
     return meta::TypeWrapper<SignedIntegral>{};
 }())::Type;
@@ -149,7 +147,7 @@ struct IntegralTraits<char> {
         using SignedType = stype;                 \
     };                                            \
                                                   \
-    ZETA_Core_StaticAssert(true)
+    static_assert(true)
 
 F(unsigned char, signed char, ZETA_Core_uchar_width);
 F(unsigned short, signed short, ZETA_Core_ushrt_width);
@@ -197,7 +195,7 @@ constexpr Integral Pow2Minus1_(size_t exp) {  // Returns 2^exp - 1.
 
 template <typename Integral>
 constexpr Integral RangeMinOf{ []() {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegral<Integral>);
 
     return IsSignedIntegral<Integral>
                ? -detail::Pow2Minus1_<Integral>(WidthOf<Integral> - 1)
@@ -206,7 +204,7 @@ constexpr Integral RangeMinOf{ []() {
 
 template <typename Integral>
 constexpr Integral RangeMaxOf{ []() {
-    ZETA_Core_StaticAssert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegral<Integral>);
 
     return IsSignedIntegral<Integral>
                ? detail::Pow2Minus1_<Integral>(WidthOf<Integral> - 1)

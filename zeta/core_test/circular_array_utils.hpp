@@ -23,8 +23,8 @@ constexpr void Sanitize(void const* ca);
 
 template <typename Elem>
 constexpr PolySeqCntr Create(size_t stride, size_t slot_cnt) {
-    ZETA_Core_DebugAssert(sizeof(Elem) <= stride);
-    ZETA_Core_DebugAssert(stride % alignof(Elem) == 0);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(sizeof(Elem) <= stride);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(stride % alignof(Elem) == 0);
 
     auto* ca{ static_cast<CircularArray*>(std::malloc(sizeof(CircularArray))) };
 
@@ -39,7 +39,7 @@ constexpr PolySeqCntr Create(size_t stride, size_t slot_cnt) {
 
     seq_cntr_utils::AddDestroyFunc(ca, Destroy);
 
-    ZETA_Core_StaticAssert(core::seq_cntr::IsSeqCntr<CircularArray>);
+    static_assert(core::seq_cntr::IsSeqCntr<CircularArray>);
 
     return *ca;
 }

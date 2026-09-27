@@ -1,8 +1,8 @@
 #pragma once
 
 #include <zeta/core/comparison_utils.ipp>
-#include <zeta/core/debug_utils.ipp>
-#include <zeta/core/elem_stream.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
+#include <zeta/core/seq_endpoint.ipp>
 #include <zeta/core/unicode.hpp>
 #include <zeta/core/utf8.hpp>
 #include <zeta/core/utils.hpp>
@@ -46,167 +46,12 @@ constexpr unsigned utf8::EvaluateLevelFromLeadingOctet(
     return static_cast<unsigned>(-1);
 }
 
-constexpr utf8::EncodeResult utf8::Encode(unicode::unichar_t codepoint) {
-    unsigned level{ (EvaluateLevelFromCodepoint)(codepoint) };
-
-    if (level == static_cast<unsigned>(-1)) {
-        return {
-            .type = EncodeResult::ResultType::CodepointOutOfRange,
-            .encoded_octet_cnt = 0,
-            .encoded_octets = {},
-        };
-    }
-
-    if (unicode::surrogate_range_min <= codepoint &&
-        codepoint <= unicode::surrogate_range_max) {
-        return {
-            .type = EncodeResult::ResultType::CodepointIsSurrogate,
-            .encoded_octet_cnt = 0,
-            .encoded_octets = {},
-        };
-    }
-
-    EncodeResult encode_result{
-        .type = EncodeResult::ResultType::Success,
-        .encoded_octet_cnt = 0,
-        .encoded_octets = {},
-    };
-
-    unsigned char* cur_encoded_octet{ encode_result.encoded_octets };
-
-    for (unsigned char* dst{ cur_encoded_octet + level - 1 };
-         dst != cur_encoded_octet; --dst) {
-        *dst = 0b1000'0000 + (codepoint % 64);
-        codepoint /= 64;
-    }
-
-    switch (level) {
-    case 1:
-        ZETA_Core_DebugAssert(codepoint <= 0b0111'1111);
-
-        cur_encoded_octet[0] = static_cast<unsigned char>(codepoint);
-        break;
-    case 2:
-        ZETA_Core_DebugAssert(codepoint <= 0b0001'1111);
-
-        cur_encoded_octet[0] =
-            static_cast<unsigned char>(0b1100'0000 + codepoint);
-        break;
-    case 3:
-        ZETA_Core_DebugAssert(codepoint <= 0b0000'1111);
-
-        cur_encoded_octet[0] =
-            static_cast<unsigned char>(0b1110'0000 + codepoint);
-        break;
-    case 4:
-        ZETA_Core_DebugAssert(codepoint <= 0b0000'0111);
-
-        cur_encoded_octet[0] =
-            static_cast<unsigned char>(0b1111'0000 + codepoint);
-        break;
-    default: ZETA_Core_Unreachable();
-    }
-
-    switch (cur_encoded_octet[0] / 16) {
-    case 0b1000:
-    case 0b1001:
-    case 0b1010:
-    case 0b1011: ZETA_Core_DebugAssert(false);
-    }
-
-    return encode_result;
-}
-
-constexpr utf8::DecodeResult utf8::Decode(unsigned char const* octets,
-                                          size_t octet_cnt) {
-    if (octet_cnt == 0) {
-        return {
-            .type = DecodeResult::ResultType::InsufficientOctet,
-            .codepoint = 0,
-            .consumed_octet_cnt = 0,
-        };
-    }
-
-    unsigned char head{ octets[0] };
-
-    if (255 < head) {
-        return {
-            .type = DecodeResult::ResultType::OctetOutOfRange,
-            .codepoint = 0,
-            .consumed_octet_cnt = 0,
-        };
-    }
-
-    unsigned level{ (EvaluateLevelFromLeadingOctet)(head) };
-
-    unicode::unichar_t codepoint{ head };
-
-    switch (level) {
-    case static_cast<unsigned>(-1):
-        return {
-            .type = DecodeResult::ResultType::LeadingOctetPatternMismatch,
-            .codepoint = 0,
-            .consumed_octet_cnt = 0,
-        };
-    case 1: break;
-    case 2: codepoint -= 0b1100'0000; break;
-    case 3: codepoint -= 0b1110'0000; break;
-    case 4: codepoint -= 0b1111'0000; break;
-    default: ZETA_Core_Unreachable();
-    }
-
-    for (unsigned i{ 1 }; i < level; ++i) {
-        unsigned char octet{ octets[i] };
-
-        if (255 < octet) {
-            return {
-                .type = DecodeResult::ResultType::OctetOutOfRange,
-                .codepoint = 0,
-                .consumed_octet_cnt = 0,
-            };
-        }
-
-        if (octet / 64 != 0b10) {
-            return {
-                .type = DecodeResult::ResultType::TrailingOctetPatternMismatch,
-                .codepoint = 0,
-                .consumed_octet_cnt = 0,
-            };
-        }
-
-        codepoint = codepoint * 64 + (octet - 0b1000'0000);
-    }
-
-    if (codepoint < range_mins[level] || range_maxs[level] < codepoint) {
-        return {
-            .type = DecodeResult::ResultType::OverlongEncoding,
-            .codepoint = 0,
-            .consumed_octet_cnt = 0,
-        };
-    }
-
-    if (unicode::surrogate_range_min <= codepoint &&
-        codepoint <= unicode::surrogate_range_max) {
-        return {
-            .type = DecodeResult::ResultType::CodepointIsSurrogate,
-            .codepoint = 0,
-            .consumed_octet_cnt = 0,
-        };
-    }
-
-    return {
-        .type = DecodeResult::ResultType::Success,
-        .codepoint = codepoint,
-        .consumed_octet_cnt = static_cast<unsigned char>(level),
-    };
-}
-
 namespace utf8::detail {
 
 constexpr void CheckEncoder_(utf8::Encoder const& encoder) {
-    ZETA_Core_DebugAssert(encoder.encoded_octet_cnt <=
-                          sizeof(encoder.encoded_octets) /
-                              sizeof(encoder.encoded_octets[0]));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        encoder.encoded_octet_cnt <=
+        sizeof(encoder.encoded_octets) / sizeof(encoder.encoded_octets[0]));
 }
 
 }  // namespace utf8::detail
@@ -214,19 +59,19 @@ constexpr void CheckEncoder_(utf8::Encoder const& encoder) {
 constexpr utf8::Encoder::Encoder()
     : encoded_octet_cnt{ 0 }, has_pulled_codepoint{ false } {}
 
-template <elem_stream::provider::IsProvider Provider>
+template <seq_endpoint::provider::IsProvider Provider>
 constexpr utf8::Encoder::ResultEnum utf8::Encoder::Encode(this Encoder& self,
                                                           Provider&& provider) {
     detail::CheckEncoder_(self);
 
     if (!self.has_pulled_codepoint) {
-        if (elem_stream::provider::IsEnd(provider)) {
+        if (seq_endpoint::provider::IsEnd(provider)) {
             return ResultEnum::ProviderExhausted;
         }
 
-        elem_stream::provider::Transfer(provider, &self.pulled_codepoint,
-                                        sizeof(unicode::unichar_t),
-                                        sizeof(unicode::unichar_t), 1);
+        seq_endpoint::provider::Transfer(provider, &self.pulled_codepoint,
+                               sizeof(unicode::unichar_t),
+                               sizeof(unicode::unichar_t), 1);
 
         self.has_pulled_codepoint = true;
     }
@@ -262,36 +107,36 @@ constexpr utf8::Encoder::ResultEnum utf8::Encoder::Encode(this Encoder& self,
 
     switch (level) {
     case 1:
-        ZETA_Core_DebugAssert(codepoint <= 0b0111'1111);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(codepoint <= 0b0111'1111);
 
         cur_encoded_octet[0] = static_cast<unsigned char>(codepoint);
         break;
     case 2:
-        ZETA_Core_DebugAssert(codepoint <= 0b0001'1111);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(codepoint <= 0b0001'1111);
 
         cur_encoded_octet[0] =
             static_cast<unsigned char>(0b1100'0000 + codepoint);
         break;
     case 3:
-        ZETA_Core_DebugAssert(codepoint <= 0b0000'1111);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(codepoint <= 0b0000'1111);
 
         cur_encoded_octet[0] =
             static_cast<unsigned char>(0b1110'0000 + codepoint);
         break;
     case 4:
-        ZETA_Core_DebugAssert(codepoint <= 0b0000'0111);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(codepoint <= 0b0000'0111);
 
         cur_encoded_octet[0] =
             static_cast<unsigned char>(0b1111'0000 + codepoint);
         break;
-    default: ZETA_Core_Unreachable();
+    default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 
     switch (cur_encoded_octet[0] / 16) {
     case 0b1000:
     case 0b1001:
     case 0b1010:
-    case 0b1011: ZETA_Core_DebugAssert(false);
+    case 0b1011: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 
     self.has_pulled_codepoint = false;
@@ -300,17 +145,17 @@ constexpr utf8::Encoder::ResultEnum utf8::Encoder::Encode(this Encoder& self,
     return ResultEnum::Success;
 }
 
-template <elem_stream::acceptor::IsAcceptor Acceptor>
-constexpr size_t utf8::Encoder::Push(this Encoder& self, Acceptor&& acceptor) {
+template <seq_endpoint::acceptor::IsAcceptor Acceptor>
+constexpr size_t utf8::Encoder::Pull(this Encoder& self, Acceptor&& acceptor) {
     detail::CheckEncoder_(self);
 
     size_t pushed_octet_cnt{ 0 };
 
     for (; pushed_octet_cnt < self.encoded_octet_cnt &&
-           !elem_stream::acceptor::IsEnd(acceptor);
+           !seq_endpoint::acceptor::IsEnd(acceptor);
          ++pushed_octet_cnt) {
-        elem_stream::acceptor::Transfer(
-            acceptor, self.encoded_octets + pushed_octet_cnt, 1, 1, 1);
+        seq_endpoint::acceptor::Transfer(acceptor, self.encoded_octets + pushed_octet_cnt,
+                               1, 1, 1);
     }
 
     if (0 < pushed_octet_cnt) {
@@ -324,9 +169,8 @@ constexpr size_t utf8::Encoder::Push(this Encoder& self, Acceptor&& acceptor) {
     return pushed_octet_cnt;
 }
 
-template <elem_stream::provider::IsProvider Provider,
-          elem_stream::acceptor::IsAcceptor Acceptor>
-constexpr bool utf8::Encoder::EncodeAndPush(this Encoder& self,
+template <seq_endpoint::provider::IsProvider Provider, seq_endpoint::acceptor::IsAcceptor Acceptor>
+constexpr bool utf8::Encoder::EncodeAndPull(this Encoder& self,
                                             Provider&& provider,
                                             Acceptor&& acceptor) {
     bool any_progress{ false };
@@ -335,7 +179,7 @@ constexpr bool utf8::Encoder::EncodeAndPush(this Encoder& self,
     bool encode_progress{ true };
 
     for (;;) {
-        push_progress = 0 < self.Push(acceptor);
+        push_progress = 0 < self.Pull(acceptor);
         any_progress |= push_progress;
         if (!push_progress && !encode_progress) { break; }
 
@@ -350,7 +194,7 @@ constexpr bool utf8::Encoder::EncodeAndPush(this Encoder& self,
 namespace utf8::detail {
 
 constexpr void CheckDecoder_(utf8::Decoder const& decoder) {
-    ZETA_Core_DebugAssert(decoder.pulled_octet_cnt <= 4);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(decoder.pulled_octet_cnt <= 4);
 }
 
 }  // namespace utf8::detail
@@ -358,7 +202,7 @@ constexpr void CheckDecoder_(utf8::Decoder const& decoder) {
 constexpr utf8::Decoder::Decoder()
     : pulled_octet_cnt{ 0 }, has_decoded_codepoint{ false } {}
 
-template <elem_stream::provider::IsProvider Provider>
+template <seq_endpoint::provider::IsProvider Provider>
 constexpr utf8::Decoder::ResultEnum utf8::Decoder::Decode(this Decoder& self,
                                                           Provider&& provider) {
     detail::CheckDecoder_(self);
@@ -371,12 +215,12 @@ constexpr utf8::Decoder::ResultEnum utf8::Decoder::Decode(this Decoder& self,
 
     auto pull_octet{ [&]() -> unsigned char {
         if (pulled_octet_iter == self.pulled_octet_cnt) {
-            if (elem_stream::provider::IsEnd(provider)) {
+            if (seq_endpoint::provider::IsEnd(provider)) {
                 result = ResultEnum::InsufficientOctet;
                 return 0;
             }
 
-            elem_stream::provider::Transfer(
+            seq_endpoint::provider::Transfer(
                 provider, self.pulled_octets + self.pulled_octet_cnt, 1, 1, 1);
 
             ++self.pulled_octet_cnt;
@@ -407,7 +251,7 @@ constexpr utf8::Decoder::ResultEnum utf8::Decoder::Decode(this Decoder& self,
     case 2: codepoint -= 0b1100'0000; break;
     case 3: codepoint -= 0b1110'0000; break;
     case 4: codepoint -= 0b1111'0000; break;
-    default: ZETA_Core_Unreachable();
+    default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 
     for (unsigned i{ 1 }; i < level; ++i) {
@@ -442,26 +286,25 @@ constexpr utf8::Decoder::ResultEnum utf8::Decoder::Decode(this Decoder& self,
     return ResultEnum::Success;
 }
 
-template <elem_stream::acceptor::IsAcceptor Acceptor>
-constexpr bool utf8::Decoder::Push(this Decoder& self, Acceptor&& acceptor) {
+template <seq_endpoint::acceptor::IsAcceptor Acceptor>
+constexpr bool utf8::Decoder::Pull(this Decoder& self, Acceptor&& acceptor) {
     detail::CheckDecoder_(self);
 
-    if (!self.has_decoded_codepoint || elem_stream::acceptor::IsEnd(acceptor)) {
+    if (!self.has_decoded_codepoint || seq_endpoint::acceptor::IsEnd(acceptor)) {
         return false;
     }
 
-    elem_stream::acceptor::Transfer(acceptor, &self.decoded_codepoint,
-                                    sizeof(unicode::unichar_t),
-                                    sizeof(unicode::unichar_t), 1);
+    seq_endpoint::acceptor::Transfer(acceptor, &self.decoded_codepoint,
+                           sizeof(unicode::unichar_t),
+                           sizeof(unicode::unichar_t), 1);
 
     self.has_decoded_codepoint = false;
 
     return true;
 }
 
-template <elem_stream::provider::IsProvider Provider,
-          elem_stream::acceptor::IsAcceptor Acceptor>
-constexpr bool utf8::Decoder::DecodeAndPush(this Decoder& self,
+template <seq_endpoint::provider::IsProvider Provider, seq_endpoint::acceptor::IsAcceptor Acceptor>
+constexpr bool utf8::Decoder::DecodeAndPull(this Decoder& self,
                                             Provider&& provider,
                                             Acceptor&& acceptor) {
     bool any_progress{ false };
@@ -470,7 +313,7 @@ constexpr bool utf8::Decoder::DecodeAndPush(this Decoder& self,
     bool decode_progress{ true };
 
     for (;;) {
-        push_progress = self.Push(acceptor);
+        push_progress = self.Pull(acceptor);
         any_progress |= push_progress;
         if (!push_progress && !decode_progress) { break; }
 

@@ -2,7 +2,7 @@
 
 #include <zeta/core/circular_array.hpp>
 #include <zeta/core/circular_array.ipp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
@@ -14,45 +14,45 @@ namespace zeta::core {
 constexpr void seg_utils::SegShoveL(circular_array::Cntr& l_ca,
                                     circular_array::Cntr& r_ca,
                                     size_t shove_cnt) {
-    ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(l_ca.elem_size == r_ca.elem_size);
 
     size_t l_vac{ l_ca.slot_cnt - l_ca.elem_cnt };
 
-    ZETA_Core_DebugAssert(shove_cnt <= l_vac);
-    ZETA_Core_DebugAssert(shove_cnt <= r_ca.elem_cnt);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(shove_cnt <= l_vac);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(shove_cnt <= r_ca.elem_cnt);
 
     if (shove_cnt == 0) { return; }
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    seq_cntr::PushR(l_ca, shove_cnt, elem_stream::provider::EmptyProvider{},
+    seq_cntr::PushR(l_ca, shove_cnt, seq_endpoint::provider::EmptyProvider{},
                     nullptr);
 
     l_ca.AssignFromCircularArray(l_elem_cnt, r_ca, 0, shove_cnt);
 
-    seq_cntr::PopL(r_ca, shove_cnt, elem_stream::acceptor::EmptyAcceptor{});
+    seq_cntr::PopL(r_ca, shove_cnt, seq_endpoint::acceptor::EmptyAcceptor{});
 }
 
 constexpr void seg_utils::SegShoveR(circular_array::Cntr& l_ca,
                                     circular_array::Cntr& r_ca,
                                     size_t shove_cnt) {
-    ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(l_ca.elem_size == r_ca.elem_size);
 
     size_t r_vac{ r_ca.slot_cnt - r_ca.elem_cnt };
 
-    ZETA_Core_DebugAssert(shove_cnt <= r_vac);
-    ZETA_Core_DebugAssert(shove_cnt <= l_ca.elem_cnt);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(shove_cnt <= r_vac);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(shove_cnt <= l_ca.elem_cnt);
 
     if (shove_cnt == 0) { return; }
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    seq_cntr::PushL(r_ca, shove_cnt, elem_stream::provider::EmptyProvider{},
+    seq_cntr::PushL(r_ca, shove_cnt, seq_endpoint::provider::EmptyProvider{},
                     nullptr);
 
     r_ca.AssignFromCircularArray(0, l_ca, l_elem_cnt - shove_cnt, shove_cnt);
 
-    seq_cntr::PopR(l_ca, shove_cnt, elem_stream::acceptor::EmptyAcceptor{});
+    seq_cntr::PopR(l_ca, shove_cnt, seq_endpoint::acceptor::EmptyAcceptor{});
 }
 
 template <typename Writer>
@@ -60,16 +60,18 @@ constexpr void seg_utils::SegInsertShoveL(circular_array::Cntr& l_ca,
                                           circular_array::Cntr& r_ca,
                                           size_t rl_cnt, size_t ins_cnt,
                                           size_t shove_cnt, Writer& writer) {
-    ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(l_ca.elem_size == r_ca.elem_size);
 
     size_t l_vac{ l_ca.slot_cnt - l_ca.elem_cnt };
     size_t r_vac{ r_ca.slot_cnt - r_ca.elem_cnt };
 
-    ZETA_Core_DebugAssert(rl_cnt <= r_ca.elem_cnt);
-    ZETA_Core_DebugAssert(ins_cnt <= l_vac + r_vac);
-    ZETA_Core_DebugAssert(shove_cnt <= l_vac);
-    ZETA_Core_DebugAssert(shove_cnt <= r_ca.elem_cnt + ins_cnt);
-    ZETA_Core_DebugAssert(r_ca.elem_cnt + ins_cnt - shove_cnt <= r_ca.slot_cnt);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(rl_cnt <= r_ca.elem_cnt);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(ins_cnt <= l_vac + r_vac);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(shove_cnt <= l_vac);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(shove_cnt <=
+                                            r_ca.elem_cnt + ins_cnt);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        r_ca.elem_cnt + ins_cnt - shove_cnt <= r_ca.slot_cnt);
 
     if (ins_cnt == 0 && shove_cnt == 0) { return; }
 
@@ -79,7 +81,7 @@ constexpr void seg_utils::SegInsertShoveL(circular_array::Cntr& l_ca,
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    seq_cntr::PushR(l_ca, shove_cnt, elem_stream::provider::EmptyProvider{},
+    seq_cntr::PushR(l_ca, shove_cnt, seq_endpoint::provider::EmptyProvider{},
                     nullptr);
 
     if (0 < cnt_a) { l_ca.AssignFromCircularArray(l_elem_cnt, r_ca, 0, cnt_a); }
@@ -91,7 +93,8 @@ constexpr void seg_utils::SegInsertShoveL(circular_array::Cntr& l_ca,
                                      cnt_c);
     }
 
-    seq_cntr::PopL(r_ca, cnt_a + cnt_c, elem_stream::acceptor::EmptyAcceptor{});
+    seq_cntr::PopL(r_ca, cnt_a + cnt_c,
+                   seq_endpoint::acceptor::EmptyAcceptor{});
 
     if (0 < ins_cnt - cnt_b) {
         r_ca.IdxInsert(rl_cnt - cnt_a, ins_cnt - cnt_b, writer);
@@ -103,16 +106,18 @@ constexpr void seg_utils::SegInsertShoveR(circular_array::Cntr& l_ca,
                                           circular_array::Cntr& r_ca,
                                           size_t lr_cnt, size_t ins_cnt,
                                           size_t shove_cnt, Writer& writer) {
-    ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(l_ca.elem_size == r_ca.elem_size);
 
     size_t l_vac{ l_ca.slot_cnt - l_ca.elem_cnt };
     size_t r_vac{ r_ca.slot_cnt - r_ca.elem_cnt };
 
-    ZETA_Core_DebugAssert(lr_cnt <= l_ca.elem_cnt);
-    ZETA_Core_DebugAssert(ins_cnt <= l_vac + r_vac);
-    ZETA_Core_DebugAssert(shove_cnt <= r_vac);
-    ZETA_Core_DebugAssert(shove_cnt <= l_ca.elem_cnt + ins_cnt);
-    ZETA_Core_DebugAssert(l_ca.elem_cnt + ins_cnt - shove_cnt <= l_ca.slot_cnt);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(lr_cnt <= l_ca.elem_cnt);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(ins_cnt <= l_vac + r_vac);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(shove_cnt <= r_vac);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(shove_cnt <=
+                                            l_ca.elem_cnt + ins_cnt);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        l_ca.elem_cnt + ins_cnt - shove_cnt <= l_ca.slot_cnt);
 
     if (ins_cnt == 0 && shove_cnt == 0) { return; }
 
@@ -122,7 +127,7 @@ constexpr void seg_utils::SegInsertShoveR(circular_array::Cntr& l_ca,
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    seq_cntr::PushL(r_ca, shove_cnt, elem_stream::provider::EmptyProvider{},
+    seq_cntr::PushL(r_ca, shove_cnt, seq_endpoint::provider::EmptyProvider{},
                     nullptr);
 
     if (0 < cnt_c) {
@@ -137,7 +142,8 @@ constexpr void seg_utils::SegInsertShoveR(circular_array::Cntr& l_ca,
                                      cnt_a);
     }
 
-    seq_cntr::PopR(l_ca, cnt_c + cnt_a, elem_stream::acceptor::EmptyAcceptor{});
+    seq_cntr::PopR(l_ca, cnt_c + cnt_a,
+                   seq_endpoint::acceptor::EmptyAcceptor{});
 
     if (0 < ins_cnt - cnt_b) {
         l_ca.IdxInsert(l_elem_cnt - lr_cnt, ins_cnt - cnt_b, writer);
@@ -149,14 +155,15 @@ constexpr void seg_utils::SegEraseShoveL(circular_array::Cntr& l_ca,
                                          circular_array::Cntr& r_ca,
                                          size_t rl_cnt, size_t ers_cnt,
                                          size_t shove_cnt, Reader&& reader) {
-    ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(l_ca.elem_size == r_ca.elem_size);
 
     size_t l_vac{ l_ca.slot_cnt - l_ca.elem_cnt };
 
-    ZETA_Core_DebugAssert(rl_cnt <= r_ca.elem_cnt);
-    ZETA_Core_DebugAssert(ers_cnt <= r_ca.elem_cnt - rl_cnt);
-    ZETA_Core_DebugAssert(shove_cnt <= l_vac);
-    ZETA_Core_DebugAssert(shove_cnt <= r_ca.elem_cnt - ers_cnt);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(rl_cnt <= r_ca.elem_cnt);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(ers_cnt <= r_ca.elem_cnt - rl_cnt);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(shove_cnt <= l_vac);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(shove_cnt <=
+                                            r_ca.elem_cnt - ers_cnt);
 
     if (ers_cnt == 0 && shove_cnt == 0) { return; }
 
@@ -166,7 +173,7 @@ constexpr void seg_utils::SegEraseShoveL(circular_array::Cntr& l_ca,
 
     size_t l_elem_cnt{ l_ca.elem_cnt };
 
-    seq_cntr::PushR(l_ca, shove_cnt, elem_stream::provider::EmptyProvider{},
+    seq_cntr::PushR(l_ca, shove_cnt, seq_endpoint::provider::EmptyProvider{},
                     nullptr);
 
     if (0 < cnt_a) { l_ca.AssignFromCircularArray(l_elem_cnt, r_ca, 0, cnt_a); }
@@ -177,12 +184,12 @@ constexpr void seg_utils::SegEraseShoveL(circular_array::Cntr& l_ca,
     }
 
     if constexpr (!meta::IsSame<meta::RemoveCVRef<Reader>,
-                                elem_stream::acceptor::EmptyAcceptor>) {
+                                seq_endpoint::acceptor::EmptyAcceptor>) {
         r_ca.IdxRead(rl_cnt, ers_cnt, reader);
     }
 
     seq_cntr::PopL(r_ca, cnt_a + cnt_b + cnt_c,
-                   elem_stream::acceptor::EmptyAcceptor{});
+                   seq_endpoint::acceptor::EmptyAcceptor{});
 }
 
 template <typename Reader>
@@ -190,14 +197,15 @@ constexpr void seg_utils::SegEraseShoveR(circular_array::Cntr& l_ca,
                                          circular_array::Cntr& r_ca,
                                          size_t lr_cnt, size_t ers_cnt,
                                          size_t shove_cnt, Reader&& reader) {
-    ZETA_Core_DebugAssert(l_ca.elem_size == r_ca.elem_size);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(l_ca.elem_size == r_ca.elem_size);
 
     size_t r_vac{ r_ca.slot_cnt - r_ca.elem_cnt };
 
-    ZETA_Core_DebugAssert(lr_cnt <= l_ca.elem_cnt);
-    ZETA_Core_DebugAssert(ers_cnt <= l_ca.elem_cnt - lr_cnt);
-    ZETA_Core_DebugAssert(shove_cnt <= r_vac);
-    ZETA_Core_DebugAssert(shove_cnt <= l_ca.elem_cnt - ers_cnt);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(lr_cnt <= l_ca.elem_cnt);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(ers_cnt <= l_ca.elem_cnt - lr_cnt);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(shove_cnt <= r_vac);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(shove_cnt <=
+                                            l_ca.elem_cnt - ers_cnt);
 
     if (ers_cnt == 0 && shove_cnt == 0) { return; }
 
@@ -205,7 +213,7 @@ constexpr void seg_utils::SegEraseShoveR(circular_array::Cntr& l_ca,
     size_t cnt_b{ ers_cnt };
     size_t cnt_c{ shove_cnt - cnt_a };
 
-    seq_cntr::PushL(r_ca, shove_cnt, elem_stream::provider::EmptyProvider{},
+    seq_cntr::PushL(r_ca, shove_cnt, seq_endpoint::provider::EmptyProvider{},
                     nullptr);
 
     if (0 < cnt_c) {
@@ -218,12 +226,12 @@ constexpr void seg_utils::SegEraseShoveR(circular_array::Cntr& l_ca,
     }
 
     if constexpr (!meta::IsSame<meta::RemoveCVRef<Reader>,
-                                elem_stream::acceptor::EmptyAcceptor>) {
+                                seq_endpoint::acceptor::EmptyAcceptor>) {
         l_ca.IdxRead(l_ca.elem_cnt - lr_cnt - ers_cnt, ers_cnt, reader);
     }
 
     seq_cntr::PopR(l_ca, cnt_a + cnt_b + cnt_c,
-                   elem_stream::acceptor::EmptyAcceptor{});
+                   seq_endpoint::acceptor::EmptyAcceptor{});
 }
 
 }  // namespace zeta::core

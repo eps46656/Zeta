@@ -6,12 +6,17 @@
 #include <zeta/core/ptr_utils.hpp>
 #include <zeta/core/rbtree.hpp>
 
+ZETA_Core_ClangdPreambleBarrier;
+
 #pragma push_macro("NodeTplParamList")
 #define NodeTplParamList(suffix)                                        \
-    ptr_utils::IsLinkType LinkType##suffix, typename PColorTag##suffix, \
-        typename LColorTag##suffix, typename RColorTag##suffix,         \
+    ptr_utils::IsLinkType LinkType##suffix,                             \
+        meta::IsValueWrapperT<bool> PColorTag##suffix,                  \
+        meta::IsValueWrapperT<bool> LColorTag##suffix,                  \
+        meta::IsValueWrapperT<bool> RColorTag##suffix,                  \
         typename AccSizeTag##suffix,                                    \
-        basic_bin_tree_node::PrimaryColorTagEnum PrimaryColorTag##suffix
+        meta::IsValueWrapperT<basic_bin_tree_node::PrimaryColorTagEnum> \
+            PrimaryColorTag##suffix
 
 #pragma push_macro("NodeTplArgList")
 #define NodeTplArgList(suffix)                                                 \
@@ -28,18 +33,11 @@ enum struct PrimaryColorTagEnum : unsigned char {
 };
 
 template <NodeTplParamList(_)>
-struct Node0 {
-    ZETA_Core_StaticAssert(meta::IsValueWrapperT<PColorTag_, bool>);
-    ZETA_Core_StaticAssert(meta::IsValueWrapperT<LColorTag_, bool>);
-    ZETA_Core_StaticAssert(meta::IsValueWrapperT<RColorTag_, bool>);
-};
-
-template <NodeTplParamList(_)>
-struct Node1;
+struct NodeBase;
 
 template <NodeTplParamList()>
     requires(!AccSizeTag::value)
-struct Node1<NodeTplArgList()> : public Node0<NodeTplArgList()> {
+struct NodeBase<NodeTplArgList()> {
     ptr_utils::AugPtrTpl<LinkType, PColorTag> p;
     ptr_utils::AugPtrTpl<LinkType, LColorTag> l;
     ptr_utils::AugPtrTpl<LinkType, RColorTag> r;
@@ -47,7 +45,7 @@ struct Node1<NodeTplArgList()> : public Node0<NodeTplArgList()> {
 
 template <NodeTplParamList()>
     requires(AccSizeTag::value)
-struct Node1<NodeTplArgList()> : public Node0<NodeTplArgList()> {
+struct NodeBase<NodeTplArgList()> {
     ptr_utils::AugPtrTpl<LinkType, PColorTag> p;
     ptr_utils::AugPtrTpl<LinkType, LColorTag> l;
     ptr_utils::AugPtrTpl<LinkType, RColorTag> r;
@@ -55,23 +53,32 @@ struct Node1<NodeTplArgList()> : public Node0<NodeTplArgList()> {
 };
 
 template <NodeTplParamList(_)>
-struct Node : public Node1<NodeTplArgList(_)> {
+struct Node : public NodeBase<NodeTplArgList(_)> {
     using LinkType = LinkType_;
     using PColorTag = PColorTag_;
     using LColorTag = LColorTag_;
     using RColorTag = RColorTag_;
     using AccSizeTag = AccSizeTag_;
+    using PrimaryColorTag = PrimaryColorTag_;
 
-    static constexpr PrimaryColorTagEnum PrimaryColorTag{ PrimaryColorTag_ };
-
-    static constexpr bool IsRelLink{
-        ptr_utils::AugPtrTpl<LinkType, PColorTag>::IsRelLink
+    static constexpr PrimaryColorTagEnum primary_color{
+        PrimaryColorTag::value
     };
 
-    constexpr void Init()
+    static constexpr bool has_priomary_color{
+        primary_color == PrimaryColorTagEnum::P ||
+        primary_color == PrimaryColorTagEnum::L ||
+        primary_color == PrimaryColorTagEnum::R
+    };
+
+    static constexpr bool is_rel_link{
+        ptr_utils::AugPtrTpl<LinkType, PColorTag>::is_rel_link
+    };
+
+    constexpr void Construct(this Node& self)
         requires(!AccSizeTag::value);
 
-    constexpr void Init(size_t acc_size)
+    constexpr void Construct(this Node& self, size_t acc_size)
         requires AccSizeTag::value;
 
     static constexpr bool IsConst(bin_tree::Tag, meta::TypeWrapper<Node>);
@@ -91,49 +98,48 @@ struct Node : public Node1<NodeTplArgList(_)> {
                                            meta::TypeWrapper<Node const>)
         requires AccSizeTag::value;
 
-    constexpr Node* GetPPtr();
-    constexpr Node* GetLPtr();
-    constexpr Node* GetRPtr();
+    constexpr Node* GetPPtr(this Node& self);
+    constexpr Node* GetLPtr(this Node& self);
+    constexpr Node* GetRPtr(this Node& self);
 
-    constexpr Node* GetP(bin_tree::Tag);
-    constexpr Node* GetL(bin_tree::Tag);
-    constexpr Node* GetR(bin_tree::Tag);
+    constexpr Node* GetP(this Node& self, bin_tree::Tag);
+    constexpr Node* GetL(this Node& self, bin_tree::Tag);
+    constexpr Node* GetR(this Node& self, bin_tree::Tag);
 
-    constexpr Node const* GetPPtr() const;
-    constexpr Node const* GetLPtr() const;
-    constexpr Node const* GetRPtr() const;
+    constexpr Node const* GetPPtr(this Node const& self);
+    constexpr Node const* GetLPtr(this Node const& self);
+    constexpr Node const* GetRPtr(this Node const& self);
 
-    constexpr Node const* GetP(bin_tree::Tag) const;
-    constexpr Node const* GetL(bin_tree::Tag) const;
-    constexpr Node const* GetR(bin_tree::Tag) const;
+    constexpr Node const* GetP(this Node const& self, bin_tree::Tag);
+    constexpr Node const* GetL(this Node const& self, bin_tree::Tag);
+    constexpr Node const* GetR(this Node const& self, bin_tree::Tag);
 
-    constexpr unsigned GetPColor() const;
-    constexpr unsigned GetLColor() const;
-    constexpr unsigned GetRColor() const;
+    constexpr unsigned GetPColor(this Node const& self);
+    constexpr unsigned GetLColor(this Node const& self);
+    constexpr unsigned GetRColor(this Node const& self);
 
-    constexpr unsigned GetColor(rbtree::Tag) const;
+    constexpr unsigned GetColor(this Node const& self, rbtree::Tag)
+        requires has_priomary_color;
 
-    constexpr void SetPPtr(Node* m);
-    constexpr void SetLPtr(Node* m);
-    constexpr void SetRPtr(Node* m);
+    constexpr void SetPPtr(this Node& self, Node* m);
+    constexpr void SetLPtr(this Node& self, Node* m);
+    constexpr void SetRPtr(this Node& self, Node* m);
 
-    constexpr void SetP(bin_tree::Tag, Node* m);
-    constexpr void SetL(bin_tree::Tag, Node* m);
-    constexpr void SetR(bin_tree::Tag, Node* m);
+    constexpr void SetP(this Node& self, bin_tree::Tag, Node* m);
+    constexpr void SetL(this Node& self, bin_tree::Tag, Node* m);
+    constexpr void SetR(this Node& self, bin_tree::Tag, Node* m);
 
-    constexpr void SetPColor(unsigned color);
-    constexpr void SetLColor(unsigned color);
-    constexpr void SetRColor(unsigned color);
+    constexpr void SetPColor(this Node& self, unsigned color);
+    constexpr void SetLColor(this Node& self, unsigned color);
+    constexpr void SetRColor(this Node& self, unsigned color);
 
-    constexpr void SetColor(rbtree::Tag, unsigned color)
-        requires(PrimaryColorTag == PrimaryColorTagEnum::P ||
-                 PrimaryColorTag == PrimaryColorTagEnum::L ||
-                 PrimaryColorTag == PrimaryColorTagEnum::R);
+    constexpr void SetColor(this Node& self, rbtree::Tag, unsigned color)
+        requires has_priomary_color;
 
-    constexpr size_t GetAccSize(bin_tree::Tag) const
+    constexpr size_t GetAccSize(this Node const& self, bin_tree::Tag)
         requires AccSizeTag::value;
 
-    constexpr void SetAccSize(bin_tree::Tag, size_t acc_size)
+    constexpr void SetAccSize(this Node& self, bin_tree::Tag, size_t acc_size)
         requires AccSizeTag::value;
 };
 

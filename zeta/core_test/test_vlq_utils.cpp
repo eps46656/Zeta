@@ -1,6 +1,6 @@
 #include <zeta/core/integral_endec.ipp>
 #include <zeta/core/integral_math.ipp>
-#include <zeta/core/lin_seq_elem_stream.ipp>
+#include <zeta/core/lin_seq_endpoint.ipp>
 #include <zeta/core/vlq_utils.ipp>
 #include <zeta/core_test/random.hpp>
 
@@ -49,7 +49,7 @@ inline Integral GenIntegral() {
 
 template <typename Integral>
 inline Integral GenIntegralMax() {
-    ZETA_Core_StaticAssert(zeta::core::integral::IsIntegral<Integral>);
+    static_assert(zeta::core::integral::IsIntegral<Integral>);
 
     constexpr bool signedness{
         zeta::core::integral::IsSignedIntegral<Integral>
@@ -66,7 +66,7 @@ inline Integral GenIntegralMax() {
 
 template <typename Integral>
 inline Integral GenIntegralMin() {
-    ZETA_Core_StaticAssert(zeta::core::integral::IsIntegral<Integral>);
+    static_assert(zeta::core::integral::IsIntegral<Integral>);
 
     constexpr bool signedness{
         zeta::core::integral::IsSignedIntegral<Integral>
@@ -94,35 +94,35 @@ inline Integral GenIntegralMin() {
 template <typename RangeIntegral, char Endianness, typename IOIntegral,
           typename OIIntegral, typename DigitIntegral, size_t DigitWidth>
 inline void test_IOI(int special_value) {
-    ZETA_Core_Debug_PrintVar(
+    ZETA_Core_DebugUtils_Diag_LogVar(
         zeta::core::debug_utils::GetTypeStr<RangeIntegral>());
-    ZETA_Core_Debug_PrintVar(zeta::core::debug_utils::GetTypeStr<IOIntegral>());
-    ZETA_Core_Debug_PrintVar(zeta::core::debug_utils::GetTypeStr<OIIntegral>());
+    ZETA_Core_DebugUtils_Diag_LogVar(
+        zeta::core::debug_utils::GetTypeStr<IOIntegral>());
+    ZETA_Core_DebugUtils_Diag_LogVar(
+        zeta::core::debug_utils::GetTypeStr<OIIntegral>());
 
     constexpr size_t buffer_cnt{ 256 };
     DigitIntegral buffer[buffer_cnt];
 
-    ZETA_Core_StaticAssert(zeta::core::integral::IsIntegral<RangeIntegral>);
-    ZETA_Core_StaticAssert(zeta::core::integral::IsIntegral<IOIntegral>);
-    ZETA_Core_StaticAssert(zeta::core::integral::IsIntegral<OIIntegral>);
+    static_assert(zeta::core::integral::IsIntegral<RangeIntegral>);
+    static_assert(zeta::core::integral::IsIntegral<IOIntegral>);
+    static_assert(zeta::core::integral::IsIntegral<OIIntegral>);
 
-    ZETA_Core_StaticAssert(
-        zeta::core::integral::IsUnsignedIntegral<RangeIntegral> ==
-        zeta::core::integral::IsUnsignedIntegral<IOIntegral>);
+    static_assert(zeta::core::integral::IsUnsignedIntegral<RangeIntegral> ==
+                  zeta::core::integral::IsUnsignedIntegral<IOIntegral>);
 
-    ZETA_Core_StaticAssert(
-        zeta::core::integral::IsUnsignedIntegral<RangeIntegral> ==
-        zeta::core::integral::IsUnsignedIntegral<OIIntegral>);
+    static_assert(zeta::core::integral::IsUnsignedIntegral<RangeIntegral> ==
+                  zeta::core::integral::IsUnsignedIntegral<OIIntegral>);
 
-    ZETA_Core_StaticAssert(zeta::core::integral::WidthOf<RangeIntegral> <=
-                           zeta::core::integral::WidthOf<IOIntegral>);
+    static_assert(zeta::core::integral::WidthOf<RangeIntegral> <=
+                  zeta::core::integral::WidthOf<IOIntegral>);
 
     zeta::core::integral_endec::Endianness endianness;
 
     switch (Endianness) {
     case LE: endianness = zeta::core::integral_endec::Endianness::Little; break;
     case BE: endianness = zeta::core::integral_endec::Endianness::Big; break;
-    default: ZETA_Core_Unreachable();
+    default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 
     IOIntegral io_val;
@@ -162,17 +162,17 @@ inline void test_IOI(int special_value) {
             GenIntegral<RangeIntegral, DigitIntegral>());
         break;
 
-    default: ZETA_Core_Unreachable();
+    default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 
     OIIntegral should_oi_val{ static_cast<OIIntegral>(io_val) };
 
-    ZETA_Core_Debug_PrintVar(io_val);
-    ZETA_Core_Debug_PrintVar(
+    ZETA_Core_DebugUtils_Diag_LogVar(io_val);
+    ZETA_Core_DebugUtils_Diag_LogVar(
         static_cast<zeta::core::integral::MakeUnsignedOf<decltype(io_val)>>(
             io_val));
-    ZETA_Core_Debug_PrintVar(should_oi_val);
-    ZETA_Core_Debug_PrintVar(
+    ZETA_Core_DebugUtils_Diag_LogVar(should_oi_val);
+    ZETA_Core_DebugUtils_Diag_LogVar(
         static_cast<
             zeta::core::integral::MakeUnsignedOf<decltype(should_oi_val)>>(
             should_oi_val));
@@ -183,7 +183,7 @@ inline void test_IOI(int special_value) {
     bool no_lossy_oi;
 
     {
-        auto mem_reader{ zeta::core::lin_seq_elem_stream::Acceptor{
+        auto mem_reader{ zeta::core::lin_seq_endpoint::acceptor::Acceptor{
             .data = buffer,
             .elem_size = sizeof(DigitIntegral),
             .elem_stride = sizeof(DigitIntegral),
@@ -209,31 +209,31 @@ inline void test_IOI(int special_value) {
 
         no_lossy_io = true;
 
-        ZETA_Core_Debug_PrintVar(
+        ZETA_Core_DebugUtils_Diag_LogVar(
             static_cast<DigitIntegral const*>(mem_reader.data) - buffer);
 
-        ZETA_Core_DebugAssert(no_lossy_io);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(no_lossy_io);
     }
 
-    ZETA_Core_Debug_PrintVar(buffer[0]);
-    ZETA_Core_Debug_PrintVar(buffer[1]);
-    ZETA_Core_Debug_PrintVar(buffer[2]);
-    ZETA_Core_Debug_PrintVar(buffer[3]);
-    ZETA_Core_Debug_PrintVar(buffer[4]);
-    ZETA_Core_Debug_PrintVar(buffer[5]);
-    ZETA_Core_Debug_PrintVar(buffer[6]);
-    ZETA_Core_Debug_PrintVar(buffer[7]);
-    ZETA_Core_Debug_PrintVar(buffer[8]);
-    ZETA_Core_Debug_PrintVar(buffer[9]);
-    ZETA_Core_Debug_PrintVar(buffer[10]);
-    ZETA_Core_Debug_PrintVar(buffer[11]);
-    ZETA_Core_Debug_PrintVar(buffer[12]);
-    ZETA_Core_Debug_PrintVar(buffer[13]);
-    ZETA_Core_Debug_PrintVar(buffer[14]);
-    ZETA_Core_Debug_PrintVar(buffer[15]);
+    ZETA_Core_DebugUtils_Diag_LogVar(buffer[0]);
+    ZETA_Core_DebugUtils_Diag_LogVar(buffer[1]);
+    ZETA_Core_DebugUtils_Diag_LogVar(buffer[2]);
+    ZETA_Core_DebugUtils_Diag_LogVar(buffer[3]);
+    ZETA_Core_DebugUtils_Diag_LogVar(buffer[4]);
+    ZETA_Core_DebugUtils_Diag_LogVar(buffer[5]);
+    ZETA_Core_DebugUtils_Diag_LogVar(buffer[6]);
+    ZETA_Core_DebugUtils_Diag_LogVar(buffer[7]);
+    ZETA_Core_DebugUtils_Diag_LogVar(buffer[8]);
+    ZETA_Core_DebugUtils_Diag_LogVar(buffer[9]);
+    ZETA_Core_DebugUtils_Diag_LogVar(buffer[10]);
+    ZETA_Core_DebugUtils_Diag_LogVar(buffer[11]);
+    ZETA_Core_DebugUtils_Diag_LogVar(buffer[12]);
+    ZETA_Core_DebugUtils_Diag_LogVar(buffer[13]);
+    ZETA_Core_DebugUtils_Diag_LogVar(buffer[14]);
+    ZETA_Core_DebugUtils_Diag_LogVar(buffer[15]);
 
     {
-        auto mem_writer{ zeta::core::lin_seq_elem_stream::Provider{
+        auto mem_writer{ zeta::core::lin_seq_endpoint::provider::Provider{
             .data = buffer,
             .elem_size = sizeof(DigitIntegral),
             .elem_stride = sizeof(DigitIntegral),
@@ -258,16 +258,17 @@ inline void test_IOI(int special_value) {
         no_lossy_oi = !decode_result.value_out_of_range;
         oi_val = decode_result.value;
 
-        ZETA_Core_Debug_PrintVar(oi_val);
-        ZETA_Core_Debug_PrintVar(should_oi_val);
+        ZETA_Core_DebugUtils_Diag_LogVar(oi_val);
+        ZETA_Core_DebugUtils_Diag_LogVar(should_oi_val);
 
-        ZETA_Core_DebugAssert(ZETA_Core_Debug_PrintVar(oi_val) ==
-                              ZETA_Core_Debug_PrintVar(should_oi_val));
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(
+            ZETA_Core_DebugUtils_Diag_LogVar(oi_val) ==
+            ZETA_Core_DebugUtils_Diag_LogVar(should_oi_val));
 
         if (io_val == oi_val) {
-            ZETA_Core_DebugAssert(no_lossy_oi);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(no_lossy_oi);
         } else {
-            ZETA_Core_DebugAssert(!no_lossy_oi);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(!no_lossy_oi);
         }
     }
 
@@ -305,16 +306,16 @@ inline void main1() {
     unsigned seed{ random_seed };
     // unsigned seed{ fixed_seed };
 
-    ZETA_Core_PrintCurPos;
+    ZETA_Core_DebugUtils_Logging_ImmLogCurPos();
 
-    ZETA_Core_PrintVar(random_seed);
-    ZETA_Core_PrintVar(fixed_seed);
-    ZETA_Core_PrintVar(seed);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(random_seed);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(fixed_seed);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(seed);
 
     zeta::core_test::SetRandomSeed(seed);
 
     for (size_t i{ 0 }; i < 1024 * 128; ++i) {
-        if (i % 1024 == 0) { ZETA_Core_PrintVar(i / 1024); }
+        if (i % 1024 == 0) { ZETA_Core_DebugUtils_Logging_ImmLogVar(i / 1024); }
 
         for (int special_value{ i == 0 ? SPECIAL_VALUE_RANGE_MIN
                                        : SPECIAL_VALUE_RANGE_RANDOM };
@@ -431,7 +432,7 @@ inline void main1() {
 
 int main() {
     main1();
-    ZETA_Core_PrintVar("ok");
+    ZETA_Core_DebugUtils_Logging_ImmLogVar("ok");
 
     return 0;
 }

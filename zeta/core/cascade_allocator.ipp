@@ -1,5 +1,5 @@
 #include <zeta/core/cascade_allocator.hpp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/llist.ipp>
 #include <zeta/core/llist_node_tpl.ipp>
 #include <zeta/core/utils.ipp>
@@ -8,10 +8,10 @@ namespace zeta::core {
 
 void CascadeAllocator::Init(void* ca_) {
     auto ca{ static_cast<CascadeAllocator*>(ca_) };
-    ZETA_Core_DebugAssert(CheckAllocator(ca));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(CheckAllocator(ca));
 
     size_t align{ ca->align };
-    ZETA_Core_DebugAssert(0 < align);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < align);
 
     align = LCM(alignof(LListNode), align);
 
@@ -21,11 +21,11 @@ void CascadeAllocator::Init(void* ca_) {
         __builtin_align_up(mem + sizeof(LListNode), align)) };
     char* mem_end{ static_cast<char*>(mem + ca->size) };
 
-    ZETA_Core_DebugAssert(mem_beg <= mem_end);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(mem_beg <= mem_end);
 
     size_t size{ static_cast<size_t>(mem_end - mem_beg) };
 
-    ZETA_Core_DebugAssert(sizeof(void*) * 1024 <= size);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(sizeof(void*) * 1024 <= size);
 
     LListNode* last_node{ reinterpret_cast<LListNode*>(mem_beg) - 1 };
 
@@ -41,14 +41,14 @@ void CascadeAllocator::Init(void* ca_) {
 
 size_t CascadeAllocator::GetAlign(void const* ca_) {
     auto ca{ static_cast<CascadeAllocator const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckAllocator(ca));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(CheckAllocator(ca));
 
     return ca->align;
 }
 
 size_t CascadeAllocator::Query(void const* ca_, size_t size) {
     auto ca{ static_cast<CascadeAllocator const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckAllocator(ca));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(CheckAllocator(ca));
 
     size_t align{ ca->align };
 
@@ -57,7 +57,7 @@ size_t CascadeAllocator::Query(void const* ca_, size_t size) {
 
 void* CascadeAllocator::Allocate(void* ca_, size_t size) {
     auto ca{ static_cast<CascadeAllocator*>(ca_) };
-    ZETA_Core_DebugAssert(CheckAllocator(ca));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(CheckAllocator(ca));
 
     if (size == 0) { return nullptr; }
 
@@ -86,7 +86,7 @@ void* CascadeAllocator::Allocate(void* ca_, size_t size) {
 
 void CascadeAllocator::Deallocate(void* ca_, void* ptr) {
     auto ca{ static_cast<CascadeAllocator*>(ca_) };
-    ZETA_Core_DebugAssert(CheckAllocator(ca));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(CheckAllocator(ca));
 
     if (ptr == nullptr) { return; }
 
@@ -129,7 +129,7 @@ bool CascadeAllocator::CheckAllocator(void const* ca_) {
 
 allocator::PolyAllocator CascadeAllocator::GetAlloccatorRef(void* ca_) {
     auto ca{ reinterpret_cast<CascadeAllocator*>(ca_) };
-    ZETA_Core_DebugAssert(CheckAllocator(ca));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(CheckAllocator(ca));
 
     return {
         .inst = ca,
@@ -141,7 +141,7 @@ allocator::PolyAllocator CascadeAllocator::GetAlloccatorRef(void* ca_) {
 allocator::ConstAllocatorRef CascadeAllocator::GetAlloccatorRef(
     void const* ca_) {
     auto ca{ reinterpret_cast<CascadeAllocator const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckAllocator(ca));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(CheckAllocator(ca));
 
     return {
         .inst = ca,
@@ -152,7 +152,7 @@ allocator::ConstAllocatorRef CascadeAllocator::GetAlloccatorRef(
 
 void CascadeAllocator::Sanitize(void const* ca_, MemRecorder* dst) {
     auto ca{ reinterpret_cast<CascadeAllocator const*>(ca_) };
-    ZETA_Core_DebugAssert(CheckAllocator(ca));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(CheckAllocator(ca));
 
     char* mem_beg{ static_cast<char*>(ca->mem) };
     char* mem_end{ static_cast<char*>(ca->mem) + ca->size };
@@ -161,25 +161,26 @@ void CascadeAllocator::Sanitize(void const* ca_, MemRecorder* dst) {
 
     LListNode* last_node{ ca->last_node };
 
-    ZETA_Core_DebugAssert(
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
         mem_beg - sizeof(LListNode) * 1 <= reinterpret_cast<char*>(last_node) &&
         reinterpret_cast<char*>(last_node) + sizeof(LListNode) <= mem_end);
 
     if (last_node->GetRPtr() == last_node) {
-        ZETA_Core_DebugAssert(reinterpret_cast<LListNode*>(
-                                  mem_beg - sizeof(LListNode)) == last_node);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(
+            reinterpret_cast<LListNode*>(mem_beg - sizeof(LListNode)) ==
+            last_node);
     }
 
     for (LListNode* node{ last_node };;) {
         LListNode* prv_node{ node->GetLPtr() };
-        ZETA_Core_DebugAssert(prv_node->GetRPtr() == node);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(prv_node->GetRPtr() == node);
 
         if (prv_node == last_node) { break; }
 
-        ZETA_Core_DebugAssert(
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(
             __builtin_is_aligned(reinterpret_cast<char*>(node), align));
 
-        ZETA_Core_DebugAssert(
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(
             mem_beg - sizeof(LListNode) * 1 <=
                 reinterpret_cast<char*>(prv_node) &&
             reinterpret_cast<char*>(prv_node) + sizeof(LListNode) <= mem_end);
@@ -187,7 +188,8 @@ void CascadeAllocator::Sanitize(void const* ca_, MemRecorder* dst) {
         auto del{ reinterpret_cast<char*>(node) -
                   reinterpret_cast<char*>(prv_node) };
 
-        ZETA_Core_DebugAssert(static_cast<long long>(sizeof(LListNode)) < del);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(
+            static_cast<long long>(sizeof(LListNode)) < del);
 
         if (dst != nullptr) {
             MemRecorder::Record(dst, prv_node + 1, static_cast<size_t>(del));

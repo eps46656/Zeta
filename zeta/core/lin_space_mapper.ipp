@@ -3,7 +3,7 @@
 #include <zeta/core/allocator.ipp>
 #include <zeta/core/basic_bin_tree_node.ipp>
 #include <zeta/core/bin_tree.ipp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/lin_space_mapper.hpp>
 #include <zeta/core/rbtree.ipp>
 
@@ -21,7 +21,7 @@ template <MapperTplParamList>
 void CheckMapper_(Mapper<MapperTplArgList> const&) {}
 
 inline Seg* NToSeg_(Node* n) {
-    ZETA_Core_DebugAssert(n != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
     return ZETA_Core_MemberToStruct(Seg, n, n);
 }
 
@@ -74,12 +74,14 @@ void lin_space_mapper::Deinit(Mapper<MapperTplArgList>& mapper) {
         detail::DeallocateSeg_(meta::GetInstRef(mapper.seg_alctr), seg);
 
         if (nl != nullptr) {
-            ZETA_Core_DebugAssert(buffer_size < buffer_capacity);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(buffer_size <
+                                                    buffer_capacity);
             buffer[buffer_size++] = detail::NToSeg_(nl);
         }
 
         if (nr != nullptr) {
-            ZETA_Core_DebugAssert(buffer_size < buffer_capacity);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(buffer_size <
+                                                    buffer_capacity);
             buffer[buffer_size++] = detail::NToSeg_(nr);
         }
     }
@@ -112,7 +114,7 @@ pair::Pair<bool, unsigned long long> lin_space_mapper::LookUp(
         seg = detail::NToSeg_(nr);
     }
 
-    ZETA_Core_Unreachable();
+    ZETA_Core_DebugUtils_Diag_Unreachable();
 }
 
 template <MapperTplParamList>
@@ -234,51 +236,54 @@ void lin_space_mapper::SetSeg(Mapper<MapperTplArgList>& mapper,
         return;
     }
 
-EAT: {
-    unsigned long long l_seg_src_beg{ l_seg->src_beg };
-    unsigned long long l_seg_size{ l_seg->size };
-    unsigned long long l_seg_src_end{ l_seg_src_beg + l_seg_size };
-    unsigned long long l_seg_offset{ l_seg->dst_beg - l_seg_src_beg };
+EAT:
+    {
+        unsigned long long l_seg_src_beg{ l_seg->src_beg };
+        unsigned long long l_seg_size{ l_seg->size };
+        unsigned long long l_seg_src_end{ l_seg_src_beg + l_seg_size };
+        unsigned long long l_seg_offset{ l_seg->dst_beg - l_seg_src_beg };
 
-    for (;;) {
-        if (r_seg == nullptr) { break; }
+        for (;;) {
+            if (r_seg == nullptr) { break; }
 
-        unsigned long long r_seg_src_beg{ r_seg->src_beg };
-        unsigned long long r_seg_size{ r_seg->size };
-        unsigned long long r_seg_src_end{ r_seg_src_beg + r_seg_size };
+            unsigned long long r_seg_src_beg{ r_seg->src_beg };
+            unsigned long long r_seg_size{ r_seg->size };
+            unsigned long long r_seg_src_end{ r_seg_src_beg + r_seg_size };
 
-        if (r_seg_src_end <= l_seg_src_end) {
-            mapper.root = ({
-                Node* new_root_n{ rbtree::Extract(&r_seg->n) };
-                new_root_n == nullptr ? nullptr : detail::NToSeg_(new_root_n);
-            });
-            detail::DeallocateSeg_(seg_alctr, r_seg);
-            Node* rn{ bin_tree::StepR(&l_seg->n) };
-            if (rn == nullptr) { break; }
-            r_seg = detail::NToSeg_(rn);
-            continue;
+            if (r_seg_src_end <= l_seg_src_end) {
+                mapper.root = ({
+                    Node* new_root_n{ rbtree::Extract(&r_seg->n) };
+                    new_root_n == nullptr ? nullptr
+                                          : detail::NToSeg_(new_root_n);
+                });
+                detail::DeallocateSeg_(seg_alctr, r_seg);
+                Node* rn{ bin_tree::StepR(&l_seg->n) };
+                if (rn == nullptr) { break; }
+                r_seg = detail::NToSeg_(rn);
+                continue;
+            }
+
+            if (l_seg_src_end < r_seg_src_beg) { break; }
+
+            unsigned long long r_seg_offset{ r_seg->dst_beg - r_seg_src_beg };
+
+            if (l_seg_offset == r_seg_offset) {
+                l_seg->size = r_seg_src_end - l_seg_src_beg;
+                mapper.root = ({
+                    Node* new_root_n{ rbtree::Extract(&r_seg->n) };
+                    new_root_n == nullptr ? nullptr
+                                          : detail::NToSeg_(new_root_n);
+                });
+                detail::DeallocateSeg_(seg_alctr, r_seg);
+            } else {
+                r_seg->src_beg = l_seg_src_end;
+                r_seg->dst_beg += l_seg_src_end - r_seg_src_beg;
+                r_seg->size = r_seg_src_end - l_seg_src_end;
+            }
+
+            break;
         }
-
-        if (l_seg_src_end < r_seg_src_beg) { break; }
-
-        unsigned long long r_seg_offset{ r_seg->dst_beg - r_seg_src_beg };
-
-        if (l_seg_offset == r_seg_offset) {
-            l_seg->size = r_seg_src_end - l_seg_src_beg;
-            mapper.root = ({
-                Node* new_root_n{ rbtree::Extract(&r_seg->n) };
-                new_root_n == nullptr ? nullptr : detail::NToSeg_(new_root_n);
-            });
-            detail::DeallocateSeg_(seg_alctr, r_seg);
-        } else {
-            r_seg->src_beg = l_seg_src_end;
-            r_seg->dst_beg += l_seg_src_end - r_seg_src_beg;
-            r_seg->size = r_seg_src_end - l_seg_src_end;
-        }
-
-        break;
     }
-}
 }
 
 template <MapperTplParamList>
@@ -393,9 +398,7 @@ void lin_space_mapper::Sanitize(Mapper<MapperTplArgList> const& mapper,
     Seg* seg{ detail::NToSeg_(bin_tree::GetMostL(&mapper.root->n).first) };
 
     for (;;) {
-        if (dst_seg != nullptr) {
-            mem_recorder::Record(*dst_seg, seg, sizeof(Seg));
-        }
+        if (dst_seg != nullptr) { dst_seg->Record(seg, sizeof(Seg)); }
 
         Node* rn{ bin_tree::StepR(&seg->n) };
         if (rn == nullptr) { break; }
@@ -410,7 +413,7 @@ void lin_space_mapper::Sanitize(Mapper<MapperTplArgList> const& mapper,
         unsigned long long r_seg_src_beg{ r_seg->src_beg };
         unsigned long long r_seg_dst_beg{ r_seg->dst_beg };
 
-        ZETA_Core_DebugAssert(
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(
             (seg_src_end < r_seg_src_beg) ||
             (seg_src_end == r_seg_src_beg) &&
                 (seg_dst_beg - seg_src_beg != r_seg_dst_beg - r_seg_src_beg));

@@ -132,7 +132,7 @@ auto UnsignedFastIntegral_() {
         constexpr unsigned long long k{ N / natural_width +
                                         (N % natural_width != 0) };
 
-        ZETA_Core_StaticAssert(k <= max_k);
+        static_assert(k <= max_k);
 
         return meta::TypeWrapper<unsigned _BitInt(k * natural_width)>{};
     }() };
@@ -214,7 +214,7 @@ auto SignedFastIntegral_() {
         constexpr unsigned long long k{ N / natural_width +
                                         (N % natural_width != 0) };
 
-        ZETA_Core_StaticAssert(k <= max_k);
+        static_assert(k <= max_k);
 
         return meta::TypeWrapper<signed _BitInt(k * natural_width)>{};
     }() };

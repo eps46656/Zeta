@@ -10,7 +10,7 @@
 #include <zeta/core/comparison.hpp>
 #include <zeta/core/comparison.ipp>
 #include <zeta/core/debug_utils.hpp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/function_ref.ipp>
 #include <zeta/core/hash.hpp>
 #include <zeta/core/hash.ipp>
@@ -32,11 +32,11 @@ inline void main1() {
     // unsigned seed { random_seed};
     unsigned seed{ fixed_seed };
 
-    ZETA_Core_PrintCurPos;
+    ZETA_Core_DebugUtils_Logging_ImmLogCurPos();
 
-    ZETA_Core_PrintVar(random_seed);
-    ZETA_Core_PrintVar(fixed_seed);
-    ZETA_Core_PrintVar(seed);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(random_seed);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(fixed_seed);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(seed);
 
     SetRandomSeed(seed);
 
@@ -52,7 +52,7 @@ inline void main1() {
 
     std::unordered_set<Elem, core::hash::CppStdBasicHash<Elem>,
                        core::comparison::CppStdBasicComparator<
-                           core::comparison::OpTag::Equal, Elem, Elem>>
+                           core::comparison::OpTags::Equal, Elem, Elem>>
         elems_s;
     std::vector<Elem> elems_v;
 
@@ -64,13 +64,13 @@ inline void main1() {
     } };
 
     auto PopRecordedElem{ [&] {
-        ZETA_Core_DebugAssert(!elems_s.empty());
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(!elems_s.empty());
 
         size_t idx{ GetRandomInt<size_t>(0, elems_v.size() - 1) };
 
         auto iter{ elems_s.find(elems_v[idx]) };
 
-        ZETA_Core_DebugAssert(iter != elems_s.end());
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(iter != elems_s.end());
 
         auto ret{ *iter };
 
@@ -84,25 +84,27 @@ inline void main1() {
 
     for (unsigned long long _{ 0 }; _ < 4; ++_) {
         for (unsigned long long i{ 0 }; i < 128; ++i) {
-            ZETA_Core_PrintVar(i);
+            ZETA_Core_DebugUtils_Logging_ImmLogVar(i);
             assoc_cntr_utils::SyncInsert(assoc_cntrs, GenerateUniqueElem());
             assoc_cntr_utils::Equal<AssocCntrRef, Elem>(assoc_cntrs);
         }
 
         for (size_t p{ 0 }; p < 4; ++p) {
             for (unsigned long long i{ 0 }; i < 32; ++i) {
-                ZETA_Core_PrintVar(i);
-                ZETA_Core_DebugAssert(assoc_cntr_utils::SyncInsert(
-                    assoc_cntrs, GenerateUniqueElem()));
+                ZETA_Core_DebugUtils_Logging_ImmLogVar(i);
+                ZETA_Core_DebugUtils_Diag_PromiseAssert(
+                    assoc_cntr_utils::SyncInsert(assoc_cntrs,
+                                                 GenerateUniqueElem()));
                 assoc_cntr_utils::Equal<AssocCntrRef, Elem>(assoc_cntrs);
             }
 
             //
 
             for (unsigned long long i{ 0 }; i < 32; ++i) {
-                ZETA_Core_PrintVar(i);
-                ZETA_Core_DebugAssert(assoc_cntr_utils::SyncErase(
-                    assoc_cntrs, PopRecordedElem()));
+                ZETA_Core_DebugUtils_Logging_ImmLogVar(i);
+                ZETA_Core_DebugUtils_Diag_PromiseAssert(
+                    assoc_cntr_utils::SyncErase(assoc_cntrs,
+                                                PopRecordedElem()));
                 assoc_cntr_utils::Equal<AssocCntrRef, Elem>(assoc_cntrs);
             }
         }

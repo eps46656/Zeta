@@ -3,7 +3,7 @@
 #include <zeta/core/basic_bin_tree_node.ipp>
 #include <zeta/core/bin_tree.ipp>
 #include <zeta/core/debug_utils.hpp>
-#include <zeta/core/debug_utils.ipp>
+#include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/ptr_utils.ipp>
@@ -126,16 +126,17 @@ inline void CompareLR() {
 
     for (;;) {
         if (iter == end) {
-            ZETA_Core_DebugAssert(n == nullptr);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(n == nullptr);
             return;
         }
 
-        ZETA_Core_DebugAssert(n != nullptr);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
 
         Node* node{ ZETA_Core_MemberToStruct(Node, n, n) };
 
-        ZETA_Core_DebugAssert(iter->linked_node == node);
-        ZETA_Core_DebugAssert(iter->size == zeta::core::bin_tree::GetSize(n));
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(iter->linked_node == node);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(
+            iter->size == zeta::core::bin_tree::GetSize(n));
 
         ++iter;
         n = zeta::core::bin_tree::StepR(n);
@@ -149,16 +150,17 @@ inline void CompareRL() {
 
     for (;;) {
         if (iter == end) {
-            ZETA_Core_DebugAssert(n == nullptr);
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(n == nullptr);
             return;
         }
 
-        ZETA_Core_DebugAssert(n != nullptr);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
 
         Node* node{ ZETA_Core_MemberToStruct(Node, n, n) };
 
-        ZETA_Core_DebugAssert(iter->linked_node == node);
-        ZETA_Core_DebugAssert(iter->size == zeta::core::bin_tree::GetSize(n));
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(iter->linked_node == node);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(
+            iter->size == zeta::core::bin_tree::GetSize(n));
 
         ++iter;
         n = zeta::core::bin_tree::StepL(n);
@@ -177,7 +179,8 @@ inline void AccessL(size_t idx) {
     auto [target_n_l,
           target_tail_idx_l]{ zeta::core::bin_tree::AccessL(root, idx) };
 
-    ZETA_Core_DebugAssert(zeta::core::bin_tree::GetAccSize(root) == size_sum);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        zeta::core::bin_tree::GetAccSize(root) == size_sum);
 
     auto target_iter{ vec.end() };
 
@@ -191,19 +194,21 @@ inline void AccessL(size_t idx) {
     }
 
     if (target_iter == vec.end()) {
-        ZETA_Core_DebugAssert(target_n_l == nullptr);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(target_n_l == nullptr);
     } else {
-        ZETA_Core_DebugAssert(&target_iter->linked_node->n == target_n_l);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(&target_iter->linked_node->n ==
+                                                target_n_l);
     }
 
-    ZETA_Core_DebugAssert(target_tail_idx_l == idx);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(target_tail_idx_l == idx);
 }
 
 inline void AccessR(size_t idx) {
     auto [target_n_r,
           target_tail_idx_r]{ zeta::core::bin_tree::AccessR(root, idx) };
 
-    ZETA_Core_DebugAssert(zeta::core::bin_tree::GetAccSize(root) == size_sum);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        zeta::core::bin_tree::GetAccSize(root) == size_sum);
 
     auto target_iter{ vec.rend() };
 
@@ -217,12 +222,13 @@ inline void AccessR(size_t idx) {
     }
 
     if (target_iter == vec.rend()) {
-        ZETA_Core_DebugAssert(target_n_r == nullptr);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(target_n_r == nullptr);
     } else {
-        ZETA_Core_DebugAssert(&target_iter->linked_node->n == target_n_r);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(&target_iter->linked_node->n ==
+                                                target_n_r);
     }
 
-    ZETA_Core_DebugAssert(target_tail_idx_r == idx);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(target_tail_idx_r == idx);
 }
 
 inline void AccessLR(size_t idx) {
@@ -232,7 +238,8 @@ inline void AccessLR(size_t idx) {
     auto [target_n_r, target_tail_idx_r]{ zeta::core::bin_tree::AccessR(
         root, size_sum - 1 - idx) };
 
-    ZETA_Core_DebugAssert(zeta::core::bin_tree::GetAccSize(root) == size_sum);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        zeta::core::bin_tree::GetAccSize(root) == size_sum);
 
     size_t last_size;
 
@@ -250,23 +257,26 @@ inline void AccessLR(size_t idx) {
     }
 
     if (target_iter == vec.end()) {
-        ZETA_Core_DebugAssert(target_n_l == nullptr);
-        ZETA_Core_DebugAssert(target_n_r == nullptr);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(target_n_l == nullptr);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(target_n_r == nullptr);
 
-        ZETA_Core_DebugAssert(target_tail_idx_l == idx);
-        ZETA_Core_DebugAssert(target_tail_idx_r == idx);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(target_tail_idx_l == idx);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(target_tail_idx_r == idx);
     } else {
-        ZETA_Core_DebugAssert(&target_iter->linked_node->n == target_n_l);
-        ZETA_Core_DebugAssert(&target_iter->linked_node->n == target_n_r);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(&target_iter->linked_node->n ==
+                                                target_n_l);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(&target_iter->linked_node->n ==
+                                                target_n_r);
 
-        ZETA_Core_DebugAssert(target_tail_idx_l == idx);
-        ZETA_Core_DebugAssert(target_tail_idx_r == last_size - 1 - idx);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(target_tail_idx_l == idx);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(target_tail_idx_r ==
+                                                last_size - 1 - idx);
     }
 }
 
 inline void Insert(size_t idx, size_t size) {
-    ZETA_Core_DebugAssert(0 <= idx);
-    ZETA_Core_DebugAssert(idx <= vec.size());
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= idx);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(idx <= vec.size());
 
     Node* new_node{ new Node };
 
@@ -274,7 +284,8 @@ inline void Insert(size_t idx, size_t size) {
 
     zeta::core::bin_tree::SetSize(&new_node->n, size);
 
-    ZETA_Core_DebugAssert(zeta::core::bin_tree::GetSize(&new_node->n) == size);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        zeta::core::bin_tree::GetSize(&new_node->n) == size);
 
     size_sum += size;
 
@@ -297,8 +308,8 @@ inline void Insert(size_t idx, size_t size) {
 }
 
 inline void Erase(size_t idx) {
-    ZETA_Core_DebugAssert(0 <= idx);
-    ZETA_Core_DebugAssert(idx < vec.size());
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= idx);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(idx < vec.size());
 
     size_sum -= vec[idx].size;
 
@@ -312,44 +323,49 @@ inline void Erase(size_t idx) {
 inline void main1() {
     unsigned seed{ static_cast<unsigned>(time(nullptr)) };
 
-    ZETA_Core_PrintVar(seed);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(seed);
 
     size_sum = 0;
     root = nullptr;
 
     for (int i{ 0 }; i < 1024; ++i) {
-        Insert(zeta::core_test::GetRandomInt<size_t>(0, vec.size()),
-               zeta::core_test::GetRandomInt<size_t>(0, 16));
+        Insert(zeta::core_test::GenUniformRandomInt<size_t>(0, vec.size()),
+               zeta::core_test::GenUniformRandomInt<size_t>(0, 16));
 
         Sanitize();
     }
 
     for (int _{ 0 }; _ < 16; ++_) {
-        ZETA_Core_PrintVar(_);
+        ZETA_Core_DebugUtils_Logging_ImmLogVar(_);
 
-        for (int i{ 0 },
-             end{ zeta::core_test::GetRandomInt<int>(1024, 1024 + 4096) };
+        for (int i{ 0 }, end{ zeta::core_test::GenUniformRandomInt<int>(
+                             1024, 1024 + 4096) };
              i < end; ++i) {
-            Insert(zeta::core_test::GetRandomInt<size_t>(0, vec.size()),
-                   zeta::core_test::GetRandomInt<size_t>(0, 16));
+            Insert(zeta::core_test::GenUniformRandomInt<size_t>(0, vec.size()),
+                   zeta::core_test::GenUniformRandomInt<size_t>(0, 16));
 
             Sanitize();
         }
 
-        for (int i{ 0 }, end{ static_cast<int>(std::min(
-                             vec.size(), zeta::core_test::GetRandomInt<size_t>(
-                                             1024, 1024 + 4096))) };
+        for (int i{ 0 },
+             end{ static_cast<int>(std::min(
+                 vec.size(), zeta::core_test::GenUniformRandomInt<size_t>(
+                                 1024, 1024 + 4096))) };
              i < end; ++i) {
-            Erase(zeta::core_test::GetRandomInt<size_t>(0, vec.size() - 1) %
+            Erase(zeta::core_test::GenUniformRandomInt<size_t>(0,
+                                                               vec.size() - 1) %
                   vec.size());
             Sanitize();
         }
 
         for (int i{ 0 }, end{ static_cast<int>(vec.size()) * 2 }; i < end;
              ++i) {
-            AccessL(zeta::core_test::GetRandomInt<size_t>(0, size_sum * 2));
-            AccessR(zeta::core_test::GetRandomInt<size_t>(0, size_sum * 2));
-            AccessLR(zeta::core_test::GetRandomInt<size_t>(0, size_sum - 1));
+            AccessL(
+                zeta::core_test::GenUniformRandomInt<size_t>(0, size_sum * 2));
+            AccessR(
+                zeta::core_test::GenUniformRandomInt<size_t>(0, size_sum * 2));
+            AccessLR(
+                zeta::core_test::GenUniformRandomInt<size_t>(0, size_sum - 1));
         }
     }
 }

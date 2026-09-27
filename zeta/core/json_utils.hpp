@@ -1,6 +1,6 @@
 #pragma once
 
-#include <zeta/core/elem_stream.hpp>
+#include <zeta/core/seq_endpoint.hpp>
 #include <zeta/core/unicode.hpp>
 #include <zeta/core/utils.hpp>
 
@@ -88,6 +88,8 @@ enum struct EncInnerState : unsigned char {
     ReceivingObjectValue = 62,
 
     Finished = 127,
+
+    Corrupted = 255,
 };
 
 enum struct EncState : unsigned char {
@@ -123,10 +125,14 @@ enum struct EncState : unsigned char {
         meta::ToUnderlying(EncInnerState::ReceivingObjectValue),
 
     Finished = meta::ToUnderlying(EncInnerState::Finished),
+
+    Corrupted = meta::ToUnderlying(EncInnerState::Corrupted),
 };
 
 enum struct EncReason : unsigned char {
     UnexpectedChar = 1,
+    DepthOverflow = 4,
+    UnexpectedValueAsObjectKey = 5,
 };
 
 template <typename CodepointAcceptorLike>
@@ -141,8 +147,8 @@ struct Encoder {
 
     FormatContext fmt_ctx;
 
-    template <typename CodeAcceptorLikeInitArg>
-    constexpr Encoder(CodeAcceptorLikeInitArg&& cpa_like_init_arg,
+    template <typename CodeAcceptorLikeConstructArg>
+    constexpr Encoder(CodeAcceptorLikeConstructArg&& cpa_like_construct_arg,
                       FormatConfig const& fmt_config);
 
     constexpr EncState GetState(this Encoder& self);
@@ -341,8 +347,9 @@ struct Decoder {
 
     CodepointProviderLike cpp_like;
 
-    template <typename... CodeProviderLikeInitArgs>
-    constexpr Decoder(CodeProviderLikeInitArgs&&... cpp_like_init_args);
+    template <typename... CodeProviderLikeConstructArgs>
+    constexpr Decoder(
+        CodeProviderLikeConstructArgs&&... cpp_like_construct_args);
 
     constexpr DecState GetState(this Decoder& self);
 
