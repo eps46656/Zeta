@@ -25,10 +25,24 @@ constexpr auto MemLexCompare(OpTag op_tag, void const* a, void const* b,
                              size_t a_size, size_t b_size);
 
 template <comparison::IsOpTag OpTag>
-constexpr int LinSeqLexCompare(OpTag op_tag, void const* a, void const* b,
-                               size_t a_elem_size, size_t b_elem_size,
-                               ptrdiff_t a_elem_stride, ptrdiff_t b_elem_stride,
-                               size_t a_elem_cnt, size_t b_cnt);
+constexpr decltype(auto) LinMemSeqLexCompare(OpTag op_tag, void const* a,
+                                             void const* b, size_t a_elem_size,
+                                             size_t b_elem_size,
+                                             ptrdiff_t a_elem_stride,
+                                             ptrdiff_t b_elem_stride,
+                                             size_t a_cnt, size_t b_cnt);
+
+template <typename Comparator, comparison::IsOpTag OpTag, typename ElemA,
+          typename ElemB>
+constexpr decltype(auto) LinObjSeqLexCompare(
+    Comparator const& cmptr, OpTag op_tag, ElemA const* a, ElemB const* b,
+    ptrdiff_t a_elem_stride, ptrdiff_t b_elem_stride, size_t a_elem_cnt,
+    size_t b_elem_cnt);
+
+template <comparison::IsOpTag OpTag, typename ElemA, typename ElemB>
+constexpr decltype(auto) BasicLinObjSeqLexCompare(
+    OpTag op_tag, ElemA const* a, ElemB const* b, ptrdiff_t a_elem_stride,
+    ptrdiff_t b_elem_stride, size_t a_elem_cnt, size_t b_elem_cnt);
 
 template <typename... Args>
     requires requires { requires sizeof...(Args) % 3 == 0; }

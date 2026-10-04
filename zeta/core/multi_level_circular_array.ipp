@@ -235,7 +235,7 @@ constexpr void Access_(Cntr<CntrTplArgList>& cntr, size_t idx,
     auto& node_alctr{ meta::GetInstRef(cntr.node_alctr_like) };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        seq_cntr::check_operation::CanRefer(idx, 1, elem_cnt));
+        seq_cntr::op_check::CanRefer(idx, 1, elem_cnt));
 
     if (idx == static_cast<size_t>(-1) || idx == elem_cnt) {
         if (dst_elem_ptr_view != nullptr) {
@@ -411,10 +411,9 @@ END:
     }
 }
 
-template <bool EnWrite, CntrTplParamList, typename ReaderWriter>
+template <bool EnWrite, CntrTplParamList, typename Acceptor>
 constexpr void ReadWrite_(Cntr<CntrTplArgList>& cntr, Cursor const* pos_cursor,
-                          size_t cnt, ReaderWriter&& reader_writer,
-                          Cursor* dst_cursor) {
+                          size_t cnt, Acceptor&& acceptor, Cursor* dst_cursor) {
     (CheckCursor_)(cntr, pos_cursor);
 
     size_t elem_size{ cntr.elem_size };
@@ -429,8 +428,8 @@ constexpr void ReadWrite_(Cntr<CntrTplArgList>& cntr, Cursor const* pos_cursor,
 
     size_t end_idx{ pos_cursor->idx + cnt };
 
-    if constexpr (seq_endpoint::provider::IsEmptyProvider<ReaderWriter> ||
-                  seq_endpoint::acceptor::IsEmptyAcceptor<ReaderWriter>) {
+    if constexpr (seq_endpoint::provider::IsEmptyProvider<Acceptor> ||
+                  seq_endpoint::acceptor::IsEmptyAcceptor<Acceptor>) {
         if (dst_cursor != nullptr) {
             ZETA_Core_DebugUtils_Diag_LogCurPos();
 
@@ -451,12 +450,12 @@ constexpr void ReadWrite_(Cntr<CntrTplArgList>& cntr, Cursor const* pos_cursor,
 
             if constexpr (EnWrite) {
                 seq_endpoint::provider::Transfer(
-                    reader_writer,
+                    acceptor,
                     (NToSeg_)(n)->data + elem_stride * seg_elem_slot_idx,
                     elem_size, static_cast<ptrdiff_t>(elem_stride), cur_cnt);
             } else {
                 seq_endpoint::acceptor::Transfer(
-                    reader_writer,
+                    acceptor,
                     (NToSeg_)(n)->data + elem_stride * seg_elem_slot_idx,
                     elem_size, static_cast<ptrdiff_t>(elem_stride), cur_cnt);
             }
@@ -651,8 +650,8 @@ enum struct Direction : unsigned char {
     R = 0b0010,
 };
 
-template <Direction direction, CntrTplParamList, typename Writer>
-constexpr void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
+template <Direction direction, CntrTplParamList, typename Provider>
+constexpr void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Provider&& writer,
                      Cursor* dst_cursor) {
     static_assert(direction == Direction::L || direction == Direction::R);
 
@@ -678,7 +677,7 @@ constexpr void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
     auto& node_alctr{ meta::GetInstRef(cntr.node_alctr_like) };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        seq_cntr::check_operation::CanInsert(0, cnt, elem_cnt, max_elem_cnt));
+        seq_cntr::op_check::CanInsert(0, cnt, elem_cnt, max_elem_cnt));
 
     size_t cur_elem_cnt{ elem_cnt };
     size_t nxt_elem_cnt{ cur_elem_cnt + cnt };
@@ -873,8 +872,8 @@ constexpr void Push_(Cntr<CntrTplArgList>& cntr, size_t cnt, Writer&& writer,
     (ReadWrite_<true>)(cntr, dst_cursor, cnt, writer, nullptr);
 }
 
-template <Direction direction, CntrTplParamList, seq_cntr::IsReader Reader>
-constexpr void Pop_(Cntr<CntrTplArgList>& cntr, size_t cnt, Reader&& reader) {
+template <Direction direction, CntrTplParamList, seq_cntr::IsReader acceptor>
+constexpr void Pop_(Cntr<CntrTplArgList>& cntr, size_t cnt, acceptor&& reader) {
     static_assert(direction == Direction::L || direction == Direction::R);
 
     (CheckCntr_)(cntr);
@@ -895,11 +894,11 @@ constexpr void Pop_(Cntr<CntrTplArgList>& cntr, size_t cnt, Reader&& reader) {
     auto& node_alctr{ meta::GetInstRef(cntr.node_alctr_like) };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        seq_cntr::check_operation::CanErase(0, cnt, elem_cnt));
+        seq_cntr::op_check::CanErase(0, cnt, elem_cnt));
 
     if (cnt == 0) { return; }
 
-    if constexpr (!seq_endpoint::acceptor::IsEmptyAcceptor<Reader>) {
+    if constexpr (!seq_endpoint::acceptor::IsEmptyAcceptor<acceptor>) {
         Cursor cursor;
 
         if constexpr (direction == Direction::L) {
@@ -1410,34 +1409,34 @@ constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::Derefer(
 }
 
 template <CntrTplParamList>
-template <seq_cntr::IsReader Reader>
+template <seq_cntr::IsReader acceptor>
 constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::Read(
     this Cntr const& cntr, seq_cntr::Tag, Cursor const* pos_cursor, size_t cnt,
-    Reader&& reader, Cursor* dst_cursor) {
+    acceptor&& reader, Cursor* dst_cursor) {
     detail::ReadWrite_<false>(const_cast<Cntr&>(cntr), pos_cursor, cnt, reader,
                               dst_cursor);
 }
 
 template <CntrTplParamList>
-template <seq_cntr::IsWriter Writer>
+template <seq_cntr::IsWriter Provider>
 constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::Write(
     this Cntr& cntr, seq_cntr::Tag, Cursor* pos_cursor, size_t cnt,
-    Writer&& writer, Cursor* dst_cursor) {
+    Provider&& writer, Cursor* dst_cursor) {
     detail::ReadWrite_<true>(cntr, pos_cursor, cnt, writer, dst_cursor);
 }
 
 template <CntrTplParamList>
-template <seq_cntr::IsReaderWriter ReaderWriter>
+template <seq_cntr::IsReaderWriter Acceptor>
 constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::ReadWrite(
     this Cntr& cntr, seq_cntr::Tag, Cursor* pos_cursor, size_t cnt,
-    ReaderWriter&& reader_writer, Cursor* dst_cursor) {
-    detail::ReadWrite_<true>(cntr, pos_cursor, cnt, reader_writer, dst_cursor);
+    Acceptor&& acceptor, Cursor* dst_cursor) {
+    detail::ReadWrite_<true>(cntr, pos_cursor, cnt, acceptor, dst_cursor);
 }
 
 template <CntrTplParamList>
-template <seq_cntr::IsWriter Writer>
+template <seq_cntr::IsWriter Provider>
 constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::PushL(
-    this Cntr& cntr, seq_cntr::Tag, size_t cnt, Writer&& writer,
+    this Cntr& cntr, seq_cntr::Tag, size_t cnt, Provider&& writer,
     Cursor* dst_cursor) {
     Cursor dst_cursor_fallback;
     if (dst_cursor == nullptr) { dst_cursor = &dst_cursor_fallback; }
@@ -1446,9 +1445,9 @@ constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::PushL(
 }
 
 template <CntrTplParamList>
-template <seq_cntr::IsWriter Writer>
+template <seq_cntr::IsWriter Provider>
 constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::PushR(
-    this Cntr& cntr, seq_cntr::Tag, size_t cnt, Writer&& writer,
+    this Cntr& cntr, seq_cntr::Tag, size_t cnt, Provider&& writer,
     Cursor* dst_cursor) {
     Cursor dst_cursor_fallback;
     if (dst_cursor == nullptr) { dst_cursor = &dst_cursor_fallback; }
@@ -1457,10 +1456,10 @@ constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::PushR(
 }
 
 template <CntrTplParamList>
-template <seq_cntr::IsWriter Writer>
+template <seq_cntr::IsWriter Provider>
 constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::Insert(
     this Cntr& cntr, seq_cntr::Tag, Cursor* pos_cursor, size_t cnt,
-    Writer&& writer, Cursor* dst_cursor) {
+    Provider&& writer, Cursor* dst_cursor) {
     detail::CheckCursor_(cntr, pos_cursor);
 
     if (cnt == 0) {
@@ -1534,7 +1533,7 @@ constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::Insert(
         Node* old_l_n{ llist::GetR(head_n) };
         size_t old_l_seg_elem_slot_idx{ tree_elem_offset % seg_elem_slot_cnt };
 
-        detail::Push_<0>(cntr, cnt, seq_endpoint::provider::EmptyProvider{},
+        detail::Push_<0>(cntr, cnt, seq_endpoint::provider::BasicProvider{},
                          dst_cursor);
 
         ZETA_Core_DebugUtils_Diag_LogVar(&cntr);
@@ -1581,7 +1580,7 @@ constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::Insert(
     }
     case 1: {
         ZETA_Core_DebugUtils_Diag_LogCurPos();
-        detail::Push_<1>(cntr, cnt, seq_endpoint::provider::EmptyProvider{},
+        detail::Push_<1>(cntr, cnt, seq_endpoint::provider::BasicProvider{},
                          dst_cursor);
 
         Node* r_n{ llist::GetL(head_n) };
@@ -1623,24 +1622,24 @@ constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::Insert(
 }
 
 template <CntrTplParamList>
-template <seq_cntr::IsReader Reader>
+template <seq_cntr::IsReader acceptor>
 constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::PopL(
-    this Cntr& cntr, seq_cntr::Tag, size_t cnt, Reader&& reader) {
+    this Cntr& cntr, seq_cntr::Tag, size_t cnt, acceptor&& reader) {
     detail::Pop_<0>(cntr, cnt, reader);
 }
 
 template <CntrTplParamList>
-template <seq_cntr::IsReader Reader>
+template <seq_cntr::IsReader acceptor>
 constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::PopR(
-    this Cntr& cntr, seq_cntr::Tag, size_t cnt, Reader&& reader) {
+    this Cntr& cntr, seq_cntr::Tag, size_t cnt, acceptor&& reader) {
     detail::Pop_<1>(cntr, cnt, reader);
 }
 
 template <CntrTplParamList>
-template <seq_cntr::IsReader Reader>
+template <seq_cntr::IsReader acceptor>
 constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::Erase(
     this Cntr& cntr, seq_cntr::Tag, Cursor* pos_cursor, size_t cnt,
-    Reader&& reader) {
+    acceptor&& reader) {
     detail::CheckCursor_(cntr, pos_cursor);
 
     size_t elem_size{ cntr.elem_size };
@@ -1651,7 +1650,7 @@ constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::Erase(
     size_t idx{ pos_cursor->idx };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        seq_cntr::check_operation::CanErase(idx, cnt, elem_cnt));
+        seq_cntr::op_check::CanErase(idx, cnt, elem_cnt));
 
     if (cnt == 0) { return; }
 
@@ -1691,7 +1690,7 @@ constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::Erase(
                                   pos_cursor->seg_elem_slot_idx, l_cnt);
         }
 
-        detail::Pop_<0>(cntr, cnt, seq_endpoint::acceptor::EmptyAcceptor{});
+        detail::Pop_<0>(cntr, cnt, seq_endpoint::acceptor::BasicAcceptor{});
 
         pos_cursor->n = end_cursor.n;
         pos_cursor->seg_elem_slot_idx = end_cursor.seg_elem_slot_idx;
@@ -1714,7 +1713,7 @@ constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::Erase(
                                   end_cursor.seg_elem_slot_idx, r_cnt);
         }
 
-        detail::Pop_<1>(cntr, cnt, seq_endpoint::acceptor::EmptyAcceptor{});
+        detail::Pop_<1>(cntr, cnt, seq_endpoint::acceptor::BasicAcceptor{});
 
         break;
     }
@@ -1831,8 +1830,7 @@ constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::CursorAdvanceL(
     detail::CheckCursor_(cntr, cursor);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        seq_cntr::check_operation::CanAdvanceL(cursor->idx, step,
-                                               cntr.elem_cnt));
+        seq_cntr::op_check::CanAdvanceL(cursor->idx, step, cntr.elem_cnt));
 
     detail::Access_<detail::AccessType_::AutoWithHint>(
         const_cast<Cntr&>(cntr), cursor->idx - step, true, nullptr, cursor,
@@ -1845,8 +1843,7 @@ constexpr void multi_level_circular_array::Cntr<CntrTplArgList>::CursorAdvanceR(
     detail::CheckCursor_(cntr, cursor);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        seq_cntr::check_operation::CanAdvanceR(cursor->idx, step,
-                                               cntr.elem_cnt));
+        seq_cntr::op_check::CanAdvanceR(cursor->idx, step, cntr.elem_cnt));
 
     detail::Access_<detail::AccessType_::AutoWithHint>(
         const_cast<Cntr&>(cntr), cursor->idx + step, true, nullptr, cursor,

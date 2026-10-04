@@ -346,6 +346,9 @@ struct Conditional_<false, T1, T2> {
 template <bool Cond, typename T1, typename T2>
 using Conditional = typename detail::Conditional_<Cond, T1, T2>::Type;
 
+template <typename T, bool Cond>
+using MakeConstIf = Conditional<Cond, T const, T>;
+
 namespace detail {
 
 template <bool Cond, typename _ = void>
@@ -363,6 +366,9 @@ struct EnableIf_<false, void> {};
 
 template <bool Cond, typename _ = void>
 using EnableIf = typename detail::EnableIf_<Cond, _>::Type;
+
+template <typename T>
+concept IsContainerElem = IsSame<T, RemoveCVRef<T>>;
 
 template <typename FromT, typename ToT>
 concept IsConvertible = __is_convertible(FromT, ToT);
@@ -474,12 +480,12 @@ template <auto Value>
 using AutoValueWrapper = ValueWrapper<RemoveCVRef<decltype(Value)>, Value>;
 
 template <typename T>
-T& GetInstRef(T* inst) {
+constexpr T& GetInstRef(T* inst) {
     return *inst;
 }
 
 template <typename T>
-T& GetInstRef(T& inst) {
+constexpr T& GetInstRef(T& inst) {
     return inst;
 }
 
@@ -487,16 +493,16 @@ template <typename T>
 using GetInstRefType = RemoveRef<decltype(GetInstRef(Declval<T>()))>;
 
 template <typename T>
-T* GetInstPtr(T* inst) {
+constexpr T* GetInstPtr(T* inst) {
     return inst;
 }
 
 template <typename T>
-T* GetInstPtr(T& inst) {
+constexpr T* GetInstPtr(T& inst) {
     return &inst;
 }
 
 template <typename T>
-T* GetInstPtr(T&& inst) = delete;
+constexpr T* GetInstPtr(T&& inst) = delete;
 
 }  // namespace zeta::core::meta

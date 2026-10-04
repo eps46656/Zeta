@@ -106,43 +106,104 @@ struct UnpackConstructArg {
 
 }  // namespace detail
 
-namespace example {
+struct PreConstructorHook {
+    constexpr PreConstructorHook() = default;
 
-struct Point {
-    int x;
-    int y;
-
-    constexpr Point(int xy) : x{ xy }, y{ xy } {}
-    constexpr Point(int x, int y) : x{ x }, y{ y } {}
+    template <typename Callable>
+    constexpr PreConstructorHook(Callable&& callable);
 };
 
-struct C {
-    Point point_a;
-    Point point_b;
+template <typename Obj, typename... Args>
+constexpr void InvokeConstructor(Obj* obj, Args&&... args);
 
-    template <typename PointAConstructArg, typename PointBConstructArg>
-    constexpr C(PointAConstructArg&& point_a_construct_arg,
-                PointBConstructArg&& point_b_construct_arg)
-        : point_a{ ZETA_Core_Lifecycle_UnpackConstructArg(
-              Point, PointAConstructArg, point_a_construct_arg) },
-          point_b{ ZETA_Core_Lifecycle_UnpackConstructArg(
-              Point, PointBConstructArg, point_b_construct_arg) } {}
+template <typename Obj, typename... Args>
+constexpr void InvokeLinSeqConstructor(Obj* data, size_t elem_stride,
+                                       size_t elem_cnt, Args&&... args);
+
+template <typename Obj>
+constexpr void InvokeDestructor(Obj& obj);
+
+template <typename Obj>
+constexpr void InvokeLinSeqDestructor(Obj* data, size_t elem_stride,
+                                      size_t elem_cnt);
+
+enum struct DataLifeState : unsigned char {
+    Mem = 0,
+    Obj = 1,
 };
 
-constexpr void F() {
-    C c1{ 1, 2 };
-    C c2{ 1, ZETA_Core_Lifecycle_PackConstructArgs(2, 3) };
-    C c3{ ZETA_Core_Lifecycle_PackConstructArgs(1, 2), 3 };
-    C c4{ ZETA_Core_Lifecycle_PackConstructArgs(1, 2),
-          ZETA_Core_Lifecycle_PackConstructArgs(
-              ZETA_Core_Lifecycle_PackConstructArgs(3, 4)) };
+enum struct DataTransferSemantics : unsigned char {
+    Copy = 0,
+    Move = 1,
+    Reloc = 2,
+};
 
-    ZETA_Core_Unused(c1);
-    ZETA_Core_Unused(c2);
-    ZETA_Core_Unused(c3);
-    ZETA_Core_Unused(c4);
-}
+enum struct DataView : unsigned char {
+    Null = 0,
+    ReadWriteMem = 1,
+    ReadOnlyObj = 2,
+    ReadWriteObj = 3,
+};
 
-}  // namespace example
+constexpr bool IsMemView(DataView data_view);
+
+constexpr bool IsObjView(DataView data_view);
+
+constexpr bool CanRead(DataView data_view);
+
+constexpr bool CanWrite(DataView data_view);
+
+namespace detail {
+
+namespace data_transfer_op_ {
+
+using Underlying = unsigned char;
+
+constexpr Underlying construct_flag{ 0b0 };
+constexpr Underlying assign_flag{ 0b1 };
+
+constexpr Underlying copy_flag{ 0b000 };
+constexpr Underlying move_flag{ 0b010 };
+constexpr Underlying reloc_flag{ 0b100 };
+constexpr Underlying forward_flag{ 0b110 };
+
+}  // namespace data_transfer_op_
+
+}  // namespace detail
+
+enum struct DataTransferOp : unsigned char {
+    CopyConstruct = detail::data_transfer_op_::construct_flag |
+        detail::data_transfer_op_::copy_flag,
+    MoveConstruct = detail::data_transfer_op_::construct_flag |
+        detail::data_transfer_op_::move_flag,
+    RelocConstruct = detail::data_transfer_op_::construct_flag |
+        detail::data_transfer_op_::reloc_flag,
+    ForwardConstruct = detail::data_transfer_op_::construct_flag |
+        detail::data_transfer_op_::forward_flag,
+
+    CopyAssign = detail::data_transfer_op_::assign_flag |
+        detail::data_transfer_op_::copy_flag,
+    MoveAssign = detail::data_transfer_op_::assign_flag |
+        detail::data_transfer_op_::move_flag,
+    RelocAssign = detail::data_transfer_op_::assign_flag |
+        detail::data_transfer_op_::reloc_flag,
+    ForwardAssign = detail::data_transfer_op_::assign_flag |
+        detail::data_transfer_op_::forward_flag,
+};
+
+template <typename T>
+concept IsDataTransferOpLike =
+    meta::IsSame<T, DataTransferOp> || meta::IsValueWrapperT<T, DataTransferOp>;
+
+constexpr DataTransferOp DeriveDataTransferOp(
+    DataLifeState dst_life_state, DataTransferSemantics src_transfer_semantics);
+
+template <typename Dst, typename... Srcs>
+constexpr void DataTransfer(DataTransferOp data_transfer_op, Dst* dst,
+                            Srcs&&... srcs);
+
+template <DataTransferOp transfer_op, typename Dst, typename... Srcs>
+constexpr void DataTransfer(meta::AutoValueWrapper<transfer_op>, Dst* dst,
+                            Srcs&&... srcs);
 
 }  // namespace zeta::core::lifecycle

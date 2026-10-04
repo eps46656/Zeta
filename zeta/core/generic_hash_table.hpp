@@ -53,8 +53,8 @@ constexpr size_t max_bucket_size{ 1'000'000'007 };
 #error "Unsupported architecture."
 #endif
 
-constexpr size_t min_move_quata_per_op{ 2 };
-constexpr size_t max_move_quata_per_op{ integral::RangeMaxOf<size_t> };
+constexpr size_t min_move_quota_per_op{ 2 };
+constexpr size_t max_move_quota_per_op{ integral::RangeMaxOf<size_t> };
 
 constexpr UFP min_center_load_ratio{ UFP::FromFraction(50U, 100U) };  // 0.5
 constexpr UFP max_center_load_ratio{ UFP::FromIntegral(32U) };
@@ -77,14 +77,14 @@ using TreeNode = basic_bin_tree_node::Node<
 namespace zeta::core::generic_hash_table {
 
 struct RehashingConfig {
-    unsigned move_quata_per_op;
+    unsigned move_quota_per_op;
     UFP center_load_ratio;
     UFP drift_ratio;
 };
 
 /*
 
-1 < move quata per op
+1 < move quota per op
 1 < drift ratio
 
 cur good elem cnt = [
@@ -92,16 +92,16 @@ cur good elem cnt = [
     cur bucket size * center load ratio * drift ratio,
 ]
 
-move quata per op / (move quata per op - 1) < drift ratio
-    => move quata per op / (move quata per op - 1) < drift ratio
-    => 1 + 1 / (move quata per op - 1) < drift ratio
-    => 1 / (move quata per op - 1) < drift ratio - 1
-    => 1 / (drift ratio - 1) < move quata per op - 1
+move quota per op / (move quota per op - 1) < drift ratio
+    => move quota per op / (move quota per op - 1) < drift ratio
+    => 1 + 1 / (move quota per op - 1) < drift ratio
+    => 1 / (move quota per op - 1) < drift ratio - 1
+    => 1 / (drift ratio - 1) < move quota per op - 1
 
 */
 
 RehashingConfig constexpr default_rehashing_config{
-    .move_quata_per_op = 4,
+    .move_quota_per_op = 4,
     .center_load_ratio = UFP::FromIntegral(8U),
     .drift_ratio = UFP::FromIntegral(4U),
 };
@@ -155,8 +155,8 @@ struct Cntr {
     constexpr Cntr(RehashingConfig const& rehashing_config,
                    NodeHashLikeInitArg&& hasher_construct_arg,
                    ComparatorInitArg&& cmptr_construct_arg,
-                   SaltRandomEngineInitArg&& salt_random_engine_construct_arg,
-                   TableNodeAllocatorInitArg&& table_node_alctr_construct_arg);
+                   TableNodeAllocatorInitArg&& table_node_alctr_construct_arg,
+                   SaltRandomEngineInitArg&& salt_random_engine_construct_arg);
 
     constexpr ~Cntr();
 
@@ -182,9 +182,15 @@ struct Cntr {
 
     constexpr void ExtractAll(this Cntr& self);
 
-    constexpr bool RunPending(this Cntr& self, size_t quata);
+    constexpr bool RunPending(this Cntr& self, size_t quota);
 
     constexpr auto GetEffFactor(this Cntr const& ght);
+
+    /*
+constexpr void Sanitize(
+        void
+    );
+    */
 
     static constexpr void SanityCheck(
         void const* self, debug_utils::sanity::SanityCheckScope scope);

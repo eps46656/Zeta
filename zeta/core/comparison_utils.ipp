@@ -6,6 +6,7 @@
 #include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral_math.ipp>
+#include <zeta/core/lin_seq_utils.ipp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/reduce.ipp>
 
@@ -99,7 +100,7 @@ constexpr auto comparison_utils::MemLexCompare(OpTag, void const* a,
 }
 
 template <comparison::IsOpTag OpTag>
-constexpr int comparison_utils::LinSeqLexCompare(
+constexpr decltype(auto) comparison_utils::LinMemSeqLexCompare(
     OpTag, void const* a_, void const* b_, size_t a_elem_size,
     size_t b_elem_size, ptrdiff_t a_elem_stride, ptrdiff_t b_elem_stride,
     size_t a_elem_cnt, size_t b_elem_cnt) {
@@ -140,6 +141,44 @@ constexpr int comparison_utils::LinSeqLexCompare(
     }
 
     return comparison::BasicCompare(OpTag{}, a_elem_cnt, b_elem_cnt);
+}
+
+template <typename Comparator, comparison::IsOpTag OpTag, typename ElemA,
+          typename ElemB>
+constexpr decltype(auto) comparison_utils::LinObjSeqLexCompare(
+    Comparator const& cmptr, OpTag, ElemA const* a, ElemB const* b,
+    ptrdiff_t a_elem_stride, ptrdiff_t b_elem_stride, size_t a_elem_cnt,
+    size_t b_elem_cnt) {
+    lin_seq_utils::Check(a, a_elem_stride, a_elem_cnt);
+    lin_seq_utils::Check(b, b_elem_stride, b_elem_cnt);
+
+    if (a_elem_cnt == 1) { a_elem_stride = 0; }
+    if (b_elem_cnt == 1) { b_elem_stride = 0; }
+
+    size_t cnt{ (BasicMin)(a_elem_cnt, b_elem_cnt) };
+
+    if (a_elem_stride == 0 && b_elem_stride == 0 && 0 < cnt) { cnt = 1; }
+
+    for (size_t i{ cnt }; 0 < i--; a = utils::PtrInc(a, a_elem_stride),
+                                   b = utils::PtrInc(b, b_elem_stride)) {
+        comparison::Ordering cmp{ comparison::Compare(
+            cmptr, comparison::OpTags::Order{}, *a, *b) };
+
+        if (cmp != comparison::Ordering::Equal) {
+            return comparison::DecayOrdering(OpTag{}, cmp);
+        }
+    }
+
+    return comparison::BasicCompare(OpTag{}, a_elem_cnt, b_elem_cnt);
+}
+
+template <comparison::IsOpTag OpTag, typename ElemA, typename ElemB>
+constexpr decltype(auto) comparison_utils::BasicLinObjSeqLexCompare(
+    OpTag, ElemA const* a, ElemB const* b, ptrdiff_t a_elem_stride,
+    ptrdiff_t b_elem_stride, size_t a_elem_cnt, size_t b_elem_cnt) {
+    return (LinObjSeqLexCompare)(comparison::UniversalBasicComparator{},
+                                 OpTag{}, a, b, a_elem_stride, b_elem_stride,
+                                 a_elem_cnt, b_elem_cnt);
 }
 
 namespace comparison_utils::detail {

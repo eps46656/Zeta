@@ -9,6 +9,7 @@
 #include <zeta/core/debug_utils/sanity.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/meta.hpp>
+#include <zeta/core_test/memory.hpp>
 
 namespace zeta::core_test::std_allocator {
 
@@ -46,7 +47,7 @@ struct Allocator {
 
         if (size == 0) { return nullptr; }
 
-        void* ptr{ std::malloc(size) };
+        void* ptr{ memory::Malloc(size) };
 
 #if ZETA_Core_DebugEnable
         alctr.mem_recorder.Add(ptr, size);
@@ -64,7 +65,7 @@ struct Allocator {
 
         alctr.mem_recorder.Remove(ptr);
 
-        std::free(ptr);
+        memory::Free(ptr);
     }
 
     constexpr void Check(this Allocator const&) {}

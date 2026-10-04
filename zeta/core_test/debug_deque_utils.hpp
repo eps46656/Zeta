@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdlib>
 #include <zeta/core/debug_deque.hpp>
 #include <zeta/core/debug_deque.ipp>
 #include <zeta/core/debug_utils/diag.ipp>
@@ -10,52 +9,40 @@
 
 namespace zeta::core_test::debug_deque_utils {
 
-using PolySeqCntr = core::poly_seq_cntr::Cntr;
-namespace DebugDequeNS = core::debug_deque;
-using DebugDeque = DebugDequeNS::Cntr;
+template <typename Elem>
+using DebugDeque = core::debug_deque::Cntr<Elem>;
 
+template <typename Elem>
 struct Pack {
-    DebugDeque debug_deque;
+    DebugDeque<Elem> debug_deque;
 };
 
 template <typename Elem>
-constexpr PolySeqCntr Create();
-
-constexpr void Destroy(void* dd);
-
-constexpr void Sanitize(void const* dd);
-
-template <typename Elem>
-constexpr PolySeqCntr Create() {
-    Pack* pack{ new Pack{
-        .debug_deque{ sizeof(Elem) },
-    } };
+constexpr core::poly_seq_cntr::Cntr<Elem> Create() {
+    Pack<Elem>* pack{ new Pack<Elem>{} };
 
     auto* dd{ &pack->debug_deque };
 
-    static_assert(core::seq_cntr::IsSeqCntr<DebugDeque>);
+    static_assert(core::seq_cntr::IsSeqCntr<DebugDeque<Elem>>);
 
-    seq_cntr_utils::AddSanitizeFunc(dd, Sanitize);
+    seq_cntr_utils::AddSanitizeFunc(dd, [](void const* dd_) {
+        DebugDeque<Elem> const* dd{ static_cast<DebugDeque<Elem> const*>(dd_) };
 
-    seq_cntr_utils::AddDestroyFunc(dd, Destroy);
+        if (dd == nullptr) { return; }
+    });
+
+    seq_cntr_utils::AddDestroyFunc(dd, [](void* dd_) {
+        DebugDeque<Elem>* dd{ static_cast<DebugDeque<Elem>*>(dd_) };
+
+        if (dd_ == nullptr) { return; }
+
+        Pack<Elem>* pack{ ZETA_Core_MemberToStruct(Pack<Elem>, debug_deque,
+                                                   dd) };
+
+        delete pack;
+    });
 
     return *dd;
-}
-
-constexpr void Destroy(void* dd_) {
-    DebugDeque* dd{ static_cast<DebugDeque*>(dd_) };
-
-    if (dd_ == nullptr) { return; }
-
-    Pack* pack{ ZETA_Core_MemberToStruct(Pack, debug_deque, dd) };
-
-    delete pack;
-}
-
-constexpr void Sanitize(void const* dd_) {
-    DebugDeque const* dd{ static_cast<DebugDeque const*>(dd_) };
-
-    if (dd == nullptr) { return; }
 }
 
 }  // namespace zeta::core_test::debug_deque_utils

@@ -1,4 +1,5 @@
 #include <iostream>
+#include <stacktrace>
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/allocator.ipp>
 #include <zeta/core/debug_utils/diag.ipp>
@@ -12,21 +13,24 @@
 #include <zeta/core_test/pod_value.hpp>
 #include <zeta/core_test/ptr_iter.ipp>
 #include <zeta/core_test/random.hpp>
-#include <zeta/core_test/seg_vector_utils.hpp>
+// #include <zeta/core_test/seg_vector_utils.hpp>
 #include <zeta/core_test/seq_cntr_utils.hpp>
-#include <zeta/core_test/staging_seg_vector_utils.hpp>
+// #include <zeta/core_test/staging_seg_vector_utils.hpp>
+#include <zeta/core_test/sample_object.hpp>
 #include <zeta/core_test/timer.hpp>
 
-using CircularArray = zeta::core::circular_array::Cntr;
+using Elem = zeta::core_test::sample_object::SampleObject;
 
-using DebugDeque = zeta::core::debug_deque::Cntr;
+using CircularArray = zeta::core::circular_array::Cntr<Elem>;
+
+using DebugDeque = zeta::core::debug_deque::Cntr<Elem>;
 
 inline void test_seq_cntr() {
     unsigned random_seed{ static_cast<unsigned>(time(nullptr)) };
     unsigned fixed_seed{ 1780833973 };
 
-    // unsigned seed{ random_seed };
-    unsigned seed{ fixed_seed };
+    unsigned seed{ random_seed };
+    // unsigned seed{ fixed_seed };
 
     ZETA_Core_DebugUtils_Logging_ImmLogCurPos();
 
@@ -37,46 +41,45 @@ inline void test_seq_cntr() {
     zeta::core_test::SetRandomSeed(seed);
 
     zeta::core::poly_seq_cntr::Cntr seq_cntr_a_origin{
-        zeta::core_test::debug_deque_utils::Create<zeta::core_test::PODValue>()
+        zeta::core_test::debug_deque_utils::Create<Elem>()
     };
 
     size_t origin_size{ 1024 * 256 };
 
     zeta::core_test::seq_cntr_utils::MirrorRandomInit(
-        std::vector<zeta::core::poly_seq_cntr::Cntr*>{ &seq_cntr_a_origin },
+        std::vector<zeta::core::poly_seq_cntr::Cntr<Elem>*>{
+            &seq_cntr_a_origin },
         origin_size);
 
     zeta::core::poly_seq_cntr::Cntr seq_cntr_a{
-        zeta::core_test::debug_deque_utils::Create<zeta::core_test::PODValue>()
+        zeta::core_test::debug_deque_utils::Create<Elem>()
     };
 
     /*
     zeta::core::poly_seq_cntr::Cntr seq_cntr_b{
-        zeta::core_test::debug_deque_utils::Create<zeta::core_test::PODValue>()
+        zeta::core_test::debug_deque_utils::Create<Elem>()
     };
     */
 
-    /*
     zeta::core::poly_seq_cntr::Cntr seq_cntr_b{
-        zeta::core_test::circular_array_utils::Create<
-            zeta::core_test::PODValue>(sizeof(zeta::core_test::PODValue) * 3,
-                                       1024 * 1024)
+        zeta::core_test::circular_array_utils::Create<Elem>(sizeof(Elem) * 3,
+                                                            1024 * 1024)
     };
-    */
 
     /*
     zeta::core::poly_seq_cntr::Cntr seq_cntr_b{
         zeta::core_test::seg_vector_utils::Create(
-            "seg_vector", sizeof(zeta::core_test::PODValue),
-            sizeof(zeta::core_test::PODValue) * 3, 7)
+            "seg_vector", sizeof(Elem),
+            sizeof(Elem) * 3, 7)
     };
     */
 
+    /*
     zeta::core::poly_seq_cntr::Cntr seq_cntr_b{
-        zeta::core_test::multi_level_circular_array_utils::Create<
-            zeta::core_test::PODValue>(sizeof(zeta::core_test::PODValue),
-                                       sizeof(zeta::core_test::PODValue) * 3, 7)
+        zeta::core_test::multi_level_circular_array_utils::Create<Elem>(
+            sizeof(Elem), sizeof(Elem) * 3, 7)
     };
+    */
 
     size_t max_op_size{ 256 };
 
@@ -87,8 +90,8 @@ inline void test_seq_cntr() {
         // zeta::core::SeqCntr_Assign(seq_cntr_b, seq_cntr_a_origin);
 
         zeta::core_test::seq_cntr_utils::DoRandomOperations(
-            std::vector<zeta::core::poly_seq_cntr::Cntr*>{ &seq_cntr_a,
-                                                           &seq_cntr_b },
+            std::vector<zeta::core::poly_seq_cntr::Cntr<Elem>*>{ &seq_cntr_a,
+                                                                 &seq_cntr_b },
 
             256,  // iter_cnt
 
@@ -705,6 +708,16 @@ void test_staging_vector_write_back() {
 
 #endif
 
+constexpr void test_stacktrace() {
+    auto trace = std::stacktrace::current();
+
+    for (auto const& entry : trace) {
+        std::cout << "entry.description(): " << entry.description() << "\n";
+        std::cout << "entry.source_file(): " << entry.source_file() << "\n";
+        std::cout << "entry.source_line(): " << entry.source_line() << "\n";
+    }
+}
+
 int main() {
     printf("main start\n");
 
@@ -717,6 +730,8 @@ int main() {
     // test_staging_seg_vector_copy_init();
     // test_staging_vector_collapse();
     // test_macro();
+
+    // test_stacktrace();
 
     unsigned long long end_time{ zeta::core_test::GetTime() };
 

@@ -11,13 +11,14 @@
 #include <zeta/core/integral.hpp>
 #include <zeta/core/integral_math.ipp>
 #include <zeta/core/lifecycle.hpp>
-#include <zeta/core/lifecycle.ipp>
 #include <zeta/core/llist.ipp>
 #include <zeta/core/mem_recorder.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/ptr_utils.ipp>
 #include <zeta/core/seq_endpoint.ipp>
 #include <zeta/core/utils.ipp>
+
+ZETA_Core_ClangdPreambleBarrier;
 
 #pragma push_macro("CntrTplParamList")
 #define CntrTplParamList                                           \
@@ -38,20 +39,6 @@ dynamic_hash_table::NodeHasherWrapper<ElemHasherLike>::Hash(
     generic_hash_table::Node const* ghtn, unsigned long long salt) const {
     return hash::Hash(meta::GetInstRef(this->elem_hasher),
                       ZETA_Core_MemberToStruct(Node, ghtn, ghtn)->data, salt);
-}
-
-template <typename ElemComparatorLike>
-template <typename... Args>
-constexpr void
-dynamic_hash_table::NodeComparatorWrapper<ElemComparatorLike>::Construct(
-    Args&&... args) {
-    lifecycle::Construct(this->elem_cmptr, meta::Forward<Args>(args)...);
-}
-
-template <typename ElemComparatorLike>
-constexpr void
-dynamic_hash_table::NodeComparatorWrapper<ElemComparatorLike>::Deconstruct() {
-    lifecycle::Deconstruct(this->elem_cmptr);
 }
 
 template <typename ElemComparatorLike>
@@ -112,136 +99,218 @@ template <CntrTplParamList>
 template <typename ElemHasherLikeConstructArg,
           typename ElemComparatorLikeConstructArg,
           typename SaltRandomEngineLikeConstructArg,
-          typename NodeAllocatorLikeConstructArg,
-          typename TableNodeAllocatorLikeConstructArg>
-constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Construct(
-    this Cntr& cntr, size_t elem_size,
+          typename TableNodeAllocatorLikeConstructArg,
+          typename NodeAllocatorLikeConstructArg>
+constexpr dynamic_hash_table::Cntr<CntrTplArgList>::Cntr(
+    size_t elem_size,
     generic_hash_table::RehashingConfig const& rehashing_config,
-    ElemHasherLikeConstructArg&& elem_hash_construct_arg,
+    ElemHasherLikeConstructArg&& elem_hasher_construct_arg,
     ElemComparatorLikeConstructArg&& elem_cmptr_construct_arg,
     SaltRandomEngineLikeConstructArg&& salt_random_engine_construct_arg,
-    NodeAllocatorLikeConstructArg&& node_alctr_like_construct_arg,
-    TableNodeAllocatorLikeConstructArg&& table_node_alctr_construct_arg)
+    TableNodeAllocatorLikeConstructArg&& table_node_alctr_construct_arg,
+    NodeAllocatorLikeConstructArg&& node_alctr_construct_arg)
     : ght{
-          //
-      } {
+          rehashing_config,
+          meta::Forward<ElemHasherLikeConstructArg>(elem_hasher_construct_arg),
+          meta::Forward<ElemComparatorLikeConstructArg>(
+              elem_cmptr_construct_arg),
+          meta::Forward<SaltRandomEngineLikeConstructArg>(
+              salt_random_engine_construct_arg),
+          meta::Forward<TableNodeAllocatorLikeConstructArg>(
+              table_node_alctr_construct_arg),
+      },
+      node_alctr_like{ meta::Forward<NodeAllocatorLikeConstructArg>(
+          node_alctr_construct_arg) } {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < elem_size);
 
-    cntr.elem_size = elem_size =
+    this->elem_size = elem_size =
         integral_math::AlignUp(elem_size, alignof(Node));
 
-    cntr.lln = static_cast<LListNode*>(allocator::SafeAllocate(
-        cntr.node_alctr, alignof(LListNode), sizeof(LListNode)));
+    this->lln = static_cast<LListNode*>(allocator::SafeAllocate(
+        this->node_alctr_like, alignof(LListNode), sizeof(LListNode)));
 
-    cntr.lln->Construct();
-
-    cntr.ght.Construct(
-        rehashing_config,
-        meta::Forward<ElemHasherLikeConstructArg>(elem_hash_construct_arg),
-        meta::Forward<ElemComparatorLikeConstructArg>(elem_cmptr_construct_arg),
-        meta::Forward<SaltRandomEngineLikeConstructArg>(
-            salt_random_engine_construct_arg),
-        meta::Forward<TableNodeAllocatorLikeConstructArg>(
-            table_node_alctr_construct_arg));
-
-    lifecycle::Construct(cntr.node_alctr,
-                         meta::Forward<NodeAllocatorLikeConstructArg>(
-                             node_alctr_like_construct_arg));
+    this->lln->Construct();
 }
 
 template <CntrTplParamList>
-constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Deconstruct(
-    this Cntr& cntr) {
-    detail::CheckCntr_(cntr);
+constexpr dynamic_hash_table::Cntr<CntrTplArgList>::~Cntr() {
+    detail::CheckCntr_(*this);
 
-    cntr.EraseAll();
+    this->EraseAll();
 
-    cntr.ght.Deconstruct();
+    lifecycle::InvokeDestructor(this->ght);
 
-    allocator::Deallocate(cntr.node_alctr, cntr.lln);
+    allocator::Deallocate(this->node_alctr_like, this->lln);
+}
+
+template <CntrTplParamList>
+constexpr assoc_cntr::capability::Flag
+dynamic_hash_table::Cntr<CntrTplArgList>::GetStaticEnabledCapabilityFlag(
+    assoc_cntr::Tag, meta::TypeWrapper<Cntr>) {
+    return assoc_cntr::capability::FlagBuilder{
+        .GetCursorSize = true,
+
+        .GetElemSize = true,
+        .GetElemCnt = true,
+        .GetMaxElemCnt = true,
+
+        .GetLBCursor = true,
+        .GetRBCursor = true,
+
+        .PeekL = true,
+        .PeekR = true,
+
+        .Derefer = true,
+
+        .Find = true,
+
+        .Insert = true,
+
+        .PopL = true,
+        .PopR = true,
+        .Erase = true,
+        .EraseAll = true,
+
+        .CopyCursor = true,
+
+        .AreEqualCursor = true,
+        .CompareCursor = true,
+        .GetCursorDist = true,
+        .GetCursorIdx = true,
+
+        .CursorStepL = true,
+        .CursorStepR = true,
+
+        .CursorAdvanceL = true,
+        .CursorAdvanceR = true,
+    }();
+}
+
+template <CntrTplParamList>
+constexpr assoc_cntr::capability::Flag
+dynamic_hash_table::Cntr<CntrTplArgList>::GetStaticEnabledCapabilityFlag(
+    assoc_cntr::Tag, meta::TypeWrapper<Cntr const>) {
+    return (GetStaticEnabledCapabilityFlag)(assoc_cntr::Tag{},
+                                            meta::TypeWrapper<Cntr>{}) &
+           assoc_cntr::capability::const_capability_flag;
+}
+
+template <CntrTplParamList>
+constexpr assoc_cntr::capability::Flag
+dynamic_hash_table::Cntr<CntrTplArgList>::GetStaticDisabledCapabilityFlag(
+    assoc_cntr::Tag, meta::TypeWrapper<Cntr>) {
+    return assoc_cntr::capability::empty_capability_flag;
+}
+
+template <CntrTplParamList>
+constexpr assoc_cntr::capability::Flag
+dynamic_hash_table::Cntr<CntrTplArgList>::GetStaticDisabledCapabilityFlag(
+    assoc_cntr::Tag, meta::TypeWrapper<Cntr const>) {
+    return assoc_cntr::capability::non_const_capability_flag;
+}
+
+template <CntrTplParamList>
+constexpr assoc_cntr::capability::Flag
+dynamic_hash_table::Cntr<CntrTplArgList>::GetDynamicEnabledCapabilityFlag(
+    assoc_cntr::Tag) {
+    return assoc_cntr::capability::empty_capability_flag;
+}
+
+template <CntrTplParamList>
+constexpr assoc_cntr::capability::Flag
+dynamic_hash_table::Cntr<CntrTplArgList>::GetDynamicDisabledCapabilityFlag(
+    assoc_cntr::Tag) {
+    return assoc_cntr::capability::empty_capability_flag;
 }
 
 template <CntrTplParamList>
 constexpr void* dynamic_hash_table::Cntr<CntrTplArgList>::GetReferedInstPtr(
-    this Cntr const& cntr) {
-    detail::CheckCntr_(cntr);
-    return const_cast<void*>(static_cast<void const*>(&cntr.ght));
+    this Cntr const& self, assoc_cntr::Tag) {
+    detail::CheckCntr_(self);
+    return const_cast<void*>(static_cast<void const*>(&self.ght));
+}
+
+template <CntrTplParamList>
+constexpr meta::TypeWrapper<typename dynamic_hash_table::Cursor>
+dynamic_hash_table::Cntr<CntrTplArgList>::GetCursorType(
+    assoc_cntr::Tag, meta::TypeWrapper<Cntr>) {
+    return {};
 }
 
 template <CntrTplParamList>
 constexpr size_t dynamic_hash_table::Cntr<CntrTplArgList>::GetCursorSize(
-    this Cntr const& cntr) {
-    detail::CheckCntr_(cntr);
+    this Cntr const& self, assoc_cntr::Tag) {
+    detail::CheckCntr_(self);
 
     return sizeof(Cursor);
 }
 
 template <CntrTplParamList>
 constexpr size_t dynamic_hash_table::Cntr<CntrTplArgList>::GetElemSize(
-    this Cntr const& cntr) {
-    detail::CheckCntr_(cntr);
+    this Cntr const& self, assoc_cntr::Tag) {
+    detail::CheckCntr_(self);
 
-    return cntr.elem_size;
+    return self.elem_size;
 }
 
 template <CntrTplParamList>
 constexpr size_t dynamic_hash_table::Cntr<CntrTplArgList>::GetElemCnt(
-    this Cntr const& cntr) {
-    detail::CheckCntr_(cntr);
+    this Cntr const& self, assoc_cntr::Tag) {
+    detail::CheckCntr_(self);
 
-    return cntr.ght.GetNodeCnt();
+    return self.ght.GetNodeCnt();
 }
 
 template <CntrTplParamList>
 constexpr size_t dynamic_hash_table::Cntr<CntrTplArgList>::GetMaxElemCnt(
-    this Cntr const& cntr) {
-    detail::CheckCntr_(cntr);
+    this Cntr const& self, assoc_cntr::Tag) {
+    detail::CheckCntr_(self);
 
     return ZETA_Core_max_capacity;
 }
 
 template <CntrTplParamList>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::GetLBCursor(
-    this Cntr const& cntr, Cursor* dst_cursor) {
-    detail::CheckCntr_(cntr);
+    this Cntr const& self, assoc_cntr::Tag, Cursor* dst_cursor) {
+    detail::CheckCntr_(self);
 
     if (dst_cursor == nullptr) { return; }
 
-    dst_cursor->cntr = &cntr;
-    dst_cursor->lln = cntr.lln;
+    dst_cursor->cntr = &self;
+    dst_cursor->lln = self.lln;
 }
 
 template <CntrTplParamList>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::GetRBCursor(
-    this Cntr const& cntr, Cursor* dst_cursor) {
-    detail::CheckCntr_(cntr);
+    this Cntr const& self, assoc_cntr::Tag, Cursor* dst_cursor) {
+    detail::CheckCntr_(self);
 
     if (dst_cursor == nullptr) { return; }
 
-    dst_cursor->cntr = &cntr;
-    dst_cursor->lln = cntr.lln;
+    dst_cursor->cntr = &self;
+    dst_cursor->lln = self.lln;
 }
 
 template <CntrTplParamList>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PeekL(
-    this auto& cntr, bool lazy_copy_elem,
+    this auto& self, assoc_cntr::Tag, bool lazy_copy_elem,
     assoc_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
     void* dst_elem) {
-    detail::CheckCntr_(cntr);
+    detail::CheckCntr_(self);
 
     Cursor cursor{
-        .cntr = &cntr,
-        .lln = llist::GetR(cntr.lln),
+        .cntr = &self,
+        .lln = llist::GetR(self.lln),
     };
 
-    void* elem{ cntr.lln == cursor.lln
+    void* elem{ self.lln == cursor.lln
                     ? nullptr
                     : ZETA_Core_MemberToStruct(Node, lln, cursor.lln)->data };
 
     if (dst_elem_ptr_view != nullptr) {
         dst_elem_ptr_view->ptr = elem;
 
-        if constexpr (meta::IsConst<decltype(cntr)>) {
+        if constexpr (meta::IsConst<decltype(self)>) {
             dst_elem_ptr_view->aliasability =
                 elem == nullptr
                     ? assoc_cntr::ElemPtrView::AliasabilityEnum::Null
@@ -260,30 +329,30 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PeekL(
     }
 
     if (elem != nullptr && !lazy_copy_elem && dst_elem != nullptr) {
-        utils::MemCopy(dst_elem, elem, cntr.elem_size);
+        utils::MemCopy(dst_elem, elem, self.elem_size);
     }
 }
 
 template <CntrTplParamList>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PeekR(
-    this auto& cntr, bool lazy_copy_elem,
+    this auto& self, assoc_cntr::Tag, bool lazy_copy_elem,
     assoc_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
     void* dst_elem) {
-    detail::CheckCntr_(cntr);
+    detail::CheckCntr_(self);
 
     Cursor cursor{
-        .cntr = &cntr,
-        .lln = llist::GetL(cntr.lln),
+        .cntr = &self,
+        .lln = llist::GetL(self.lln),
     };
 
-    void* elem{ cntr.lln == cursor.lln
+    void* elem{ self.lln == cursor.lln
                     ? nullptr
                     : ZETA_Core_MemberToStruct(Node, lln, cursor.lln)->data };
 
     if (dst_elem_ptr_view != nullptr) {
         dst_elem_ptr_view->ptr = elem;
 
-        if constexpr (meta::IsConst<decltype(cntr)>) {
+        if constexpr (meta::IsConst<decltype(self)>) {
             dst_elem_ptr_view->aliasability =
                 elem == nullptr
                     ? assoc_cntr::ElemPtrView::AliasabilityEnum::Null
@@ -302,18 +371,19 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PeekR(
     }
 
     if (elem != nullptr && !lazy_copy_elem && dst_elem != nullptr) {
-        utils::MemCopy(dst_elem, elem, cntr.elem_size);
+        utils::MemCopy(dst_elem, elem, self.elem_size);
     }
 }
 
 template <CntrTplParamList>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Derefer(
-    this auto& cntr, Cursor const* pos_cursor, bool lazy_copy_elem,
-    assoc_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_elem) {
-    detail::CheckCursor_(cntr, pos_cursor);
+    this auto& self, assoc_cntr::Tag, Cursor const* pos_cursor,
+    bool lazy_copy_elem, assoc_cntr::ElemPtrView* dst_elem_ptr_view,
+    void* dst_elem) {
+    detail::CheckCursor_(self, pos_cursor);
 
     void* elem{
-        cntr.lln == pos_cursor->lln
+        self.lln == pos_cursor->lln
             ? nullptr
             : ZETA_Core_MemberToStruct(Node, lln, pos_cursor->lln)->data
     };
@@ -321,7 +391,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Derefer(
     if (dst_elem_ptr_view != nullptr) {
         dst_elem_ptr_view->ptr = elem;
 
-        if constexpr (meta::IsConst<decltype(cntr)>) {
+        if constexpr (meta::IsConst<decltype(self)>) {
             dst_elem_ptr_view->aliasability =
                 elem == nullptr
                     ? assoc_cntr::ElemPtrView::AliasabilityEnum::Null
@@ -335,18 +405,18 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Derefer(
     }
 
     if (elem != nullptr && !lazy_copy_elem && dst_elem != nullptr) {
-        utils::MemCopy(dst_elem, elem, cntr.elem_size);
+        utils::MemCopy(dst_elem, elem, self.elem_size);
     }
 }
 
 template <CntrTplParamList>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Find(
-    this auto& cntr, void const* elem, bool lazy_copy_elem,
+    this auto& self, assoc_cntr::Tag, void const* elem, bool lazy_copy_elem,
     assoc_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
     void* dst_elem) {
-    detail::CheckCntr_(cntr);
+    detail::CheckCntr_(self);
 
-    cntr.Find(elem, cntr.ght.hasher.elem_hasher, cntr.ght.cmptr.elem_cmptr,
+    self.Find(elem, self.ght.hasher.elem_hasher, self.ght.cmptr.elem_cmptr,
               lazy_copy_elem, dst_elem_ptr_view, dst_cursor, dst_elem);
 }
 
@@ -354,17 +424,17 @@ template <CntrTplParamList>
 template <hash::CanHash<void const*> KeyHasher,
           comparison::CanCompare<void const*, void const*> KeyElemComparator>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Find(
-    this auto& cntr, void const* key, KeyHasher const& key_hasher,
-    KeyElemComparator const& key_elem_cmptr, bool lazy_copy_elem,
-    assoc_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
-    void* dst_elem) {
-    detail::CheckCntr_(cntr);
+    this auto& self, assoc_cntr::Tag, void const* key,
+    KeyHasher const& key_hasher, KeyElemComparator const& key_elem_cmptr,
+    bool lazy_copy_elem, assoc_cntr::ElemPtrView* dst_elem_ptr_view,
+    Cursor* dst_cursor, void* dst_elem) {
+    detail::CheckCntr_(self);
 
     KeyNodeComparatorWrapper<KeyElemComparator const&> key_node_cmptr{
         .key_elem_cmptr = key_elem_cmptr,
     };
 
-    void* ghtn{ cntr.ght.Find(key, key_hasher, key_node_cmptr) };
+    void* ghtn{ self.ght.Find(key, key_hasher, key_node_cmptr) };
 
     if (ghtn == nullptr) {
         if (dst_elem_ptr_view != nullptr) {
@@ -374,8 +444,8 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Find(
         }
 
         if (dst_cursor != nullptr) {
-            dst_cursor->cntr = &cntr;
-            dst_cursor->lln = cntr.lln;
+            dst_cursor->cntr = &self;
+            dst_cursor->lln = self.lln;
         }
 
         return;
@@ -386,7 +456,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Find(
     if (dst_elem_ptr_view != nullptr) {
         dst_elem_ptr_view->ptr = node->data;
 
-        if constexpr (meta::IsConst<decltype(cntr)>) {
+        if constexpr (meta::IsConst<decltype(self)>) {
             dst_elem_ptr_view->aliasability =
                 assoc_cntr::ElemPtrView::AliasabilityEnum::ReadOnly;
         } else {
@@ -396,102 +466,109 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Find(
     }
 
     if (dst_cursor != nullptr) {
-        dst_cursor->cntr = &cntr;
+        dst_cursor->cntr = &self;
         dst_cursor->lln = &node->lln;
     }
 
     if (!lazy_copy_elem && dst_elem != nullptr) {
-        utils::MemCopy(dst_elem, node->data, cntr.elem_size);
+        utils::MemCopy(dst_elem, node->data, self.elem_size);
     }
 }
 
 template <CntrTplParamList>
 template <hash::CanHash<void const*> KeyHasher,
           comparison::CanCompare<void const*, void const*> KeyElemComparator,
-          assoc_cntr::IsWriter Writer>
+          assoc_cntr::IsWriter Provider>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Insert(
-    this Cntr& cntr, void const* key, KeyHasher const& key_hasher,
-    KeyElemComparator const& key_elem_cmptr, Writer&& writer,
-    Cursor* dst_cursor) {
-    detail::CheckCntr_(cntr);
+    this Cntr& self, assoc_cntr::Tag, void const* key,
+    KeyHasher const& key_hasher, KeyElemComparator const& key_elem_cmptr,
+    Provider&& writer, Cursor* dst_cursor) {
+    detail::CheckCntr_(self);
+
+    auto& node_alctr{ meta::GetInstRef(self.node_alctr_like) };
 
     Node* node{ static_cast<Node*>(allocator::SafeAllocate(
-        cntr.node_alctr, alignof(Node),
-        __builtin_offsetof(Node, data[cntr.elem_size]))) };
+        node_alctr, alignof(Node),
+        __builtin_offsetof(Node, data[self.elem_size]))) };
 
     node->Construct();
 
-    seq_endpoint::provider::Transfer(writer, node->data, cntr.elem_size, cntr.elem_size,
-                           1);
+    seq_endpoint::provider::Transfer(writer, node->data, self.elem_size,
+                                     self.elem_size, 1);
 
-    cntr.ght.Insert(key, key_hasher, key_elem_cmptr, &node->ghtn);
+    self.ght.Insert(key, key_hasher, key_elem_cmptr, &node->ghtn);
 
-    llist::InsertL(cntr.lln, &node->lln);
+    llist::InsertL(self.lln, &node->lln);
 
     if (dst_cursor != nullptr) {
-        dst_cursor->cntr = &cntr;
+        dst_cursor->cntr = &self;
         dst_cursor->lln = &node->lln;
     }
 }
 
 template <CntrTplParamList>
-template <assoc_cntr::IsReader Reader>
-constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PopL(this Cntr& cntr,
-                                                              size_t cnt,
-                                                              Reader&& reader) {
-    detail::CheckCntr_(cntr);
+template <assoc_cntr::IsReader acceptor>
+constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PopL(
+    this Cntr& self, assoc_cntr::Tag, size_t cnt, acceptor&& reader) {
+    detail::CheckCntr_(self);
 
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= cntr.GetElemCnt());
+    auto& node_alctr{ meta::GetInstRef(self.node_alctr_like) };
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= self.GetElemCnt());
 
     for (; 0 < cnt; --cnt) {
-        LListNode* lln{ llist::GetR(cntr.lln) };
+        LListNode* lln{ llist::GetR(self.lln) };
 
         Node* node{ ZETA_Core_MemberToStruct(Node, lln, lln) };
 
         llist::Extract(lln);
 
-        cntr.ght.Extract(&node->ghtn);
+        self.ght.Extract(&node->ghtn);
 
-        seq_endpoint::acceptor::Transfer(reader, node->data, cntr.elem_size,
-                               cntr.elem_size, 1);
+        seq_endpoint::acceptor::Transfer(reader, node->data, self.elem_size,
+                                         self.elem_size, 1);
 
-        allocator::Deallocate(cntr.node_alctr, node);
+        allocator::Deallocate(node_alctr, node);
     }
 }
 
 template <CntrTplParamList>
-template <assoc_cntr::IsReader Reader>
-constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PopR(this Cntr& cntr,
-                                                              size_t cnt,
-                                                              Reader&& reader) {
-    detail::CheckCntr_(cntr);
+template <assoc_cntr::IsReader acceptor>
+constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PopR(
+    this Cntr& self, assoc_cntr::Tag, size_t cnt, acceptor&& reader) {
+    detail::CheckCntr_(self);
 
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= cntr.GetElemCnt());
+    auto& node_alctr{ meta::GetInstRef(self.node_alctr_like) };
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= self.GetElemCnt());
 
     for (; 0 < cnt; --cnt) {
-        LListNode* lln{ llist::GetL(cntr.lln) };
+        LListNode* lln{ llist::GetL(self.lln) };
 
         Node* node{ ZETA_Core_MemberToStruct(Node, lln, lln) };
 
         llist::Extract(lln);
 
-        cntr.ght.Extract(&node->ghtn);
+        self.ght.Extract(&node->ghtn);
 
-        seq_endpoint::acceptor::Transfer(reader, node->data, cntr.elem_size,
-                               cntr.elem_size, 1);
+        seq_endpoint::acceptor::Transfer(reader, node->data, self.elem_size,
+                                         self.elem_size, 1);
 
-        allocator::Deallocate(cntr.node_alctr, node);
+        allocator::Deallocate(node_alctr, node);
     }
 }
 
 template <CntrTplParamList>
-template <assoc_cntr::IsReader Reader>
+template <assoc_cntr::IsReader acceptor>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Erase(
-    this Cntr& cntr, Cursor* pos_cursor, size_t cnt, Reader&& reader) {
-    detail::CheckCursor_(cntr, pos_cursor);
+    this Cntr& self, assoc_cntr::Tag, Cursor* pos_cursor, size_t cnt,
+    acceptor&& reader) {
+    detail::CheckCursor_(self, pos_cursor);
+
+    auto& node_alctr{ meta::GetInstRef(self.node_alctr_like) };
 
     for (; 0 < cnt; --cnt) {
-        ZETA_Core_DebugUtils_Diag_PromiseAssert(cntr.lln != pos_cursor->lln);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(self.lln != pos_cursor->lln);
 
         LListNode* lln{ pos_cursor->lln };
 
@@ -501,92 +578,99 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Erase(
 
         llist::Extract(&node->lln);
 
-        cntr.ght.Extract(&node->ghtn);
+        self.ght.Extract(&node->ghtn);
 
-        seq_endpoint::acceptor::Transfer(reader, node->data, cntr.elem_size,
-                               cntr.elem_size, 1);
+        seq_endpoint::acceptor::Transfer(reader, node->data, self.elem_size,
+                                         self.elem_size, 1);
 
-        allocator::Deallocate(cntr.node_alctr, node);
+        allocator::Deallocate(node_alctr, node);
     }
 }
 
 template <CntrTplParamList>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::EraseAll(
-    this Cntr& cntr) {
-    for (;;) {
-        LListNode* nxt_lln{ llist::GetR(cntr.lln) };
+    this Cntr& self, assoc_cntr::Tag) {
+    auto& node_alctr{ meta::GetInstRef(self.node_alctr_like) };
 
-        if (nxt_lln == cntr.lln) { break; }
+    for (;;) {
+        LListNode* nxt_lln{ llist::GetR(self.lln) };
+
+        if (nxt_lln == self.lln) { break; }
 
         Node* nxt_node{ ZETA_Core_MemberToStruct(Node, lln, nxt_lln) };
 
         llist::Extract(nxt_lln);
 
-        cntr.ght.Extract(&nxt_node->ghtn);
+        self.ght.Extract(&nxt_node->ghtn);
 
-        allocator::Deallocate(cntr.node_alctr, nxt_node);
+        allocator::Deallocate(node_alctr, nxt_node);
     }
 }
 
 template <CntrTplParamList>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::CopyCursor(
-    this Cntr const& cntr, Cursor* src_cursor, Cursor* dst_cursor) {
-    detail::CheckCursor_(cntr, src_cursor);
+    this Cntr const& self, assoc_cntr::Tag, Cursor* src_cursor,
+    Cursor* dst_cursor) {
+    detail::CheckCursor_(self, src_cursor);
 
     *dst_cursor = *src_cursor;
 }
 
 template <CntrTplParamList>
 constexpr bool dynamic_hash_table::Cntr<CntrTplArgList>::AreEqualCursor(
-    this Cntr const& cntr, Cursor const* cursor_a, Cursor const* cursor_b) {
-    detail::CheckCursor_(cntr, cursor_a);
-    detail::CheckCursor_(cntr, cursor_b);
+    this Cntr const& self, assoc_cntr::Tag, Cursor const* cursor_a,
+    Cursor const* cursor_b) {
+    detail::CheckCursor_(self, cursor_a);
+    detail::CheckCursor_(self, cursor_b);
 
     return cursor_a->lln == cursor_b->lln;
 }
 
 template <CntrTplParamList>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::CursorStepL(
-    this Cntr const& cntr, Cursor* cursor) {
-    detail::CheckCursor_(cntr, cursor);
+    this Cntr const& self, assoc_cntr::Tag, Cursor* cursor) {
+    detail::CheckCursor_(self, cursor);
 
     cursor->lln = llist::GetL(cursor->lln);
 }
 
 template <CntrTplParamList>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::CursorStepR(
-    this Cntr const& cntr, Cursor* cursor) {
-    detail::CheckCursor_(cntr, cursor);
+    this Cntr const& self, assoc_cntr::Tag, Cursor* cursor) {
+    detail::CheckCursor_(self, cursor);
 
     cursor->lln = llist::GetR(cursor->lln);
 }
 
 template <CntrTplParamList>
 constexpr auto dynamic_hash_table::Cntr<CntrTplArgList>::GetEffFactor(
-    this Cntr& cntr) {
-    detail::CheckCntr_(cntr);
+    this Cntr& self, assoc_cntr::Tag) {
+    detail::CheckCntr_(self);
 
-    return cntr.ght.GetEffFactor(cntr.ght);
+    return self.ght.GetEffFactor(self.ght);
 }
 
 template <CntrTplParamList>
-constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Sanitize(
-    this Cntr const& cntr, mem_recorder::MemRecorder* dst_table,
-    mem_recorder::MemRecorder* dst_node) {
-    detail::CheckCntr_(cntr);
+constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::SanityCheck(
+    void const* self_, debug_utils::sanity::SanityCheckScope scope) {
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(self_ != nullptr);
+
+    auto& self{ *static_cast<Cntr<CntrTplArgList> const*>(self_) };
+
+    detail::CheckCntr_(self);
 
     mem_recorder::MemRecorder htn_records;
 
-    cntr.ght.Sanitize(dst_table, &htn_records);
+    self.ght.Sanitize(dst_table, &htn_records);
 
     if (dst_node != nullptr) { dst_node->Record(cntr.lln, sizeof(LListNode)); }
 
-    size_t node_size{ __builtin_offsetof(Node, data[cntr.elem_size]) };
+    size_t node_size{ __builtin_offsetof(Node, data[self.elem_size]) };
 
-    for (LListNode* lln{ cntr.lln };;) {
+    for (LListNode* lln{ self.lln };;) {
         lln = llist::GetR(lln);
 
-        if (lln == cntr.lln) { break; }
+        if (lln == self.lln) { break; }
 
         Node* node{ ZETA_Core_MemberToStruct(Node, lln, lln) };
 

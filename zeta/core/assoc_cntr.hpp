@@ -15,17 +15,17 @@ namespace zeta::core::assoc_cntr {
 
 constexpr size_t max_max_elem_cnt{ integral::RangeMaxOf<size_t> / 2 };
 
-template <typename Reader>
-concept IsReader = seq_endpoint::acceptor::IsAcceptor<Reader>;
+template <typename Acceptor>
+concept IsReader = seq_endpoint::acceptor::IsAcceptor<acceptor>;
 
-template <typename Writer>
-concept IsWriter = seq_endpoint::provider::IsProvider<Writer>;
+template <typename Provider>
+concept IsWriter = seq_endpoint::provider::IsProvider<provider>;
 
-template <typename ReaderWriter>
-concept IsReaderWriter = seq_endpoint::provider::IsProvider<ReaderWriter>;
+template <typename Acceptor>
+concept IsReaderWriter = seq_endpoint::provider::IsProvider<Acceptor>;
 
-using EmptyReader = seq_endpoint::acceptor::EmptyAcceptor;
-using EmptyWriter = seq_endpoint::provider::EmptyProvider;
+using EmptyReader = seq_endpoint::acceptor::BasicAcceptor;
+using EmptyWriter = seq_endpoint::provider::BasicProvider;
 using EmptyReaderWriter =
     seq_endpoint::acceptor_provider::EmptyAcceptorProvider;
 
@@ -204,138 +204,122 @@ struct CursorLimit {
     void* content[8];
 } __attribute__((aligned(alignof(max_align_t))));
 
-template <typename Cntr>
-struct CntrTraits;
+struct Tag {};
 
 #pragma push_macro("SatisfiesMethodMacro")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define SatisfiesMethodMacro(cap, method, ret, ...)                           \
-    requires((CntrTraits<                                                     \
-                  meta::RemoveRef<Cntr>>::GetStaticDisabledCapabilityFlag() & \
-              (static_cast<capability::Flag>(1)                               \
-               << meta::ToUnderlying(capability::Kind::cap))) != 0 ||         \
-             meta::IsMatched<                                                 \
-                 meta::RemoveRef<decltype(CntrTraits<meta::RemoveRef<Cntr>>:: \
-                                              method(__VA_ARGS__))>,          \
-                 decltype(ret)>)
+#define SatisfiesMethodMacro(cap, method, ret, ...)                       \
+    requires(Cntr::GetStaticDisabledCapabilityFlag(                       \
+                 tag, meta::TypeWrapper<Cntr>{}) &                        \
+             (static_cast<capability::Flag>(1)                            \
+              << meta::ToUnderlying(capability::Kind::cap))) != 0 ||      \
+                    meta::IsMatched<meta::RemoveRef<decltype(cntr.method( \
+                                        tag, __VA_ARGS__))>,              \
+                                    decltype(ret)>
 
 template <typename Cntr>
 concept IsAssocCntr = requires(
-    Cntr& cntr, bool bool_val, void* void_ptr, void const* const_void_ptr,
-    size_t size_val, ElemPtrView* elem_ptr_view_ptr,
-    hash::ArchetypeHasher key_hasher,
+    Cntr& cntr, Tag tag, meta::TypeWrapper<Cntr> cntr_type_wrapper,
+    bool bool_val, void* void_ptr, void const* const_void_ptr, size_t size_val,
+    ElemPtrView* elem_ptr_view_ptr, hash::ArchetypeHasher key_hasher,
     comparison::ArchetypeComparator key_elem_cmptr,
     seq_endpoint::acceptor::ArchetypeAcceptor reader,
     seq_endpoint::provider::ArchetypeProvider writer,
-    seq_endpoint::provider::ArchetypeProvider reader_writer,
-    comparison::Ordering ordering_val, meta::AlwaysMatchedTag unused) {
+    seq_endpoint::provider::ArchetypeProvider acceptor,
+    comparison::Ordering ordering_val,
+    meta::GetTypeWrapperType<decltype(Cntr::GetCursorType(
+        tag, cntr_type_wrapper))>* cursor_ptr,
+    meta::AlwaysMatchedTag unused) {
     requires requires {
         requires meta::IsSame<
-            meta::RemoveRef<decltype(CntrTraits<meta::RemoveRef<Cntr>>::
-                                         GetReferedInstPtr(cntr))>,
-            void*>;
+            meta::RemoveRef<decltype(cntr.GetReferedInstPtr(tag))>, void*>;
 
         requires meta::IsSame<
-            meta::RemoveRef<decltype(CntrTraits<meta::RemoveRef<Cntr>>::
-                                         GetStaticEnabledCapabilityFlag())>,
+            meta::RemoveRef<decltype(Cntr::GetStaticEnabledCapabilityFlag(
+                tag, cntr_type_wrapper))>,
             capability::Flag>;
 
-        requires(CntrTraits<
-                     meta::RemoveRef<Cntr>>::GetStaticEnabledCapabilityFlag() &
+        requires(Cntr::GetStaticEnabledCapabilityFlag(tag, cntr_type_wrapper) &
                  capability::empty_capability_flag) ==
                     capability::empty_capability_flag;
 
-        requires(CntrTraits<
-                     meta::RemoveRef<Cntr>>::GetStaticEnabledCapabilityFlag() |
+        requires(Cntr::GetStaticEnabledCapabilityFlag(tag, cntr_type_wrapper) |
                  capability::full_capability_flag) ==
                     capability::full_capability_flag;
 
         requires meta::IsSame<
-            meta::RemoveRef<decltype(CntrTraits<meta::RemoveRef<Cntr>>::
-                                         GetStaticDisabledCapabilityFlag())>,
+            meta::RemoveRef<decltype(Cntr::GetStaticDisabledCapabilityFlag(
+                tag, cntr_type_wrapper))>,
             capability::Flag>;
 
-        requires(CntrTraits<
-                     meta::RemoveRef<Cntr>>::GetStaticDisabledCapabilityFlag() &
+        requires(Cntr::GetStaticDisabledCapabilityFlag(tag, cntr_type_wrapper) &
                  capability::empty_capability_flag) ==
                     capability::empty_capability_flag;
 
-        requires(CntrTraits<
-                     meta::RemoveRef<Cntr>>::GetStaticDisabledCapabilityFlag() |
+        requires(Cntr::GetStaticDisabledCapabilityFlag(tag, cntr_type_wrapper) |
                  capability::full_capability_flag) ==
                     capability::full_capability_flag;
 
         requires meta::IsSame<
-            meta::RemoveRef<decltype(CntrTraits<meta::RemoveRef<Cntr>>::
-                                         GetDynamicEnabledCapabilityFlag(
-                                             cntr))>,
+            meta::RemoveRef<decltype(cntr.GetDynamicEnabledCapabilityFlag(
+                tag))>,
             capability::Flag>;
 
         requires meta::IsSame<
-            meta::RemoveRef<decltype(CntrTraits<meta::RemoveRef<Cntr>>::
-                                         GetDynamicDisabledCapabilityFlag(
-                                             cntr))>,
+            meta::RemoveRef<decltype(cntr.GetDynamicDisabledCapabilityFlag(
+                tag))>,
             capability::Flag>;
 
-        requires(CntrTraits<
-                     meta::RemoveRef<Cntr>>::GetStaticEnabledCapabilityFlag() &
-                 CntrTraits<meta::RemoveRef<Cntr>>::
-                     GetStaticDisabledCapabilityFlag()) ==
+        requires(Cntr::GetStaticEnabledCapabilityFlag(tag, cntr_type_wrapper) &
+                 Cntr::GetStaticDisabledCapabilityFlag(tag,
+                                                       cntr_type_wrapper)) ==
                     capability::empty_capability_flag;
     };
 
     SatisfiesMethodMacro(  //
         GetCursorSize,     // capability
         GetCursorSize,     // method
-
-        size_val,  // ret
-                   //
-        cntr       // cntr
+                           //
+        size_val           // ret
     );
 
     SatisfiesMethodMacro(  //
         GetElemSize,       // capability
         GetElemSize,       // method
                            //
-        size_val,          // ret
-                           //
-        cntr               // cntr
+        size_val           // ret
     );
 
     SatisfiesMethodMacro(  //
         GetElemCnt,        // capability
         GetElemCnt,        // method
                            //
-        size_val,          // ret
-                           //
-        cntr               // cntr
+        size_val           // ret
     );
 
     SatisfiesMethodMacro(  //
         GetMaxElemCnt,     // capability
         GetMaxElemCnt,     // method
                            //
-        size_val,          // ret
-                           //
-        cntr               // cntr
+        size_val           // ret
     );
 
     SatisfiesMethodMacro(  //
         GetLBCursor,       // capability
         GetLBCursor,       // method
                            //
-        unused,            //
+        unused,            // ret
                            //
-        void_ptr           // cursor
+        cursor_ptr         // cursor
     );
 
     SatisfiesMethodMacro(  //
         GetRBCursor,       // capability
         GetRBCursor,       // method
                            //
-        unused,            //
+        unused,            // ret
                            //
-        void_ptr           // cursor
+        cursor_ptr         // cursor
     );
 
     SatisfiesMethodMacro(   //
@@ -344,10 +328,9 @@ concept IsAssocCntr = requires(
                             //
         unused,             // ret
                             //
-        cntr,               // cntr
         bool_val,           // lazy_copy_elem
         elem_ptr_view_ptr,  // dst_elem_ptr_view
-        void_ptr,           // dst_cursor
+        cursor_ptr,         // dst_cursor
         void_ptr            // dst_elem
     );
 
@@ -357,10 +340,9 @@ concept IsAssocCntr = requires(
                             //
         unused,             // ret
                             //
-        cntr,               // cntr
         bool_val,           // lazy_copy_elem
         elem_ptr_view_ptr,  // dst_elem_ptr_view
-        void_ptr,           // dst_cursor
+        cursor_ptr,         // dst_cursor
         void_ptr            // dst_elem
     );
 
@@ -370,8 +352,7 @@ concept IsAssocCntr = requires(
                             //
         unused,             // ret
                             //
-        cntr,               // cntr
-        void_ptr,           // pos_cursor
+        cursor_ptr,         // pos_cursor
         bool_val,           // lazy_copy_elem
         elem_ptr_view_ptr,  // dst_elem_ptr_view
         void_ptr            // dst_elem
@@ -383,11 +364,10 @@ concept IsAssocCntr = requires(
                             //
         unused,             // ret
                             //
-        cntr,               // cntr
         const_void_ptr,     // elem
         bool_val,           // lazy_copy_elem
         elem_ptr_view_ptr,  // dst_elem_ptr_view
-        void_ptr,           // dst_cursor
+        cursor_ptr,         // dst_cursor
         void_ptr            // dst_elem
     );
 
@@ -397,7 +377,6 @@ concept IsAssocCntr = requires(
                             //
         unused,             // ret
                             //
-        cntr,               // cntr
         const_void_ptr,     // key
         key_hasher,         // key_hasher
         key_elem_cmptr,     // key_elem_cmptr
@@ -457,7 +436,7 @@ concept IsAssocCntr = requires(
                            //
         unused,            // ret
                            //
-        void_ptr,          // pos_cursor
+        cursor_ptr,        // pos_cursor
         size_val,          // cnt
         reader             // reader
     );
@@ -475,8 +454,8 @@ concept IsAssocCntr = requires(
                            //
         unused,            // ret
                            //
-        void_ptr,          // src_cursor
-        void_ptr           // dst_cursor
+        cursor_ptr,        // src_cursor
+        cursor_ptr         // dst_cursor
     );
 
     SatisfiesMethodMacro(  //
@@ -485,19 +464,18 @@ concept IsAssocCntr = requires(
                            //
         bool_val,          // ret
                            //
-        void_ptr,          // cursor_a
-        void_ptr           // cursor_b
+        cursor_ptr,        // cursor_a
+        cursor_ptr         // cursor_b
     );
 
     SatisfiesMethodMacro(  //
         CompareCursor,     // capability
         CompareCursor,     // method
                            //
-        ordering_val,      //
-                           // ret
+        ordering_val,      // ret
                            //
-        void_ptr,          // cursor_a
-        void_ptr           // cursor_b
+        cursor_ptr,        // cursor_a
+        cursor_ptr         // cursor_b
     );
 
     SatisfiesMethodMacro(  //
@@ -506,8 +484,8 @@ concept IsAssocCntr = requires(
                            //
         size_val,          // ret
                            //
-        void_ptr,          // cursor_a
-        void_ptr           // cursor_b
+        cursor_ptr,        // cursor_a
+        cursor_ptr         // cursor_b
     );
 
     SatisfiesMethodMacro(  //
@@ -516,7 +494,7 @@ concept IsAssocCntr = requires(
                            //
         size_val,          // ret
                            //
-        void_ptr           // cursor
+        cursor_ptr         // cursor
     );
 
     SatisfiesMethodMacro(  //
@@ -525,7 +503,7 @@ concept IsAssocCntr = requires(
                            //
         unused,            // ret
                            //
-        void_ptr           // cursor
+        cursor_ptr         // cursor
     );
 
     SatisfiesMethodMacro(  //
@@ -543,7 +521,7 @@ concept IsAssocCntr = requires(
                            //
         unused,            // ret
                            //
-        void_ptr,          // cursor
+        cursor_ptr,        // cursor
         size_val           // step
     );
 
@@ -553,7 +531,7 @@ concept IsAssocCntr = requires(
                            //
         unused,            // ret
                            //
-        void_ptr,          // cursor
+        cursor_ptr,        // cursor
         size_val           // step
     );
 };
@@ -623,27 +601,27 @@ constexpr decltype(auto) Find(Cntr& cntr, void const* key,
                               ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
                               void* dst_elem);
 
-template <typename Cntr, IsWriter Writer>
-constexpr decltype(auto) Insert(Cntr& cntr, void const* elem, Writer&& writer,
+template <typename Cntr, IsWriter provider>
+constexpr decltype(auto) Insert(Cntr& cntr, void const* elem, provider&& writer,
                                 void* dst_cursor);
 
 template <typename Cntr, hash::CanHash<void const*> KeyHasher,
           comparison::CanCompare<void const*, void const*> KeyElemComparator,
-          IsWriter Writer>
+          IsWriter provider>
 constexpr decltype(auto) Insert(Cntr& cntr, void const* key,
                                 KeyHasher key_hasher,
                                 KeyElemComparator key_elem_cmptr,
-                                Writer&& writer, void* dst_cursor);
+                                provider&& writer, void* dst_cursor);
 
-template <typename Cntr, assoc_cntr::IsReader Reader>
-constexpr decltype(auto) PopL(Cntr& cntr, size_t cnt, Reader&& reader);
+template <typename Cntr, assoc_cntr::IsReader acceptor>
+constexpr decltype(auto) PopL(Cntr& cntr, size_t cnt, acceptor&& reader);
 
-template <typename Cntr, assoc_cntr::IsReader Reader>
-constexpr decltype(auto) PopR(Cntr& cntr, size_t cnt, Reader&& reader);
+template <typename Cntr, assoc_cntr::IsReader acceptor>
+constexpr decltype(auto) PopR(Cntr& cntr, size_t cnt, acceptor&& reader);
 
-template <typename Cntr, assoc_cntr::IsReader Reader>
+template <typename Cntr, assoc_cntr::IsReader acceptor>
 constexpr decltype(auto) Erase(Cntr& cntr, void* pos_cursor, size_t cnt,
-                               Reader&& reader);
+                               acceptor&& reader);
 
 template <typename Cntr>
 constexpr decltype(auto) EraseAll(Cntr& cntr);

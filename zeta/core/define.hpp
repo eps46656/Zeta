@@ -44,6 +44,8 @@
 
 namespace zeta::core {
 
+using nullptr_t = decltype(nullptr);
+
 using size_t = __SIZE_TYPE__;
 
 using uintptr_t = __UINTPTR_TYPE__;
@@ -51,5 +53,9 @@ using sintptr_t = __INTPTR_TYPE__;
 using ptrdiff_t = __PTRDIFF_TYPE__;
 
 static constexpr size_t max_align{ alignof(void*) };
+
+struct None {};
+
+constexpr None* none_ptr{ nullptr };
 
 }  // namespace zeta::core

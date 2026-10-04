@@ -46,7 +46,7 @@ namespace zeta::core_test {
 
 template <>
 struct RandomCore<PODValue> {
-    PODValue operator()() const {
+    static PODValue F() {
         PODValue ret;
 
         for (size_t i{ 0 }; i < PODValue::width; ++i) {

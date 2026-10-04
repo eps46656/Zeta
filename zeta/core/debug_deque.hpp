@@ -8,15 +8,18 @@
 
 namespace zeta::core::debug_deque {
 
+template <meta::IsContainerElem Elem>
 struct Cntr;
+
 struct Cursor;
 
+template <meta::IsContainerElem Elem_>
 struct Cntr {
-    size_t elem_size;
+    using Elem = Elem_;
 
-    std::deque<void*>* deque;
+    std::deque<Elem*>* deque;
 
-    constexpr Cntr(size_t elem_size);
+    constexpr Cntr();
 
     constexpr ~Cntr();
 
@@ -40,15 +43,14 @@ struct Cntr {
 
     constexpr void* GetReferedInstPtr(this Cntr const& self, seq_cntr::Tag);
 
+    static constexpr meta::TypeWrapper<Elem> GetElemType(
+        seq_cntr::Tag, meta::TypeWrapper<Cntr>);
+
     static constexpr meta::TypeWrapper<Cursor> GetCursorType(
         seq_cntr::Tag, meta::TypeWrapper<Cntr>);
 
     static constexpr meta::TypeWrapper<Cursor> GetCursorType(
         seq_cntr::Tag, meta::TypeWrapper<Cntr const>);
-
-    static constexpr size_t GetCursorSize(seq_cntr::Tag);
-
-    constexpr size_t GetElemSize(this Cntr const& self, seq_cntr::Tag);
 
     constexpr size_t GetElemCnt(this Cntr const& self, seq_cntr::Tag);
 
@@ -60,64 +62,79 @@ struct Cntr {
     constexpr void GetRBCursor(this Cntr const& self, seq_cntr::Tag,
                                Cursor* dst_cursor);
 
+    template <typename DstElem>
     constexpr void PeekL(this auto& self, seq_cntr::Tag, bool lazy_copy_elem,
                          seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                         Cursor* dst_cursor, void* dst_elem);
+                         Cursor* dst_cursor,
+                         lifecycle::DataLifeState dst_elem_life_state,
+                         DstElem* dst_elem);
 
+    template <typename DstElem>
     constexpr void PeekR(this auto& self, seq_cntr::Tag, bool lazy_copy_elem,
                          seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                         Cursor* dst_cursor, void* dst_elem);
+                         Cursor* dst_cursor,
+                         lifecycle::DataLifeState dst_elem_life_state,
+                         DstElem* dst_elem);
 
+    template <typename DstElem>
     constexpr void Refer(this auto& self, seq_cntr::Tag, size_t idx,
                          bool lazy_copy_elem,
                          seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                         Cursor* dst_cursor, void* dst_elem);
+                         Cursor* dst_cursor,
+                         lifecycle::DataLifeState dst_elem_life_state,
+                         DstElem* dst_elem);
 
+    template <typename DstElem>
     constexpr void Derefer(this auto& self, seq_cntr::Tag,
                            Cursor const* pos_cursor, bool lazy_copy_elem,
                            seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                           void* dst_elem);
+                           lifecycle::DataLifeState dst_elem_life_state,
+                           DstElem* dst_elem);
 
-    template <typename Reader>
-    constexpr void Read(this Cntr const& self, seq_cntr::Tag,
-                        Cursor const* pos_cursor, size_t cnt, Reader&& reader,
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
+    constexpr void Read(this auto&& self, seq_cntr::Tag,
+                        Cursor const* pos_cursor, size_t cnt, Acceptor&& reader,
                         Cursor* dst_cursor);
 
-    template <typename Writer>
+    template <seq_endpoint::provider::IsProvider<Elem> Provider>
     constexpr void Write(this Cntr& self, seq_cntr::Tag,
-                         Cursor const* pos_cursor, size_t cnt, Writer&& writer,
-                         Cursor* dst_cursor);
+                         Cursor const* pos_cursor, size_t cnt,
+                         Provider&& writer, Cursor* dst_cursor);
 
-    template <typename ReaderWriter>
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
     constexpr void ReadWrite(this Cntr& self, seq_cntr::Tag,
                              Cursor const* pos_cursor, size_t cnt,
-                             ReaderWriter&& reader_writer, Cursor* dst_cursor);
+                             Acceptor&& acceptor, Cursor* dst_cursor);
 
-    template <typename Writer>
+    template <seq_endpoint::provider::IsProvider<Elem> Provider>
     constexpr void PushL(this Cntr& self, seq_cntr::Tag, size_t cnt,
-                         Writer&& writer, Cursor* dst_cursor);
+                         Provider&& writer, Cursor* dst_beg_cursor,
+                         Cursor* dst_end_cursor);
 
-    template <typename Writer>
+    template <seq_endpoint::provider::IsProvider<Elem> Provider>
     constexpr void PushR(this Cntr& self, seq_cntr::Tag, size_t cnt,
-                         Writer&& writer, Cursor* dst_cursor);
+                         Provider&& writer, Cursor* dst_beg_cursor,
+                         Cursor* dst_end_cursor);
 
-    template <typename Writer>
+    template <seq_endpoint::provider::IsProvider<Elem> Provider>
     constexpr void Insert(this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor,
-                          size_t cnt, Writer&& writer, Cursor* dst_cursor);
+                          size_t cnt, Provider&& writer, Cursor* dst_cursor);
 
-    template <typename Reader>
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
     constexpr void PopL(this Cntr& self, seq_cntr::Tag, size_t cnt,
-                        Reader&& reader);
+                        Acceptor&& reader, Cursor* dst_cursor);
 
-    template <typename Reader>
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
     constexpr void PopR(this Cntr& self, seq_cntr::Tag, size_t cnt,
-                        Reader&& reader);
+                        Acceptor&& reader, Cursor* dst_cursor);
 
-    template <typename Reader>
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
     constexpr void Erase(this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor,
-                         size_t cnt, Reader&& reader);
+                         size_t cnt, Acceptor&& reader);
 
-    constexpr void EraseAll(this Cntr& self, seq_cntr::Tag);
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
+    constexpr void EraseAll(this Cntr& self, seq_cntr::Tag,
+                            Acceptor&& acceptor);
 
     constexpr void CopyCursor(this Cntr const& self, seq_cntr::Tag,
                               Cursor const* src_cursor, Cursor* dst_cursor);
@@ -152,8 +169,18 @@ struct Cntr {
 };
 
 struct Cursor {
-    Cntr const* cntr;
+    void const* cntr;
     size_t idx;
+
+    constexpr Cursor() = default;
+
+    constexpr Cursor(seq_cntr::CursorLimit const& src_cursor);
+
+    constexpr operator seq_cntr::CursorLimit(this Cursor const& self);
+
+    constexpr Cursor& operator=(Cursor const& src_cursor) = default;
+
+    constexpr Cursor& operator=(seq_cntr::CursorLimit const& src_cursor);
 };
 
 }  // namespace zeta::core::debug_deque

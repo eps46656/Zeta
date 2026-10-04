@@ -9,49 +9,36 @@
 
 namespace zeta::core_test::circular_array_utils {
 
-using PolySeqCntr = core::poly_seq_cntr::Cntr;
-
-namespace CircularArrayNS = core::circular_array;
-using CircularArray = CircularArrayNS::Cntr;
+template <core::meta::IsContainerElem Elem>
+using CircularArray = core::circular_array::Cntr<Elem>;
 
 template <typename Elem>
-constexpr PolySeqCntr Create(size_t stride, size_t capacity);
-
-constexpr void Destroy(void* ca);
-
-constexpr void Sanitize(void const* ca);
-
-template <typename Elem>
-constexpr PolySeqCntr Create(size_t stride, size_t slot_cnt) {
+constexpr core::poly_seq_cntr::Cntr<Elem> Create(size_t stride,
+                                                 size_t slot_cnt) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(sizeof(Elem) <= stride);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(stride % alignof(Elem) == 0);
 
-    auto* ca{ static_cast<CircularArray*>(std::malloc(sizeof(CircularArray))) };
+    auto* ca{ static_cast<CircularArray<Elem>*>(new CircularArray<Elem>{
+        .data = static_cast<Elem*>(std::malloc(stride * slot_cnt)),
+        .elem_stride = stride,
+        .elem_cnt = 0,
+        .slot_cnt = slot_cnt,
+        .rot = 0,
+    }) };
 
-    ca->data = std::malloc(stride * slot_cnt);
-    ca->elem_size = sizeof(Elem);
-    ca->elem_stride = stride;
-    ca->elem_cnt = 0;
-    ca->slot_cnt = slot_cnt;
-    ca->rot = 0;
+    seq_cntr_utils::AddSanitizeFunc(ca, [](void const*) {});
 
-    seq_cntr_utils::AddSanitizeFunc(ca, Sanitize);
+    seq_cntr_utils::AddDestroyFunc(ca, [](void* ca_) {
+        CircularArray<Elem>* ca{ static_cast<CircularArray<Elem>*>(ca_) };
 
-    seq_cntr_utils::AddDestroyFunc(ca, Destroy);
+        if (ca == nullptr) { return; }
 
-    static_assert(core::seq_cntr::IsSeqCntr<CircularArray>);
+        delete ca;
+    });
+
+    static_assert(core::seq_cntr::IsSeqCntr<CircularArray<Elem>>);
 
     return *ca;
 }
-
-constexpr void Destroy(void* ca_) {
-    CircularArray* ca{ static_cast<CircularArray*>(ca_) };
-
-    if (ca == nullptr) { return; }
-
-    delete ca;
-}
-
-constexpr void Sanitize(void const*) {}
 
 }  // namespace zeta::core_test::circular_array_utils

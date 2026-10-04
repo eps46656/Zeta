@@ -164,8 +164,11 @@ struct MLPTHelper_ {
 
     char data[sizeof(MLPT)] __attribute__((aligned(alignof(MLPT))));
 
+    bool destructed;
+
     constexpr MLPTHelper_(unsigned level, size_t elem_cnt, void* root,
-                          NodeAllocator& table_node_alctr) {
+                          NodeAllocator& table_node_alctr)
+        : destructed{ false } {
         new (data) MLPT{
             lifecycle::DirectConstructTag{},
             level,
@@ -178,11 +181,24 @@ struct MLPTHelper_ {
     }
 
     constexpr ~MLPTHelper_() {
-        reinterpret_cast<MLPT*>(data)->DisownDestruct();
+        if (this->destructed) { return; }
+        reinterpret_cast<MLPT*>(this->data)->DisownDestruct();
     }
 
-    constexpr MLPT& GetMLPT() const {
-        return *reinterpret_cast<MLPT const*>(data);
+    constexpr MLPT& GetMLPT(this MLPTHelper_& self) {
+        return *reinterpret_cast<MLPT const*>(self.data);
+    }
+
+    constexpr void Destruct(this MLPTHelper_& self) {
+        if (self.destructed) { return; }
+        reinterpret_cast<MLPT*>(self.data)->Destruct();
+        self.destructed = true;
+    }
+
+    constexpr void DisownDestruct(this MLPTHelper_& self) {
+        if (self.destructed) { return; }
+        reinterpret_cast<MLPT*>(self.data)->DisownDestruct();
+        self.destructed = true;
     }
 };
 
@@ -356,7 +372,7 @@ bool TryExtractFromTable_  // NOLINT(misc-use-internal-linkage)
 template <allocator::IsAllocator TableNodeAllocator, CntrTplParamList>
 void TryRunPending_(Cntr<CntrTplArgList> const& self_,
                     MLPTHelper_<TableNodeAllocator>& cur_table,
-                    MLPTHelper_<TableNodeAllocator>& nxt_table, size_t quata) {
+                    MLPTHelper_<TableNodeAllocator>& nxt_table, size_t quota) {
     auto& self{ const_cast<Cntr<CntrTplArgList>&>(self_) };
 
     size_t cur_bucket_size{ self.cur_bucket_size };
@@ -404,7 +420,7 @@ void TryRunPending_(Cntr<CntrTplArgList> const& self_,
 
     void** root_entry{ nullptr };
 
-    for (; 0 < quata && 0 < cur_table.elem_cnt; --quata) {
+    for (; 0 < quota && 0 < cur_table.elem_cnt; --quota) {
         if (root_entry == nullptr) {
             root_entry = static_cast<void**>(cur_table.FindFirst(idxes));
         }
@@ -826,7 +842,7 @@ constexpr void generic_hash_table::Cntr<CntrTplArgList>::ExtractAll(
 
 template <CntrTplParamList>
 constexpr bool generic_hash_table::Cntr<CntrTplArgList>::RunPending(
-    this Cntr& self, size_t quata) {
+    this Cntr& self, size_t quota) {
     detail::CheckCntr_(self);
 
     size_t cur_bucket_size{ self.cur_bucket_size };
@@ -853,7 +869,7 @@ constexpr bool generic_hash_table::Cntr<CntrTplArgList>::RunPending(
     };
 
     detail::TryRunPending_(self, cur_table, nxt_table,
-                           comparison_utils::BasicMax(4ULL, quata));
+                           comparison_utils::BasicMax(4ULL, quota));
 
     return 0 < nxt_bucket_size;
 }
@@ -985,10 +1001,11 @@ struct SanitizeTreeRet_ {
 };
 
 template <CntrTplParamList>
-constexpr SanitizeTreeRet_ SanitizeTree_  // NOLINT(misc-use-internal-linkage)
-    (Cntr<CntrTplArgList> const& self, mem_recorder::MemRecorder* dst_node,
-     unsigned long long salt, size_t bucket_size, size_t bucket_idx,
-     TreeNode* tn) {
+constexpr SanitizeTreeRet_
+    SanityCheckTree_  // NOLINT(misc-use-internal-linkage)
+    (Cntr<CntrTplArgList> const& self,
+     debug_utils::memory::MemRecorder& scanned_node, unsigned long long salt,
+     size_t bucket_size, size_t bucket_idx, TreeNode* tn) {
     if (tn == nullptr) { return { 0, nullptr, nullptr }; }
     auto* n{ ZETA_Core_MemberToStruct(Node, tn, tn) };
 
@@ -996,16 +1013,16 @@ constexpr SanitizeTreeRet_ SanitizeTree_  // NOLINT(misc-use-internal-linkage)
         (GetBucketIdx_)(hash::Hash(meta::GetInstRef(self.hasher_like), n, salt),
                         bucket_size) == bucket_idx);
 
-    if (dst_node != nullptr) { dst_node->Record(n, sizeof(Node)); }
+    scanned_node.Add(n, sizeof(Node));
 
     TreeNode* tnl{ bin_tree::GetL(&n->tn) };
     TreeNode* tnr{ bin_tree::GetR(&n->tn) };
 
-    SanitizeTreeRet_ l_ret{ SanitizeTree_(self, dst_node, salt, bucket_size,
-                                          bucket_idx, tnl) };
+    SanitizeTreeRet_ l_ret{ (SanityCheckTree_)(self, scanned_node, salt,
+                                               bucket_size, bucket_idx, tnl) };
 
-    SanitizeTreeRet_ r_ret{ SanitizeTree_(self, dst_node, salt, bucket_size,
-                                          bucket_idx, tnr) };
+    SanitizeTreeRet_ r_ret{ (SanityCheckTree_)(self, scanned_node, salt,
+                                               bucket_size, bucket_idx, tnr) };
 
     SanitizeTreeRet_ ret{
         .cnt = l_ret.cnt + 1 + r_ret.cnt,
@@ -1036,7 +1053,11 @@ constexpr SanitizeTreeRet_ SanitizeTree_  // NOLINT(misc-use-internal-linkage)
 
 template <CntrTplParamList>
 constexpr void generic_hash_table::Cntr<CntrTplArgList>::SanityCheck(
-    this Cntr const& self, debug_utils::sanity::SanityCheckScope scope) {
+    void const* self_, debug_utils::sanity::SanityCheckScope scope) {
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(self_ != nullptr);
+
+    auto& self{ *static_cast<Cntr<CntrTplArgList> const*>(self_) };
+
     detail::CheckCntr_(self);
 
     size_t cur_bucket_size{ self.cur_bucket_size };
@@ -1072,14 +1093,16 @@ constexpr void generic_hash_table::Cntr<CntrTplArgList>::SanityCheck(
 
     size_t idxes[max_level];
 
+    debug_utils::memory::MemRecorder scanned_node;
+
     {
         void** root_entry{ static_cast<void**>(cur_table.FindFirst(idxes)) };
 
         while (root_entry != nullptr) {
             total_size += bin_tree::Count(static_cast<TreeNode*>(*root_entry));
 
-            detail::SanitizeTree_(
-                self, dst_node, self.cur_salt, cur_bucket_size,
+            detail::SanityCheckTree_(
+                self, scanned_node, self.cur_salt, cur_bucket_size,
                 detail::BranchIdxesToBucketIdx_(cur_table.level, idxes),
                 static_cast<TreeNode*>(*root_entry));
 
@@ -1094,8 +1117,8 @@ constexpr void generic_hash_table::Cntr<CntrTplArgList>::SanityCheck(
         while (root_entry != nullptr) {
             total_size += bin_tree::Count(static_cast<TreeNode*>(*root_entry));
 
-            detail::SanitizeTree_(
-                self, dst_node, self.nxt_salt, nxt_bucket_size,
+            detail::SanityCheckTree_(
+                self, scanned_node, self.nxt_salt, nxt_bucket_size,
                 detail::BranchIdxesToBucketIdx_(nxt_table.level, idxes),
                 static_cast<TreeNode*>(*root_entry));
 
@@ -1109,8 +1132,5 @@ constexpr void generic_hash_table::Cntr<CntrTplArgList>::SanityCheck(
 
 }  // namespace zeta::core
 
-#pragma pop_macro("BuildNxtMLPTTable")
-#pragma pop_macro("BuildCurMLPTTable")
-#pragma pop_macro("MLPT_CNTR")
 #pragma pop_macro("CntrTplArgList")
 #pragma pop_macro("CntrTplParamList")

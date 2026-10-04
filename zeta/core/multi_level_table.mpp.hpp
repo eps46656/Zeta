@@ -77,21 +77,25 @@ struct NavNode {
 
 #if EnDataNode
 
-template <integral::IsIntegral ActiveMap_>
+template <integral::IsIntegral ActiveMap_, meta::IsContainerElem Data_>
 struct DataNode {
     using ActiveMap = ActiveMap_;
+    using Data = Data_;
 
     static_assert(integral::IsUnsignedIntegral<ActiveMap>);
 
     ZETA_Core_DebugStructPadding;
 
     ActiveMap active_map;
-    unsigned char data[] __attribute__((aligned(max_align)));
+    alignas(Data) unsigned char data[];
 };
 
 #endif
 
 template <integral::IsUnsignedIntegral ActiveMap_,
+#if EnDataNode
+          meta::IsContainerElem Data_,
+#endif
           typename NavNodeAllocatorLike_
 #if EnDataNode
           ,
@@ -100,6 +104,10 @@ template <integral::IsUnsignedIntegral ActiveMap_,
           >
 struct Cntr {
     using ActiveMap = ActiveMap_;
+
+#if EnDataNode
+    using Data = Data_;
+#endif
 
     using NavNodeAllocatorLike = NavNodeAllocatorLike_;
 
@@ -125,11 +133,6 @@ struct Cntr {
     DataNodeAllocatorLike data_node_alctr_like;
 #endif
 
-    /**
-     * @brief Constructialize the cntr.
-     *
-     * @param cntr The target cntr.
-     */
     template <typename NavNodeAllocatorConstructArg
 #if EnDataNode
               ,
@@ -149,11 +152,6 @@ struct Cntr {
 #endif
     );
 
-    /**
-     * @brief Constructialize the cntr.
-     *
-     * @param cntr The target cntr.
-     */
     template <typename NavNodeAllocatorConstructArg
 #if EnDataNode
               ,
@@ -177,96 +175,99 @@ struct Cntr {
 
     constexpr void DisownDestruct(this Cntr& cntr);
 
-    /**
-     * @brief Get the size of cntr. Assume the value does not overflow max range
-     * of size_t.
-     *
-     * @param cntr The target cntr.
-     */
     constexpr size_t GetElemCnt(this Cntr& cntr);
 
-    /**
-     * @brief Get the total capacity of cntr. Assume the value does not overflow
-     * max range of size_t.
-     *
-     * @param cntr The target cntr.
-     */
     constexpr size_t GetMaxElemCnt(this Cntr& cntr);
 
-    template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvier>
+    template <
+        seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvier>
     constexpr auto Access(this auto& cntr,
                           SrcBranchIdxesProvier&& src_branch_idxes_provider)
-        -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
+        -> meta::MakeConstIf<void, meta::IsConst<decltype(cntr)>>*;
 
-    template <seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    template <
+        seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
     constexpr auto FindFirst(this auto& cntr,
                              DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
+        -> meta::MakeConstIf<void, meta::IsConst<decltype(cntr)>>*;
 
-    template <seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    template <
+        seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
     constexpr auto FindLast(this auto& cntr,
                             DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
+        -> meta::MakeConstIf<void, meta::IsConst<decltype(cntr)>>*;
 
-    template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider,
-              seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    template <
+        seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider,
+        seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
     constexpr auto FindPrevIncl(
         this auto& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider,
         DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
+        -> meta::MakeConstIf<void, meta::IsConst<decltype(cntr)>>*;
 
-    template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider,
-              seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    template <
+        seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider,
+        seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
     constexpr auto FindPrevExcl(
         this auto& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider,
         DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
+        -> meta::MakeConstIf<void, meta::IsConst<decltype(cntr)>>*;
 
-    /**
-     * @brief Find the first entry after idx.
-     *
-     * @param cntr The target cntr.
-     * @param idx The beginning index of searching, inclusivly.
-     *
-     * @return The reference of target entry.
-     */
-    template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider,
-              seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    template <
+        seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider,
+        seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
     constexpr auto FindNextIncl(
         this auto& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider,
         DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
+        -> meta::MakeConstIf<void, meta::IsConst<decltype(cntr)>>*;
 
-    template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider,
-              seq_endpoint::acceptor::IsAcceptor DstBranchIdxesAcceptor>
+    template <
+        seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider,
+        seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
     constexpr auto FindNextExcl(
         this auto& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider,
         DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::Conditional<meta::IsConst<decltype(cntr)>, void const*, void*>;
+        -> meta::MakeConstIf<void, meta::IsConst<decltype(cntr)>>*;
 
-    template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider>
+    template <
+        seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider
+#if EnDataNode
+        ,
+        seq_endpoint::provider::IsProvider<Data> DataProvider
+#endif
+        >
     constexpr pair::Pair<void*, bool> Insert(
-        this Cntr& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider);
+        this Cntr& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider
+#if EnDataNode
+        ,
+        DataProvider&& data_provider
+#endif
+    );
 
-    /**
-     * @brief Erase the target entry by indexes. If it has not existen.
-     *
-     * @param cntr The target cntr.
-     * @param src_branch_idxes_provider The branch indexes of target entry in
-     * each level.
-     *
-     * @return The reference of target entry.
-     */
-    template <seq_endpoint::provider::IsProvider SrcBranchIdxesProvider>
+    template <
+        seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider
+#if EnDataNode
+        ,
+        seq_endpoint::acceptor::IsAcceptor<BranchNum> DataAcceptor
+#endif
+        >
     constexpr bool Erase(this Cntr& cntr,
-                         SrcBranchIdxesProvider&& src_branch_idxes_provider);
+                         SrcBranchIdxesProvider&& src_branch_idxes_provider
+#if EnDataNode
+                         ,
+                         DataAcceptor&& data_acceptor
+#endif
+    );
 
-    /**
-     * @brief Erase all existed entries.
-     *
-     * @param cntr The target cntr.
-     */
-    constexpr void EraseAll(this Cntr& cntr);
+#if EnDataNode
+    template <seq_endpoint::acceptor::IsAcceptor<BranchNum> DataAcceptor
+#endif
+              constexpr void EraseAll(this Cntr& cntr
+#if EnDataNode
+                                      ,
+                                      DataAcceptor&& data_acceptor
+#endif
+              );
 
 #if ZETA_Core_DebugUtils_Sanity_Enable
     static constexpr void SanityCheck(

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <zeta/core/allocator.hpp>
-#include <zeta/core/llist_node_tpl.hpp>
+#include <zeta/core/basic_llist_node.hpp>
 #include <zeta/core/mem_check_utils.hpp>
 
 namespace zeta::core {

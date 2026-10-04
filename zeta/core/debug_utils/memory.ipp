@@ -7,75 +7,83 @@ namespace zeta::core::debug_utils {
 
 constexpr memory::MemRecorder::MemRecorder() : byte_cnt{ 0 } {}
 
-constexpr size_t memory::MemRecorder::GetBlockCnt(this MemRecorder const& mr) {
-    return mr.blocks.size();
+constexpr size_t memory::MemRecorder::GetBlockCnt(
+    this MemRecorder const& self) {
+    return self.blocks.size();
 }
 
-constexpr size_t memory::MemRecorder::GetByteCnt(this MemRecorder const& mr) {
-    return mr.byte_cnt;
+constexpr size_t memory::MemRecorder::GetByteCnt(this MemRecorder const& self) {
+    return self.byte_cnt;
 }
 
-constexpr void memory::MemRecorder::Add(this MemRecorder& mr, void const* ptr,
+constexpr size_t memory::MemRecorder::GetSize(this MemRecorder const& self,
+                                              void const* ptr) {
+    auto iter{ self.blocks.find(ptr) };
+
+    return iter == self.blocks.end() ? 0 : iter->second;
+}
+
+constexpr void memory::MemRecorder::Add(this MemRecorder& self, void const* ptr,
                                         size_t size) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(ptr != nullptr);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < size);
 
-    auto iter{ mr.blocks.lower_bound(ptr) };
+    auto iter{ self.blocks.lower_bound(ptr) };
 
-    if (iter != mr.blocks.end()) {
+    if (iter != self.blocks.end()) {
         ZETA_Core_DebugUtils_Diag_PromiseAssert(
             static_cast<char const*>(ptr) + size <= iter->first);
     }
 
-    if (iter != mr.blocks.begin()) {
+    if (iter != self.blocks.begin()) {
         --iter;
 
         ZETA_Core_DebugUtils_Diag_PromiseAssert(
             static_cast<char const*>(iter->first) + iter->second <= ptr);
     }
 
-    bool b{ mr.blocks.insert({ ptr, size }).second };
+    bool b{ self.blocks.insert({ ptr, size }).second };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(b);
 
-    mr.byte_cnt += size;
+    self.byte_cnt += size;
 }
 
-constexpr void memory::MemRecorder::Remove(this MemRecorder& mr,
+constexpr void memory::MemRecorder::Remove(this MemRecorder& self,
                                            void const* ptr) {
-    auto iter{ mr.blocks.find(ptr) };
+    auto iter{ self.blocks.find(ptr) };
 
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(iter != mr.blocks.end());
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(iter != self.blocks.end());
 
-    mr.byte_cnt -= iter->second;
+    self.byte_cnt -= iter->second;
 
-    mr.blocks.erase(iter);
+    self.blocks.erase(iter);
 }
 
-constexpr void memory::MemRecorder::Clear(this MemRecorder& mr) {
-    mr.blocks.clear();
-    mr.byte_cnt = 0;
+constexpr void memory::MemRecorder::Clear(this MemRecorder& self) {
+    self.blocks.clear();
+    self.byte_cnt = 0;
 }
 
-constexpr void memory::MemRecorder::Contain(this MemRecorder const& mr,
+constexpr void memory::MemRecorder::Contain(this MemRecorder const& self,
                                             void const* ptr, size_t size) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(ptr != nullptr);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < size);
 
-    auto iter{ mr.blocks.find(ptr) };
+    auto iter{ self.blocks.find(ptr) };
 
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(iter != mr.blocks.end());
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(iter != self.blocks.end());
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(size <= iter->second);
 }
 
-constexpr void memory::MemRecorder::InChargeOf(this MemRecorder const& mr,
+constexpr void memory::MemRecorder::InChargeOf(this MemRecorder const& self,
                                                MemRecorder const& resp_mr) {
-    ZETA_Core_DebugUtils_Diag_LogVar(mr.blocks.size());
+    ZETA_Core_DebugUtils_Diag_LogVar(self.blocks.size());
     ZETA_Core_DebugUtils_Diag_LogVar(resp_mr.blocks.size());
 
-    auto mr_iter{ mr.blocks.begin() };
-    auto mr_end{ mr.blocks.end() };
+    auto mr_iter{ self.blocks.begin() };
+    auto mr_end{ self.blocks.end() };
     auto resp_mr_iter{ resp_mr.blocks.begin() };
     auto resp_mr_end{ resp_mr.blocks.end() };
 
@@ -105,133 +113,152 @@ constexpr void memory::MemRecorder::InChargeOf(this MemRecorder const& mr,
 }
 
 constexpr void memory::MemRecorder::InChargeOf(
-    this MemRecorder const& mr, MemRecorderClient const& resp_mrc) {
-    mr.InChargeOf(resp_mrc.GetMemRecorder());
+    this MemRecorder const& self, MemRecorderClient const& resp_mrc) {
+    self.InChargeOf(resp_mrc.GetMemRecorder());
 }
 
 constexpr size_t memory::MemRecorderServer::GetBlockCnt(
-    this MemRecorderServer const& mrs, std::string const& group_name) {
-    auto iter{ mrs.group_name_to_mem_recorder.find(group_name) };
+    this MemRecorderServer const& self, identity_graph::Id group_id) {
+    if (group_id == identity_graph::null_id) { return 0; }
 
-    return iter == mrs.group_name_to_mem_recorder.end()
+    auto iter{ self.group_id_to_mem_recorder.find(group_id) };
+
+    return iter == self.group_id_to_mem_recorder.end()
                ? static_cast<size_t>(-1)
                : iter->second.GetBlockCnt();
 }
 
 constexpr size_t memory::MemRecorderServer::GetByteCnt(
-    this MemRecorderServer const& mrs, std::string const& group_name) {
-    auto iter{ mrs.group_name_to_mem_recorder.find(group_name) };
+    this MemRecorderServer const& self, identity_graph::Id group_id) {
+    if (group_id == identity_graph::null_id) { return 0; }
 
-    return iter == mrs.group_name_to_mem_recorder.end()
+    auto iter{ self.group_id_to_mem_recorder.find(group_id) };
+
+    return iter == self.group_id_to_mem_recorder.end()
                ? static_cast<size_t>(-1)
                : iter->second.GetByteCnt();
 }
 
 constexpr std::pair<memory::MemRecorder&, bool>
-memory::MemRecorderServer::AddGroup(this MemRecorderServer& mrs,
-                                    std::string const& group_name) {
-    auto [iter,
-          added]{ mrs.group_name_to_mem_recorder.try_emplace(group_name) };
+memory::MemRecorderServer::AddGroup(this MemRecorderServer& self,
+                                    identity_graph::Id group_id) {
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(group_id !=
+                                            identity_graph::null_id);
+
+    auto [iter, added]{ self.group_id_to_mem_recorder.try_emplace(group_id) };
 
     return { iter->second, added };
 }
 
-constexpr void memory::MemRecorderServer::AddBlock(
-    this MemRecorderServer& mrs, std::string const& group_name, void const* ptr,
-    size_t size) {
-    return mrs.AddGroup(group_name).first.Add(ptr, size);
+constexpr void memory::MemRecorderServer::AddBlock(this MemRecorderServer& self,
+                                                   identity_graph::Id group_id,
+                                                   void const* ptr,
+                                                   size_t size) {
+    if (group_id == identity_graph::null_id) { return; }
+
+    self.AddGroup(group_id).first.Add(ptr, size);
 }
 
 constexpr bool memory::MemRecorderServer::RemoveGroup(
-    this MemRecorderServer& mrs, std::string const& group_name) {
-    return mrs.group_name_to_mem_recorder.erase(group_name) != 0;
+    this MemRecorderServer& self, identity_graph::Id group_id) {
+    if (group_id == identity_graph::null_id) { return 0; }
+
+    return self.group_id_to_mem_recorder.erase(group_id) != 0;
 }
 
 constexpr void memory::MemRecorderServer::RemoveBlock(
-    this MemRecorderServer& mrs, std::string const& group_name,
+    this MemRecorderServer& self, identity_graph::Id group_id,
     void const* ptr) {
-    auto iter{ mrs.group_name_to_mem_recorder.find(group_name) };
+    if (group_id == identity_graph::null_id) { return; }
+
+    auto iter{ self.group_id_to_mem_recorder.find(group_id) };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        iter != mrs.group_name_to_mem_recorder.end());
+        iter != self.group_id_to_mem_recorder.end());
 
     iter->second.Remove(ptr);
 }
 
 constexpr void memory::MemRecorderServer::Contain(
-    this MemRecorderServer const& mrs, std::string const& group_name,
+    this MemRecorderServer const& self, identity_graph::Id group_id,
     void const* ptr, size_t size) {
-    auto iter{ mrs.group_name_to_mem_recorder.find(group_name) };
+    if (group_id == identity_graph::null_id) { return; }
+
+    auto iter{ self.group_id_to_mem_recorder.find(group_id) };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        iter != mrs.group_name_to_mem_recorder.end());
+        iter != self.group_id_to_mem_recorder.end());
 
     iter->second.Contain(ptr, size);
 }
 
 constexpr memory::MemRecorderClient
-memory::MemRecorderServer::MakeMemRecorderClient(
-    this MemRecorderServer& mrs, std::string const& group_name) {
-    return { &mrs, group_name };
+memory::MemRecorderServer::MakeMemRecorderClient(this MemRecorderServer& self,
+                                                 identity_graph::Id group_id) {
+    return { &self, group_id };
 }
 
 constexpr memory::MemRecorderClient::MemRecorderClient(
-    MemRecorderServer* server, std::string const& group_name)
-    : server{ server }, group_name{ group_name } {
+    MemRecorderServer* server, identity_graph::Id group_id)
+    : server{ server }, group_id{ group_id } {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(server != nullptr);
 }
 
 constexpr memory::MemRecorderClient
-memory::MemRecorderClient::GetSubGroupClient(
-    this MemRecorderClient const& mrc, std::string const& sub_group_name) {
+memory::MemRecorderClient::GetSubGroupClient(this MemRecorderClient const& self,
+                                             std::string const& name) {
+    identity_graph::Node* sub_group_node{ identity_graph::GetAdj(
+        identity_graph::GetNode(self.group_id), true, name) };
+
     return {
-        mrc.server,
-        mrc.group_name + "/" + sub_group_name,
+        self.server,
+        sub_group_node == nullptr ? identity_graph::null_id
+                                  : sub_group_node->id,
     };
 }
 
 constexpr memory::MemRecorder& memory::MemRecorderClient::GetMemRecorder(
-    this MemRecorderClient const& mrc) {
-    return mrc.server->AddGroup(mrc.group_name).first;
+    this MemRecorderClient const& self) {
+    return self.server->AddGroup(self.group_id).first;
 }
 
 constexpr size_t memory::MemRecorderClient::GetBlockCnt(
-    this MemRecorderClient const& mrc) {
-    return mrc.server->GetBlockCnt(mrc.group_name);
+    this MemRecorderClient const& self) {
+    return self.server->GetBlockCnt(self.group_id);
 }
 
 constexpr size_t memory::MemRecorderClient::GetByteCnt(
-    this MemRecorderClient const& mrc) {
-    return mrc.server->GetByteCnt(mrc.group_name);
+    this MemRecorderClient const& self) {
+    return self.server->GetByteCnt(self.group_id);
 }
 
-constexpr void memory::MemRecorderClient::Add(this MemRecorderClient& mrc,
+constexpr void memory::MemRecorderClient::Add(this MemRecorderClient& self,
                                               void const* ptr, size_t size) {
-    mrc.server->AddBlock(mrc.group_name, ptr, size);
+    self.server->AddBlock(self.group_id, ptr, size);
 }
 
-constexpr void memory::MemRecorderClient::Remove(this MemRecorderClient& mrc,
+constexpr void memory::MemRecorderClient::Remove(this MemRecorderClient& self,
                                                  void const* ptr) {
-    mrc.server->RemoveBlock(mrc.group_name, ptr);
+    self.server->RemoveBlock(self.group_id, ptr);
 }
 
-constexpr void memory::MemRecorderClient::Clear(this MemRecorderClient& mrc) {
-    mrc.server->RemoveGroup(mrc.group_name);
+constexpr void memory::MemRecorderClient::Clear(this MemRecorderClient& self) {
+    self.server->RemoveGroup(self.group_id);
 }
 
 constexpr void memory::MemRecorderClient::Contain(
-    this MemRecorderClient const& mrc, void const* ptr, size_t size) {
-    mrc.server->Contain(mrc.group_name, ptr, size);
+    this MemRecorderClient const& self, void const* ptr, size_t size) {
+    self.server->Contain(self.group_id, ptr, size);
 }
 
 constexpr void memory::MemRecorderClient::InChargeOf(
-    this MemRecorderClient const& mrc, MemRecorder const& resp_mr) {
-    mrc.GetMemRecorder().InChargeOf(resp_mr);
+    this MemRecorderClient const& self, MemRecorder const& resp_mr) {
+    self.GetMemRecorder().InChargeOf(resp_mr);
 }
 
 constexpr void memory::MemRecorderClient::InChargeOf(
-    this MemRecorderClient const& mrc, MemRecorderClient const& resp_mrc) {
-    mrc.GetMemRecorder().InChargeOf(resp_mrc.GetMemRecorder());
+    this MemRecorderClient const& self, MemRecorderClient const& resp_mrc) {
+    self.GetMemRecorder().InChargeOf(resp_mrc.GetMemRecorder());
 }
 
 }  // namespace zeta::core::debug_utils

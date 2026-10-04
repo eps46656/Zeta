@@ -135,11 +135,11 @@ constexpr void assoc_cntr_ref::Cntr::Find(
                lazy_copy_elem, dst_elem_ptr_view, dst_cursor, dst_elem);
 }
 
-template <assoc_cntr::IsWriter Writer>
+template <assoc_cntr::IsWriter provider>
 constexpr void* assoc_cntr_ref::Cntr::Insert(this Cntr& cntr, void const* elem,
-                                             Writer&& writer,
+                                             provider&& writer,
                                              void* dst_cursor) {
-    using RawWriter = meta::RemoveCVRef<Writer>;
+    using RawWriter = meta::RemoveCVRef<provider>;
 
     if constexpr (meta::IsSame<RawWriter, assoc_cntr::EmptyWriter>) {
         CallMethod(Insert, insert.with_elem.empty, elem, writer, dst_cursor);
@@ -150,12 +150,12 @@ constexpr void* assoc_cntr_ref::Cntr::Insert(this Cntr& cntr, void const* elem,
 
 template <hash::CanHash<void const*> KeyHasher,
           comparison::CanCompare<void const*, void const*> KeyElemComparator,
-          assoc_cntr::IsWriter Writer>
+          assoc_cntr::IsWriter provider>
 constexpr void* assoc_cntr_ref::Cntr::Insert(
     this Cntr& cntr, void const* key, KeyHasher const& key_hasher,
-    KeyElemComparator const& key_elem_cmptr, Writer&& writer,
+    KeyElemComparator const& key_elem_cmptr, provider&& writer,
     void* dst_cursor) {
-    using RawWriter = meta::RemoveCVRef<Writer>;
+    using RawWriter = meta::RemoveCVRef<provider>;
 
     if constexpr (meta::IsSame<RawWriter, assoc_cntr::EmptyWriter>) {
         CallMethod(Insert, insert.with_key.empty, key, key_hasher,
@@ -166,10 +166,10 @@ constexpr void* assoc_cntr_ref::Cntr::Insert(
     }
 }
 
-template <assoc_cntr::IsReader Reader>
+template <assoc_cntr::IsReader acceptor>
 constexpr void assoc_cntr_ref::Cntr::PopL(this Cntr& cntr, size_t cnt,
-                                          Reader&& reader) {
-    using RawReader = meta::RemoveCVRef<Reader>;
+                                          acceptor&& reader) {
+    using RawReader = meta::RemoveCVRef<acceptor>;
 
     if constexpr (meta::IsSame<RawReader, assoc_cntr::EmptyReader>) {
         CallMethod(PopL, pop_l.empty, cnt, reader);
@@ -180,10 +180,10 @@ constexpr void assoc_cntr_ref::Cntr::PopL(this Cntr& cntr, size_t cnt,
     }
 }
 
-template <assoc_cntr::IsReader Reader>
+template <assoc_cntr::IsReader acceptor>
 constexpr void assoc_cntr_ref::Cntr::PopR(this Cntr& cntr, size_t cnt,
-                                          Reader&& reader) {
-    using RawReader = meta::RemoveCVRef<Reader>;
+                                          acceptor&& reader) {
+    using RawReader = meta::RemoveCVRef<acceptor>;
 
     if constexpr (meta::IsSame<RawReader, assoc_cntr::EmptyReader>) {
         CallMethod(PopR, pop_l.empty, cnt, reader);
@@ -194,10 +194,10 @@ constexpr void assoc_cntr_ref::Cntr::PopR(this Cntr& cntr, size_t cnt,
     }
 }
 
-template <assoc_cntr::IsReader Reader>
+template <assoc_cntr::IsReader acceptor>
 constexpr void assoc_cntr_ref::Cntr::Erase(this Cntr& cntr, void* pos_cursor,
-                                           size_t cnt, Reader&& reader) {
-    using RawReader = meta::RemoveCVRef<Reader>;
+                                           size_t cnt, acceptor&& reader) {
+    using RawReader = meta::RemoveCVRef<acceptor>;
 
     if constexpr (meta::IsSame<RawReader, assoc_cntr::EmptyReader>) {
         CallMethod(Erase, erase.empty, pos_cursor, cnt, reader);

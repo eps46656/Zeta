@@ -4,6 +4,7 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/integral_math.ipp>
+#include <zeta/core/lifecycle.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/pair.hpp>
 #include <zeta/core/reduce.ipp>
@@ -69,7 +70,7 @@ constexpr void utils::MemSwap(void* x_, void* y_, size_t size) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(x != nullptr);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(y != nullptr);
 
-    for (size_t i{ 0 }; i < size; ++i) { Swap(x[i], y[i]); }
+    for (size_t i{ 0 }; i < size; ++i) { (Swap)(x[i], y[i]); }
 }
 
 constexpr void utils::MemCopy(void* dst, void const* src, size_t size) {
@@ -111,6 +112,34 @@ constexpr void* utils::MemRotate(void* data_, size_t l_size, size_t r_size) {
     }
 
     return ret;
+}
+
+template <typename T>
+constexpr T* utils::PtrInc(T* ptr, size_t shift) {
+    return reinterpret_cast<T*>(
+        reinterpret_cast<meta::MakeConstIf<char, meta::IsConst<T>>*>(ptr) +
+        shift);
+}
+
+template <typename T>
+constexpr T* utils::PtrInc(T* ptr, ptrdiff_t shift) {
+    return reinterpret_cast<T*>(
+        reinterpret_cast<meta::MakeConstIf<char, meta::IsConst<T>>*>(ptr) +
+        shift);
+}
+
+template <typename T>
+constexpr T* utils::PtrDec(T* ptr, size_t shift) {
+    return reinterpret_cast<T*>(
+        reinterpret_cast<meta::MakeConstIf<char, meta::IsConst<T>>*>(ptr) -
+        shift);
+}
+
+template <typename T>
+constexpr T* utils::PtrDec(T* ptr, ptrdiff_t shift) {
+    return reinterpret_cast<T*>(
+        reinterpret_cast<meta::MakeConstIf<char, meta::IsConst<T>>*>(ptr) -
+        shift);
 }
 
 namespace utils::detail {
@@ -172,6 +201,73 @@ constexpr void utils::EquistrideLinSeqCopy(void* dst_, void const* src_,
                                            ptrdiff_t elem_stride, size_t cnt) {
     detail::EquistrideLinSeqCopy_<ptrdiff_t>(dst_, src_, elem_size, elem_stride,
                                              cnt);
+}
+
+namespace utils::detail {
+
+template <integral::IsIntegral StrideIntegral, typename DstElem,
+          typename SrcElem>
+constexpr void EquistrideLinSeqCopy_(void* dst_, void const* src_,
+                                     meta::TypeWrapper<DstElem>,
+                                     meta::TypeWrapper<SrcElem>,
+                                     StrideIntegral elem_stride, size_t cnt) {
+    char* dst{ static_cast<char*>(dst_) };
+    char const* src{ static_cast<char const*>(src_) };
+
+    if (dst == src || cnt == 0) { return; }
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(src != nullptr);
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        elem_stride == 0 ||
+        sizeof(DstElem) <=
+            static_cast<size_t>(integral_math::Abs(elem_stride)) ||
+        sizeof(SrcElem) <=
+            static_cast<size_t>(integral_math::Abs(elem_stride)));
+
+    if (elem_stride == 0 || cnt == 1) {
+        *static_cast<DstElem*>(dst) = *static_cast<SrcElem const*>(src);
+        return;
+    }
+
+    StrideIntegral shift{ elem_stride * static_cast<StrideIntegral>(cnt - 1) };
+
+    if constexpr (integral::IsSignedIntegral<StrideIntegral>) {
+        if (elem_stride < 0) {
+            dst += shift;
+            src += shift;
+
+            elem_stride = -elem_stride;
+            shift = -shift;
+        }
+    }
+
+    for (size_t i{ 0 }; i < cnt; ++i, dst += elem_stride, src += elem_stride) {
+        *static_cast<DstElem*>(dst) = *static_cast<SrcElem const*>(src);
+    }
+}
+
+}  // namespace utils::detail
+
+template <typename DstElem, typename SrcElem>
+constexpr void utils::EquistrideLinSeqCopy(void* dst, void const* src,
+                                           meta::TypeWrapper<DstElem>,
+                                           meta::TypeWrapper<SrcElem>,
+                                           size_t elem_stride, size_t cnt) {
+    detail::EquistrideLinSeqCopy_<size_t>(
+        dst, src, meta::TypeWrapper<DstElem>{}, meta::TypeWrapper<SrcElem>{},
+        elem_stride, cnt);
+}
+
+template <typename DstElem, typename SrcElem>
+constexpr void utils::EquistrideLinSeqCopy(void* dst, void const* src,
+                                           meta::TypeWrapper<DstElem>,
+                                           meta::TypeWrapper<SrcElem>,
+                                           ptrdiff_t elem_stride, size_t cnt) {
+    detail::EquistrideLinSeqCopy_<ptrdiff_t>(
+        dst, src, meta::TypeWrapper<DstElem>{}, meta::TypeWrapper<SrcElem>{},
+        elem_stride, cnt);
 }
 
 namespace utils::detail {
@@ -243,6 +339,64 @@ constexpr void utils::LinSeqCopy(void* dst, void const* src, size_t elem_size,
                                  ptrdiff_t src_elem_stride, size_t cnt) {
     detail::LinSeqCopy_<ptrdiff_t>(dst, src, elem_size, dst_elem_stride,
                                    src_elem_stride, cnt);
+}
+
+namespace utils::detail {
+
+template <integral::IsIntegral StrideIntegral,
+          lifecycle::IsDataTransferOpLike DataTransferOpLike, typename DstElem,
+          typename SrcElem>
+constexpr void DisjointLinSeqTransfer_(DataTransferOpLike data_transfer_op_like,
+                                       DstElem* dst, SrcElem* src,
+                                       StrideIntegral dst_elem_stride,
+                                       StrideIntegral src_elem_stride,
+                                       size_t cnt) {
+    if (dst == src || cnt == 0) { return; }
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        dst_elem_stride == 0 ||
+        sizeof(DstElem) <=
+            static_cast<size_t>(integral_math::Abs(dst_elem_stride)));
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        src_elem_stride == 0 ||
+        sizeof(SrcElem) <=
+            static_cast<size_t>(integral_math::Abs(src_elem_stride)));
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= 1 || dst_elem_stride != 0 ||
+                                            src_elem_stride == 0);
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(src != nullptr);
+
+    if (dst_elem_stride == 0) {  // src_elem_stride == 0
+        cnt = 1;
+    }
+
+    for (; 0 < cnt--; dst = (PtrInc)(dst, dst_elem_stride),
+                      src = (PtrInc)(src, src_elem_stride)) {
+        lifecycle::DataTransfer(data_transfer_op_like, dst, *src);
+    }
+}
+
+}  // namespace utils::detail
+
+template <lifecycle::IsDataTransferOpLike DataTransferOpLike, typename DstElem,
+          typename SrcElem>
+constexpr void utils::DisjointLinSeqTransfer(
+    DataTransferOpLike data_transfer_op_like, DstElem* dst, SrcElem* src,
+    size_t dst_elem_stride, size_t src_elem_stride, size_t cnt) {
+    detail::DisjointLinSeqTransfer_<size_t>(
+        data_transfer_op_like, dst, src, dst_elem_stride, src_elem_stride, cnt);
+}
+
+template <lifecycle::IsDataTransferOpLike DataTransferOpLike, typename DstElem,
+          typename SrcElem>
+constexpr void utils::DisjointLinSeqTransfer(
+    DataTransferOpLike data_transfer_op_like, DstElem* dst, SrcElem* src,
+    ptrdiff_t dst_elem_stride, ptrdiff_t src_elem_stride, size_t cnt) {
+    detail::DisjointLinSeqTransfer_<ptrdiff_t>(
+        data_transfer_op_like, dst, src, dst_elem_stride, src_elem_stride, cnt);
 }
 
 namespace utils::detail {

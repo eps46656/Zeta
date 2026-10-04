@@ -17,37 +17,12 @@ namespace zeta::core::seq_cntr {
 
 constexpr size_t max_max_elem_cnt{ integral::RangeMaxOf<size_t> / 2 };
 
-template <typename Reader>
-concept IsReader = seq_endpoint::acceptor::IsAcceptor<Reader>;
-
-template <typename Writer>
-concept IsWriter = seq_endpoint::provider::IsProvider<Writer>;
-
-template <typename ReaderWriter>
-concept IsReaderWriter =
-    seq_endpoint::acceptor_provider::IsAcceptorProvider<ReaderWriter>;
-
-using EmptyReader = seq_endpoint::acceptor::EmptyAcceptor;
-using EmptyWriter = seq_endpoint::provider::EmptyProvider;
-using EmptyReaderWriter =
-    seq_endpoint::acceptor_provider::EmptyAcceptorProvider;
-
-using LinSeqReader = lin_seq_endpoint::acceptor::Acceptor;
-using LinSeqWriter = lin_seq_endpoint::provider::Provider;
-
-using PolyReader = poly_seq_endpoint::acceptor::Acceptor;
-using PolyWriter = poly_seq_endpoint::provider::Provider;
-using PolyReaderWriter = poly_seq_endpoint::acceptor_provider::AcceptorProvider;
-
 namespace capability {
 
 // clang-format off
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define ZETA_Core_SeqCntr_CapabilityWithoutAlwaysNever_XMacro(func, sep)       \
-    func(GetCursorSize, 2, true) sep                                           \
-                                                                               \
-    func(GetElemSize, 3, true) sep                                             \
     func(GetElemCnt, 4, true) sep                                              \
     func(GetMaxElemCnt, 5, true) sep                                           \
                                                                                \
@@ -207,17 +182,33 @@ struct ElemPtrView {
     bool operator!=(ElemPtrView const&) const = default;
 };
 
-struct CursorLimit {
+struct alignas(max_align_t) CursorLimit {
     void* content[8];
-} __attribute__((aligned(alignof(max_align_t))));
+};
 
 struct Tag {};
+
+#pragma push_macro("Elem")
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define Elem(CntrType)                                                 \
+    zeta::core::meta::GetTypeWrapperType<                              \
+        decltype(zeta::core::meta::RemoveCVRef<CntrType>::GetElemType( \
+            zeta::core::seq_cntr::Tag{},                               \
+            zeta::core::meta::TypeWrapper<meta::RemoveRef<CntrType>>{}))>
+
+#pragma push_macro("Cursor")
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define Cursor(CntrType)                                                 \
+    zeta::core::meta::GetTypeWrapperType<                                \
+        decltype(zeta::core::meta::RemoveCVRef<CntrType>::GetCursorType( \
+            zeta::core::seq_cntr::Tag{},                                 \
+            zeta::core::meta::TypeWrapper<meta::RemoveRef<CntrType>>{}))>
 
 #pragma push_macro("SatisfiesMethodMacro")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define SatisfiesMethodMacro(cap, method, ret, ...)                       \
-    requires(Cntr::GetStaticDisabledCapabilityFlag(                       \
-                 tag, meta::TypeWrapper<Cntr>{}) &                        \
+    requires(meta::RemoveCVRef<Cntr>::GetStaticDisabledCapabilityFlag(    \
+                 tag, meta::TypeWrapper<meta::RemoveRef<Cntr>>{}) &       \
              (static_cast<capability::Flag>(1)                            \
               << meta::ToUnderlying(capability::Kind::cap))) != 0 ||      \
                     meta::IsMatched<meta::RemoveRef<decltype(cntr.method( \
@@ -226,46 +217,47 @@ struct Tag {};
 
 template <typename Cntr>
 concept IsSeqCntr = requires(
-    Cntr& cntr, Tag tag, bool bool_val,
-    meta::GetTypeWrapperType<decltype(Cntr::GetCursorType(
-        Tag{}, meta::TypeWrapper<Cntr>{}))>* cursor_ptr,
-    int int_val, size_t size_val, ElemPtrView* elem_ptr_view_ptr,
-    seq_endpoint::acceptor::ArchetypeAcceptor reader,
-    seq_endpoint::provider::ArchetypeProvider writer,
-    seq_endpoint::acceptor_provider::ArchetypeAcceptorProvider reader_writer,
-    comparison::Ordering three_way_result_value,
+    Cntr& cntr, Tag tag,
+    meta::TypeWrapper<meta::RemoveRef<Cntr>> cntr_type_wrapper, bool bool_val,
+    int int_val, size_t size_val, Cursor(Cntr) * cursor_ptr,
+    ElemPtrView* elem_ptr_view_ptr, Elem(Cntr) * elem_ptr,
+    seq_endpoint::acceptor::ArchetypeAcceptor acceptor,
+    seq_endpoint::provider::ArchetypeProvider provider,
+    lifecycle::DataLifeState lifestate_val, comparison::Ordering ordering_val,
     meta::AlwaysMatchedTag unused) {
     requires requires {
         requires meta::IsSame<
             meta::RemoveRef<decltype(cntr.GetReferedInstPtr(tag))>, void*>;
 
         requires meta::IsSame<
-            meta::RemoveRef<decltype(Cntr::GetStaticEnabledCapabilityFlag(
-                tag, meta::TypeWrapper<Cntr>{}))>,
+            meta::RemoveRef<decltype(meta::RemoveCVRef<Cntr>::
+                                         GetStaticEnabledCapabilityFlag(
+                                             tag, cntr_type_wrapper))>,
             capability::Flag>;
 
-        requires(Cntr::GetStaticEnabledCapabilityFlag(
-                     tag, meta::TypeWrapper<Cntr>{}) &
+        requires(meta::RemoveCVRef<Cntr>::GetStaticEnabledCapabilityFlag(
+                     tag, cntr_type_wrapper) &
                  capability::empty_capability_flag) ==
                     capability::empty_capability_flag;
 
-        requires(Cntr::GetStaticEnabledCapabilityFlag(
-                     tag, meta::TypeWrapper<Cntr>{}) |
+        requires(meta::RemoveCVRef<Cntr>::GetStaticEnabledCapabilityFlag(
+                     tag, cntr_type_wrapper) |
                  capability::full_capability_flag) ==
                     capability::full_capability_flag;
 
         requires meta::IsSame<
-            meta::RemoveRef<decltype(Cntr::GetStaticDisabledCapabilityFlag(
-                tag, meta::TypeWrapper<Cntr>{}))>,
+            meta::RemoveRef<decltype(meta::RemoveCVRef<Cntr>::
+                                         GetStaticDisabledCapabilityFlag(
+                                             tag, cntr_type_wrapper))>,
             capability::Flag>;
 
-        requires(Cntr::GetStaticDisabledCapabilityFlag(
-                     tag, meta::TypeWrapper<Cntr>{}) &
+        requires(meta::RemoveCVRef<Cntr>::GetStaticDisabledCapabilityFlag(
+                     tag, cntr_type_wrapper) &
                  capability::empty_capability_flag) ==
                     capability::empty_capability_flag;
 
-        requires(Cntr::GetStaticDisabledCapabilityFlag(
-                     tag, meta::TypeWrapper<Cntr>{}) |
+        requires(meta::RemoveCVRef<Cntr>::GetStaticDisabledCapabilityFlag(
+                     tag, cntr_type_wrapper) |
                  capability::full_capability_flag) ==
                     capability::full_capability_flag;
 
@@ -279,26 +271,20 @@ concept IsSeqCntr = requires(
                 tag))>,
             capability::Flag>;
 
-        requires(Cntr::GetStaticEnabledCapabilityFlag(
-                     tag, meta::TypeWrapper<Cntr>{}) &
-                 Cntr::GetStaticDisabledCapabilityFlag(
-                     tag, meta::TypeWrapper<Cntr>{})) ==
+        requires(meta::RemoveCVRef<Cntr>::GetStaticEnabledCapabilityFlag(
+                     tag, cntr_type_wrapper) &
+                 meta::RemoveCVRef<Cntr>::GetStaticDisabledCapabilityFlag(
+                     tag, cntr_type_wrapper)) ==
                     capability::empty_capability_flag;
+
+        requires meta::IsContainerElem<meta::GetTypeWrapperType<
+            decltype(meta::RemoveCVRef<Cntr>::GetElemType(Tag{},
+                                                          cntr_type_wrapper))>>;
+
+        requires meta::IsTypeWrapper<
+            decltype(meta::RemoveCVRef<Cntr>::GetCursorType(
+                tag, cntr_type_wrapper))>;
     };
-
-    SatisfiesMethodMacro(  //
-        GetCursorSize,     // capability
-        GetCursorSize,     // method
-                           //
-        size_val           // ret
-    );
-
-    SatisfiesMethodMacro(  //
-        GetElemSize,       // capability
-        GetElemSize,       // method
-                           //
-        size_val           // ret
-    );
 
     SatisfiesMethodMacro(  //
         GetElemCnt,        // capability
@@ -341,7 +327,8 @@ concept IsSeqCntr = requires(
         bool_val,           // lazy_copy_elem
         elem_ptr_view_ptr,  // dst_elem_ptr_view
         cursor_ptr,         // dst_cursor, optional
-        cursor_ptr          // dst_elem, optional
+        lifestate_val,      // dst_elem_life_state
+        elem_ptr            // dst_elem, optional
     );
 
     SatisfiesMethodMacro(   //
@@ -353,7 +340,8 @@ concept IsSeqCntr = requires(
         bool_val,           // lazy_copy_elem
         elem_ptr_view_ptr,  // dst_elem_ptr_view
         cursor_ptr,         // dst_cursor, optional
-        cursor_ptr          // dst_elem, optional
+        lifestate_val,      // dst_elem_life_state
+        elem_ptr            // dst_elem, optional
     );
 
     SatisfiesMethodMacro(   //
@@ -366,7 +354,8 @@ concept IsSeqCntr = requires(
         bool_val,           // lazy_copy_elem
         elem_ptr_view_ptr,  // dst_elem_ptr_view
         cursor_ptr,         // dst_cursor, optional
-        cursor_ptr          // dst_elem, optional
+        lifestate_val,      // dst_elem_life_state
+        elem_ptr            // dst_elem, optional
     );
 
     SatisfiesMethodMacro(   //
@@ -378,7 +367,8 @@ concept IsSeqCntr = requires(
         cursor_ptr,         // pos_cursor
         bool_val,           // lazy_copy_elem
         elem_ptr_view_ptr,  // dst_elem_ptr_view
-        cursor_ptr          // dst_elem, optional
+        lifestate_val,      // dst_elem_life_state
+        elem_ptr            // dst_elem, optional
     );
 
     SatisfiesMethodMacro(  //
@@ -389,7 +379,7 @@ concept IsSeqCntr = requires(
                            //
         cursor_ptr,        // pos_cursor
         size_val,          // cnt
-        reader,            // reader
+        acceptor,          // acceptor
         cursor_ptr         // dst_cursor
     );
 
@@ -401,7 +391,7 @@ concept IsSeqCntr = requires(
                            //
         cursor_ptr,        // pos_cursor, point to original position
         size_val,          // cnt
-        writer,            // writer
+        provider,          // provider
         cursor_ptr         // dst_cursor, optional, point to final position
                            // after write
     );
@@ -414,7 +404,7 @@ concept IsSeqCntr = requires(
                            //
         cursor_ptr,        // pos_cursor
         size_val,          // cnt
-        reader_writer,     // reader_writer
+        acceptor,          // acceptor
         cursor_ptr         // dst_cursor
     );
 
@@ -425,8 +415,9 @@ concept IsSeqCntr = requires(
         unused,            // ret
                            //
         size_val,          // cnt
-        writer,            // writer
-        cursor_ptr         // dst_cursor
+        provider,          // provider
+        cursor_ptr,        // dst_beg_cursor
+        cursor_ptr         // dst_end_cursor
     );
 
     SatisfiesMethodMacro(  //
@@ -436,8 +427,9 @@ concept IsSeqCntr = requires(
         unused,            // ret
                            //
         size_val,          // cnt
-        writer,            //
-        cursor_ptr         // dst_cursor
+        provider,          // provider
+        cursor_ptr,        // dst_beg_cursor
+        cursor_ptr         // dst_end_cursor
     );
 
     SatisfiesMethodMacro(  //
@@ -448,7 +440,7 @@ concept IsSeqCntr = requires(
                            //
         cursor_ptr,        // pos_cursor
         size_val,          // cnt
-        writer,            // writer
+        provider,          // provider
         cursor_ptr         // dst_cursor
     );
 
@@ -459,7 +451,8 @@ concept IsSeqCntr = requires(
         unused,            // ret
                            //
         size_val,          // cnt
-        reader             // reader
+        acceptor,          // acceptor
+        cursor_ptr         // dst_cursor, optional
     );
 
     SatisfiesMethodMacro(  //
@@ -469,7 +462,8 @@ concept IsSeqCntr = requires(
         unused,            // ret
                            //
         size_val,          // cnt
-        reader             // reader
+        acceptor,          // acceptor
+        cursor_ptr         // dst_cursor, optional
     );
 
     SatisfiesMethodMacro(  //
@@ -480,14 +474,16 @@ concept IsSeqCntr = requires(
                            //
         cursor_ptr,        // pos_cursor
         size_val,          // cnt
-        reader             // reader
+        acceptor           // acceptor
     );
 
     SatisfiesMethodMacro(  //
         EraseAll,          // capability
         EraseAll,          // method
                            //
-        unused             // ret
+        unused,            // ret
+                           //
+        acceptor           // acceptor
     );
 
     SatisfiesMethodMacro(  //
@@ -510,14 +506,14 @@ concept IsSeqCntr = requires(
         cursor_ptr         // cursor_b
     );
 
-    SatisfiesMethodMacro(        //
-        CompareCursor,           // capability
-        CompareCursor,           // method
-                                 //
-        three_way_result_value,  //
-                                 //
-        cursor_ptr,              // cursor_a
-        cursor_ptr               // cursor_b
+    SatisfiesMethodMacro(  //
+        CompareCursor,     // capability
+        CompareCursor,     // method
+                           //
+        ordering_val,      //
+                           //
+        cursor_ptr,        // cursor_a
+        cursor_ptr         // cursor_b
     );
 
     SatisfiesMethodMacro(  //
@@ -580,143 +576,160 @@ concept IsSeqCntr = requires(
 
 #pragma pop_macro("SatisfiesMethodMacro")
 
-#pragma push_macro("Cursor")
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define Cursor meta::GetTypeWrapperType<decltype((GetCursorType<Cntr>)())>
+template <IsSeqCntr Cntr>
+constexpr void CheckCapabilityFlags(Cntr&& cntr);
 
 template <IsSeqCntr Cntr>
-constexpr void CheckCapabilityFlags(Cntr& cntr);
+constexpr void* GetReferedInstPtr(Cntr&& cntr);
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) GetReferedInstPtr(Cntr& cntr);
+constexpr capability::Flag GetStaticEnabledCapabilityFlag();
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) GetStaticEnabledCapabilityFlag();
+constexpr capability::Flag GetStaticDisabledCapabilityFlag();
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) GetStaticDisabledCapabilityFlag();
+constexpr capability::Flag GetDynamicEnabledCapabilityFlag(Cntr&& cntr);
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) GetDynamicEnabledCapabilityFlag(Cntr& cntr);
+constexpr capability::Flag GetDynamicDisabledCapabilityFlag(Cntr&& cntr);
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) GetDynamicDisabledCapabilityFlag(Cntr& cntr);
+constexpr meta::TypeWrapper<Elem(Cntr)> GetElemType();
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) GetCursorType();
+constexpr meta::TypeWrapper<Cursor(Cntr)> GetCursorType();
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) GetCursorSize(Cntr& cntr);
+constexpr size_t GetElemCnt(Cntr&& cntr);
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) GetElemSize(Cntr& cntr);
+constexpr size_t GetMaxElemCnt(Cntr&& cntr);
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) GetElemCnt(Cntr& cntr);
+constexpr decltype(auto) GetLBCursor(Cntr&& cntr, Cursor(Cntr) * dst_cursor);
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) GetMaxElemCnt(Cntr& cntr);
+constexpr decltype(auto) GetRBCursor(Cntr&& cntr, Cursor(Cntr) * dst_cursor);
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) GetLBCursor(Cntr& cntr, Cursor* dst_cursor);
-
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) GetRBCursor(Cntr& cntr, Cursor* dst_cursor);
-
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) PeekL(Cntr& cntr, bool lazy_copy_elem,
+constexpr decltype(auto) PeekL(Cntr&& cntr, bool lazy_copy_elem,
                                ElemPtrView* dst_elem_ptr_view,
-                               Cursor* dst_cursor, void* dst_elem);
+                               Cursor(Cntr) * dst_cursor,
+                               lifecycle::DataLifeState dst_elem_life_state,
+                               Elem(Cntr) * dst_elem);
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) PeekR(Cntr& cntr, bool lazy_copy_elem,
+constexpr decltype(auto) PeekR(Cntr&& cntr, bool lazy_copy_elem,
                                ElemPtrView* dst_elem_ptr_view,
-                               Cursor* dst_cursor, void* dst_elem);
+                               Cursor(Cntr) * dst_cursor,
+                               lifecycle::DataLifeState dst_elem_life_state,
+                               Elem(Cntr) * dst_elem);
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) Refer(Cntr& cntr, size_t idx, bool lazy_copy_elem,
+constexpr decltype(auto) Refer(Cntr&& cntr, size_t idx, bool lazy_copy_elem,
                                ElemPtrView* dst_elem_ptr_view,
-                               Cursor* dst_cursor, void* dst_elem);
+                               Cursor(Cntr) * dst_cursor,
+                               lifecycle::DataLifeState dst_elem_life_state,
+                               Elem(Cntr) * dst_elem);
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) Derefer(Cntr& cntr, Cursor* pos_cursor,
+constexpr decltype(auto) Derefer(Cntr&& cntr, Cursor(Cntr) * pos_cursor,
                                  bool lazy_copy_elem,
                                  ElemPtrView* dst_elem_ptr_view,
-                                 void* dst_elem);
+                                 lifecycle::DataLifeState dst_elem_life_state,
+                                 Elem(Cntr) * dst_elem);
 
-template <IsSeqCntr Cntr, IsReader Reader>
-constexpr decltype(auto) Read(Cntr& cntr, Cursor* pos_cursor, size_t cnt,
-                              Reader&& reader, Cursor* dst_cursor);
+template <IsSeqCntr Cntr,
+          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
+constexpr decltype(auto) Read(Cntr&& cntr, Cursor(Cntr) * pos_cursor,
+                              size_t cnt, Acceptor&& acceptor,
+                              Cursor(Cntr) * dst_cursor);
 
-template <IsSeqCntr Cntr, IsWriter Writer>
-constexpr decltype(auto) Write(Cntr& cntr, Cursor* pos_cursor, size_t cnt,
-                               Writer&& writer, Cursor* dst_cursor);
+template <IsSeqCntr Cntr,
+          seq_endpoint::provider::IsProvider<Elem(Cntr)> Provider>
+constexpr decltype(auto) Write(Cntr&& cntr, Cursor(Cntr) * pos_cursor,
+                               size_t cnt, Provider&& provider,
+                               Cursor(Cntr) * dst_cursor);
 
-template <IsSeqCntr Cntr, IsReaderWriter ReaderWriter>
-constexpr decltype(auto) ReadWrite(Cntr& cntr, Cursor* pos_cursor, size_t cnt,
-                                   ReaderWriter&& reader_writer,
-                                   Cursor* dst_cursor);
+template <IsSeqCntr Cntr,
+          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
+constexpr decltype(auto) ReadWrite(Cntr&& cntr, Cursor(Cntr) * pos_cursor,
+                                   size_t cnt, Acceptor&& acceptor,
+                                   Cursor(Cntr) * dst_cursor);
 
-template <IsSeqCntr Cntr, IsWriter Writer>
-constexpr decltype(auto) PushL(Cntr& cntr, size_t cnt, Writer&& writer,
-                               Cursor* dst_cursor);
+template <IsSeqCntr Cntr,
+          seq_endpoint::provider::IsProvider<Elem(Cntr)> Provider>
+constexpr decltype(auto) PushL(Cntr&& cntr, size_t cnt, Provider&& provider,
+                               Cursor(Cntr) * dst_beg_cursor,
+                               Cursor(Cntr) * dst_end_cursor);
 
-template <IsSeqCntr Cntr, IsWriter Writer>
-constexpr decltype(auto) PushR(Cntr& cntr, size_t cnt, Writer&& writer,
-                               Cursor* dst_cursor);
+template <IsSeqCntr Cntr,
+          seq_endpoint::provider::IsProvider<Elem(Cntr)> Provider>
+constexpr decltype(auto) PushR(Cntr&& cntr, size_t cnt, Provider&& provider,
+                               Cursor(Cntr) * dst_beg_cursor,
+                               Cursor(Cntr) * dst_end_cursor);
 
-template <IsSeqCntr Cntr, IsWriter Writer>
-constexpr decltype(auto) Insert(Cntr& cntr, Cursor* pos_cursor, size_t cnt,
-                                Writer&& writer, Cursor* dst_cursor);
+template <IsSeqCntr Cntr,
+          seq_endpoint::provider::IsProvider<Elem(Cntr)> Provider>
+constexpr decltype(auto) Insert(Cntr&& cntr, Cursor(Cntr) * pos_cursor,
+                                size_t cnt, Provider&& provider,
+                                Cursor(Cntr) * dst_cursor);
 
-template <IsSeqCntr Cntr, IsReader Reader>
-constexpr decltype(auto) PopL(Cntr& cntr, size_t cnt, Reader&& reader);
+template <IsSeqCntr Cntr,
+          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
+constexpr decltype(auto) PopL(Cntr&& cntr, size_t cnt, Acceptor&& acceptor,
+                              Cursor(Cntr) * dst_cursor);
 
-template <IsSeqCntr Cntr, IsReader Reader>
-constexpr decltype(auto) PopR(Cntr& cntr, size_t cnt, Reader&& reader);
+template <IsSeqCntr Cntr,
+          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
+constexpr decltype(auto) PopR(Cntr&& cntr, size_t cnt, Acceptor&& acceptor,
+                              Cursor(Cntr) * dst_cursor);
 
-template <IsSeqCntr Cntr, IsReader Reader>
-constexpr decltype(auto) Erase(Cntr& cntr, Cursor* pos_cursor, size_t cnt,
-                               Reader&& reader);
+template <IsSeqCntr Cntr,
+          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
+constexpr decltype(auto) Erase(Cntr&& cntr, Cursor(Cntr) * pos_cursor,
+                               size_t cnt, Acceptor&& acceptor);
 
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) EraseAll(Cntr& cntr);
-
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) CopyCursor(Cntr& cntr, Cursor* src_cursor,
-                                    Cursor* dst_cursor);
-
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) AreEqualCursor(Cntr& cntr, Cursor* cursor_a,
-                                        Cursor* cursor_b);
-
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) CompareCursor(Cntr& cntr, Cursor* cursor_a,
-                                       Cursor* cursor_b);
-
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) GetCursorDist(Cntr& cntr, Cursor* cursor_a,
-                                       Cursor* cursor_b);
-
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) GetCursorIdx(Cntr& cntr, Cursor* cursor);
-
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) CursorStepL(Cntr& cntr, Cursor* cursor);
+template <IsSeqCntr Cntr,
+          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
+constexpr decltype(auto) EraseAll(Cntr&& cntr, Acceptor&& acceptor);
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) CursorStepR(Cntr& cntr, Cursor* cursor);
+constexpr decltype(auto) CopyCursor(Cntr&& cntr, Cursor(Cntr) * src_cursor,
+                                    Cursor(Cntr) * dst_cursor);
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) CursorAdvanceL(Cntr& cntr, Cursor* cursor,
+constexpr bool AreEqualCursor(Cntr&& cntr, Cursor(Cntr) * cursor_a,
+                              Cursor(Cntr) * cursor_b);
+
+template <IsSeqCntr Cntr>
+constexpr comparison::Ordering CompareCursor(Cntr&& cntr,
+                                             Cursor(Cntr) * cursor_a,
+                                             Cursor(Cntr) * cursor_b);
+
+template <IsSeqCntr Cntr>
+constexpr size_t GetCursorDist(Cntr&& cntr, Cursor(Cntr) * cursor_a,
+                               Cursor(Cntr) * cursor_b);
+
+template <IsSeqCntr Cntr>
+constexpr size_t GetCursorIdx(Cntr&& cntr, Cursor(Cntr) * cursor);
+
+template <IsSeqCntr Cntr>
+constexpr decltype(auto) CursorStepL(Cntr&& cntr, Cursor(Cntr) * cursor);
+
+template <IsSeqCntr Cntr>
+constexpr decltype(auto) CursorStepR(Cntr&& cntr, Cursor(Cntr) * cursor);
+
+template <IsSeqCntr Cntr>
+constexpr decltype(auto) CursorAdvanceL(Cntr&& cntr, Cursor(Cntr) * cursor,
                                         size_t step);
 
 template <IsSeqCntr Cntr>
-constexpr decltype(auto) CursorAdvanceR(Cntr& cntr, Cursor* cursor,
+constexpr decltype(auto) CursorAdvanceR(Cntr&& cntr, Cursor(Cntr) * cursor,
                                         size_t step);
 
-#pragma pop_macro("Cursor")
-
+template <meta::IsContainerElem Elem>
 struct VTable {
     unsigned long long custom_tags[4];
 
@@ -724,135 +737,162 @@ struct VTable {
 
     size_t (*get_max_elem_cnt)(void* cntr);
 
-    void (*get_lb_cursor)(void* cntr, void* dst_cursor);
+    void (*get_lb_cursor)(void* cntr, seq_cntr::CursorLimit* dst_cursor);
 
-    void (*get_rb_cursor)(void* cntr, void* dst_cursor);
+    void (*get_rb_cursor)(void* cntr, seq_cntr::CursorLimit* dst_cursor);
 
     void (*peek_l)(void* cntr, bool lazy_copy_elem,
-                   ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+                   ElemPtrView* dst_elem_ptr_view,
+                   seq_cntr::CursorLimit* dst_cursor,
+                   lifecycle::DataLifeState dst_elem_life_state,
                    void* dst_elem);
 
     void (*peek_r)(void* cntr, bool lazy_copy_elem,
-                   ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
+                   ElemPtrView* dst_elem_ptr_view,
+                   seq_cntr::CursorLimit* dst_cursor,
+                   lifecycle::DataLifeState dst_elem_life_state,
                    void* dst_elem);
 
     void (*refer)(void* cntr, size_t idx, bool lazy_copy_elem,
-                  ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
-                  void* dst_elem);
+                  ElemPtrView* dst_elem_ptr_view,
+                  seq_cntr::CursorLimit* dst_cursor,
+                  lifecycle::DataLifeState dst_elem_life_state, void* dst_elem);
 
-    void (*derefer)(void* cntr, void* pos_cursor, bool lazy_copy_elem,
-                    ElemPtrView* dst_elem_ptr_view, void* dst_elem);
+    void (*derefer)(void* cntr, seq_cntr::CursorLimit* pos_cursor,
+                    bool lazy_copy_elem, ElemPtrView* dst_elem_ptr_view,
+                    lifecycle::DataLifeState dst_elem_life_state,
+                    void* dst_elem);
 
     struct {
-        void (*empty)(void* cntr, void* pos_cursor, size_t cnt,
-                      EmptyReader reader, void* dst_cursor);
-        void (*lin_seq)(void* cntr, void* pos_cursor, size_t cnt,
-                        LinSeqReader& reader, void* dst_cursor);
-        void (*poly)(void* cntr, void* pos_cursor, size_t cnt,
-                     PolyReader reader, void* dst_cursor);
+        void (*basic)(void* cntr, seq_cntr::CursorLimit* pos_cursor, size_t cnt,
+                      seq_endpoint::acceptor::BasicAcceptor acceptor,
+                      seq_cntr::CursorLimit* dst_cursor);
+        void (*poly)(void* cntr, seq_cntr::CursorLimit* pos_cursor, size_t cnt,
+                     poly_seq_endpoint::acceptor::Acceptor<Elem> acceptor,
+                     seq_cntr::CursorLimit* dst_cursor);
     } read;
 
     struct {
-        void (*empty)(void* cntr, void* pos_cursor, size_t cnt,
-                      EmptyWriter writer, void* dst_cursor);
-        void (*lin_seq)(void* cntr, void* pos_cursor, size_t cnt,
-                        LinSeqWriter& writer, void* dst_cursor);
-        void (*poly)(void* cntr, void* pos_cursor, size_t cnt,
-                     PolyWriter writer, void* dst_cursor);
+        void (*basic)(void* cntr, seq_cntr::CursorLimit* pos_cursor, size_t cnt,
+                      seq_endpoint::provider::BasicProvider provider,
+                      seq_cntr::CursorLimit* dst_cursor);
+        void (*poly)(void* cntr, seq_cntr::CursorLimit* pos_cursor, size_t cnt,
+                     poly_seq_endpoint::provider::Provider<Elem> provider,
+                     seq_cntr::CursorLimit* dst_cursor);
     } write;
 
     struct {
-        void (*poly)(void* cntr, void* pos_cursor, size_t cnt,
-                     PolyReaderWriter reader_writer, void* dst_cursor);
+        void (*poly)(void* cntr, seq_cntr::CursorLimit* pos_cursor, size_t cnt,
+                     poly_seq_endpoint::acceptor::Acceptor<Elem> acceptor,
+                     seq_cntr::CursorLimit* dst_cursor);
     } read_write;
 
     struct {
-        void (*empty)(void* cntr, size_t cnt, EmptyWriter writer,
-                      void* dst_cursor);
-        void (*lin_seq)(void* cntr, size_t cnt, LinSeqWriter& writer,
-                        void* dst_cursor);
-        void (*poly)(void* cntr, size_t cnt, PolyWriter writer,
-                     void* dst_cursor);
+        void (*basic)(void* cntr, size_t cnt,
+                      seq_endpoint::provider::BasicProvider provider,
+                      seq_cntr::CursorLimit* dst_beg_cursor,
+                      seq_cntr::CursorLimit* dst_end_cursor);
+        void (*poly)(void* cntr, size_t cnt,
+                     poly_seq_endpoint::provider::Provider<Elem> provider,
+                     seq_cntr::CursorLimit* dst_beg_cursor,
+                     seq_cntr::CursorLimit* dst_end_cursor);
     } push_l;
 
     struct {
-        void (*empty)(void* cntr, size_t cnt, EmptyWriter writer,
-                      void* dst_cursor);
-        void (*lin_seq)(void* cntr, size_t cnt, LinSeqWriter& writer,
-                        void* dst_cursor);
-        void (*poly)(void* cntr, size_t cnt, PolyWriter writer,
-                     void* dst_cursor);
+        void (*basic)(void* cntr, size_t cnt,
+                      seq_endpoint::provider::BasicProvider provider,
+                      seq_cntr::CursorLimit* dst_beg_cursor,
+                      seq_cntr::CursorLimit* dst_end_cursor);
+        void (*poly)(void* cntr, size_t cnt,
+                     poly_seq_endpoint::provider::Provider<Elem> provider,
+                     seq_cntr::CursorLimit* dst_beg_cursor,
+                     seq_cntr::CursorLimit* dst_end_cursor);
     } push_r;
 
     struct {
-        void (*empty)(void* cntr, void* pos_cursor, size_t cnt,
-                      EmptyWriter writer, void* dst_cursor);
-        void (*lin_seq)(void* cntr, void* pos_cursor, size_t cnt,
-                        LinSeqWriter& writer, void* dst_cursor);
-        void (*poly)(void* cntr, void* pos_cursor, size_t cnt,
-                     PolyWriter writer, void* dst_cursor);
+        void (*basic)(void* cntr, seq_cntr::CursorLimit* pos_cursor, size_t cnt,
+                      seq_endpoint::provider::BasicProvider provider,
+                      seq_cntr::CursorLimit* dst_cursor);
+        void (*poly)(void* cntr, seq_cntr::CursorLimit* pos_cursor, size_t cnt,
+                     poly_seq_endpoint::provider::Provider<Elem> provider,
+                     seq_cntr::CursorLimit* dst_cursor);
     } insert;
 
     struct {
-        void (*empty)(void* cntr, size_t cnt, EmptyReader reader);
-        void (*lin_seq)(void* cntr, size_t cnt, LinSeqReader& reader);
-        void (*poly)(void* cntr, size_t cnt, PolyReader reader);
+        void (*basic)(void* cntr, size_t cnt,
+                      seq_endpoint::acceptor::BasicAcceptor acceptor,
+                      seq_cntr::CursorLimit* dst_cursor);
+        void (*poly)(void* cntr, size_t cnt,
+                     poly_seq_endpoint::acceptor::Acceptor<Elem> acceptor,
+                     seq_cntr::CursorLimit* dst_cursor);
     } pop_l;
 
     struct {
-        void (*empty)(void* cntr, size_t cnt, EmptyReader reader);
-        void (*lin_seq)(void* cntr, size_t cnt, LinSeqReader& reader);
-        void (*poly)(void* cntr, size_t cnt, PolyReader reader);
+        void (*basic)(void* cntr, size_t cnt,
+                      seq_endpoint::acceptor::BasicAcceptor acceptor,
+                      seq_cntr::CursorLimit* dst_cursor);
+        void (*poly)(void* cntr, size_t cnt,
+                     poly_seq_endpoint::acceptor::Acceptor<Elem> acceptor,
+                     seq_cntr::CursorLimit* dst_cursor);
     } pop_r;
 
     struct {
-        void (*empty)(void* cntr, void* pos_cursor, size_t cnt,
-                      EmptyReader reader);
-        void (*lin_seq)(void* cntr, void* pos_cursor, size_t cnt,
-                        LinSeqReader& reader);
-        void (*poly)(void* cntr, void* pos_cursor, size_t cnt,
-                     PolyReader reader);
+        void (*basic)(void* cntr, seq_cntr::CursorLimit* pos_cursor, size_t cnt,
+                      seq_endpoint::acceptor::BasicAcceptor acceptor);
+        void (*poly)(void* cntr, seq_cntr::CursorLimit* pos_cursor, size_t cnt,
+                     poly_seq_endpoint::acceptor::Acceptor<Elem> acceptor);
     } erase;
 
-    void (*erase_all)(void* cntr);
+    struct {
+        void (*basic)(void* cntr,
+                      seq_endpoint::acceptor::BasicAcceptor acceptor);
+        void (*poly)(void* cntr,
+                     poly_seq_endpoint::acceptor::Acceptor<Elem> acceptor);
+    } erase_all;
 
-    void (*copy_cursor)(void* cntr, void* src_cursor, void* dst_cursor);
+    void (*copy_cursor)(void* cntr, seq_cntr::CursorLimit* src_cursor,
+                        seq_cntr::CursorLimit* dst_cursor);
 
-    bool (*are_equal_cursor)(void* cntr, void* cursor_a, void* cursor_b);
+    bool (*are_equal_cursor)(void* cntr, seq_cntr::CursorLimit* cursor_a,
+                             seq_cntr::CursorLimit* cursor_b);
 
-    comparison::Ordering (*compare_cursor)(void* cntr, void* cursor_a,
-                                           void* cursor_b);
+    comparison::Ordering (*compare_cursor)(void* cntr,
+                                           seq_cntr::CursorLimit* cursor_a,
+                                           seq_cntr::CursorLimit* cursor_b);
 
-    size_t (*get_cursor_dist)(void* cntr, void* cursor_a, void* cursor_b);
+    size_t (*get_cursor_dist)(void* cntr, seq_cntr::CursorLimit* cursor_a,
+                              seq_cntr::CursorLimit* cursor_b);
 
-    size_t (*get_cursor_idx)(void* cntr, void* cursor);
+    size_t (*get_cursor_idx)(void* cntr, seq_cntr::CursorLimit* cursor);
 
-    void (*cursor_step_l)(void* cntr, void* cursor);
+    void (*cursor_step_l)(void* cntr, seq_cntr::CursorLimit* cursor);
 
-    void (*cursor_step_r)(void* cntr, void* cursor);
+    void (*cursor_step_r)(void* cntr, seq_cntr::CursorLimit* cursor);
 
-    void (*cursor_advance_l)(void* cntr, void* cursor, size_t step);
+    void (*cursor_advance_l)(void* cntr, seq_cntr::CursorLimit* cursor,
+                             size_t step);
 
-    void (*cursor_advance_r)(void* cntr, void* cursor, size_t step);
+    void (*cursor_advance_r)(void* cntr, seq_cntr::CursorLimit* cursor,
+                             size_t step);
 
-    unsigned long long (*CustomMethods[4])(void* cntr, unsigned long long arg0,
-                                           unsigned long long arg1,
-                                           unsigned long long arg2,
-                                           unsigned long long arg3);
+    unsigned long long (*custom_methods[4])(void* cntr, unsigned long long arg0,
+                                            unsigned long long arg1,
+                                            unsigned long long arg2,
+                                            unsigned long long arg3);
 };
 
 template <IsSeqCntr Cntr>
-constexpr VTable BuildVTableBasic();
+constexpr VTable<Elem(Cntr)> BuildVTableBasic();
 
 template <IsSeqCntr Cntr>
 struct BuildVTableImpl {
-    static constexpr VTable Call();
+    static constexpr VTable<Elem(Cntr)> Call();
 };
 
 template <IsSeqCntr Cntr>
-constexpr VTable const& GetVTable();
+constexpr VTable<Elem(Cntr)> const& GetVTable();
 
-namespace check_operation {
+namespace op_check {
 
 constexpr bool CanRefer(size_t idx, size_t cnt, size_t elem_cnt);
 
@@ -879,13 +919,9 @@ constexpr bool CanAdvanceL(size_t idx, size_t step, size_t elem_cnt);
 
 constexpr bool CanAdvanceR(size_t idx, size_t step, size_t elem_cnt);
 
-}  // namespace check_operation
-
-template <IsSeqCntr DstSeqCntr, IsSeqCntr SrcSeqCntr>
-void RangeAssign(DstSeqCntr& dst_cntr, SrcSeqCntr& src_cntr, size_t dst_beg,
-                 size_t src_beg, size_t cnt);
-
-template <IsSeqCntr DstSeqCntr, IsSeqCntr SrcSeqCntr>
-void Assign(DstSeqCntr& dst_cntr, SrcSeqCntr& src_cntr);
+}  // namespace op_check
 
 }  // namespace zeta::core::seq_cntr
+
+#pragma pop_macro("Cursor")
+#pragma pop_macro("Elem")

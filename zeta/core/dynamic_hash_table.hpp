@@ -54,10 +54,7 @@ template <typename ElemComparatorLike>
 struct NodeComparatorWrapper {
     ElemComparatorLike elem_cmptr;
 
-    template <typename... Args>
-    constexpr void Construct(Args&&... args);
-
-    constexpr void Destruct();
+    constexpr ~NodeComparatorWrapper();
 
     template <comparison::IsOpTag OpTag>
     constexpr auto Compare(OpTag, generic_hash_table::Node const* ghtn_a,
@@ -95,105 +92,137 @@ struct Cntr {
 
     LListNode* lln;
 
-    NodeAllocatorLike node_alctr;
+    NodeAllocatorLike node_alctr_like;
 
-    template <typename HasherLikeConstructArg,
-              typename ComparatorLikeConstructArg,
+    template <typename ElemHasherLikeConstructArg,
+              typename ElemComparatorLikeConstructArg,
               typename SaltRandomEngineLikeConstructArg,
-              typename NodeAllocatorLikeConstructArg,
-              typename TableNodeAllocatorLikeConstructArg>
-    constexpr void Construct(
-        this Cntr& cntr, size_t elem_size,
+              typename TableNodeAllocatorLikeConstructArg,
+              typename NodeAllocatorLikeConstructArg>
+    constexpr Cntr(
+        size_t elem_size,
         generic_hash_table::RehashingConfig const& rehashing_config,
-        HasherLikeConstructArg&& elem_hasher_construct_arg,
-        ComparatorLikeConstructArg&& elem_cmptr_construct_arg,
+        ElemHasherLikeConstructArg&& elem_hasher_construct_arg,
+        ElemComparatorLikeConstructArg&& elem_cmptr_construct_arg,
         SaltRandomEngineLikeConstructArg&& salt_random_engine_construct_arg,
-        NodeAllocatorLikeConstructArg&& node_alctr_construct_arg,
-        TableNodeAllocatorLikeConstructArg&& table_node_alctr_construct_arg);
+        TableNodeAllocatorLikeConstructArg&& table_node_alctr_construct_arg,
+        NodeAllocatorLikeConstructArg&& node_alctr_construct_arg);
 
-    constexpr void Destruct(this Cntr& cntr);
+    constexpr ~Cntr();
 
-    constexpr void* GetReferedInstPtr(this Cntr const& cntr);
+    static constexpr assoc_cntr::capability::Flag
+        GetStaticEnabledCapabilityFlag(assoc_cntr::Tag,
+                                       meta::TypeWrapper<Cntr>);
 
-    constexpr size_t GetCursorSize(this Cntr const& cntr);
+    static constexpr assoc_cntr::capability::Flag
+        GetStaticEnabledCapabilityFlag(assoc_cntr::Tag,
+                                       meta::TypeWrapper<Cntr const>);
 
-    constexpr size_t GetElemSize(this Cntr const& cntr);
+    static constexpr assoc_cntr::capability::Flag
+        GetStaticDisabledCapabilityFlag(assoc_cntr::Tag,
+                                        meta::TypeWrapper<Cntr>);
 
-    constexpr size_t GetElemCnt(this Cntr const& cntr);
+    static constexpr assoc_cntr::capability::Flag
+        GetStaticDisabledCapabilityFlag(assoc_cntr::Tag,
+                                        meta::TypeWrapper<Cntr const>);
 
-    constexpr size_t GetMaxElemCnt(this Cntr const& cntr);
+    static constexpr assoc_cntr::capability::Flag
+        GetDynamicEnabledCapabilityFlag(assoc_cntr::Tag);
 
-    constexpr void GetLBCursor(this Cntr const& cntr, Cursor* dst_cursor);
+    static constexpr assoc_cntr::capability::Flag
+        GetDynamicDisabledCapabilityFlag(assoc_cntr::Tag);
 
-    constexpr void GetRBCursor(this Cntr const& cntr, Cursor* dst_cursor);
+    constexpr void* GetReferedInstPtr(this Cntr const& self, assoc_cntr::Tag);
 
-    constexpr void PeekL(this auto& cntr, bool lazy_copy_elem,
+    static constexpr meta::TypeWrapper<Cursor> GetCursorType(
+        assoc_cntr::Tag, meta::TypeWrapper<Cntr>);
+
+    constexpr size_t GetCursorSize(this Cntr const& self, assoc_cntr::Tag);
+
+    constexpr size_t GetElemSize(this Cntr const& self, assoc_cntr::Tag);
+
+    constexpr size_t GetElemCnt(this Cntr const& self, assoc_cntr::Tag);
+
+    constexpr size_t GetMaxElemCnt(this Cntr const& self, assoc_cntr::Tag);
+
+    constexpr void GetLBCursor(this Cntr const& self, assoc_cntr::Tag,
+                               Cursor* dst_cursor);
+
+    constexpr void GetRBCursor(this Cntr const& self, assoc_cntr::Tag,
+                               Cursor* dst_cursor);
+
+    constexpr void PeekL(this auto& self, assoc_cntr::Tag, bool lazy_copy_elem,
                          assoc_cntr::ElemPtrView* dst_elem_ptr_view,
                          Cursor* dst_cursor, void* dst_elem);
 
-    constexpr void PeekR(this auto& cntr, bool lazy_copy_elem,
+    constexpr void PeekR(this auto& self, assoc_cntr::Tag, bool lazy_copy_elem,
                          assoc_cntr::ElemPtrView* dst_elem_ptr_view,
                          Cursor* dst_cursor, void* dst_elem);
 
-    constexpr void Derefer(this auto& cntr, Cursor const* pos_cursor,
-                           bool lazy_copy_elem,
+    constexpr void Derefer(this auto& self, assoc_cntr::Tag,
+                           Cursor const* pos_cursor, bool lazy_copy_elem,
                            assoc_cntr::ElemPtrView* dst_elem_ptr_view,
                            void* dst_elem);
 
-    constexpr void Find(this auto& cntr, void const* elem, bool lazy_copy_elem,
+    constexpr void Find(this auto& self, assoc_cntr::Tag, void const* elem,
+                        bool lazy_copy_elem,
                         assoc_cntr::ElemPtrView* dst_elem_ptr_view,
                         Cursor* dst_cursor, void* dst_elem);
 
     template <
         hash::CanHash<void const*> KeyHasher,
         comparison::CanCompare<void const*, void const*> KeyElemComparator>
-    constexpr void Find(this auto& cntr, void const* key,
+    constexpr void Find(this auto& self, assoc_cntr::Tag, void const* key,
                         KeyHasher const& key_hasher,
                         KeyElemComparator const& key_elem_cmptr,
                         bool lazy_copy_elem,
                         assoc_cntr::ElemPtrView* dst_elem_ptr_view,
                         Cursor* dst_cursor, void* dst_elem);
 
-    template <assoc_cntr::IsWriter Writer>
-    constexpr void Insert(this Cntr& cntr, void const* elem, Writer&& writer,
-                          Cursor* dst_cursor);
+    template <assoc_cntr::IsWriter Provider>
+    constexpr void Insert(this Cntr& self, assoc_cntr::Tag, void const* elem,
+                          Provider&& writer, Cursor* dst_cursor);
 
     template <
         hash::CanHash<void const*> KeyHasher,
         comparison::CanCompare<void const*, void const*> KeyElemComparator,
-        assoc_cntr::IsWriter Writer>
-    constexpr void Insert(this Cntr& cntr, void const* key,
+        assoc_cntr::IsWriter Provider>
+    constexpr void Insert(this Cntr& self, assoc_cntr::Tag, void const* key,
                           KeyHasher const& key_hasher,
                           KeyElemComparator const& key_elem_cmptr,
-                          Writer&& writer, Cursor* dst_cursor);
+                          Provider&& writer, Cursor* dst_cursor);
 
-    template <assoc_cntr::IsReader Reader>
-    constexpr void PopL(this Cntr& cntr, size_t cnt, Reader&& reader);
+    template <assoc_cntr::IsReader acceptor>
+    constexpr void PopL(this Cntr& self, assoc_cntr::Tag, size_t cnt,
+                        acceptor&& reader);
 
-    template <assoc_cntr::IsReader Reader>
-    constexpr void PopR(this Cntr& cntr, size_t cnt, Reader&& reader);
+    template <assoc_cntr::IsReader acceptor>
+    constexpr void PopR(this Cntr& self, assoc_cntr::Tag, size_t cnt,
+                        acceptor&& reader);
 
-    template <assoc_cntr::IsReader Reader>
-    constexpr void Erase(this Cntr& cntr, Cursor* pos_cursor, size_t cnt,
-                         Reader&& reader);
+    template <assoc_cntr::IsReader acceptor>
+    constexpr void Erase(this Cntr& self, assoc_cntr::Tag, Cursor* pos_cursor,
+                         size_t cnt, acceptor&& reader);
 
-    constexpr void EraseAll(this Cntr& cntr);
+    constexpr void EraseAll(this Cntr& self, assoc_cntr::Tag);
 
-    constexpr void CopyCursor(this Cntr const& cntr, Cursor* src_cursor,
-                              Cursor* dst_cursor);
+    constexpr void CopyCursor(this Cntr const& self, assoc_cntr::Tag,
+                              Cursor* src_cursor, Cursor* dst_cursor);
 
-    constexpr bool AreEqualCursor(this Cntr const& cntr, Cursor const* cursor_a,
+    constexpr bool AreEqualCursor(this Cntr const& self, assoc_cntr::Tag,
+                                  Cursor const* cursor_a,
                                   Cursor const* cursor_b);
 
-    constexpr void CursorStepL(this Cntr const& cntr, Cursor* cursor);
+    constexpr void CursorStepL(this Cntr const& self, assoc_cntr::Tag,
+                               Cursor* cursor);
 
-    constexpr void CursorStepR(this Cntr const& cntr, Cursor* cursor);
+    constexpr void CursorStepR(this Cntr const& self, assoc_cntr::Tag,
+                               Cursor* cursor);
 
-    constexpr auto GetEffFactor(this Cntr& cntr);
+    constexpr auto GetEffFactor(this Cntr& self, assoc_cntr::Tag);
 
-    constexpr void Sanitize(this Cntr const& cntr,
-                            mem_recorder::MemRecorder* dst_table,
-                            mem_recorder::MemRecorder* dst_node);
+    static constexpr void SanityCheck(
+        void const* self, debug_utils::sanity::SanityCheckScope scope);
 };
 
 }  // namespace zeta::core::dynamic_hash_table

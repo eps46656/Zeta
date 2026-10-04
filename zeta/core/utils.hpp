@@ -2,6 +2,7 @@
 
 #include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
+#include <zeta/core/lifecycle.hpp>
 #include <zeta/core/pair.hpp>
 
 #define ZETA_Core_AreOverlapped(a_beg, a_end, b_beg, b_end) \
@@ -33,6 +34,18 @@ constexpr void MemMove(void* dst, void const* src, size_t size);
 
 constexpr void* MemRotate(void* data, size_t l_size, size_t r_size);
 
+template <typename T>
+constexpr T* PtrInc(T* ptr, size_t shift);
+
+template <typename T>
+constexpr T* PtrInc(T* ptr, ptrdiff_t shift);
+
+template <typename T>
+constexpr T* PtrDec(T* ptr, size_t shift);
+
+template <typename T>
+constexpr T* PtrDec(T* ptr, ptrdiff_t shift);
+
 constexpr void LinSeqCopy(void* dst, void const* src, size_t elem_size,
                           size_t dst_elem_stride, size_t src_elem_stride,
                           size_t cnt);
@@ -41,6 +54,20 @@ constexpr void LinSeqCopy(void* dst, void const* src, size_t elem_size,
                           ptrdiff_t dst_elem_stride, ptrdiff_t src_elem_stride,
                           size_t cnt);
 
+template <lifecycle::IsDataTransferOpLike DataTransferOpLike, typename DstElem,
+          typename SrcElem>
+constexpr void DisjointLinSeqTransfer(DataTransferOpLike data_transfer_op_like,
+                                      DstElem* dst, SrcElem* src,
+                                      size_t dst_elem_stride,
+                                      size_t src_elem_stride, size_t cnt);
+
+template <lifecycle::IsDataTransferOpLike DataTransferOpLike, typename DstElem,
+          typename SrcElem>
+constexpr void DisjointLinSeqTransfer(DataTransferOpLike data_transfer_op_like,
+                                      DstElem* dst, SrcElem* src,
+                                      ptrdiff_t dst_elem_stride,
+                                      ptrdiff_t src_elem_stride, size_t cnt);
+
 constexpr void EquistrideLinSeqCopy(void* dst, void const* src,
                                     size_t elem_size, size_t elem_stride,
                                     size_t cnt);
@@ -48,6 +75,18 @@ constexpr void EquistrideLinSeqCopy(void* dst, void const* src,
 constexpr void EquistrideLinSeqCopy(void* dst, void const* src,
                                     size_t elem_size, ptrdiff_t elem_stride,
                                     size_t cnt);
+
+template <typename DstElem, typename SrcElem>
+constexpr void EquistrideLinSeqCopy(void* dst, void const* src,
+                                    meta::TypeWrapper<DstElem>,
+                                    meta::TypeWrapper<SrcElem>,
+                                    size_t elem_stride, size_t cnt);
+
+template <typename DstElem, typename SrcElem>
+constexpr void EquistrideLinSeqCopy(void* dst, void const* src,
+                                    meta::TypeWrapper<DstElem>,
+                                    meta::TypeWrapper<SrcElem>,
+                                    ptrdiff_t elem_stride, size_t cnt);
 
 constexpr void EquistrideLinSeqMove(void* dst, void const* src,
                                     size_t elem_size, size_t elem_stride,

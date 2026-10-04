@@ -58,15 +58,6 @@ constexpr void GenRandomMem(void* data_, size_t size) {
     }
 }
 
-constexpr void GenRandomLinSeq(void* data_, size_t elem_size,
-                               size_t elem_stride, size_t cnt) {
-    unsigned char* data{ static_cast<unsigned char*>(data_) };
-
-    for (size_t i{ 0 }; i < cnt; ++i, data += elem_stride) {
-        (GenRandomMem)(data, elem_size);
-    }
-}
-
 constexpr double GenRandomDouble(double lb, double rb) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(lb <= rb);
 
@@ -105,25 +96,23 @@ constexpr std::deque<size_t> GenRandomPartition(size_t total, size_t part_cnt) {
     return partition;
 }
 
-template <typename Value, typename = void>
+template <typename Value>
 struct RandomCore;
 
 template <typename Value>
-Value GetRandom() {
-    static RandomCore<Value> random_core;
-    return random_core();
+Value GenRandom() {
+    return RandomCore<Value>::F();
 }
 
 template <typename Value, typename Iterator>
-void GetRandoms(Iterator beg, Iterator end) {
-    for (; beg != end; ++beg) { *beg = GetRandom<Value>(); }
+void GenRandoms(Iterator beg, Iterator end) {
+    for (; beg != end; ++beg) { *beg = GenRandom<Value>(); }
 }
 
 template <typename T>
-struct RandomCore<
-    T, core::meta::EnableIf<
-           (core::integral::IsIntegral<T> || core::meta::IsPointer<T>), void>> {
-    T operator()() const {
+    requires(core::integral::IsIntegral<T> || core::meta::IsPointer<T>)
+struct RandomCore<T> {
+    static constexpr T F() {
         if constexpr (core::integral::IsIntegral<T>) {
             return GenUniformRandomInt<T>(core::integral::RangeMinOf<T>,
                                           core::integral::RangeMaxOf<T>);
@@ -137,11 +126,40 @@ struct RandomCore<
     }
 };
 
-template <typename First, typename Second>
-struct RandomCore<core::pair::Pair<First, Second>> {
-    core::pair::Pair<First, Second> operator()() const {
-        return { GetRandom<First>(), GetRandom<Second>() };
+template <>
+struct RandomCore<float> {
+    static constexpr float F() {
+        return static_cast<float>((GenRandomDouble)(-1.0, 1.0));
     }
 };
+
+template <>
+struct RandomCore<double> {
+    static constexpr double F() { return (GenRandomDouble)(-1.0, 1.0); }
+};
+
+template <typename First, typename Second>
+struct RandomCore<core::pair::Pair<First, Second>> {
+    static constexpr core::pair::Pair<First, Second> F() {
+        return { GenRandom<First>(), GenRandom<Second>() };
+    }
+};
+
+template <typename Elem>
+constexpr void GenRandomLinSeq(core::lifecycle::DataLifeState data_life_state,
+                               Elem* data, size_t elem_stride, size_t cnt) {
+    for (size_t i{ cnt }; 0 < i--;
+         data = core::utils::PtrInc(data, elem_stride)) {
+        switch (data_life_state) {
+        case core::lifecycle::DataLifeState::Mem:
+            new (data) Elem{ (GenRandom<Elem>)() };
+            break;
+
+        case core::lifecycle::DataLifeState::Obj:
+            *data = (GenRandom<Elem>)();
+            break;
+        }
+    }
+}
 
 }  // namespace zeta::core_test

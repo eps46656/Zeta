@@ -305,43 +305,43 @@ struct Cntr {
                               Predictor&& predictor, Cursor* dst_cursor,
                               void* dst_elem);
 
-    template <typename Reader>
+    template <typename Acceptor>
     constexpr void Read(this Cntr const& self, seq_cntr::Tag,
-                        Cursor* pos_cursor, size_t cnt, Reader&& reader,
+                        Cursor* pos_cursor, size_t cnt, acceptor&& reader,
                         Cursor* dst_cursor);
 
-    template <typename Writer>
+    template <typename Provider>
     constexpr void Write(this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor,
-                         size_t cnt, Writer&& writer, Cursor* dst_cursor);
+                         size_t cnt, Provider&& writer, Cursor* dst_cursor);
 
-    template <typename ReaderWriter>
+    template <typename Acceptor>
     constexpr void ReadWrite(this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor,
-                             size_t cnt, ReaderWriter&& reader_writer,
+                             size_t cnt, Acceptor&& acceptor,
                              Cursor* dst_cursor);
 
-    template <typename Writer>
+    template <typename Provider>
     constexpr void PushL(this Cntr& self, seq_cntr::Tag, size_t cnt,
-                         Writer&& writer, Cursor* dst_cursor);
+                         Provider&& writer, Cursor* dst_cursor);
 
-    template <typename Writer>
+    template <typename Provider>
     constexpr void PushR(this Cntr& self, seq_cntr::Tag, size_t cnt,
-                         Writer&& writer, Cursor* dst_cursor);
+                         Provider&& writer, Cursor* dst_cursor);
 
-    template <typename Writer>
+    template <typename Provider>
     constexpr void Insert(this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor,
-                          size_t cnt, Writer&& writer, Cursor* dst_cursor);
+                          size_t cnt, Provider&& writer, Cursor* dst_cursor);
 
-    template <typename Reader>
+    template <typename Acceptor>
     constexpr void PopL(this Cntr& self, seq_cntr::Tag, size_t cnt,
-                        Reader&& reader);
+                        acceptor&& reader);
 
-    template <typename Reader>
+    template <typename Acceptor>
     constexpr void PopR(this Cntr& self, seq_cntr::Tag, size_t cnt,
-                        Reader&& reader);
+                        acceptor&& reader);
 
-    template <typename Reader>
+    template <typename Acceptor>
     constexpr void Erase(this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor,
-                         size_t cnt, Reader&& reader);
+                         size_t cnt, acceptor&& reader);
 
     constexpr void EraseAll(this Cntr& self, seq_cntr::Tag);
 

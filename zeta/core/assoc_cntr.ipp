@@ -260,38 +260,40 @@ constexpr decltype(auto) assoc_cntr::Find(
                lazy_copy_elem, dst_elem_ptr_view, dst_cursor, dst_elem);
 }
 
-template <typename Cntr, assoc_cntr::IsWriter Writer>
+template <typename Cntr, assoc_cntr::IsWriter provider>
 constexpr decltype(auto) assoc_cntr::Insert(Cntr& cntr, void const* elem,
-                                            Writer&& writer, void* dst_cursor) {
+                                            provider&& writer,
+                                            void* dst_cursor) {
     CallMethod(Insert, Insert, cntr, elem, writer, dst_cursor);
 }
 
 template <typename Cntr, hash::CanHash<void const*> KeyHasher,
           comparison::CanCompare<void const*, void const*> KeyElemComparator,
-          assoc_cntr::IsWriter Writer>
+          assoc_cntr::IsWriter provider>
 constexpr decltype(auto) assoc_cntr::Insert(Cntr& cntr, void const* key,
                                             KeyHasher key_hasher,
                                             KeyElemComparator key_elem_cmptr,
-                                            Writer&& writer, void* dst_cursor) {
+                                            provider&& writer,
+                                            void* dst_cursor) {
     CallMethod(Insert, Insert, cntr, key, key_hasher, key_elem_cmptr, writer,
                dst_cursor);
 }
 
-template <typename Cntr, assoc_cntr::IsReader Reader>
+template <typename Cntr, assoc_cntr::IsReader acceptor>
 constexpr decltype(auto) assoc_cntr::PopL(Cntr& cntr, size_t cnt,
-                                          Reader&& reader) {
+                                          acceptor&& reader) {
     CallMethod(PopL, PopL, cntr, cnt, reader);
 }
 
-template <typename Cntr, assoc_cntr::IsReader Reader>
+template <typename Cntr, assoc_cntr::IsReader acceptor>
 constexpr decltype(auto) assoc_cntr::PopR(Cntr& cntr, size_t cnt,
-                                          Reader&& reader) {
+                                          acceptor&& reader) {
     CallMethod(PopR, PopR, cntr, cnt, reader);
 }
 
-template <typename Cntr, assoc_cntr::IsReader Reader>
+template <typename Cntr, assoc_cntr::IsReader acceptor>
 constexpr decltype(auto) assoc_cntr::Erase(Cntr& cntr, void* pos_cursor,
-                                           size_t cnt, Reader&& reader) {
+                                           size_t cnt, acceptor&& reader) {
     CallMethod(Erase, Erase, cntr, pos_cursor, cnt, reader);
 }
 

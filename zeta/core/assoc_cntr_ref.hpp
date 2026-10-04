@@ -81,28 +81,28 @@ struct Cntr {
                         assoc_cntr::ElemPtrView* dst_elem_ptr_view,
                         void* dst_cursor, void* dst_elem);
 
-    template <assoc_cntr::IsWriter Writer>
-    constexpr void* Insert(this Cntr& cntr, void const* elem, Writer&& writer,
+    template <assoc_cntr::IsWriter provider>
+    constexpr void* Insert(this Cntr& cntr, void const* elem, provider&& writer,
                            void* dst_cursor);
 
     template <
         hash::CanHash<void const*> KeyHasher,
         comparison::CanCompare<void const*, void const*> KeyElemComparator,
-        assoc_cntr::IsWriter Writer>
+        assoc_cntr::IsWriter provider>
     constexpr void* Insert(this Cntr& cntr, void const* key,
                            KeyHasher const& key_hasher,
                            KeyElemComparator const& key_elem_cmptr,
-                           Writer&& writer, void* dst_cursor);
+                           provider&& writer, void* dst_cursor);
 
-    template <assoc_cntr::IsReader Reader>
-    constexpr void PopL(this Cntr& cntr, size_t cnt, Reader&& reader);
+    template <assoc_cntr::IsReader acceptor>
+    constexpr void PopL(this Cntr& cntr, size_t cnt, acceptor&& reader);
 
-    template <assoc_cntr::IsReader Reader>
-    constexpr void PopR(this Cntr& cntr, size_t cnt, Reader&& reader);
+    template <assoc_cntr::IsReader acceptor>
+    constexpr void PopR(this Cntr& cntr, size_t cnt, acceptor&& reader);
 
-    template <assoc_cntr::IsReader Reader>
+    template <assoc_cntr::IsReader acceptor>
     constexpr void Erase(this Cntr& cntr, void* pos_cursor, size_t cnt,
-                         Reader&& reader);
+                         acceptor&& reader);
 
     constexpr void EraseAll(this Cntr& cntr);
 

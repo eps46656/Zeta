@@ -231,43 +231,34 @@ def add_deps(build_graph: building_utils.BuildGraph, config: Config):
         run=lambda: None,
     ))
 
-    add_c_cpp_module("cascade_alloc_utils")
-    add_c_cpp_module("cmp_utils")
     add_c_cpp_module("caching_array_utils")
-
+    add_c_cpp_module("cascade_alloc_utils")
     add_c_cpp_module("circular_array_utils")
+    add_c_cpp_module("cmp_utils")
     add_c_cpp_module("debug_deque_utils")
     add_c_cpp_module("debug_hash_table_utils")
     add_c_cpp_module("dynamic_hash_table_utils")
     add_c_cpp_module("dynamic_search_table")
     add_c_cpp_module("dynamic_vector_utils")
-    add_c_cpp_module("multi_level_circular_array_utils")
-
     add_c_cpp_module("hash_utils")
-
+    add_c_cpp_module("hash")
     add_c_cpp_module("key_value_pair")
     add_c_cpp_module("lru_cache_manager_utils")
-    add_c_cpp_module("hash")
-
+    add_c_cpp_module("memory")
+    add_c_cpp_module("multi_level_circular_array_utils")
     add_c_cpp_module("naive_search_table")
-
     add_c_cpp_module("pod_value")
-
-    add_c_cpp_module("random")
-
     add_c_cpp_module("ptr_iter")
-
+    add_c_cpp_module("random")
+    add_c_cpp_module("sample_object")
+    add_c_cpp_module("seg_vector_utils")
+    add_c_cpp_module("seq_cntr_utils")
     add_c_cpp_module("staging_seg_vector_utils")
     add_c_cpp_module("static_search_table")
     add_c_cpp_module("std_allocator")
-    add_c_cpp_module("test_head")
-
     add_c_cpp_module("test_1")
     add_c_cpp_module("test_binheap")
-
-    add_c_cpp_module("seg_vector_utils")
-
-    add_c_cpp_module("seq_cntr_utils")
+    add_c_cpp_module("test_head")
 
     # --------------------------------------------------------------------------
 
@@ -336,6 +327,14 @@ def add_deps(build_graph: building_utils.BuildGraph, config: Config):
 
     add_k_build_node(
         "test_pool_alctr",
+        [
+            zeta_core_out_dir / "mem_recorder.bc",
+            out_dir / "timer.bc",
+        ],
+    )
+
+    add_k_build_node(
+        "test_sha256",
         [
             zeta_core_out_dir / "mem_recorder.bc",
             out_dir / "timer.bc",

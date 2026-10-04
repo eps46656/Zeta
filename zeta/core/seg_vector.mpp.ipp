@@ -302,8 +302,6 @@ struct SegWork_ {
 template <typename CntrWorkType>
 constexpr void CheckCntrSegWorkMatched_(CntrWorkType& self_work,
                                         SegWork_ const& seg_work) {
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(seg_work.ca.elem_size ==
-                                            self_work.elem_size);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(seg_work.ca.elem_stride ==
                                             self_work.elem_stride);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(seg_work.ca.slot_cnt ==
@@ -423,7 +421,6 @@ constexpr void MaterializeRefSeg_(CntrWorkType& self_work, SegWork_& seg_work) {
         self_work.origin, &origin_cursor, seg_work.ca.elem_cnt,
         lin_seq_endpoint::acceptor::Acceptor{
             .data = data,
-            .elem_size = self_work.elem_size,
             .elem_stride = static_cast<ptrdiff_t>(self_work.elem_stride),
             .elem_cnt = seq_cntr::max_max_elem_cnt,
         },
@@ -435,12 +432,12 @@ constexpr void MaterializeRefSeg_(CntrWorkType& self_work, SegWork_& seg_work) {
     seg_work.ca.rot = 0;
 }
 
-template <typename CntrWorkType, typename Reader, typename Writer>
+template <typename CntrWorkType, typename Acceptor, typename Provider>
 constexpr void AugMaterializeRefSeg_(CntrWorkType& self_work,
                                      SegWork_& seg_work, size_t l_cnt,
                                      size_t ins_cnt, size_t r_cnt,
-                                     Reader&& reader, Writer&& writer) {
-    using RawReader = meta::RemoveRef<Reader>;
+                                     acceptor&& reader, Provider&& writer) {
+    using RawReader = meta::RemoveRef<acceptor>;
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(!seg_work.is_null);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(seg_work.color == ref_color);
@@ -474,7 +471,6 @@ constexpr void AugMaterializeRefSeg_(CntrWorkType& self_work,
             self_work.origin, &origin_cursor, l_cnt,
             lin_seq_endpoint::acceptor::Acceptor{
                 .data = data,
-                .elem_size = self_work.elem_size,
                 .elem_stride = static_cast<ptrdiff_t>(self_work.elem_stride),
                 .elem_cnt = seq_cntr::max_max_elem_cnt,
             },
@@ -484,7 +480,7 @@ constexpr void AugMaterializeRefSeg_(CntrWorkType& self_work,
     }
 
     if constexpr (!meta::IsSame<RawReader,
-                                seq_endpoint::acceptor::EmptyAcceptor>) {
+                                seq_endpoint::acceptor::BasicAcceptor>) {
         size_t m_cnt{ seg_work.ca.elem_cnt - l_cnt - r_cnt };
 
         if (0 < m_cnt) {
@@ -511,9 +507,8 @@ constexpr void AugMaterializeRefSeg_(CntrWorkType& self_work,
 
     if (0 < ins_cnt) {
         seq_endpoint::provider::Transfer(
-            writer, static_cast<char*>(data) + self_work.elem_stride * l_cnt,
-            self_work.elem_size, static_cast<ptrdiff_t>(self_work.elem_stride),
-            ins_cnt);
+            writer, utils::PtrInc(data, self_work.elem_stride * l_cnt),
+            static_cast<ptrdiff_t>(self_work.elem_stride), ins_cnt);
     }
 
     if (0 < r_cnt) {
@@ -538,9 +533,8 @@ constexpr void AugMaterializeRefSeg_(CntrWorkType& self_work,
         seq_cntr::Read(
             self_work.origin, &origin_cursor, r_cnt,
             lin_seq_endpoint::acceptor::Acceptor{
-                .data = static_cast<char*>(data) +
-                        self_work.elem_stride * (l_cnt + ins_cnt),
-                .elem_size = self_work.elem_size,
+                .data = utils::PtrInc(
+                    data, self_work.elem_stride * (l_cnt + ins_cnt)),
                 .elem_stride = static_cast<ptrdiff_t>(self_work.elem_stride),
                 .elem_cnt = seq_cntr::max_max_elem_cnt,
             },
@@ -589,7 +583,7 @@ constexpr void SegShoveL_(CntrWorkType& self_work, SegWork_& l_seg_work,
                         &origin_cursor, nullptr);
 
         seq_cntr::PushR(l_seg_work.ca, shove_cnt,
-                        seq_endpoint::provider::EmptyProvider{}, nullptr);
+                        seq_endpoint::provider::BasicProvider{}, nullptr);
 
         l_seg_work.ca.AssignFromSeqCntr(l_seg_work.ca.elem_cnt - shove_cnt,
                                         self_work.origin, &origin_cursor,
@@ -646,7 +640,7 @@ constexpr void SegShoveR_(CntrWorkType& self_work, SegWork_& l_seg_work,
                         true, nullptr, &origin_cursor, nullptr);
 
         seq_cntr::PushL(r_seg_work.ca, shove_cnt,
-                        seq_endpoint::provider::EmptyProvider{}, nullptr);
+                        seq_endpoint::provider::BasicProvider{}, nullptr);
 
         r_seg_work.ca.AssignFromSeqCntr(0, self_work.origin, &origin_cursor,
                                         shove_cnt);
@@ -668,11 +662,11 @@ constexpr void SegShoveR_(CntrWorkType& self_work, SegWork_& l_seg_work,
     r_seg_work.elem_vac = self_work.seg_elem_slot_cnt - r_seg_work.ca.elem_cnt;
 }
 
-template <typename CntrWorkType, typename Writer>
+template <typename CntrWorkType, typename Provider>
 constexpr void SegInsertShoveL_(CntrWorkType& self_work, SegWork_& l_seg_work,
                                 SegWork_& r_seg_work, size_t rl_cnt,
                                 size_t ins_cnt, size_t shove_cnt,
-                                Writer&& writer) {
+                                Provider&& writer) {
     (CheckCntrSegWorkMatched_)(self_work, l_seg_work);
     (CheckCntrSegWorkMatched_)(self_work, r_seg_work);
 
@@ -728,7 +722,7 @@ constexpr void SegInsertShoveL_(CntrWorkType& self_work, SegWork_& l_seg_work,
     seq_cntr::CursorLimit origin_cursor;
 
     seq_cntr::PushR(l_seg_work.ca, shove_cnt,
-                    seq_endpoint::provider::EmptyProvider{}, nullptr);
+                    seq_endpoint::provider::BasicProvider{}, nullptr);
 
     if (0 < cnt_a) {
         seq_cntr::Refer(self_work.origin, r_seg_work.ref_beg, true, nullptr,
@@ -779,7 +773,6 @@ constexpr void SegInsertShoveL_(CntrWorkType& self_work, SegWork_& l_seg_work,
             self_work.origin, &origin_cursor, rl_cnt - cnt_a,
             lin_seq_endpoint::acceptor::Acceptor{
                 .data = data_i,
-                .elem_size = self_work.elem_size,
                 .elem_stride = static_cast<ptrdiff_t>(self_work.elem_stride),
                 .elem_cnt = seq_cntr::max_max_elem_cnt,
             },
@@ -790,8 +783,8 @@ constexpr void SegInsertShoveL_(CntrWorkType& self_work, SegWork_& l_seg_work,
 
     if (0 < ins_cnt - cnt_b) {
         seq_endpoint::provider::Transfer(
-            writer, data_i, self_work.elem_size,
-            static_cast<ptrdiff_t>(self_work.elem_stride), ins_cnt - cnt_b);
+            writer, data_i, static_cast<ptrdiff_t>(self_work.elem_stride),
+            ins_cnt - cnt_b);
 
         data_i += self_work.elem_stride * (ins_cnt - cnt_b);
     }
@@ -804,7 +797,6 @@ constexpr void SegInsertShoveL_(CntrWorkType& self_work, SegWork_& l_seg_work,
             self_work.origin, &origin_cursor, rr_cnt - cnt_c,
             lin_seq_endpoint::acceptor::Acceptor{
                 .data = data_i,
-                .elem_size = self_work.elem_size,
                 .elem_stride = static_cast<ptrdiff_t>(self_work.elem_stride),
                 .elem_cnt = seq_cntr::max_max_elem_cnt,
             },
@@ -821,11 +813,11 @@ constexpr void SegInsertShoveL_(CntrWorkType& self_work, SegWork_& l_seg_work,
 #endif
 }
 
-template <typename CntrWorkType, typename Writer>
+template <typename CntrWorkType, typename Provider>
 constexpr void SegInsertShoveR_(CntrWorkType& self_work, SegWork_& l_seg_work,
                                 SegWork_& r_seg_work, size_t lr_cnt,
                                 size_t ins_cnt, size_t shove_cnt,
-                                Writer&& writer) {
+                                Provider&& writer) {
     (CheckCntrSegWorkMatched_)(self_work, l_seg_work);
     (CheckCntrSegWorkMatched_)(self_work, r_seg_work);
 
@@ -876,7 +868,7 @@ constexpr void SegInsertShoveR_(CntrWorkType& self_work, SegWork_& l_seg_work,
     seq_cntr::CursorLimit origin_cursor;
 
     seq_cntr::PushL(r_seg_work.ca, shove_cnt,
-                    seq_endpoint::provider::EmptyProvider{}, nullptr);
+                    seq_endpoint::provider::BasicProvider{}, nullptr);
 
     if (0 < cnt_c) {
         seq_cntr::Refer(
@@ -926,7 +918,6 @@ constexpr void SegInsertShoveR_(CntrWorkType& self_work, SegWork_& l_seg_work,
             self_work.origin, &origin_cursor, ll_cnt - cnt_c,
             lin_seq_endpoint::acceptor::Acceptor{
                 .data = data_i,
-                .elem_size = self_work.elem_size,
                 .elem_stride = static_cast<ptrdiff_t>(self_work.elem_stride),
                 .elem_cnt = seq_cntr::max_max_elem_cnt,
             },
@@ -937,8 +928,8 @@ constexpr void SegInsertShoveR_(CntrWorkType& self_work, SegWork_& l_seg_work,
 
     if (0 < ins_cnt - cnt_b) {
         seq_endpoint::provider::Transfer(
-            writer, data_i, self_work.elem_size,
-            static_cast<ptrdiff_t>(self_work.elem_stride), ins_cnt - cnt_b);
+            writer, data_i, static_cast<ptrdiff_t>(self_work.elem_stride),
+            ins_cnt - cnt_b);
 
         data_i += self_work.elem_stride * (ins_cnt - cnt_b);
     }
@@ -951,7 +942,6 @@ constexpr void SegInsertShoveR_(CntrWorkType& self_work, SegWork_& l_seg_work,
             self_work.origin, &origin_cursor, lr_cnt - cnt_a,
             lin_seq_endpoint::acceptor::Acceptor{
                 .data = data_i,
-                .elem_size = self_work.elem_size,
                 .elem_stride = static_cast<ptrdiff_t>(self_work.elem_stride),
                 .elem_cnt = seq_cntr::max_max_elem_cnt,
             },
@@ -968,11 +958,11 @@ constexpr void SegInsertShoveR_(CntrWorkType& self_work, SegWork_& l_seg_work,
 #endif
 }
 
-template <typename CntrWorkType, typename Reader>
+template <typename CntrWorkType, typename Acceptor>
 constexpr void SegEraseShoveL_(CntrWorkType& self_work, SegWork_& l_seg_work,
                                SegWork_& r_seg_work, size_t rl_cnt,
                                size_t ers_cnt, size_t shove_cnt,
-                               Reader&& reader) {
+                               acceptor&& reader) {
     (CheckCntrSegWorkMatched_)(self_work, l_seg_work);
     (CheckCntrSegWorkMatched_)(self_work, r_seg_work);
 
@@ -1018,7 +1008,7 @@ constexpr void SegEraseShoveL_(CntrWorkType& self_work, SegWork_& l_seg_work,
     size_t l_elem_cnt{ l_seg_work.ca.elem_cnt };
 
     seq_cntr::PushR(l_seg_work.ca, shove_cnt,
-                    seq_endpoint::provider::EmptyProvider{}, nullptr);
+                    seq_endpoint::provider::BasicProvider{}, nullptr);
 
     seq_cntr::CursorLimit origin_cursor;
 
@@ -1049,13 +1039,13 @@ constexpr void SegEraseShoveL_(CntrWorkType& self_work, SegWork_& l_seg_work,
 #endif
 }
 
-template <typename CntrWorkType, typename Reader>
+template <typename CntrWorkType, typename Acceptor>
 constexpr void SegEraseShoveR_(CntrWorkType& self_work, SegWork_& l_seg_work,
                                SegWork_& r_seg_work, size_t lr_cnt,
                                size_t ers_cnt, size_t shove_cnt,
-                               Reader&& reader) {
+                               acceptor&& reader) {
 #if EnStaging
-    using RawReader = meta::RemoveRef<Reader>;
+    using RawReader = meta::RemoveRef<acceptor>;
 #endif
 
     (CheckCntrSegWorkMatched_)(self_work, l_seg_work);
@@ -1101,7 +1091,7 @@ constexpr void SegEraseShoveR_(CntrWorkType& self_work, SegWork_& l_seg_work,
     size_t cnt_c{ shove_cnt - cnt_a };
 
     seq_cntr::PushL(r_seg_work.ca, shove_cnt,
-                    seq_endpoint::provider::EmptyProvider{}, nullptr);
+                    seq_endpoint::provider::BasicProvider{}, nullptr);
 
     seq_cntr::CursorLimit origin_cursor;
     bool origin_cursor_is_refered{ false };
@@ -1130,7 +1120,7 @@ constexpr void SegEraseShoveR_(CntrWorkType& self_work, SegWork_& l_seg_work,
     }
 
     if constexpr (!meta::IsSame<RawReader,
-                                seq_endpoint::acceptor::EmptyAcceptor>) {
+                                seq_endpoint::acceptor::BasicAcceptor>) {
         size_t target_idx{ l_seg_work.ref_beg + l_seg_work.ca.elem_cnt -
                            lr_cnt - ers_cnt };
 
@@ -1214,7 +1204,6 @@ constexpr int Merge2_(CntrWorkType& self_work, SegWork_& l_seg_work,
             self_work.origin, &origin_cursor, l_seg_work.ca.elem_cnt,
             lin_seq_endpoint::acceptor::Acceptor{
                 .data = data,
-                .elem_size = self_work.elem_size,
                 .elem_stride = static_cast<ptrdiff_t>(self_work.elem_stride),
                 .elem_cnt = seq_cntr::max_max_elem_cnt,
             },
@@ -1228,7 +1217,6 @@ constexpr int Merge2_(CntrWorkType& self_work, SegWork_& l_seg_work,
             lin_seq_endpoint::acceptor::Acceptor{
                 .data = static_cast<char*>(data) +
                         self_work.elem_stride * l_seg_work.ca.elem_cnt,
-                .elem_size = self_work.elem_size,
                 .elem_stride = static_cast<ptrdiff_t>(self_work.elem_stride),
                 .elem_cnt = seq_cntr::max_max_elem_cnt,
             },
@@ -1460,9 +1448,8 @@ constexpr void ReadWrite_  // NOLINT(misc-use-internal-linkage)
         return;
     }
 
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        seq_cntr::check_operation::CanDerefer(pos_cursor->idx, cnt,
-                                              self_work.elem_cnt));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(seq_cntr::op_check::CanDerefer(
+        pos_cursor->idx, cnt, self_work.elem_cnt));
 
     size_t idx{ pos_cursor->idx };
     size_t end_idx{ idx + cnt };
@@ -1700,7 +1687,6 @@ constexpr void ReadWrite_  // NOLINT(misc-use-internal-linkage)
                         self_work.origin, &origin_cursor, new_seg_elem_cnt,
                         lin_seq_endpoint::acceptor::Acceptor{
                             .data = data,
-                            .elem_size = self_work.elem_size,
                             .elem_stride =
                                 static_cast<ptrdiff_t>(self_work.elem_stride),
                             .elem_cnt = seq_cntr::max_max_elem_cnt,
@@ -1715,7 +1701,6 @@ constexpr void ReadWrite_  // NOLINT(misc-use-internal-linkage)
                             self_work.origin, &origin_cursor, seg_idx,
                             lin_seq_endpoint::acceptor::Acceptor{
                                 .data = data,
-                                .elem_size = self_work.elem_size,
                                 .elem_stride = static_cast<ptrdiff_t>(
                                     self_work.elem_stride),
                                 .elem_cnt = seq_cntr::max_max_elem_cnt,
@@ -1734,7 +1719,6 @@ constexpr void ReadWrite_  // NOLINT(misc-use-internal-linkage)
                             lin_seq_endpoint::acceptor::Acceptor{
                                 .data = data + self_work.elem_stride *
                                                    (seg_idx + cur_cnt),
-                                .elem_size = self_work.elem_size,
                                 .elem_stride = static_cast<ptrdiff_t>(
                                     self_work.elem_stride),
                                 .elem_cnt = seq_cntr::max_max_elem_cnt,
@@ -2452,7 +2436,6 @@ constexpr void Namespace::Cntr<CntrTplArgList>::PeekL(
 
     CircularArray ca{
         .data = seg->dat.data,
-        .elem_size = self_work.elem_size,
         .elem_stride = self_work.elem_stride,
         .elem_cnt = seg->dat.elem_cnt,
         .slot_cnt = self_work.seg_elem_slot_cnt,
@@ -2556,7 +2539,6 @@ constexpr void Namespace::Cntr<CntrTplArgList>::PeekR(
 
     CircularArray ca{
         .data = seg->dat.data,
-        .elem_size = self_work.elem_size,
         .elem_stride = self_work.elem_stride,
         .elem_cnt = seg_elem_cnt,
         .slot_cnt = self_work.seg_elem_slot_cnt,
@@ -2589,7 +2571,7 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Refer(
                                             dst_elem != nullptr);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        seq_cntr::check_operation::CanRefer(idx, 1, self_work.elem_cnt));
+        seq_cntr::op_check::CanRefer(idx, 1, self_work.elem_cnt));
 
     auto [n, seg_idx]{ bin_tree::AccessL(self.root, idx + 1) };
 
@@ -2657,7 +2639,6 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Refer(
 
     CircularArray ca{
         .data = seg->dat.data,
-        .elem_size = self_work.elem_size,
         .elem_stride = self_work.elem_stride,
         .elem_cnt = seg->dat.elem_cnt,
         .slot_cnt = self_work.seg_elem_slot_cnt,
@@ -2744,7 +2725,6 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Derefer(
 
     CircularArray ca{
         .data = seg->dat.data,
-        .elem_size = self_work.elem_size,
         .elem_stride = self_work.elem_stride,
         .elem_cnt = self_work.seg_elem_slot_cnt,
         .slot_cnt = self_work.seg_elem_slot_cnt,
@@ -2759,15 +2739,14 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Derefer(
 }
 
 template <CntrTplParamList>
-template <typename Reader>
+template <typename Acceptor>
 constexpr void Namespace::Cntr<CntrTplArgList>::Read(
     this Cntr const& self, seq_cntr::Tag, Cursor* pos_cursor, size_t cnt,
-    Reader&& reader, Cursor* dst_cursor) {
+    acceptor&& reader, Cursor* dst_cursor) {
     detail::CheckCursor_(self, pos_cursor);
 
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        seq_cntr::check_operation::CanDerefer(
-            pos_cursor->idx, cnt, self.GetElemCnt(seq_cntr::Tag{})));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(seq_cntr::op_check::CanDerefer(
+        pos_cursor->idx, cnt, self.GetElemCnt(seq_cntr::Tag{})));
 
     auto const self_work{ detail::MakeCntrWork_(self) };
 
@@ -2798,7 +2777,6 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Read(
 
     CircularArray ca{
         .data = {},
-        .elem_size = self_work.elem_size,
         .elem_stride = self_work.elem_stride,
         .elem_cnt = {},
         .slot_cnt = self_work.seg_elem_slot_cnt,
@@ -2875,16 +2853,16 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Read(
 }
 
 template <CntrTplParamList>
-template <typename Writer>
+template <typename Provider>
 constexpr void Namespace::Cntr<CntrTplArgList>::Write(
     this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor, size_t cnt,
-    Writer&& writer, Cursor* dst_cursor) {
+    Provider&& writer, Cursor* dst_cursor) {
     size_t elem_size{ self.elem_size };
     size_t elem_stride{ self.elem_stride };
     size_t seg_elem_slot_cnt{ self.seg_elem_slot_cnt };
 
     struct {
-        Writer&
+        Provider&
             writer;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
 
         CircularArray ca;
@@ -2914,17 +2892,17 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Write(
 }
 
 template <CntrTplParamList>
-template <typename ReaderWriter>
+template <typename Acceptor>
 constexpr void Namespace::Cntr<CntrTplArgList>::ReadWrite(
     this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor, size_t cnt,
-    ReaderWriter&& reader_writer, Cursor* dst_cursor) {
+    Acceptor&& acceptor, Cursor* dst_cursor) {
     size_t elem_size{ self.elem_size };
     size_t elem_stride{ self.elem_stride };
     size_t seg_elem_slot_cnt{ self.seg_elem_slot_cnt };
 
     struct ReaderWriterCore {
-        ReaderWriter&
-            reader_writer;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
+        Acceptor&
+            acceptor;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
 
         CircularArray ca;
 
@@ -2933,10 +2911,10 @@ constexpr void Namespace::Cntr<CntrTplArgList>::ReadWrite(
             self.ca.data = data;
             self.ca.rot = offset;
 
-            self.ca.IdxReadWrite(idx, cnt, self.reader_writer);
+            self.ca.IdxReadWrite(idx, cnt, self.acceptor);
         }
     } reader_writer_core{
-        .reader_writer = reader_writer,
+        .acceptor = acceptor,
 
         .ca = {
             .data = {},
@@ -2953,10 +2931,10 @@ constexpr void Namespace::Cntr<CntrTplArgList>::ReadWrite(
 }
 
 template <CntrTplParamList>
-template <typename Writer>
+template <typename Provider>
 constexpr void Namespace::Cntr<CntrTplArgList>::PushL(this Cntr& self,
                                                       seq_cntr::Tag, size_t cnt,
-                                                      Writer&& writer,
+                                                      Provider&& writer,
                                                       Cursor* dst_cursor) {
     detail::CheckCntr_(self);
 
@@ -2967,10 +2945,10 @@ constexpr void Namespace::Cntr<CntrTplArgList>::PushL(this Cntr& self,
 }
 
 template <CntrTplParamList>
-template <typename Writer>
+template <typename Provider>
 constexpr void Namespace::Cntr<CntrTplArgList>::PushR(this Cntr& self,
                                                       seq_cntr::Tag, size_t cnt,
-                                                      Writer&& writer,
+                                                      Provider&& writer,
                                                       Cursor* dst_cursor) {
     detail::CheckCntr_(self);
 
@@ -2981,18 +2959,17 @@ constexpr void Namespace::Cntr<CntrTplArgList>::PushR(this Cntr& self,
 }
 
 template <CntrTplParamList>
-template <typename Writer>
+template <typename Provider>
 constexpr void Namespace::Cntr<CntrTplArgList>::Insert(
     this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor, size_t cnt,
-    Writer&& writer, Cursor* dst_cursor) {
+    Provider&& writer, Cursor* dst_cursor) {
     detail::CheckCursor_(self, pos_cursor);
 
     auto const self_work{ detail::MakeCntrWork_(self) };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        seq_cntr::check_operation::CanInsert(
-            pos_cursor->idx, cnt, self_work.elem_cnt,
-            self.GetMaxElemCnt(seq_cntr::Tag{})));
+        seq_cntr::op_check::CanInsert(pos_cursor->idx, cnt, self_work.elem_cnt,
+                                      self.GetMaxElemCnt(seq_cntr::Tag{})));
 
     if (cnt == 0) {
         if (dst_cursor != nullptr) { *dst_cursor = *pos_cursor; }
@@ -3055,7 +3032,7 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Insert(
             if (m_seg_work.color == ref_color) {
                 detail::AugMaterializeRefSeg_(
                     self_work, m_seg_work, ml_elem_cnt, cnt, mr_elem_cnt,
-                    seq_endpoint::acceptor::EmptyAcceptor{}, writer);
+                    seq_endpoint::acceptor::BasicAcceptor{}, writer);
                 pos_cursor->elem_ptr = ({
                     seq_cntr::ElemPtrView tmp;
                     seq_cntr::Refer(m_seg_work.ca, ml_elem_cnt, true, &tmp,
@@ -3632,7 +3609,7 @@ INSERT_BETWEEN_L_R:;
             self.root = rbtree::Insert(prv_n, r_n, &new_seg->n);
 
             seq_endpoint::provider::Transfer(
-                writer, new_seg->dat.data, self_work.elem_size,
+                writer, new_seg->dat.data,
                 static_cast<ptrdiff_t>(self_work.elem_stride), cur_cnt);
 
             new_seg->dat.elem_cnt = static_cast<unsigned short>(cur_cnt);
@@ -3718,10 +3695,10 @@ INSERT_BETWEEN_L_R:;
 }
 
 template <CntrTplParamList>
-template <typename Reader>
+template <typename Acceptor>
 constexpr void Namespace::Cntr<CntrTplArgList>::PopL(this Cntr& self,
                                                      seq_cntr::Tag, size_t cnt,
-                                                     Reader&& reader) {
+                                                     acceptor&& reader) {
     Cursor pos_cursor;
     self.PeekL(seq_cntr::Tag{}, true, nullptr, &pos_cursor, nullptr);
 
@@ -3729,10 +3706,10 @@ constexpr void Namespace::Cntr<CntrTplArgList>::PopL(this Cntr& self,
 }
 
 template <CntrTplParamList>
-template <typename Reader>
+template <typename Acceptor>
 constexpr void Namespace::Cntr<CntrTplArgList>::PopR(this Cntr& self,
                                                      seq_cntr::Tag, size_t cnt,
-                                                     Reader&& reader) {
+                                                     acceptor&& reader) {
     size_t elem_cnt{ self.GetElemCnt(seq_cntr::Tag{}) };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= elem_cnt);
@@ -3745,13 +3722,13 @@ constexpr void Namespace::Cntr<CntrTplArgList>::PopR(this Cntr& self,
 }
 
 template <CntrTplParamList>
-template <typename Reader>
+template <typename Acceptor>
 constexpr void Namespace::Cntr<CntrTplArgList>::Erase(this Cntr& self,
                                                       seq_cntr::Tag,
                                                       Cursor* pos_cursor,
                                                       size_t cnt,
-                                                      Reader&& reader) {
-    using RawReader = meta::RemoveCVRef<Reader>;
+                                                      acceptor&& reader) {
+    using RawReader = meta::RemoveCVRef<acceptor>;
 
     detail::CheckCursor_(self, pos_cursor);
 
@@ -3761,8 +3738,8 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Erase(this Cntr& self,
 
     unsigned long long random_seed{ utils::GetRandom() };
 
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(seq_cntr::check_operation::CanErase(
-        pos_cursor->idx, cnt, self_work.elem_cnt));
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        seq_cntr::op_check::CanErase(pos_cursor->idx, cnt, self_work.elem_cnt));
 
     Node* m_n{ static_cast<Node*>(pos_cursor->n) };
     size_t seg_idx{ pos_cursor->seg_idx };
@@ -3910,7 +3887,7 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Erase(this Cntr& self,
                 if (m_seg_work.color == ref_color) {
                     detail::AugMaterializeRefSeg_(
                         self_work, m_seg_work, ml_elem_cnt, 0, mr_elem_cnt,
-                        reader, seq_endpoint::provider::EmptyProvider{});
+                        reader, seq_endpoint::provider::BasicProvider{});
                 } else
 #endif
                 {
@@ -3974,7 +3951,7 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Erase(this Cntr& self,
                 if (m_seg_work.color == ref_color) {
                     detail::AugMaterializeRefSeg_(
                         self_work, m_seg_work, ml_elem_cnt, 0, mr_elem_cnt,
-                        reader, seq_endpoint::provider::EmptyProvider{});
+                        reader, seq_endpoint::provider::BasicProvider{});
                 } else
 #endif
                 {
@@ -4062,7 +4039,7 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Erase(this Cntr& self,
 #if EnStaging
             if constexpr (!meta::IsSame<
                               RawReader,
-                              seq_endpoint::acceptor::EmptyAcceptor>) {
+                              seq_endpoint::acceptor::BasicAcceptor>) {
                 size_t target_idx{ m_seg_work.ref_beg + ml_elem_cnt };
 
                 seq_cntr::Refer(self_work.origin, target_idx, true, nullptr,
@@ -4161,7 +4138,7 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Erase(this Cntr& self,
         detail::SegWork_& m_seg_work{ seg_works[seg_work_cnt - 1] };
 
         if constexpr (!meta::IsSame<RawReader,
-                                    seq_endpoint::acceptor::EmptyAcceptor>) {
+                                    seq_endpoint::acceptor::BasicAcceptor>) {
 #if EnStaging
             if (m_seg_work.color == ref_color) {
                 size_t target_idx{ m_seg_work.ref_beg + seg_idx };
@@ -4199,7 +4176,7 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Erase(this Cntr& self,
         if (detail::GetNColor_(m_n) == ref_color) {
             if constexpr (!meta::IsSame<
                               RawReader,
-                              seq_endpoint::acceptor::EmptyAcceptor>) {
+                              seq_endpoint::acceptor::BasicAcceptor>) {
                 size_t target_idx{ m_seg->ref.beg };
 
                 seq_cntr::Refer(self_work.origin, target_idx, true, nullptr,
@@ -4251,7 +4228,7 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Erase(this Cntr& self,
         }
 
         if constexpr (!meta::IsSame<RawReader,
-                                    seq_endpoint::acceptor::EmptyAcceptor>) {
+                                    seq_endpoint::acceptor::BasicAcceptor>) {
             m_seg_work.ca.IdxRead(
                 0, comparison_utils::BasicMin(m_seg_work.ca.elem_cnt, cnt),
                 reader);
@@ -4681,7 +4658,6 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Collapse(
             origin_ca.IdxRead(src_seg_idx, cur_cnt,
                               lin_seq_endpoint::acceptor::Acceptor{
                                   .data = dst_data,
-                                  .elem_size = self_work.elem_size,
                                   .elem_stride = static_cast<ptrdiff_t>(
                                       self_work.elem_stride),
                                   .elem_cnt = seq_cntr::max_max_elem_cnt,
