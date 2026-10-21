@@ -55,7 +55,7 @@ constexpr bool object_state_notation::Config::Check(this Config const& self) {
 constexpr pair::Pair<bool, object_state_notation::Config>
 object_state_notation::Config::FromHeader(Header const& header) {
     Config config{
-        .version = header.version,
+        .version          = header.version,
         .region_attr_size = header.region_attr_size,
     };
 
@@ -73,7 +73,7 @@ object_state_notation::Config::ToHeader(this Config const& self) {
 
     Header header{
         .magic{ 'O', 'S', 'N', '\0' },
-        .version = self.version,
+        .version          = self.version,
         .region_attr_size = self.region_attr_size,
         .reserved{ 0 },
     };
@@ -96,10 +96,10 @@ constexpr bool object_state_notation::NodeTag::Check(this NodeTag const& self) {
 constexpr pair::Pair<bool, object_state_notation::NodeTag>
 object_state_notation::NodeTag::FromEncodedValue(unsigned char encoded_value) {
     NodeTag node_tag{
-        .node_type = static_cast<NodeType>(encoded_value & NodeTypeMask),
-        .has_name = (encoded_value & HasName) != 0,
+        .node_type    = static_cast<NodeType>(encoded_value & NodeTypeMask),
+        .has_name     = (encoded_value & HasName) != 0,
         .has_obj_type = (encoded_value & HasObjType) != 0,
-        .has_region = (encoded_value & HasRegion) != 0,
+        .has_region   = (encoded_value & HasRegion) != 0,
     };
 
     return { node_tag.Check(), node_tag };
@@ -110,9 +110,9 @@ object_state_notation::NodeTag::ToEncodedValue(this NodeTag const& self) {
     if (!self.Check()) { return { false, 0 }; }
 
     return { true, static_cast<unsigned char>(
-                       meta::ToUnderlying(self.node_type) +     //
-                       (self.has_name ? HasName : 0U) +         //
-                       (self.has_obj_type ? HasObjType : 0U) +  //
+                       meta::EnumToUnderlying(self.node_type) +  //
+                       (self.has_name ? HasName : 0U) +          //
+                       (self.has_obj_type ? HasObjType : 0U) +   //
                        (self.has_region ? HasRegion : 0U)) };
 }
 
@@ -128,7 +128,7 @@ object_state_notation::IntegralDescriptor::FromEncodedValue(
     size_t encoded_value) {
     return {
         .is_signed = encoded_value % 2 == 1,
-        .size = encoded_value / 2,
+        .size      = encoded_value / 2,
     };
 }
 
@@ -293,12 +293,12 @@ constexpr object_state_notation::Encoder<AcceptorLike>::Encoder(
       state{ EncoderState::ReceivingNodeTag },
       depth{ 0 },
       integral_chunk_buffer{
-          .data = integral_chunk_buffer_data,
-          .elem_cnt = 0,
-          .octet_cnt = 0,
+          .data          = integral_chunk_buffer_data,
+          .elem_cnt      = 0,
+          .octet_cnt     = 0,
           .max_octet_cnt = integral_chunk_buffer_max_octet_cnt,
       },
-      acceptor_like{ ZETA_Core_Lifecycle_UnpackConstructArg(
+      acceptor_like{ ZETA_Core_Lifecycle_UnpackConstructArgs(
           AcceptorLike, AcceptorLikeConstructArg,
           acceptor_like_construct_arg) } {}
 
@@ -371,10 +371,10 @@ object_state_notation::Encoder<AcceptorLike>::SendStringChar(
 
     utf8::Encoder::ResultEnum result{ utf8_encoder.Encode(
         lin_seq_endpoint::provider::Provider{
-            .data = &c,
-            .elem_size = sizeof(unicode::unichar_t),
+            .data        = &c,
+            .elem_size   = sizeof(unicode::unichar_t),
             .elem_stride = sizeof(unicode::unichar_t),
-            .elem_cnt = 1,
+            .elem_cnt    = 1,
         }) };
 
     if (result != utf8::Encoder::ResultEnum::Success) {
@@ -547,7 +547,7 @@ object_state_notation::Encoder<AcceptorLike>::SendIntegral(
                 self.acceptor_like, self.integral_chunk_buffer.data, 1, 1,
                 self.integral_chunk_buffer.octet_cnt);
 
-            self.integral_chunk_buffer.elem_cnt = 0;
+            self.integral_chunk_buffer.elem_cnt  = 0;
             self.integral_chunk_buffer.octet_cnt = 0;
         }
 
@@ -563,11 +563,11 @@ object_state_notation::Encoder<AcceptorLike>::SendIntegral(
     }
 
     lin_seq_endpoint::acceptor::Acceptor integral_chunk_seq_acceptor{
-        .data = self.integral_chunk_buffer.data +
-                self.integral_chunk_buffer.octet_cnt,
-        .elem_size = 1,
+        .data        = self.integral_chunk_buffer.data +
+                       self.integral_chunk_buffer.octet_cnt,
+        .elem_size   = 1,
         .elem_stride = 1,
-        .elem_cnt = est_integral_size,
+        .elem_cnt    = est_integral_size,
     };
 
     if (integral_size == 0) {
@@ -623,7 +623,7 @@ object_state_notation::Encoder<AcceptorLike>::SendFinish(this Encoder& self) {
                     self.acceptor_like, self.integral_chunk_buffer.data, 1, 1,
                     self.integral_chunk_buffer.octet_cnt);
 
-                self.integral_chunk_buffer.elem_cnt = 0;
+                self.integral_chunk_buffer.elem_cnt  = 0;
                 self.integral_chunk_buffer.octet_cnt = 0;
             }
 
@@ -636,10 +636,10 @@ object_state_notation::Encoder<AcceptorLike>::SendFinish(this Encoder& self) {
     case NodeType::NodeList:
         if (self.res_elem_cnts[self.depth - 1] == static_cast<size_t>(-1)) {
             unsigned char node_tag{ NodeTag{
-                .node_type = NodeType::Terminator,
-                .has_name = false,
+                .node_type    = NodeType::Terminator,
+                .has_name     = false,
                 .has_obj_type = false,
-                .has_region = false,
+                .has_region   = false,
             }
                                         .ToEncodedValue()
                                         .second };
@@ -661,10 +661,10 @@ object_state_notation::Encoder<AcceptorLike>::SendFinish(this Encoder& self) {
     }
 
     self.node_tag_buffer = NodeTag{
-        .node_type = NodeType::NodeList,
-        .has_name = false,
+        .node_type    = NodeType::NodeList,
+        .has_name     = false,
         .has_obj_type = false,
-        .has_region = false,
+        .has_region   = false,
     };
 
     switch (self.res_elem_cnts[self.depth - 1]) {
@@ -734,7 +734,7 @@ constexpr object_state_notation::Decoder<ProviderLike>::Decoder(
     Config const& config,
     ProviderLikeConstructArg&& provider_like_construct_arg)
     : config{ config },
-      provider_like{ ZETA_Core_Lifecycle_UnpackConstructArg(
+      provider_like{ ZETA_Core_Lifecycle_UnpackConstructArgs(
           ProviderLike, ProviderLikeConstructArg,
           provider_like_construct_arg) } {
     this->state = DecoderState::SendingNodeTag;
@@ -864,7 +864,7 @@ object_state_notation::Decoder<ProviderLike>::ReceiveRegionAttr(
     self.state = detail::FindNextState_(self.state, self.node_tag);
 
     return { utils::TryResultValueTag{},
-             pair::Pair<Integral, Integral>{ .first = region_beg_result,
+             pair::Pair<Integral, Integral>{ .first  = region_beg_result,
                                              .second = region_size_resul } };
 }
 
@@ -943,7 +943,7 @@ object_state_notation::Decoder<ProviderLike>::ReceiveListElemCnt(
 
     switch (self.node_tag.node_type) {
     case NodeType::IntegralList:
-        self.state = DecoderState::SendingIntegral;
+        self.state                       = DecoderState::SendingIntegral;
         self.integral_chunk_res_elem_cnt = 0;
         break;
 

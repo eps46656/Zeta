@@ -72,7 +72,7 @@ constexpr size_t WidthOf{ []() {
 }() };
 
 template <typename Integral>
-using TryMakeUnsignedOf = decltype([]() {
+using TryMakeUnsignedOf = meta::GetTypeWrapperType<decltype([]() {
     static_assert(integral::IsIntegral<Integral>);
 
     using UnsignedIntegral = IntegralTraits<Integral>::UnsignedType;
@@ -81,10 +81,10 @@ using TryMakeUnsignedOf = decltype([]() {
                   integral::IsIntegral<UnsignedIntegral>);
 
     return meta::TypeWrapper<UnsignedIntegral>{};
-}())::Type;
+}())>;
 
 template <typename Integral>
-using TryMakeSignedOf = decltype([]() {
+using TryMakeSignedOf = meta::GetTypeWrapperType<decltype([]() {
     static_assert(integral::IsIntegral<Integral>);
 
     using SignedIntegral = IntegralTraits<Integral>::SignedType;
@@ -93,25 +93,25 @@ using TryMakeSignedOf = decltype([]() {
                   integral::IsIntegral<SignedIntegral>);
 
     return meta::TypeWrapper<SignedIntegral>{};
-}())::Type;
+}())>;
 
 template <typename Integral>
-using MakeUnsignedOf = decltype([]() {
+using MakeUnsignedOf = meta::GetTypeWrapperType<decltype([]() {
     using UnsignedIntegral = TryMakeUnsignedOf<Integral>;
 
     static_assert(integral::IsIntegral<UnsignedIntegral>);
 
     return meta::TypeWrapper<UnsignedIntegral>{};
-}())::Type;
+}())>;
 
 template <typename Integral>
-using MakeSignedOf = decltype([]() {
+using MakeSignedOf = meta::GetTypeWrapperType<decltype([]() {
     using SignedIntegral = TryMakeSignedOf<Integral>;
 
     static_assert(integral::IsIntegral<SignedIntegral>);
 
     return meta::TypeWrapper<SignedIntegral>{};
-}())::Type;
+}())>;
 
 template <>
 struct IntegralTraits<char> {
@@ -151,7 +151,7 @@ struct IntegralTraits<char> {
 
 F(unsigned char, signed char, ZETA_Core_uchar_width);
 F(unsigned short, signed short, ZETA_Core_ushrt_width);
-F(unsigned int, signed int, ZETA_Core_uint_width);
+F(unsigned, signed, ZETA_Core_uint_width);
 F(unsigned long, signed long, ZETA_Core_ulong_width);
 F(unsigned long long, signed long long, ZETA_Core_ullong_width);
 

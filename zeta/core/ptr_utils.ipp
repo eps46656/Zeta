@@ -148,30 +148,30 @@ constexpr void ptr_utils::rel_color_ptr::SetPtrColor(
         (GetColor)(rel_color_ptr, align, base) == color);
 }
 
-template <ptr_utils::IsLinkType LinkType, meta::IsValueWrapperT<bool> ColorTag>
-constexpr void* ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetPtr(
+template <ptr_utils::IsLink LinkType, bool color_en>
+constexpr void* ptr_utils::AugPtrTpl<LinkType, color_en>::GetPtr(
     this AugPtrTpl const& self)
-    requires(!is_rel_link && !ColorTag::value)
+    requires(!is_rel_link && !color_en)
 {
     return self.link;
 }
 
-template <ptr_utils::IsLinkType LinkType, meta::IsValueWrapperT<bool> ColorTag>
-constexpr void* ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetPtr(
+template <ptr_utils::IsLink LinkType, bool color_en>
+constexpr void* ptr_utils::AugPtrTpl<LinkType, color_en>::GetPtr(
     this AugPtrTpl const& self, size_t align)
     requires(!is_rel_link)
 {
-    if constexpr (ColorTag::value) {
+    if constexpr (color_en) {
         return color_ptr::GetPtr(self.link, align);
     } else {
         return self.GetPtr();
     }
 }
 
-template <ptr_utils::IsLinkType LinkType, meta::IsValueWrapperT<bool> ColorTag>
-constexpr void* ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetPtr(
+template <ptr_utils::IsLink LinkType, bool color_en>
+constexpr void* ptr_utils::AugPtrTpl<LinkType, color_en>::GetPtr(
     this AugPtrTpl const& self, void const* base)
-    requires ColorTag::value
+    requires color_en
 {
     if constexpr (is_rel_link) {
         return rel_ptr::GetPtr(self.link, base);
@@ -180,31 +180,30 @@ constexpr void* ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetPtr(
     }
 }
 
-template <ptr_utils::IsLinkType LinkType, meta::IsValueWrapperT<bool> ColorTag>
-constexpr void* ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetPtr(
+template <ptr_utils::IsLink LinkType, bool color_en>
+constexpr void* ptr_utils::AugPtrTpl<LinkType, color_en>::GetPtr(
     this AugPtrTpl const& self, size_t align, void const* base) {
     if constexpr (!is_rel_link) {
         return self.GetPtr(align);
-    } else if constexpr (!ColorTag::value) {
+    } else if constexpr (!color_en) {
         return self.GetPtr(base);
     } else {
         return rel_color_ptr::GetPtr(self.link, align, base);
     }
 }
 
-template <ptr_utils::IsLinkType LinkType, meta::IsValueWrapperT<bool> ColorTag>
-constexpr unsigned ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetColor(
+template <ptr_utils::IsLink LinkType, bool color_en>
+constexpr unsigned ptr_utils::AugPtrTpl<LinkType, color_en>::GetColor(
     this AugPtrTpl const& self, size_t align)
-    requires(!ptr_utils::AugPtrTpl<LinkType, ColorTag>::is_rel_link &&
-             ColorTag::value)
+    requires(!is_rel_link && color_en)
 {
     return color_ptr::GetColor(self.link, align);
 }
 
-template <ptr_utils::IsLinkType LinkType, meta::IsValueWrapperT<bool> ColorTag>
-constexpr unsigned ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetColor(
+template <ptr_utils::IsLink LinkType, bool color_en>
+constexpr unsigned ptr_utils::AugPtrTpl<LinkType, color_en>::GetColor(
     this AugPtrTpl const& self, size_t align, void const* base)
-    requires ColorTag::value
+    requires color_en
 {
     if constexpr (is_rel_link) {
         return rel_color_ptr::GetColor(self.link, align, base);
@@ -213,31 +212,30 @@ constexpr unsigned ptr_utils::AugPtrTpl<LinkType, ColorTag>::GetColor(
     }
 }
 
-template <ptr_utils::IsLinkType LinkType, meta::IsValueWrapperT<bool> ColorTag>
-constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtr(
+template <ptr_utils::IsLink LinkType, bool color_en>
+constexpr void ptr_utils::AugPtrTpl<LinkType, color_en>::SetPtr(
     this AugPtrTpl& self, void* ptr)
-    requires(!ptr_utils::AugPtrTpl<LinkType, ColorTag>::is_rel_link &&
-             !ColorTag::value)
+    requires(!is_rel_link && !color_en)
 {
     self.link = ptr;
 }
 
-template <ptr_utils::IsLinkType LinkType, meta::IsValueWrapperT<bool> ColorTag>
-constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtr(
+template <ptr_utils::IsLink LinkType, bool color_en>
+constexpr void ptr_utils::AugPtrTpl<LinkType, color_en>::SetPtr(
     this AugPtrTpl& self, size_t align, void* ptr)
-    requires(!ptr_utils::AugPtrTpl<LinkType, ColorTag>::is_rel_link)
+    requires(!is_rel_link)
 {
-    if constexpr (ColorTag::value) {
+    if constexpr (color_en) {
         color_ptr::SetPtr(self.link, align, ptr);
     } else {
         self.SetPtr(ptr);
     }
 }
 
-template <ptr_utils::IsLinkType LinkType, meta::IsValueWrapperT<bool> ColorTag>
-constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtr(
+template <ptr_utils::IsLink LinkType, bool color_en>
+constexpr void ptr_utils::AugPtrTpl<LinkType, color_en>::SetPtr(
     this AugPtrTpl& self, void const* base, void* ptr)
-    requires(!ColorTag::value)
+    requires(!color_en)
 {
     if constexpr (is_rel_link) {
         rel_ptr::SetPtr(self.link, base, ptr);
@@ -246,31 +244,30 @@ constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtr(
     }
 }
 
-template <ptr_utils::IsLinkType LinkType, meta::IsValueWrapperT<bool> ColorTag>
-constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtr(
+template <ptr_utils::IsLink LinkType, bool color_en>
+constexpr void ptr_utils::AugPtrTpl<LinkType, color_en>::SetPtr(
     this AugPtrTpl& self, size_t align, void const* base, void* ptr) {
     if constexpr (!is_rel_link) {
         self.SetPtr(align, ptr);
-    } else if constexpr (!ColorTag::value) {
+    } else if constexpr (!color_en) {
         self.SetPtr(base, ptr);
     } else {
         rel_color_ptr::SetPtr(self.link, align, base, ptr);
     }
 }
 
-template <ptr_utils::IsLinkType LinkType, meta::IsValueWrapperT<bool> ColorTag>
-constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetColor(
+template <ptr_utils::IsLink LinkType, bool color_en>
+constexpr void ptr_utils::AugPtrTpl<LinkType, color_en>::SetColor(
     this AugPtrTpl& self, size_t align, unsigned color)
-    requires(!ptr_utils::AugPtrTpl<LinkType, ColorTag>::is_rel_link &&
-             ColorTag::value)
+    requires(!is_rel_link && color_en)
 {
     color_ptr::SetColor(self.link, align, color);
 }
 
-template <ptr_utils::IsLinkType LinkType, meta::IsValueWrapperT<bool> ColorTag>
-constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetColor(
+template <ptr_utils::IsLink LinkType, bool color_en>
+constexpr void ptr_utils::AugPtrTpl<LinkType, color_en>::SetColor(
     this AugPtrTpl& self, size_t align, void const* base, unsigned color)
-    requires ColorTag::value
+    requires color_en
 {
     if constexpr (is_rel_link) {
         rel_color_ptr::SetColor(self.link, align, base, color);
@@ -279,20 +276,19 @@ constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetColor(
     }
 }
 
-template <ptr_utils::IsLinkType LinkType, meta::IsValueWrapperT<bool> ColorTag>
-constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtrColor(
+template <ptr_utils::IsLink LinkType, bool color_en>
+constexpr void ptr_utils::AugPtrTpl<LinkType, color_en>::SetPtrColor(
     this AugPtrTpl& self, size_t align, void* ptr, unsigned color)
-    requires(!ptr_utils::AugPtrTpl<LinkType, ColorTag>::is_rel_link &&
-             ColorTag::value)
+    requires(!is_rel_link && color_en)
 {
     color_ptr::SetPtrColor(self.link, align, ptr, color);
 }
 
-template <ptr_utils::IsLinkType LinkType, meta::IsValueWrapperT<bool> ColorTag>
-constexpr void ptr_utils::AugPtrTpl<LinkType, ColorTag>::SetPtrColor(
+template <ptr_utils::IsLink LinkType, bool color_en>
+constexpr void ptr_utils::AugPtrTpl<LinkType, color_en>::SetPtrColor(
     this AugPtrTpl& self, size_t align, void const* base, void* ptr,
     unsigned color)
-    requires ColorTag::value
+    requires color_en
 {
     if constexpr (is_rel_link) {
         rel_color_ptr::SetPtrColor(self.link, align, base, ptr, color);

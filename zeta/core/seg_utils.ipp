@@ -12,12 +12,10 @@
 
 namespace zeta::core {
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr void seg_utils::SegShoveL(circular_array::Cntr<Elem>& l_ca,
                                     circular_array::Cntr<Elem>& r_ca,
                                     size_t shove_cnt) {
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(l_ca.elem_size == r_ca.elem_size);
-
     size_t l_vac{ l_ca.slot_cnt - l_ca.elem_cnt };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(shove_cnt <= l_vac);
@@ -28,23 +26,22 @@ constexpr void seg_utils::SegShoveL(circular_array::Cntr<Elem>& l_ca,
     circular_array::Cursor r_cursor;
 
     seq_cntr::Refer(r_ca, 0, true, nullptr, &r_cursor,
-                    lifecycle::DataLifeState::Mem, nullptr);
+                    lifecycle::LeftObjView<Elem>{ nullptr });
 
     seq_cntr::PushR(
-        l_ca, shove_cnt,
+        , shove_cnt,
         seq_cntr_utils::provider::Provider<circular_array::Cntr<Elem>&&>(
             meta::Move(r_ca), r_cursor, shove_cnt),
         nullptr);
 
-    seq_cntr::PopL(r_ca, shove_cnt, seq_endpoint::acceptor::BasicAcceptor{});
+    seq_cntr::PopL(r_ca, shove_cnt, seq_endpoint::acceptor::BasicAcceptor{},
+                   nullptr);
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr void seg_utils::SegShoveR(circular_array::Cntr<Elem>& l_ca,
                                     circular_array::Cntr<Elem>& r_ca,
                                     size_t shove_cnt) {
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(l_ca.elem_size == r_ca.elem_size);
-
     size_t r_vac{ r_ca.slot_cnt - r_ca.elem_cnt };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(shove_cnt <= r_vac);
@@ -55,7 +52,7 @@ constexpr void seg_utils::SegShoveR(circular_array::Cntr<Elem>& l_ca,
     circular_array::Cursor l_cursor;
 
     seq_cntr::Refer(l_ca, l_ca.elem_cnt - shove_cnt, true, nullptr, &l_cursor,
-                    lifecycle::DataLifeState::Mem, nullptr);
+                    lifecycle::LeftObjView<Elem>{ nullptr });
 
     seq_cntr::PushL(
         r_ca, shove_cnt,
@@ -66,15 +63,12 @@ constexpr void seg_utils::SegShoveR(circular_array::Cntr<Elem>& l_ca,
     seq_cntr::PopR(l_ca, shove_cnt, seq_endpoint::acceptor::BasicAcceptor{});
 }
 
-template <meta::IsContainerElem Elem,
-          seq_endpoint::provider::IsProvider<Elem> Provider>
+template <meta::IsObj Elem, seq_endpoint::provider::IsProvider<Elem> Provider>
 constexpr void seg_utils::SegInsertShoveL(circular_array::Cntr<Elem>& l_ca,
                                           circular_array::Cntr<Elem>& r_ca,
                                           size_t rl_cnt, size_t ins_cnt,
                                           size_t shove_cnt,
-                                          Provider& provider) {
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(l_ca.elem_size == r_ca.elem_size);
-
+                                          Provider&& provider) {
     size_t l_vac{ l_ca.slot_cnt - l_ca.elem_cnt };
     size_t r_vac{ r_ca.slot_cnt - r_ca.elem_cnt };
 
@@ -95,7 +89,7 @@ constexpr void seg_utils::SegInsertShoveL(circular_array::Cntr<Elem>& l_ca,
     circular_array::Cursor r_cursor;
 
     seq_cntr::Refer(r_ca, 0, true, nullptr, &r_cursor,
-                    lifecycle::DataLifeState::Mem, nullptr);
+                    lifecycle::LeftObjView<Elem>{ nullptr });
 
     seq_cntr_utils::provider::Provider<circular_array::Cntr<Elem>&&> r_provider{
         meta::Move(r_ca), r_cursor, shove_cnt
@@ -111,23 +105,20 @@ constexpr void seg_utils::SegInsertShoveL(circular_array::Cntr<Elem>& l_ca,
         seq_cntr::PushR(l_ca, cnt_c, r_provider, nullptr, nullptr);
     }
 
-    seq_cntr::PopL(r_ca, cnt_a + cnt_c,
-                   seq_endpoint::acceptor::BasicAcceptor{});
+    seq_cntr::PopL(r_ca, cnt_a + cnt_c, seq_endpoint::acceptor::BasicAcceptor{},
+                   nullptr);
 
     if (0 < ins_cnt - cnt_b) {
         r_ca.IdxInsert(rl_cnt - cnt_a, ins_cnt - cnt_b, provider);
     }
 }
 
-template <meta::IsContainerElem Elem,
-          seq_endpoint::provider::IsProvider<Elem> Provider>
+template <meta::IsObj Elem, seq_endpoint::provider::IsProvider<Elem> Provider>
 constexpr void seg_utils::SegInsertShoveR(circular_array::Cntr<Elem>& l_ca,
                                           circular_array::Cntr<Elem>& r_ca,
                                           size_t lr_cnt, size_t ins_cnt,
                                           size_t shove_cnt,
-                                          Provider& provider) {
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(l_ca.elem_size == r_ca.elem_size);
-
+                                          Provider&& provider) {
     size_t l_vac{ l_ca.slot_cnt - l_ca.elem_cnt };
     size_t r_vac{ r_ca.slot_cnt - r_ca.elem_cnt };
 
@@ -151,14 +142,15 @@ constexpr void seg_utils::SegInsertShoveR(circular_array::Cntr<Elem>& l_ca,
 
     if (0 < cnt_a) {
         seq_cntr::Refer(l_ca, l_ca.elem_cnt - cnt_a, true, nullptr, &l_cursor,
-                        lifecycle::DataLifeState::Mem, nullptr);
+                        lifecycle::LeftObjView<Elem>{ nullptr });
 
         seq_cntr_utils::provider::Provider<circular_array::Cntr<Elem>&&>
             l_provider{ meta::Move(l_ca), l_cursor, cnt_a };
 
         seq_cntr::PushL(r_ca, cnt_a, l_provider, nullptr, nullptr);
 
-        seq_cntr::PopR(l_ca, cnt_a, seq_endpoint::acceptor::BasicAcceptor{});
+        seq_cntr::PopR(l_ca, cnt_a, seq_endpoint::acceptor::BasicAcceptor{},
+                       nullptr);
     }
 
     if (0 < ins_cnt - cnt_b) {
@@ -169,25 +161,24 @@ constexpr void seg_utils::SegInsertShoveR(circular_array::Cntr<Elem>& l_ca,
 
     if (0 < cnt_c) {
         seq_cntr::Refer(l_ca, ll_cnt - cnt_c, true, nullptr, &l_cursor,
-                        lifecycle::DataLifeState::Mem, nullptr);
+                        lifecycle::LeftObjView<Elem>{ nullptr });
 
         seq_cntr_utils::provider::Provider<circular_array::Cntr<Elem>&&>
             l_provider{ meta::Move(l_ca), l_cursor, cnt_c };
 
         seq_cntr::PushL(r_ca, cnt_c, l_provider, nullptr, nullptr);
 
-        seq_cntr::PopR(l_ca, cnt_c, seq_endpoint::acceptor::BasicAcceptor{});
+        seq_cntr::PopR(l_ca, cnt_c, seq_endpoint::acceptor::BasicAcceptor{},
+                       nullptr);
     }
 }
 
-template <meta::IsContainerElem Elem,
-          seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
+template <meta::IsObj Elem, seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
 constexpr void seg_utils::SegEraseShoveL(circular_array::Cntr<Elem>& l_ca,
                                          circular_array::Cntr<Elem>& r_ca,
                                          size_t rl_cnt, size_t ers_cnt,
-                                         size_t shove_cnt, Acceptor&& reader) {
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(l_ca.elem_size == r_ca.elem_size);
-
+                                         size_t shove_cnt,
+                                         Acceptor&& acceptor) {
     size_t l_vac{ l_ca.slot_cnt - l_ca.elem_cnt };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(rl_cnt <= r_ca.elem_cnt);
@@ -206,44 +197,44 @@ constexpr void seg_utils::SegEraseShoveL(circular_array::Cntr<Elem>& l_ca,
 
     if (0 < cnt_a) {
         seq_cntr::Refer(r_ca, 0, true, nullptr, &r_cursor,
-                        lifecycle::DataLifeState::Mem, nullptr);
+                        lifecycle::LeftObjView<Elem>{ nullptr });
 
         seq_cntr_utils::provider::Provider<circular_array::Cntr<Elem>&&>
             r_provider{ meta::Move(r_ca), r_cursor, cnt_a };
 
         seq_cntr::PushR(l_ca, cnt_a, r_provider, nullptr, nullptr);
 
-        seq_cntr::PopL(r_ca, cnt_a, seq_endpoint::acceptor::BasicAcceptor{});
+        seq_cntr::PopL(r_ca, cnt_a, seq_endpoint::acceptor::BasicAcceptor{},
+                       nullptr);
     }
 
     if (0 < cnt_b) {
         seq_cntr::Refer(r_ca, rl_cnt - cnt_a, true, nullptr, &r_cursor,
-                        lifecycle::DataLifeState::Mem, nullptr);
+                        lifecycle::LeftObjView<Elem>{ nullptr });
 
-        seq_cntr::Erase(r_ca, &r_cursor, cnt_b, reader);
+        seq_cntr::Erase(r_ca, &r_cursor, cnt_b, acceptor);
     }
 
     if (0 < cnt_c) {
         seq_cntr::Refer(r_ca, 0, true, nullptr, &r_cursor,
-                        lifecycle::DataLifeState::Mem, nullptr);
+                        lifecycle::LeftObjView<Elem>{ nullptr });
 
         seq_cntr_utils::provider::Provider<circular_array::Cntr<Elem>&&>
             r_provider{ meta::Move(r_ca), r_cursor, cnt_c };
 
         seq_cntr::PushR(l_ca, cnt_c, r_provider, nullptr, nullptr);
 
-        seq_cntr::PopL(r_ca, cnt_c, seq_endpoint::acceptor::BasicAcceptor{});
+        seq_cntr::PopL(r_ca, cnt_c, seq_endpoint::acceptor::BasicAcceptor{},
+                       nullptr);
     }
 }
 
-template <meta::IsContainerElem Elem,
-          seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
+template <meta::IsObj Elem, seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
 constexpr void seg_utils::SegEraseShoveR(circular_array::Cntr<Elem>& l_ca,
                                          circular_array::Cntr<Elem>& r_ca,
                                          size_t lr_cnt, size_t ers_cnt,
-                                         size_t shove_cnt, Acceptor&& reader) {
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(l_ca.elem_size == r_ca.elem_size);
-
+                                         size_t shove_cnt,
+                                         Acceptor&& acceptor) {
     size_t r_vac{ r_ca.slot_cnt - r_ca.elem_cnt };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(lr_cnt <= l_ca.elem_cnt);
@@ -264,33 +255,35 @@ constexpr void seg_utils::SegEraseShoveR(circular_array::Cntr<Elem>& l_ca,
 
     if (0 < cnt_a) {
         seq_cntr::Refer(l_ca, l_ca.elem_cnt - cnt_a, true, nullptr, &r_cursor,
-                        lifecycle::DataLifeState::Mem, nullptr);
+                        lifecycle::LeftObjView<Elem>{ nullptr });
 
         seq_cntr_utils::provider::Provider<circular_array::Cntr<Elem>&&>
             l_provider{ meta::Move(l_ca), r_cursor, cnt_a };
 
         seq_cntr::PushL(r_ca, cnt_a, l_provider, nullptr, nullptr);
 
-        seq_cntr::PopR(l_ca, cnt_a, seq_endpoint::acceptor::BasicAcceptor{});
+        seq_cntr::PopR(l_ca, cnt_a, seq_endpoint::acceptor::BasicAcceptor{},
+                       nullptr);
     }
 
     if (0 < cnt_b) {
         seq_cntr::Refer(l_ca, ll_cnt, true, nullptr, &r_cursor,
-                        lifecycle::DataLifeState::Mem, nullptr);
+                        lifecycle::LeftObjView<Elem>{ nullptr });
 
-        seq_cntr::Erase(l_ca, &r_cursor, cnt_b, reader);
+        seq_cntr::Erase(l_ca, &r_cursor, cnt_b, acceptor);
     }
 
     if (0 < cnt_c) {
         seq_cntr::Refer(l_ca, ll_cnt - cnt_c, true, nullptr, &r_cursor,
-                        lifecycle::DataLifeState::Mem, nullptr);
+                        lifecycle::LeftObjView<Elem>{ nullptr });
 
         seq_cntr_utils::provider::Provider<circular_array::Cntr<Elem>&&>
             l_provider{ meta::Move(l_ca), r_cursor, cnt_c };
 
         seq_cntr::PushL(r_ca, cnt_c, l_provider, nullptr, nullptr);
 
-        seq_cntr::PopR(l_ca, cnt_c, seq_endpoint::acceptor::BasicAcceptor{});
+        seq_cntr::PopR(l_ca, cnt_c, seq_endpoint::acceptor::BasicAcceptor{},
+                       nullptr);
     }
 }
 

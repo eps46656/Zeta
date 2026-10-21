@@ -33,7 +33,7 @@ void CascadeAllocator::Init(void* ca_) {
 
     ca->align = align;
 
-    ca->mem = mem_beg;
+    ca->mem  = mem_beg;
     ca->size = size;
 
     ca->last_node = last_node;
@@ -132,8 +132,8 @@ allocator::PolyAllocator CascadeAllocator::GetAlloccatorRef(void* ca_) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(CheckAllocator(ca));
 
     return {
-        .inst = ca,
-        .align = static_cast<unsigned short>(ca->align),
+        .inst   = ca,
+        .align  = static_cast<unsigned short>(ca->align),
         .vtable = &allocator::AllocatorVTable::Make<CascadeAllocator>(),
     };
 }
@@ -144,8 +144,8 @@ allocator::ConstAllocatorRef CascadeAllocator::GetAlloccatorRef(
     ZETA_Core_DebugUtils_Diag_PromiseAssert(CheckAllocator(ca));
 
     return {
-        .inst = ca,
-        .align = static_cast<unsigned short>(ca->align),
+        .inst   = ca,
+        .align  = static_cast<unsigned short>(ca->align),
         .vtable = &allocator::AllocatorVTable::Make<CascadeAllocator>(),
     };
 }

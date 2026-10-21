@@ -5,30 +5,21 @@
 #include <vector>
 #include <zeta/core/allocator.hpp>
 #include <zeta/core/debug_utils/diag.ipp>
+#include <zeta/core/debug_utils/mem_recording.ipp>
 #include <zeta/core/debug_utils/memory.ipp>
-#include <zeta/core/debug_utils/sanity.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/meta.hpp>
-#include <zeta/core_test/memory.hpp>
 
 namespace zeta::core_test::std_allocator {
 
 struct Allocator {
-    core::debug_utils::memory::MemRecorder mem_recorder;
+    core::debug_utils::mem_recording::MemRecorder mem_recorder;
 
     size_t usage;
 
     size_t buffered_size_{ 0 };
     size_t max_buffered_ptrs_num_{ 0 };
     std::vector<void*> buffered_ptrs_;
-
-    constexpr Allocator() {
-#if ZETA_Core_DebugUtils_Sanity_Enable
-        zeta::core::debug_utils::sanity::RegisterSanityCheckFunc(
-            static_cast<void const*>(this),
-            zeta::core::debug_utils::sanity::DummySanityCheckFunc);
-#endif
-    }
 
     constexpr void* GetReferedInstPtr(this Allocator const& alctr,
                                       core::allocator::Tag) {
@@ -47,7 +38,7 @@ struct Allocator {
 
         if (size == 0) { return nullptr; }
 
-        void* ptr{ memory::Malloc(size) };
+        void* ptr{ core::debug_utils::memory::Malloc<void>(size) };
 
 #if ZETA_Core_DebugEnable
         alctr.mem_recorder.Add(ptr, size);
@@ -65,7 +56,7 @@ struct Allocator {
 
         alctr.mem_recorder.Remove(ptr);
 
-        memory::Free(ptr);
+        core::debug_utils::memory::Free(ptr);
     }
 
     constexpr void Check(this Allocator const&) {}

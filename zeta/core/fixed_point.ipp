@@ -12,14 +12,13 @@
 ZETA_Core_ClangdPreambleBarrier;
 
 #pragma push_macro("FixedPointTplParamList")
-#define FixedPointTplParamList(prefix, suffix)                       \
-    meta::IsValueWrapperT<bool> prefix##SignedTag##suffix,           \
-        meta::IsValueWrapperT<size_t> prefix##IntegralWidth##suffix, \
-        meta::IsValueWrapperT<size_t> prefix##FractionWidth##suffix
+#define FixedPointTplParamList(prefix, suffix)                             \
+    bool prefix##is_signed##suffix, size_t prefix##integral_width##suffix, \
+        size_t prefix##fraction_width##suffix
 
 #pragma push_macro("FixedPointTplArgList")
 #define FixedPointTplArgList(prefix) \
-    prefix##SignedTag, prefix##IntegralWidth, prefix##FractionWidth
+    prefix##is_signed, prefix##integral_width, prefix##fraction_width
 
 namespace zeta::core {
 
@@ -36,8 +35,8 @@ template <integral::IsIntegral Integral>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>
 fixed_point::FixedPoint<FixedPointTplArgList()>::FromIntegral(
     Integral integral) {
-    return static_cast<fixed_point::FixedPoint<FixedPointTplArgList()>>(
-        fixed_point::FromIntegral(integral));
+    return static_cast<FixedPoint<FixedPointTplArgList()>>(
+        FromIntegral(integral));
 }
 
 template <FixedPointTplParamList(, )>
@@ -45,8 +44,8 @@ template <integral::IsIntegral Num, integral::IsIntegral Denom>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>
 fixed_point::FixedPoint<FixedPointTplArgList()>::FromFraction(Num num,
                                                               Denom denom) {
-    return static_cast<fixed_point::FixedPoint<FixedPointTplArgList()>>(
-        fixed_point::FromFraction(FractionWidth{}, num, denom));
+    return static_cast<FixedPoint<FixedPointTplArgList()>>(
+        FromFraction(meta::AutoValueWrapper<fraction_width>{}, num, denom));
 }
 
 template <FixedPointTplParamList(, )>
@@ -57,9 +56,9 @@ constexpr fixed_point::FixedPoint<FixedPointTplArgList()>::FixedPoint(
 }
 
 template <FixedPointTplParamList(, )>
-template <FixedPointTplParamList(Src, )>
+template <FixedPointTplParamList(src_, )>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>::FixedPoint(
-    FixedPoint<FixedPointTplArgList(Src)> const& src) {
+    FixedPoint<FixedPointTplArgList(src_)> const& src) {
     *this = src;
 }
 
@@ -72,26 +71,25 @@ fixed_point::FixedPoint<FixedPointTplArgList()>::operator=(
 }
 
 template <FixedPointTplParamList(, )>
-template <FixedPointTplParamList(Src, )>
+template <FixedPointTplParamList(src_, )>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>&
 fixed_point::FixedPoint<FixedPointTplArgList()>::operator=(
-    FixedPoint<FixedPointTplArgList(Src)> const& src) {
+    FixedPoint<FixedPointTplArgList(src_)> const& src) {
     constexpr size_t op_total_width{ comparison_utils::BasicMax(
-        IntegralWidth::value + FractionWidth::value,
-        SrcIntegralWidth::value + SrcFractionWidth::value) };
+        integral_width + fraction_width,
+        src_integral_width + src_fraction_width) };
 
     using OpIntegral = unsigned _BitInt(op_total_width);
 
-    bool is_neg{ SrcSignedTag::value && src.value < 0 };
+    bool is_neg{ src_is_signed && src.value < 0 };
 
     OpIntegral op_src_value{ static_cast<OpIntegral>(is_neg ? -src.value
                                                             : src.value) };
 
-    if constexpr (SrcFractionWidth::value < FractionWidth::value) {
-        op_src_value <<= FractionWidth::value - SrcFractionWidth::value;
-    } else if constexpr (SrcFractionWidth::value > FractionWidth::value) {
-        constexpr size_t shift{ SrcFractionWidth::value -
-                                FractionWidth::value };
+    if constexpr (src_fraction_width < fraction_width) {
+        op_src_value <<= fraction_width - src_fraction_width;
+    } else if constexpr (src_fraction_width > fraction_width) {
+        constexpr size_t shift{ src_fraction_width - fraction_width };
 
         constexpr OpIntegral k{ static_cast<OpIntegral>(1) << shift };
 
@@ -105,7 +103,7 @@ fixed_point::FixedPoint<FixedPointTplArgList()>::operator=(
     }
 
     op_src_value =
-        !SignedTag::value && is_neg
+        !is_signed && is_neg
             ? 0
             : comparison_utils::BasicMin(
                   op_src_value,
@@ -122,16 +120,15 @@ constexpr auto fixed_point::FixedPoint<FixedPointTplArgList()>::Floor() const {
     using Value = FixedPoint<FixedPointTplArgList()>::Value;
 
     using RIntegral =
-        meta::Conditional<SignedTag::value,
-                          signed _BitInt(IntegralWidth::value + 1),
-                          unsigned _BitInt(IntegralWidth::value)>;
+        meta::Conditional<is_signed, signed _BitInt(integral_width + 1),
+                          unsigned _BitInt(integral_width)>;
 
-    constexpr Value mod{ static_cast<Value>(1) << FractionWidth::value };
+    constexpr Value mod{ static_cast<Value>(1) << fraction_width };
 
     RIntegral k{ static_cast<RIntegral>(static_cast<Value>(this->value) /
                                         mod) };
 
-    if constexpr (SignedTag::value) {
+    if constexpr (is_signed) {
         if (this->value < 0 && static_cast<Value>(this->value) % mod != 0) {
             --k;
         }
@@ -145,11 +142,10 @@ constexpr auto fixed_point::FixedPoint<FixedPointTplArgList()>::Ceil() const {
     using Value = FixedPoint<FixedPointTplArgList()>::Value;
 
     using RIntegral =
-        meta::Conditional<SignedTag::value,
-                          signed _BitInt(IntegralWidth::value + 1),
-                          unsigned _BitInt(IntegralWidth::value + 1)>;
+        meta::Conditional<is_signed, signed _BitInt(integral_width + 1),
+                          unsigned _BitInt(integral_width + 1)>;
 
-    Value mod{ static_cast<Value>(1) << FractionWidth::value };
+    Value mod{ static_cast<Value>(1) << fraction_width };
 
     RIntegral k{ static_cast<RIntegral>(static_cast<Value>(this->value) /
                                         mod) };
@@ -159,10 +155,10 @@ constexpr auto fixed_point::FixedPoint<FixedPointTplArgList()>::Ceil() const {
     return k;
 }
 
-template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
+template <FixedPointTplParamList(a_, ), FixedPointTplParamList(b_, )>
 constexpr auto fixed_point::operator+(
-    FixedPoint<FixedPointTplArgList(A)> const& a,
-    FixedPoint<FixedPointTplArgList(B)> const& b) {
+    FixedPoint<FixedPointTplArgList(a_)> const& a,
+    FixedPoint<FixedPointTplArgList(b_)> const& b) {
     /*
 
     unsigned a + unsigned b
@@ -201,33 +197,32 @@ constexpr auto fixed_point::operator+(
 
     */
 
-    using RSignedTag =
-        meta::AutoValueWrapper<ASignedTag::value || BSignedTag::value>;
+    constexpr bool r_is_signed{ a_is_signed || b_is_signed };
 
-    using RIntegralWidth =
-        meta::AutoValueWrapper<comparison_utils::BasicMax(
-                                   AIntegralWidth::value + ASignedTag::value,
-                                   BIntegralWidth::value + BSignedTag::value) -
-                               (ASignedTag::value && BSignedTag::value) + 1>;
+    constexpr size_t r_integral_width{ comparison_utils::BasicMax(
+                                           a_integral_width + a_is_signed,
+                                           b_integral_width + b_is_signed) -
+                                       (a_is_signed && b_is_signed) + 1 };
 
-    using RFractionWidth = meta::AutoValueWrapper<comparison_utils::BasicMax(
-        AFractionWidth::value, BFractionWidth::value)>;
+    constexpr size_t r_fraction_width{ comparison_utils::BasicMax(
+        a_fraction_width, b_fraction_width) };
 
-    using RFixedPoint = FixedPoint<RSignedTag, RIntegralWidth, RFractionWidth>;
+    using RFixedPoint =
+        FixedPoint<r_is_signed, r_integral_width, r_fraction_width>;
 
     return RFixedPoint::FromValue(
         static_cast<RFixedPoint::Value>(a.value) *
             (static_cast<RFixedPoint::Value>(1)
-             << (RFixedPoint::FractionWidth::value - AFractionWidth::value)) +
+             << (RFixedPoint::fraction_width - a_fraction_width)) +
         static_cast<RFixedPoint::Value>(b.value) *
             (static_cast<RFixedPoint::Value>(1)
-             << (RFixedPoint::FractionWidth::value - BFractionWidth::value)));
+             << (RFixedPoint::fraction_width - b_fraction_width)));
 }
 
-template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
+template <FixedPointTplParamList(a_, ), FixedPointTplParamList(b_, )>
 constexpr auto fixed_point::operator-(
-    FixedPoint<FixedPointTplArgList(A)> const& a,
-    FixedPoint<FixedPointTplArgList(B)> const& b) {
+    FixedPoint<FixedPointTplArgList(a_)> const& a,
+    FixedPoint<FixedPointTplArgList(b_)> const& b) {
     /*
 
     unsigned a - unsigned b
@@ -275,32 +270,32 @@ constexpr auto fixed_point::operator-(
 
     */
 
-    using RSignedTag = meta::AutoValueWrapper<true>;
+    constexpr bool r_is_signed{ true };
 
-    using RIntegralWidth =
-        meta::AutoValueWrapper<comparison_utils::BasicMax(
-                                   AIntegralWidth::value + ASignedTag::value,
-                                   BIntegralWidth::value + BSignedTag::value) -
-                               (ASignedTag::value && BSignedTag::value) + 1>;
+    constexpr size_t r_integral_width{ comparison_utils::BasicMax(
+                                           a_integral_width + a_is_signed,
+                                           b_integral_width + b_is_signed) -
+                                       (a_is_signed && b_is_signed) + 1 };
 
-    using RFractionWidth = meta::AutoValueWrapper<comparison_utils::BasicMax(
-        AFractionWidth::value, BFractionWidth::value)>;
+    constexpr size_t r_fraction_width{ comparison_utils::BasicMax(
+        a_fraction_width, b_fraction_width) };
 
-    using RFixedPoint = FixedPoint<RSignedTag, RIntegralWidth, RFractionWidth>;
+    using RFixedPoint =
+        FixedPoint<r_is_signed, r_integral_width, r_fraction_width>;
 
     return RFixedPoint::FromValue(
         static_cast<RFixedPoint::Value>(a.value) *
             (static_cast<RFixedPoint::Value>(1)
-             << (RFixedPoint::FractionWidth::value - AFractionWidth::value)) -
+             << (RFixedPoint::fraction_width - a_fraction_width)) -
         static_cast<RFixedPoint::Value>(b.value) *
             (static_cast<RFixedPoint::Value>(1)
-             << (RFixedPoint::FractionWidth::value - BFractionWidth::value)));
+             << (RFixedPoint::fraction_width - b_fraction_width)));
 }
 
-template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
+template <FixedPointTplParamList(a_, ), FixedPointTplParamList(b_, )>
 constexpr auto fixed_point::operator*(
-    FixedPoint<FixedPointTplArgList(A)> const& a,
-    FixedPoint<FixedPointTplArgList(B)> const& b) {
+    FixedPoint<FixedPointTplArgList(a_)> const& a,
+    FixedPoint<FixedPointTplArgList(b_)> const& b) {
     /*
 
     unsigned a * unsigned b
@@ -337,36 +332,33 @@ constexpr auto fixed_point::operator*(
 
     */
 
-    using RSignedTag =
-        meta::AutoValueWrapper<ASignedTag::value || BSignedTag::value>;
+    constexpr bool r_is_signed{ a_is_signed || b_is_signed };
 
-    using RIntegralWidth =
-        meta::AutoValueWrapper<AIntegralWidth::value + BIntegralWidth::value -
-                               (ASignedTag::value && BSignedTag::value)>;
+    constexpr size_t r_integral_width{ a_integral_width + b_integral_width -
+                                       (a_is_signed && b_is_signed) };
 
-    using RFractionWidth =
-        meta::AutoValueWrapper<AFractionWidth::value + BFractionWidth::value>;
+    constexpr size_t r_fraction_width = { a_fraction_width + b_fraction_width };
 
     using FixedPointRet =
-        FixedPoint<RSignedTag, RIntegralWidth, RFractionWidth>;
+        FixedPoint<r_is_signed, r_integral_width, r_fraction_width>;
 
     return FixedPointRet::FromValue(static_cast<FixedPointRet::Value>(a.value) *
                                     static_cast<FixedPointRet::Value>(b.value));
 }
 
-template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
+template <FixedPointTplParamList(a_, ), FixedPointTplParamList(b_, )>
 constexpr auto fixed_point::operator/(
-    FixedPoint<FixedPointTplArgList(A)> const& a,
-    FixedPoint<FixedPointTplArgList(B)> const& b) {
+    FixedPoint<FixedPointTplArgList(a_)> const& a,
+    FixedPoint<FixedPointTplArgList(b_)> const& b) {
     return (FromFraction)(meta::AutoValueWrapper<comparison_utils::BasicMax(
-                              AFractionWidth::value, BFractionWidth::value)>{},
+                              a_fraction_width, b_fraction_width)>{},
                           a.value, b.value);
 }
 
-template <size_t FractionWidth, integral::IsIntegral Num,
+template <size_t fraction_width, integral::IsIntegral Num,
           integral::IsIntegral Denom>
 constexpr auto fixed_point::FromFraction(
-    meta::ValueWrapper<size_t, FractionWidth>, Num num, Denom denom) {
+    meta::ValueWrapper<size_t, fraction_width>, Num num, Denom denom) {
     /*
 
     unsigned num / unsigned denom
@@ -412,17 +404,16 @@ constexpr auto fixed_point::FromFraction(
     constexpr bool any_signed{ integral::IsSignedIntegral<Num> ||
                                integral::IsSignedIntegral<Denom> };
 
-    using RSignedTag = meta::AutoValueWrapper<any_signed>;
+    constexpr bool r_is_signed{ any_signed };
 
-    using RIntegralWidth =
-        meta::AutoValueWrapper<integral::WidthOf<Num> + any_signed>;
+    constexpr size_t r_integral_width{ integral::WidthOf<Num> + any_signed };
 
-    using RFractionWidth = meta::ValueWrapper<size_t, FractionWidth>;
+    constexpr size_t r_fraction_width{ fraction_width };
 
-    using RFixedPoint = FixedPoint<RSignedTag, RIntegralWidth, RFractionWidth>;
+    using RFixedPoint =
+        FixedPoint<r_is_signed, r_integral_width, r_fraction_width>;
 
-    using OpIntegral =
-        unsigned _BitInt(RIntegralWidth::value + RFractionWidth::value);
+    using OpIntegral = unsigned _BitInt(r_integral_width + r_fraction_width);
 
     constexpr Num num_0{ static_cast<Num>(0) };
 
@@ -431,7 +422,7 @@ constexpr auto fixed_point::FromFraction(
     bool is_neg{ num_is_neg != denom_is_neg };
 
     OpIntegral a{ static_cast<OpIntegral>(num_is_neg ? -num : num)
-                  << FractionWidth };
+                  << fraction_width };
 
     OpIntegral b{ static_cast<OpIntegral>(denom_is_neg ? -denom : denom) };
 
@@ -456,51 +447,52 @@ constexpr auto fixed_point::FromIntegral(Integral integral) {
                           static_cast<Integral>(1));
 }
 
-template <comparison::IsOpTag OpTag, FixedPointTplParamList(A, ),
-          FixedPointTplParamList(B, )>
+template <comparison::IsOpTag OpTag, FixedPointTplParamList(a_, ),
+          FixedPointTplParamList(b_, )>
 constexpr auto fixed_point::MathCompare(
-    OpTag op, FixedPoint<FixedPointTplArgList(A)> const& a,
-    FixedPoint<FixedPointTplArgList(B)> const& b) {
-    if constexpr (ASignedTag::value && !BSignedTag::value) {
+    OpTag op, FixedPoint<FixedPointTplArgList(a_)> const& a,
+    FixedPoint<FixedPointTplArgList(b_)> const& b) {
+    if constexpr (a_is_signed && !b_is_signed) {
         if (a.value < 0) {
-            return (meta::ToUnderlying(op) & comparison::Bits::less) != 0;
+            return (meta::EnumToUnderlying(op) & comparison::Bits::less) != 0;
         }
     }
 
-    if constexpr (!ASignedTag::value && BSignedTag::value) {
+    if constexpr (!a_is_signed && b_is_signed) {
         if (b.value < 0) {
-            return (meta::ToUnderlying(op) & comparison::Bits::greater) != 0;
+            return (meta::EnumToUnderlying(op) & comparison::Bits::greater) !=
+                   0;
         }
     }
 
     constexpr size_t op_fraction_width{ comparison_utils::BasicMax(
-        AFractionWidth::value, BFractionWidth::value) };
+        a_fraction_width, b_fraction_width) };
 
-    constexpr size_t op_integral_width{ 1 + comparison_utils::BasicMax(
-                                                AIntegralWidth::value,
-                                                BIntegralWidth::value) };
+    constexpr size_t op_integral_width{
+        1 + comparison_utils::BasicMax(a_integral_width, b_integral_width)
+    };
 
     constexpr size_t op_total_width{ op_integral_width + op_fraction_width };
 
     using SOpIntegral = signed _BitInt(op_total_width);
 
     SOpIntegral x{ static_cast<SOpIntegral>(a.value)
-                   << (op_fraction_width - AFractionWidth::value) };
+                   << (op_fraction_width - a_fraction_width) };
 
     SOpIntegral y{ static_cast<SOpIntegral>(b.value)
-                   << (op_fraction_width - BFractionWidth::value) };
+                   << (op_fraction_width - b_fraction_width) };
 
     return comparison::BasicCompare(op, x, y);
 }
 
-template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
+template <FixedPointTplParamList(a_, ), FixedPointTplParamList(b_, )>
 template <comparison::IsOpTag OpTag>
 constexpr auto
-comparison::BasicComparator<fixed_point::FixedPoint<FixedPointTplArgList(A)>,
-                            fixed_point::FixedPoint<FixedPointTplArgList(B)>>::
+comparison::BasicComparator<fixed_point::FixedPoint<FixedPointTplArgList(a_)>,
+                            fixed_point::FixedPoint<FixedPointTplArgList(b_)>>::
     Compare(comparison::Tag, OpTag op,
-            fixed_point::FixedPoint<FixedPointTplArgList(A)> const& a,
-            fixed_point::FixedPoint<FixedPointTplArgList(B)> const& b) {
+            fixed_point::FixedPoint<FixedPointTplArgList(a_)> const& a,
+            fixed_point::FixedPoint<FixedPointTplArgList(b_)> const& b) {
     return fixed_point::MathCompare(op, a, b);
 }
 

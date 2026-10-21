@@ -25,19 +25,17 @@ inline Integral GenIntegral() {
     OpUnsignedIntegral ret{ 0 };
 
     if constexpr (0 < width % digit_width) {
-        DigitIntegral c{
-            zeta::core_test::GenUniformRandomInt<DigitIntegral, DigitIntegral>(
-                0, static_cast<DigitIntegral>(1) << (width % digit_width) - 1)
-        };
+        DigitIntegral c{ zeta::core_test::random::GenUniformRandomInt<
+            DigitIntegral, DigitIntegral>(
+            0, static_cast<DigitIntegral>(1) << (width % digit_width) - 1) };
 
         ret = static_cast<OpUnsignedIntegral>(c);
     }
 
     for (size_t i{ 0 }; i < width / digit_width; ++i) {
-        DigitIntegral c{
-            zeta::core_test::GenUniformRandomInt<DigitIntegral, DigitIntegral>(
-                0, zeta::core::integral::RangeMaxOf<DigitIntegral>)
-        };
+        DigitIntegral c{ zeta::core_test::random::GenUniformRandomInt<
+            DigitIntegral, DigitIntegral>(
+            0, zeta::core::integral::RangeMaxOf<DigitIntegral>) };
 
         ret *= 256;
         ret += c;
@@ -200,9 +198,11 @@ inline void test_IOI(int special_value) {
     zeta::core::integral_endec::DecodeResult<OIIntegral> decode_result;
 
     {
-        auto mem_reader{ zeta::core::lin_seq_endpoint::acceptor::Acceptor{
-            .data = buffer,
-            .elem_size = sizeof(DigitIntegral),
+        auto mem_reader{ zeta::core::lin_seq_endpoint::acceptor::Acceptor<
+            zeta::core::lifecycle::StorageView<
+                zeta::core::lifecycle::StorageSemantics::LeftObj,
+                DigitIntegral>>{
+            .data{ buffer },
             .elem_stride = sizeof(DigitIntegral),
             .elem_cnt = DigitCnt,
         } };
@@ -217,9 +217,6 @@ inline void test_IOI(int special_value) {
         */
 
         encode_result = zeta::core::integral_endec::Encode(
-            mem_reader,
-            // acceptor
-
             endianness,
             // endianness_like
 
@@ -232,19 +229,22 @@ inline void test_IOI(int special_value) {
             DigitCnt,
             // digit_cnt_like
 
-            io_val
+            io_val,
             // src_value
+
+            mem_reader
+            // acceptor
         );
 
         no_lossy_io = !encode_result.value_out_of_range;
 
         ZETA_Core_DebugUtils_Diag_LogVar(
-            static_cast<DigitIntegral const*>(mem_reader.data) - buffer);
+            static_cast<DigitIntegral const*>(mem_reader.data.ptr) - buffer);
 
         ZETA_Core_DebugUtils_Diag_LogVar(DigitCnt);
 
         ZETA_Core_DebugUtils_Diag_PromiseAssert(
-            static_cast<DigitIntegral*>(mem_reader.data) - buffer ==
+            static_cast<DigitIntegral*>(mem_reader.data.ptr) - buffer ==
             static_cast<long long>(DigitCnt));
 
         ZETA_Core_DebugUtils_Diag_LogVar(io_val);
@@ -275,17 +275,16 @@ inline void test_IOI(int special_value) {
     ZETA_Core_DebugUtils_Diag_LogVar(buffer[15]);
 
     {
-        auto mem_writer{ zeta::core::lin_seq_endpoint::provider::Provider{
-            .data = buffer,
-            .elem_size = sizeof(DigitIntegral),
+        auto mem_writer{ zeta::core::lin_seq_endpoint::provider::Provider<
+            zeta::core::lifecycle::StorageView<
+                zeta::core::lifecycle::StorageSemantics::LeftObj,
+                DigitIntegral>>{
+            .data{ buffer },
             .elem_stride = sizeof(DigitIntegral),
             .elem_cnt = DigitCnt,
         } };
 
         decode_result = zeta::core::integral_endec::Decode(
-            mem_writer,
-            // provider
-
             endianness,
             // endianness_like
 
@@ -304,14 +303,17 @@ inline void test_IOI(int special_value) {
             }(),
             // digit_cnt_like
 
-            zeta::core::meta::TypeWrapper<OIIntegral>{}  // dst_integral
+            zeta::core::meta::TypeWrapper<OIIntegral>{},  // dst_integral
+
+            mem_writer
+            // provider
         );
 
         no_lossy_oi = !decode_result.value_out_of_range;
         oi_val = decode_result.value;
 
         ZETA_Core_DebugUtils_Diag_PromiseAssert(
-            static_cast<DigitIntegral const*>(mem_writer.data) - buffer ==
+            static_cast<DigitIntegral const*>(mem_writer.data.ptr) - buffer ==
             static_cast<long long>(DigitCnt));
 
         ZETA_Core_DebugUtils_Diag_LogVar(oi_val);
@@ -369,7 +371,7 @@ inline void main1() {
     ZETA_Core_DebugUtils_Logging_ImmLogVar(fixed_seed);
     ZETA_Core_DebugUtils_Logging_ImmLogVar(seed);
 
-    zeta::core_test::SetRandomSeed(seed);
+    zeta::core_test::random::SetRandomSeed(seed);
 
     for (size_t i{ 0 }; i < 1024 * 128; ++i) {
         if (i % 1024 == 0) { ZETA_Core_DebugUtils_Logging_ImmLogVar(i / 1024); }

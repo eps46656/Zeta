@@ -44,8 +44,8 @@ constexpr auto poly_comparison::Comparator::Compare(this Comparator const& self,
     if constexpr (meta::IsSame<OpTag, comparison::OpTags::Order>) {
         return ordering;
     } else {
-        return (meta::ToUnderlying(ordering) &
-                meta::ToUnderlying(OpTag::value)) != 0;
+        return (meta::EnumToUnderlying(ordering) &
+                meta::EnumToUnderlying(meta::GetValueWrapperValue<OpTag>)) != 0;
     }
 }
 

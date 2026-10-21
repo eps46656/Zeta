@@ -147,15 +147,15 @@ struct Cntr {
 
     template <assoc_cntr::IsReader acceptor>
     constexpr void PopL(this Cntr& self, assoc_cntr::Tag, size_t cnt,
-                        acceptor&& reader);
+                        Acceptor&& reader);
 
     template <assoc_cntr::IsReader acceptor>
     constexpr void PopR(this Cntr& self, assoc_cntr::Tag, size_t cnt,
-                        acceptor&& reader);
+                        Acceptor&& reader);
 
     template <assoc_cntr::IsReader acceptor>
     constexpr void Erase(this Cntr& self, assoc_cntr::Tag, Cursor* pos_cursor,
-                         size_t cnt, acceptor&& reader);
+                         size_t cnt, Acceptor&& reader);
 
     constexpr void EraseAll(this Cntr& self, assoc_cntr::Tag);
 

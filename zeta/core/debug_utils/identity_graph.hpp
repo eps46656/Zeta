@@ -1,47 +1,31 @@
 #pragma once
 
 #include <string>
-#include <unordered_map>
+#include <zeta/core/integral.hpp>
 
 namespace zeta::core::debug_utils::identity_graph {
 
-using Id = unsigned long long;
+using Id = uint64_t;
 
-struct Node {
-    Id const id;
-
-    std::string name;
-
-    std::unordered_map<std::string, Id> name_to_adj;
-};
+using IdHasher = std::hash<Id>;
 
 constexpr Id null_id{ 0 };
 
-inline Node null_node{
-    .id = null_id,
-    .name{ "null" },
-    .name_to_adj{},
-};
+constexpr Id min_id{ 1024 };
+constexpr Id max_id{ integral::RangeMaxOf<Id> - 256 };
 
-inline std::unordered_map<Id, Node*> id_to_node;
+constexpr Id GetId(std::string const& name);
 
-constexpr Node* GetNode(Id id);
+template <typename Name0, typename... NameN>
+constexpr Id GetAdj(Id id, bool create_if_not_exist, Name0 const& name0,
+                    NameN const&... nameN);
 
-constexpr Node* GetAdj(Node* node, bool create_if_not_exist,
-                       std::string const& name);
+constexpr Id AddAdj(Id id, std::string const& name, Id adj_id);
 
-template <typename Name0, typename Name1, typename... NameN>
-constexpr Node* GetAdj(Node* node, bool create_if_not_exist, Name0 const& name0,
-                       Name1 const& name1, NameN const&... nameN);
+constexpr Id SetAdj(Id id, std::string const& name, Id adj_id);
 
-constexpr Node* AddAdj(Node* node, std::string const& name, Node* adj_node);
+constexpr Id UnsetAdj(Id id, std::string const& name);
 
-constexpr Node* SetAdj(Node* node, std::string const& name, Node* adj_node);
-
-constexpr Node* UnsetAdj(Node* node, std::string const& name);
-
-constexpr void RemoveNode(Id id);
-
-constexpr void RemoveNode(Node* node);
+constexpr bool RemoveId(Id id);
 
 }  // namespace zeta::core::debug_utils::identity_graph

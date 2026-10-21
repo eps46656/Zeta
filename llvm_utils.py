@@ -106,7 +106,7 @@ def parse_ast(
 
     try:
         tu = clang_index().parse(
-            src,
+            utils.to_resolved_path(src).as_posix(),
             args=args,
             options=clang.cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
         )
@@ -279,11 +279,13 @@ class LLVMToolchain:
 
             "-Wall",
             "-Wextra",
-
-            "-Wimplicit-fallthrough",
-            "-Wmissing-prototypes",
-
             "-Werror",
+
+            "-Wmissing-prototypes",
+            "-Wimplicit-fallthrough",
+            "-Wswitch-enum",
+            "-Wswitch-default",
+
             f"-O{self.opt_type}",
 
             "-fconstexpr-depth=4096",
@@ -303,10 +305,19 @@ class LLVMToolchain:
                 # "-fprofile-instr-generate",
                 # "-fcoverage-mapping",
 
+                # "-fasync-exceptions",
+
                 "-fsanitize=address",
+                # "-fsanitize=pointer-compare",
+                # "-fsanitize-coverage=func,trace-pc-entry-exit,trace-pc-guard",
+                # "-fsanitize-coverage=trace-pc-guard",
+                "-fsanitize-coverage=trace-pc-guard",
+                # "-fsanitize-coverage=trace-pc-guard,trace-pc-entry-exit",
+                # "-fsanitize-coverage=bb,no-prune,trace-pc-guard",
                 # "-fsanitize=undefined",
                 # "-fsanitize=memory",
                 # "-fsanitize-memory-track-origins",
+                # "-finstrument-functions",
             ])
 
         # ----------------------------------------------------------------------
@@ -385,7 +396,9 @@ class LLVMToolchain:
 
             # "-lC:/Program Files/clang+llvm-19.1.4-x86_64-pc-windows-msvc/lib/clang/19/lib/windows/clang_rt.builtins-x86_64",
 
-            f"-lclang_rt.builtins-x86_64",
+            # f"-lclang_rt.builtins-x86_64",
+
+            "C:/Users/yu46656/miniconda3/envs/ZetaDevelop_2026_0913/lib/clang/23/lib/windows/clang_rt.builtins-x86_64.lib",
 
             # f"-frandomize-layout-seed={self.randomize_layout_seed}",
         ]

@@ -92,6 +92,8 @@ constexpr Integral integral_utils::FromString(char const* str) {
             }
 
             return is_neg ? -ret : ret;
+
+        default: ZETA_Core_DebugUtils_Diag_Unreachable();
         }
     }
 

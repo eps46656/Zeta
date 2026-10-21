@@ -2,22 +2,20 @@
 
 #include <memory>
 #include <zeta/core/allocator.hpp>
-#include <zeta/core/debug_utils/memory.hpp>
-#include <zeta/core/debug_utils/sanity.hpp>
+#include <zeta/core/debug_utils/mem_recording.hpp>
 
 namespace zeta::core::debug_utils::recording_allocator {
 
 template <allocator::IsAllocator TargetAllocator>
 struct Allocator {
     std::shared_ptr<TargetAllocator> target_alctr;
-    debug_utils::memory::MemRecorderClient mrc;
+    debug_utils::mem_recording::MemRecorderClient mrc;
 
-    constexpr Allocator(std::shared_ptr<TargetAllocator> target_alctr,
-                        debug_utils::memory::MemRecorderClient const& mrc);
+    constexpr Allocator(
+        std::shared_ptr<TargetAllocator> target_alctr,
+        debug_utils::mem_recording::MemRecorderClient const& mrc);
 
     constexpr Allocator(Allocator const& alctr) = default;
-
-    constexpr ~Allocator();
 
     constexpr void* GetReferedInstPtr(this Allocator const& self,
                                       allocator::Tag);
@@ -28,14 +26,11 @@ struct Allocator {
 
     constexpr void Deallocate(this Allocator& self, allocator::Tag, void* ptr);
 
-    constexpr debug_utils::memory::MemRecorder const& GetMemRecorder(
+    constexpr debug_utils::mem_recording::MemRecorder const& GetMemRecorder(
         this Allocator const& self);
 
-    constexpr debug_utils::memory::MemRecorderClient const&
+    constexpr debug_utils::mem_recording::MemRecorderClient const&
     GetMemRecorderClient(this Allocator const& self);
-
-    static constexpr void SanityCheck(
-        void const* alctr, debug_utils::sanity::SanityCheckScope scope);
 };
 
 namespace detail {

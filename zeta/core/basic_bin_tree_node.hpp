@@ -1,6 +1,7 @@
 #pragma once
 
 #include <zeta/core/bin_tree.hpp>
+#include <zeta/core/debug_utils/lifecycle_sanity.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/ptr_utils.hpp>
@@ -9,77 +10,87 @@
 ZETA_Core_ClangdPreambleBarrier;
 
 #pragma push_macro("NodeTplParamList")
-#define NodeTplParamList(suffix)                                        \
-    ptr_utils::IsLinkType LinkType##suffix,                             \
-        meta::IsValueWrapperT<bool> PColorTag##suffix,                  \
-        meta::IsValueWrapperT<bool> LColorTag##suffix,                  \
-        meta::IsValueWrapperT<bool> RColorTag##suffix,                  \
-        typename AccSizeTag##suffix,                                    \
-        meta::IsValueWrapperT<basic_bin_tree_node::PrimaryColorTagEnum> \
-            PrimaryColorTag##suffix
+#define NodeTplParamList(suffix)                             \
+    ptr_utils::IsLink Link##suffix, bool p_color_en##suffix, \
+        bool l_color_en##suffix, bool r_color_en##suffix,    \
+        bool acc_size_en##suffix, PrimaryColor primary_color##suffix
 
 #pragma push_macro("NodeTplArgList")
-#define NodeTplArgList(suffix)                                                 \
-    LinkType##suffix, PColorTag##suffix, LColorTag##suffix, RColorTag##suffix, \
-        AccSizeTag##suffix, PrimaryColorTag##suffix
+#define NodeTplArgList(suffix)                                                \
+    Link##suffix, p_color_en##suffix, l_color_en##suffix, r_color_en##suffix, \
+        acc_size_en##suffix, primary_color##suffix
 
 namespace zeta::core::basic_bin_tree_node {
 
-enum struct PrimaryColorTagEnum : unsigned char {
+enum struct PrimaryColor : unsigned char {
     Null = 0b000,
-    P = 0b001,
-    L = 0b010,
-    R = 0b100,
+    P    = 0b001,
+    L    = 0b010,
+    R    = 0b100,
 };
 
 template <NodeTplParamList(_)>
 struct NodeBase;
 
 template <NodeTplParamList()>
-    requires(!AccSizeTag::value)
+    requires(!acc_size_en)
 struct NodeBase<NodeTplArgList()> {
-    ptr_utils::AugPtrTpl<LinkType, PColorTag> p;
-    ptr_utils::AugPtrTpl<LinkType, LColorTag> l;
-    ptr_utils::AugPtrTpl<LinkType, RColorTag> r;
+#if ZETA_Core_DebugEnable
+    debug_utils::lifecycle_sanity::ObjHook obj_hook;
+#endif
+
+    ptr_utils::AugPtrTpl<Link, p_color_en> p;
+    ptr_utils::AugPtrTpl<Link, l_color_en> l;
+    ptr_utils::AugPtrTpl<Link, r_color_en> r;
+
+    constexpr NodeBase();
 };
 
 template <NodeTplParamList()>
-    requires(AccSizeTag::value)
+    requires(acc_size_en)
 struct NodeBase<NodeTplArgList()> {
-    ptr_utils::AugPtrTpl<LinkType, PColorTag> p;
-    ptr_utils::AugPtrTpl<LinkType, LColorTag> l;
-    ptr_utils::AugPtrTpl<LinkType, RColorTag> r;
+#if ZETA_Core_DebugEnable
+    debug_utils::lifecycle_sanity::ObjHook obj_hook;
+#endif
+
+    ptr_utils::AugPtrTpl<Link, p_color_en> p;
+    ptr_utils::AugPtrTpl<Link, l_color_en> l;
+    ptr_utils::AugPtrTpl<Link, r_color_en> r;
     size_t acc_size;
+
+    constexpr NodeBase();
 };
 
 template <NodeTplParamList(_)>
 struct Node : public NodeBase<NodeTplArgList(_)> {
-    using LinkType = LinkType_;
-    using PColorTag = PColorTag_;
-    using LColorTag = LColorTag_;
-    using RColorTag = RColorTag_;
-    using AccSizeTag = AccSizeTag_;
-    using PrimaryColorTag = PrimaryColorTag_;
+    using Link = Link_;
 
-    static constexpr PrimaryColorTagEnum primary_color{
-        PrimaryColorTag::value
-    };
+    static constexpr bool p_color_en{ p_color_en_ };
+    static constexpr bool l_color_en{ l_color_en_ };
+    static constexpr bool r_color_en{ r_color_en_ };
+    static constexpr bool acc_size_en{ acc_size_en_ };
+
+    static_assert(primary_color_ == PrimaryColor::Null ||
+                  primary_color_ == PrimaryColor::P ||
+                  primary_color_ == PrimaryColor::L ||
+                  primary_color_ == PrimaryColor::R);
+
+    static constexpr PrimaryColor primary_color{ primary_color };
 
     static constexpr bool has_priomary_color{
-        primary_color == PrimaryColorTagEnum::P ||
-        primary_color == PrimaryColorTagEnum::L ||
-        primary_color == PrimaryColorTagEnum::R
+        primary_color == PrimaryColor::P || primary_color == PrimaryColor::L ||
+        primary_color == PrimaryColor::R
     };
 
     static constexpr bool is_rel_link{
-        ptr_utils::AugPtrTpl<LinkType, PColorTag>::is_rel_link
+        ptr_utils::AugPtrTpl<Link, p_color_en>::is_rel_link
     };
 
-    constexpr void Construct(this Node& self)
-        requires(!AccSizeTag::value);
+    constexpr Node()
+        requires(!acc_size_en);
 
-    constexpr void Construct(this Node& self, size_t acc_size)
-        requires AccSizeTag::value;
+    constexpr Node(size_t acc_size)
+        requires acc_size_en;
 
     static constexpr bool IsConst(bin_tree::Tag, meta::TypeWrapper<Node>);
 
@@ -92,11 +103,11 @@ struct Node : public NodeBase<NodeTplArgList(_)> {
 
     static constexpr size_t GetNullAccSize(bin_tree::Tag,
                                            meta::TypeWrapper<Node>)
-        requires AccSizeTag::value;
+        requires acc_size_en;
 
     static constexpr size_t GetNullAccSize(bin_tree::Tag,
                                            meta::TypeWrapper<Node const>)
-        requires AccSizeTag::value;
+        requires acc_size_en;
 
     constexpr Node* GetPPtr(this Node& self);
     constexpr Node* GetLPtr(this Node& self);
@@ -137,10 +148,10 @@ struct Node : public NodeBase<NodeTplArgList(_)> {
         requires has_priomary_color;
 
     constexpr size_t GetAccSize(this Node const& self, bin_tree::Tag)
-        requires AccSizeTag::value;
+        requires acc_size_en;
 
     constexpr void SetAccSize(this Node& self, bin_tree::Tag, size_t acc_size)
-        requires AccSizeTag::value;
+        requires acc_size_en;
 };
 
 }  // namespace zeta::core::basic_bin_tree_node

@@ -23,7 +23,7 @@ auto SelectIntegralCands_(auto... cands) {
         };
 
         constexpr Score scores[]{ [](auto cand) {
-            using Cand = decltype(cand)::Type;
+            using Cand = meta::GetTypeWrapperType<decltype(cand)>;
 
             constexpr bool is_void{ meta::IsSame<Cand, void> };
 
@@ -225,10 +225,12 @@ auto SignedFastIntegral_() {
 }  // namespace detail
 
 template <size_t N>
-using UnsignedFastIntegral = decltype(detail::UnsignedFastIntegral_<N>())::Type;
+using UnsignedFastIntegral =
+    meta::GetTypeWrapperType<decltype(detail::UnsignedFastIntegral_<N>())>;
 
 template <size_t N>
-using SignedFastIntegral = decltype(detail::SignedFastIntegral_<N>())::Type;
+using SignedFastIntegral =
+    meta::GetTypeWrapperType<decltype(detail::SignedFastIntegral_<N>())>;
 
 template <integral::IsIntegral DstIntegral, integral::IsIntegral SrcIntegral>
 constexpr DstIntegral LossyDetectingCast(SrcIntegral const& a, bool& no_lossy);

@@ -1,11 +1,15 @@
 // IWYU pragma: private
 // IWYU pragma: friend "zeta/core/multi_level_table.hpp"
 
-#if !defined(EnDataNode)
-#error "EnDataNode is not defined."
+#if ZETA_Core_Editor
+#pragma push_macro("DataNodeEn")
 #endif
 
-#if EnDataNode
+#if !defined(DataNodeEn)
+#error "DataNodeEn is not defined."
+#endif
+
+#if DataNodeEn
 
 #if !defined(ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_data_table)
 #define ZETA_MacroGuard__multi_level_table_mpp_hpp__multi_level_data_table 1
@@ -33,7 +37,8 @@
 #endif
 
 #include <zeta/core/allocator.hpp>
-#include <zeta/core/debug_utils/sanity.hpp>
+#include <zeta/core/debug_utils/lifecycle_sanity.hpp>
+#include <zeta/core/debug_utils/mem_recording.hpp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/integral_utils.hpp>
@@ -44,7 +49,7 @@
 
 ZETA_Core_ClangdPreambleBarrier;
 
-#if EnDataNode
+#if DataNodeEn
 
 #pragma push_macro("Namespace")
 #define Namespace multi_level_data_table
@@ -58,12 +63,12 @@ ZETA_Core_ClangdPreambleBarrier;
 
 namespace zeta::core::Namespace {
 
-constexpr unsigned max_level{ 12 };
+constexpr unsigned level_max{ 12 };
 
 using BranchNum = unsigned short;
 
-constexpr BranchNum min_branch_num{ 2 };
-constexpr BranchNum max_branch_num{ integral::RangeMaxOf<BranchNum> / 2 };
+constexpr BranchNum branch_num_min{ 2 };
+constexpr BranchNum branch_num_max{ integral::RangeMaxOf<BranchNum> / 2 };
 
 template <integral::IsUnsignedIntegral ActiveMap_>
 struct NavNode {
@@ -71,57 +76,69 @@ struct NavNode {
 
     ZETA_Core_DebugStructPadding;
 
+#if ZETA_Core_DebugEnable
+    debug_utils::lifecycle_sanity::ObjHook obj_hook;
+#endif
+
     ActiveMap active_map;
     void* ptrs[];
+
+    constexpr NavNode(BranchNum branch_num);
 };
 
-#if EnDataNode
+#if DataNodeEn
 
-template <integral::IsIntegral ActiveMap_, meta::IsContainerElem Data_>
+template <integral::IsUnsignedIntegral ActiveMap_, meta::IsObj Data_>
 struct DataNode {
     using ActiveMap = ActiveMap_;
-    using Data = Data_;
+    using Data      = Data_;
 
     static_assert(integral::IsUnsignedIntegral<ActiveMap>);
 
     ZETA_Core_DebugStructPadding;
 
+#if ZETA_Core_DebugEnable
+    debug_utils::lifecycle_sanity::ObjHook obj_hook;
+#endif
+
     ActiveMap active_map;
     alignas(Data) unsigned char data[];
+
+    constexpr DataNode(BranchNum branch_num);
 };
 
 #endif
 
 template <integral::IsUnsignedIntegral ActiveMap_,
-#if EnDataNode
-          meta::IsContainerElem Data_,
+#if DataNodeEn
+          meta::IsObj Data_,
 #endif
-          typename NavNodeAllocatorLike_
-#if EnDataNode
+          allocator::IsAllocatorLike NavNodeAllocatorLike_
+#if DataNodeEn
           ,
-          typename DataNodeAllocatorLike_
+          allocator::IsAllocatorLike DataNodeAllocatorLike_
 #endif
           >
 struct Cntr {
     using ActiveMap = ActiveMap_;
 
-#if EnDataNode
+#if DataNodeEn
     using Data = Data_;
 #endif
 
     using NavNodeAllocatorLike = NavNodeAllocatorLike_;
 
-#if EnDataNode
+#if DataNodeEn
     using DataNodeAllocatorLike = DataNodeAllocatorLike_;
+#endif
+
+#if ZETA_Core_DebugEnable
+    debug_utils::lifecycle_sanity::ObjHook obj_hook;
 #endif
 
     unsigned level;
 
     BranchNum const* branch_nums;
-
-#if EnDataNode
-    size_t elem_stride;
-#endif
 
     size_t elem_cnt;
 
@@ -129,41 +146,34 @@ struct Cntr {
 
     NavNodeAllocatorLike nav_node_alctr_like;
 
-#if EnDataNode
+#if DataNodeEn
     DataNodeAllocatorLike data_node_alctr_like;
 #endif
 
     template <typename NavNodeAllocatorConstructArg
-#if EnDataNode
+#if DataNodeEn
               ,
               typename DataNodeAllocatorConstructArg
 #endif
               >
     constexpr Cntr(lifecycle::DirectConstructTag, unsigned level,
-                   BranchNum const* branch_nums,
-#if EnDataNode
-                   size_t elem_stride,
-#endif
-                   size_t elem_cnt, void* root,
+                   BranchNum const* branch_nums, size_t elem_cnt, void* root,
                    NavNodeAllocatorConstructArg&& nav_node_alctr_construct_arg
-#if EnDataNode
+#if DataNodeEn
                    ,
                    DataNodeAllocatorConstructArg&& data_node_alctr_construct_arg
 #endif
     );
 
     template <typename NavNodeAllocatorConstructArg
-#if EnDataNode
+#if DataNodeEn
               ,
               typename DataNodeAllocatorConstructArg
 #endif
               >
     constexpr Cntr(unsigned level, BranchNum const* branch_nums,
-#if EnDataNode
-                   size_t elem_stride,
-#endif
                    NavNodeAllocatorConstructArg&& nav_node_alctr_construct_arg
-#if EnDataNode
+#if DataNodeEn
                    ,
                    DataNodeAllocatorConstructArg&& data_node_alctr_construct_arg
 #endif
@@ -171,74 +181,74 @@ struct Cntr {
 
     constexpr ~Cntr();
 
-    constexpr void Destruct(this Cntr& cntr);
+    constexpr void Destruct(this Cntr& self);
 
-    constexpr void DisownDestruct(this Cntr& cntr);
+    constexpr void Disown(this Cntr& self);
 
-    constexpr size_t GetElemCnt(this Cntr& cntr);
+    constexpr size_t GetElemCnt(this Cntr& self);
 
-    constexpr size_t GetMaxElemCnt(this Cntr& cntr);
+    constexpr size_t GetMaxElemCnt(this Cntr& self);
 
     template <
         seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvier>
-    constexpr auto Access(this auto& cntr,
+    constexpr auto Access(this auto& self,
                           SrcBranchIdxesProvier&& src_branch_idxes_provider)
-        -> meta::MakeConstIf<void, meta::IsConst<decltype(cntr)>>*;
+        -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>*;
 
     template <
         seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
-    constexpr auto FindFirst(this auto& cntr,
+    constexpr auto FindFirst(this auto& self,
                              DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::MakeConstIf<void, meta::IsConst<decltype(cntr)>>*;
+        -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>*;
 
     template <
         seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
-    constexpr auto FindLast(this auto& cntr,
+    constexpr auto FindLast(this auto& self,
                             DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::MakeConstIf<void, meta::IsConst<decltype(cntr)>>*;
+        -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>*;
 
     template <
         seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider,
         seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
     constexpr auto FindPrevIncl(
-        this auto& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider,
+        this auto& self, SrcBranchIdxesProvider&& src_branch_idxes_provider,
         DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::MakeConstIf<void, meta::IsConst<decltype(cntr)>>*;
+        -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>*;
 
     template <
         seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider,
         seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
     constexpr auto FindPrevExcl(
-        this auto& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider,
+        this auto& self, SrcBranchIdxesProvider&& src_branch_idxes_provider,
         DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::MakeConstIf<void, meta::IsConst<decltype(cntr)>>*;
+        -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>*;
 
     template <
         seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider,
         seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
     constexpr auto FindNextIncl(
-        this auto& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider,
+        this auto& self, SrcBranchIdxesProvider&& src_branch_idxes_provider,
         DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::MakeConstIf<void, meta::IsConst<decltype(cntr)>>*;
+        -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>*;
 
     template <
         seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider,
         seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
     constexpr auto FindNextExcl(
-        this auto& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider,
+        this auto& self, SrcBranchIdxesProvider&& src_branch_idxes_provider,
         DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::MakeConstIf<void, meta::IsConst<decltype(cntr)>>*;
+        -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>*;
 
     template <
         seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider
-#if EnDataNode
+#if DataNodeEn
         ,
         seq_endpoint::provider::IsProvider<Data> DataProvider
 #endif
         >
     constexpr pair::Pair<void*, bool> Insert(
-        this Cntr& cntr, SrcBranchIdxesProvider&& src_branch_idxes_provider
-#if EnDataNode
+        this Cntr& self, SrcBranchIdxesProvider&& src_branch_idxes_provider
+#if DataNodeEn
         ,
         DataProvider&& data_provider
 #endif
@@ -246,32 +256,38 @@ struct Cntr {
 
     template <
         seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider
-#if EnDataNode
+#if DataNodeEn
         ,
-        seq_endpoint::acceptor::IsAcceptor<BranchNum> DataAcceptor
+        seq_endpoint::acceptor::IsAcceptor<Data> DataAcceptor
 #endif
         >
-    constexpr bool Erase(this Cntr& cntr,
+    constexpr bool Erase(this Cntr& self,
                          SrcBranchIdxesProvider&& src_branch_idxes_provider
-#if EnDataNode
+#if DataNodeEn
                          ,
                          DataAcceptor&& data_acceptor
 #endif
     );
 
-#if EnDataNode
-    template <seq_endpoint::acceptor::IsAcceptor<BranchNum> DataAcceptor
+#if DataNodeEn
+    template <seq_endpoint::acceptor::IsAcceptor<BranchNum> DataAcceptor>
 #endif
-              constexpr void EraseAll(this Cntr& cntr
-#if EnDataNode
-                                      ,
-                                      DataAcceptor&& data_acceptor
+    constexpr void EraseAll(this Cntr& self
+#if DataNodeEn
+                            ,
+                            DataAcceptor&& data_acceptor
 #endif
-              );
+    );
 
-#if ZETA_Core_DebugUtils_Sanity_Enable
-    static constexpr void SanityCheck(
-        void const* cntr, debug_utils::sanity::SanityCheckScope scope);
+#if ZETA_Core_DebugEnable
+    constexpr void SanityCheck(
+        this Cntr& self,
+        debug_utils::mem_recording::MemRecorder& nav_node_recorder
+#if DataNodeEn
+        ,
+        debug_utils::mem_recording::MemRecorder& data_node_recorder
+#endif
+    );
 #endif
 };
 
@@ -279,4 +295,8 @@ struct Cntr {
 
 #pragma pop_macro("Namespace")
 
+#endif
+
+#if ZETA_Core_Editor
+#pragma pop_macro("DataNodeEn")
 #endif

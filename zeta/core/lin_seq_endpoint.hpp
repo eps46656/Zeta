@@ -6,10 +6,11 @@ namespace zeta::core::lin_seq_endpoint {
 
 namespace acceptor {
 
-template <meta::IsContainerElem Elem>
+template <lifecycle::IsStorageView ElemView>
 struct Acceptor {
-    lifecycle::DataLifeState data_life_state;
-    Elem* data;
+    using Elem = typename ElemView::Obj;
+
+    ElemView data;
     ptrdiff_t elem_stride;
     size_t elem_cnt;
 
@@ -19,21 +20,21 @@ struct Acceptor {
     constexpr bool IsEnd(this Acceptor const& self,
                          seq_endpoint::acceptor::Tag);
 
-    template <typename SrcElem>
-    constexpr size_t Transfer(
-        this Acceptor& self, seq_endpoint::acceptor::Tag,
-        lifecycle::DataTransferSemantics src_transfer_semantics, SrcElem* src,
-        ptrdiff_t src_elem_stride, size_t cnt);
+    template <lifecycle::IsSrcStorageView SrcStorageView>
+    constexpr size_t Transfer(this Acceptor& self, seq_endpoint::acceptor::Tag,
+                              SrcStorageView src, ptrdiff_t src_elem_stride,
+                              size_t cnt);
 };
 
 }  // namespace acceptor
 
 namespace provider {
 
-template <meta::IsContainerElem Elem>
+template <lifecycle::IsSrcStorageView ElemView>
 struct Provider {
-    lifecycle::DataTransferSemantics data_transfer_semantics;
-    Elem const* data;
+    using Elem = typename ElemView::Obj;
+
+    ElemView data;
     ptrdiff_t elem_stride;
     size_t elem_cnt;
 
@@ -43,10 +44,9 @@ struct Provider {
     constexpr bool IsEnd(this Provider const& self,
                          seq_endpoint::provider::Tag);
 
-    template <typename DstElem>
+    template <lifecycle::IsDstStorageView DstStorageView>
     constexpr size_t Transfer(this Provider& self, seq_endpoint::provider::Tag,
-                              lifecycle::DataLifeState dst_life_state,
-                              DstElem* dst, ptrdiff_t dst_elem_stride,
+                              DstStorageView dst, ptrdiff_t dst_elem_stride,
                               size_t cnt);
 };
 

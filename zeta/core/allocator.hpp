@@ -22,18 +22,25 @@ concept IsAllocator = requires(Allocator& alctr, size_t size, void* ptr) {
 };
 
 template <typename Allocator>
+concept IsAllocatorWithoutRef = IsAllocator<meta::RemoveRef<Allocator>>;
+
+template <typename Allocator>
+concept IsAllocatorLike = IsAllocatorWithoutRef<Allocator> ||
+                          IsAllocator<meta::RemovePointer<Allocator>>;
+
+template <IsAllocator Allocator>
 constexpr decltype(auto) GetReferedInstPtr(Allocator& alctr);
 
-template <typename Allocator>
+template <IsAllocator Allocator>
 constexpr decltype(auto) GetAlign(Allocator& alctr);
 
-template <typename Allocator>
+template <IsAllocator Allocator>
 constexpr decltype(auto) Allocate(Allocator& alctr, size_t size);
 
-template <typename Allocator>
+template <IsAllocator Allocator>
 constexpr decltype(auto) Deallocate(Allocator& alctr, void* ptr);
 
-template <typename Allocator>
+template <IsAllocator Allocator>
 constexpr decltype(auto) SafeAllocate(Allocator& alctr, size_t align,
                                       size_t size);
 
@@ -43,15 +50,15 @@ struct VTable {
     void (*Deallocate)(void* alctr, void* ptr);
 };
 
-template <typename Allocator>
+template <allocator::IsAllocator Allocator>
 constexpr VTable BuildVTableBasic();
 
-template <typename Allocator>
+template <allocator::IsAllocator Allocator>
 struct BuildVTableImpl {
     static constexpr VTable Call();
 };
 
-template <typename Allocator>
+template <allocator::IsAllocator Allocator>
 constexpr VTable const& GetVTable();
 
 }  // namespace zeta::core::allocator

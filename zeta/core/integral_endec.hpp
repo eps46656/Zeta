@@ -34,19 +34,22 @@ struct EncodeResult {
     bool value_out_of_range : 1;
 };
 
-template <seq_endpoint::acceptor::IsAcceptor Acceptor,
-          IsEndiannessLike EndiannessLike,
-          integral::IsUnsignedIntegral DigitIntegral, size_t DigitWidth,
-          typename DigitCntLike, integral::IsIntegral SrcIntegral>
+template <integral::IsUnsignedIntegral DigitIntegral,
+          IsEndiannessLike EndiannessLike, size_t DigitWidth,
+          typename DigitCntLike, integral::IsIntegral SrcIntegral,
+          seq_endpoint::acceptor::IsAcceptor<DigitIntegral> Acceptor>
     requires requires {
         requires 0 < DigitWidth;
         requires DigitWidth <= integral::WidthOf<DigitIntegral>;
+
+        requires meta::IsSame<DigitCntLike, size_t> ||
+                     meta::IsValueWrapperT<DigitCntLike, size_t>;
     }
 constexpr EncodeResult Encode(
-    Acceptor&& acceptor, EndiannessLike endianness_like,
+    EndiannessLike endianness_like,
     meta::TypeWrapper<DigitIntegral> digit_integral,
     meta::ValueWrapper<size_t, DigitWidth> digit_width,
-    DigitCntLike digit_cnt_like, SrcIntegral src_value);
+    DigitCntLike digit_cnt_like, SrcIntegral src_value, Acceptor&& acceptor);
 
 template <integral::IsIntegral Integral>
 struct DecodeResult {
@@ -57,18 +60,23 @@ struct DecodeResult {
     Integral value;
 };
 
-template <seq_endpoint::provider::IsProvider Provider,
-          IsEndiannessLike EndiannessLike,
+template <IsEndiannessLike EndiannessLike,
           integral::IsUnsignedIntegral DigitIntegral, size_t DigitWidth,
-          typename DigitCntLike, integral::IsIntegral DstIntegral>
+          typename DigitCntLike, integral::IsIntegral DstIntegral,
+          seq_endpoint::provider::IsProvider<DigitIntegral> Provider>
     requires requires {
         requires 0 < DigitWidth;
         requires DigitWidth <= integral::WidthOf<DigitIntegral>;
+
+        requires meta::IsSame<DigitCntLike, size_t> ||
+                     meta::IsValueWrapperT<DigitCntLike, size_t> ||
+                     meta::IsSame<DigitCntLike, VariableOctetCntTag>;
     }
 constexpr DecodeResult<DstIntegral> Decode(
-    Provider&& provider, EndiannessLike endianness_like,
+    EndiannessLike endianness_like,
     meta::TypeWrapper<DigitIntegral> digit_integral,
     meta::ValueWrapper<size_t, DigitWidth> digit_width,
-    DigitCntLike digit_cnt_like, meta::TypeWrapper<DstIntegral> dst_integral);
+    DigitCntLike digit_cnt_like, meta::TypeWrapper<DstIntegral> dst_integral,
+    Provider&& provider);
 
 }  // namespace zeta::core::integral_endec

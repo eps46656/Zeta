@@ -45,7 +45,7 @@ struct hash::BasicHasher<core_test::PODValue> {
 namespace zeta::core_test {
 
 template <>
-struct RandomCore<PODValue> {
+struct random::RandomCore<PODValue> {
     static PODValue F() {
         PODValue ret;
 

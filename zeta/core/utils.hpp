@@ -54,19 +54,22 @@ constexpr void LinSeqCopy(void* dst, void const* src, size_t elem_size,
                           ptrdiff_t dst_elem_stride, ptrdiff_t src_elem_stride,
                           size_t cnt);
 
-template <lifecycle::IsDataTransferOpLike DataTransferOpLike, typename DstElem,
-          typename SrcElem>
-constexpr void DisjointLinSeqTransfer(DataTransferOpLike data_transfer_op_like,
-                                      DstElem* dst, SrcElem* src,
-                                      size_t dst_elem_stride,
-                                      size_t src_elem_stride, size_t cnt);
+template <lifecycle::IsDstStorageView DstStorageView,
+          lifecycle::IsSrcStorageView SrcStorageView,
+          integral::IsIntegral DstElemStride,
+          integral::IsIntegral SrcElemStride>
+constexpr void DisjointLinSeqTransfer(DstStorageView dst, SrcStorageView src,
+                                      DstElemStride dst_elem_stride,
+                                      SrcElemStride src_elem_stride,
+                                      size_t cnt);
 
-template <lifecycle::IsDataTransferOpLike DataTransferOpLike, typename DstElem,
-          typename SrcElem>
-constexpr void DisjointLinSeqTransfer(DataTransferOpLike data_transfer_op_like,
-                                      DstElem* dst, SrcElem* src,
-                                      ptrdiff_t dst_elem_stride,
-                                      ptrdiff_t src_elem_stride, size_t cnt);
+template <lifecycle::IsDstStorageView DstStorageView,
+          lifecycle::IsSrcStorageView SrcStorageView,
+          integral::IsIntegral DstElemStride,
+          integral::IsIntegral SrcElemStride>
+constexpr void LinSeqTransfer(DstStorageView dst, SrcStorageView src,
+                              DstElemStride dst_elem_stride,
+                              SrcElemStride src_elem_stride, size_t cnt);
 
 constexpr void EquistrideLinSeqCopy(void* dst, void const* src,
                                     size_t elem_size, size_t elem_stride,
@@ -112,10 +115,24 @@ constexpr unsigned long long GetRandom();
 constexpr unsigned long long SimpleRandomRotate(
     unsigned long long* random_seed);
 
-constexpr int Choose2(bool cond0, bool cond1, unsigned long long* random_seed);
+enum struct Choose2Result : unsigned char {
+    Case0 = 0,
+    Case1 = 1,
+};
 
-constexpr int Choose3(bool cond0, bool cond1, bool cond2,
-                      unsigned long long* random_seed);
+constexpr Choose2Result Choose2(unsigned long long* random_seed);
+
+constexpr Choose2Result Choose2(bool cond0, bool cond1,
+                                unsigned long long* random_seed);
+
+enum struct Choose3Result : unsigned char {
+    Case0 = 0,
+    Case1 = 1,
+    Case2 = 2,
+};
+
+constexpr Choose3Result Choose3(bool cond0, bool cond1, bool cond2,
+                                unsigned long long* random_seed);
 
 constexpr int Choose4(bool cond0, bool cond1, bool cond2, bool cond3,
                       unsigned long long* random_seed);
@@ -125,12 +142,12 @@ enum struct TryResultType : unsigned char {
     Reason,
 };
 
-using TryResultValueTag = meta::AutoValueWrapper<TryResultType::Value>;
+using TryResultValueTag  = meta::AutoValueWrapper<TryResultType::Value>;
 using TryResultReasonTag = meta::AutoValueWrapper<TryResultType::Reason>;
 
 template <typename Value_, typename Reason_>
 struct [[nodiscard]] TryResult {
-    using Value = Value_;
+    using Value  = Value_;
     using Reason = Reason_;
 
     TryResultType type;

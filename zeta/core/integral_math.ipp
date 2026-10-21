@@ -29,7 +29,8 @@ constexpr auto integral_math::Compare(OpTag op, NumA a, NumB b) {
         if constexpr (meta::IsSame<OpTag, comparison::OpTags::Order>) {
             return comparison::Ordering::Less;
         } else {
-            return (meta::ToUnderlying(op.value) & comparison::Bits::less) != 0;
+            return (meta::EnumToUnderlying(meta::GetValueWrapperValue<OpTag>) &
+                    comparison::Bits::less) != 0;
         }
     }
 
@@ -42,8 +43,8 @@ constexpr auto integral_math::Compare(OpTag op, NumA a, NumB b) {
         if constexpr (meta::IsSame<OpTag, comparison::OpTags::Order>) {
             return comparison::Ordering::Greater;
         } else {
-            return (meta::ToUnderlying(op.value) & comparison::Bits::greater) !=
-                   0;
+            return (meta::EnumToUnderlying(meta::GetValueWrapperValue<OpTag>) &
+                    comparison::Bits::greater) != 0;
         }
     }
 

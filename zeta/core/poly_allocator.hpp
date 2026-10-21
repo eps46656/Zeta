@@ -1,7 +1,6 @@
 #pragma once
 
 #include <zeta/core/allocator.hpp>
-#include <zeta/core/debug_utils/sanity.hpp>
 
 namespace zeta::core::poly_allocator {
 
@@ -21,8 +20,6 @@ struct Allocator {
     template <allocator::IsAllocator TargetCntr>
     constexpr Allocator(TargetCntr& target_alctr);
 
-    constexpr ~Allocator();
-
     constexpr Allocator& operator=(Allocator const&) = default;
 
     template <allocator::IsAllocator TargetAllocator>
@@ -38,9 +35,6 @@ struct Allocator {
     constexpr void Deallocate(this Allocator& self, allocator::Tag, void* ptr);
 
     constexpr void Check(this Allocator const& self);
-
-    static constexpr void SanityCheck(
-        void const* self, debug_utils::sanity::SanityCheckScope scope);
 };
 
 }  // namespace zeta::core::poly_allocator

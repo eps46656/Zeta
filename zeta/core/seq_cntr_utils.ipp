@@ -13,23 +13,22 @@ constexpr seq_cntr_utils::acceptor::Acceptor<Cntr>::Acceptor(
 
 template <seq_cntr::IsSeqCntr Cntr>
 constexpr bool seq_cntr_utils::acceptor::Acceptor<Cntr>::IsEnd(
-    this Acceptor const& self, seq_cntr::Tag) {
+    this Acceptor const& self, seq_endpoint::acceptor::Tag) {
     return self.cnt == 0;
 }
 
 template <seq_cntr::IsSeqCntr Cntr>
+template <lifecycle::IsSrcStorageView SrcStorageView>
 constexpr size_t seq_cntr_utils::acceptor::Acceptor<Cntr>::Transfer(
-    this Acceptor& self, seq_cntr::Tag,
-    lifecycle::DataTransferSemantics src_transfer_semantics, Elem* src,
+    this Acceptor& self, seq_endpoint::acceptor::Tag, SrcStorageView src,
     ptrdiff_t src_elem_stride, size_t cnt) {
     size_t transfer_cnt{ comparison_utils::BasicMin(self.cnt, cnt) };
 
     seq_cntr::Write(meta::Forward<Cntr>(self.cntr), &self.cursor, transfer_cnt,
                     lin_seq_endpoint::provider::Provider<Elem>{
-                        .data_transfer_semantics = src_transfer_semantics,
-                        .data = src,
+                        .data        = src,
                         .elem_stride = src_elem_stride,
-                        .elem_cnt = transfer_cnt,
+                        .elem_cnt    = transfer_cnt,
                     },
                     &self.cursor);
 
@@ -45,22 +44,22 @@ constexpr seq_cntr_utils::provider::Provider<Cntr>::Provider(
 
 template <seq_cntr::IsSeqCntr Cntr>
 constexpr bool seq_cntr_utils::provider::Provider<Cntr>::IsEnd(
-    this Provider const& self, seq_cntr::Tag) {
+    this Provider const& self, seq_endpoint::provider::Tag) {
     return self.cnt == 0;
 }
 
 template <seq_cntr::IsSeqCntr Cntr>
+template <lifecycle::IsDstStorageView DstStorageView>
 constexpr size_t seq_cntr_utils::provider::Provider<Cntr>::Transfer(
-    this Provider& self, seq_cntr::Tag, lifecycle::DataLifeState dst_life_state,
-    Elem* dst, ptrdiff_t dst_elem_stride, size_t cnt) {
+    this Provider& self, seq_endpoint::provider::Tag, DstStorageView dst,
+    ptrdiff_t dst_elem_stride, size_t cnt) {
     size_t transfer_cnt{ comparison_utils::BasicMin(self.cnt, cnt) };
 
     seq_cntr::Read(meta::Forward<Cntr>(self.cntr), &self.cursor, transfer_cnt,
-                   lin_seq_endpoint::acceptor::Acceptor<Elem>{
-                       .data_life_state = dst_life_state,
-                       .data = dst,
+                   lin_seq_endpoint::acceptor::Acceptor<DstStorageView>{
+                       .data        = dst,
                        .elem_stride = dst_elem_stride,
-                       .elem_cnt = transfer_cnt,
+                       .elem_cnt    = transfer_cnt,
                    },
                    &self.cursor);
 
@@ -118,7 +117,7 @@ constexpr void seq_cntr_utils::Transfer(DstCntr&& dst_cntr,
 #define TestCapability(cap_flag, cap_name)        \
     (((cap_flag) &                                \
       (static_cast<seq_cntr::capability::Flag>(1) \
-       << meta::ToUnderlying(seq_cntr::capability::Kind::cap_name))) != 0)
+       << meta::EnumToUnderlying(seq_cntr::capability::Kind::cap_name))) != 0)
 
     size_t dst_elem_cnt{ seq_cntr::GetElemCnt(dst_cntr) };
     size_t src_elem_cnt{ seq_cntr::GetElemCnt(src_cntr) };
@@ -203,7 +202,7 @@ constexpr void seq_cntr_utils::Transfer(DstCntr&& dst_cntr,
 #pragma push_macro("FPushR")
 #define FPushR                                                                \
     seq_cntr::PeekL(dst_cntr, true, nullptr, &dst_cursor,                     \
-                    lifecycle::DataLifeState::Mem, nullptr);                  \
+                    lifecycle::StorageLifeState::Mem, nullptr);               \
     seq_cntr::Write(dst_cntr, &dst_cursor, dst_elem_cnt, provider, nullptr);  \
     seq_cntr::PushR(dst_cntr, src_elem_cnt - dst_elem_cnt, provider, nullptr, \
                     nullptr);
@@ -217,7 +216,7 @@ constexpr void seq_cntr_utils::Transfer(DstCntr&& dst_cntr,
 #pragma push_macro("FPopR")
 #define FPopR                                                                \
     seq_cntr::PeekL(dst_cntr, true, nullptr, &dst_cursor,                    \
-                    lifecycle::DataLifeState::Mem, nullptr);                 \
+                    lifecycle::StorageLifeState::Mem, nullptr);              \
     seq_cntr::Write(dst_cntr, &dst_cursor, dst_elem_cnt, provider, nullptr); \
     seq_cntr::PopR(dst_cntr, dst_elem_cnt - src_elem_cnt,                    \
                    seq_endpoint::acceptor::BasicAcceptor{}, nullptr);
@@ -268,6 +267,29 @@ constexpr void seq_cntr_utils::Transfer(DstCntr&& dst_cntr,
 #pragma pop_macro("FPushL")
 
 #pragma pop_macro("TestCapability")
+}
+
+template <size_t ChannelCnt>
+constexpr seq_cntr::capability::Flag
+seq_cntr_utils::CapabilityFlagConfigurator<ChannelCnt>::BuildFlag(
+    this CapabilityFlagConfigurator const& self, size_t channel_idx,
+    CapabilityKind capability_kind) {
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(channel_idx < ChannelCnt);
+
+    auto capability_kind_underlying{ meta::EnumToUnderlying(capability_kind) };
+
+    return seq_cntr::capability::FlagBuilder{
+#pragma push_macro("F")
+
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define F(name, num, is_const)                                \
+    .name = (meta::EnumToUnderlying(self.name[channel_idx]) & \
+             capability_kind_underlying) != 0,
+
+        ZETA_Core_SeqCntr_CapabilityWithoutAlwaysNever_XMacro(F, )
+
+#pragma pop_macro("F")
+    }();
 }
 
 }  // namespace zeta::core

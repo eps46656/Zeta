@@ -22,7 +22,8 @@ constexpr unsigned long long Hash(Hasher const& hasher, Value const& value,
 
 struct EmptyHasher {
     template <typename Value>
-    static constexpr unsigned long long Hash(Value const&, unsigned long long);
+    static constexpr unsigned long long Hash(Tag, Value const&,
+                                             unsigned long long);
 };
 
 using ArchetypeHasher = EmptyHasher;

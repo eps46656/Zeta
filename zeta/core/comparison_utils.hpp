@@ -52,7 +52,4 @@ template <comparison::IsOpTag OpTag, typename... Args>
     requires requires { requires sizeof...(Args) % 2 == 0; }
 constexpr auto BasicPairWiseLexCompare(OpTag, Args const&... args);
 
-template <typename Comparator, typename SeqA, typename SeqB>
-constexpr int SeqWiseLexCompare(Comparator const& cmptr, SeqA&& a, SeqB&& b);
-
 }  // namespace zeta::core::comparison_utils

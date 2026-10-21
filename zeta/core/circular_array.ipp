@@ -4,6 +4,7 @@
 #include <zeta/core/comparison.hpp>
 #include <zeta/core/comparison_utils.ipp>
 #include <zeta/core/debug_utils/diag.ipp>
+#include <zeta/core/debug_utils/revision.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/lifecycle.ipp>
@@ -13,6 +14,13 @@
 #include <zeta/core/seq_endpoint.ipp>
 #include <zeta/core/utils.hpp>
 #include <zeta/core/utils.ipp>
+
+ZETA_Core_ClangdPreambleBarrier;
+
+#if ZETA_Core_Editor
+#pragma push_macro("ZETA_Core_DebugEnable")
+#define ZETA_Core_DebugEnable 1
+#endif
 
 namespace zeta::core {
 
@@ -36,7 +44,7 @@ constexpr circular_array::Cursor& circular_array::Cursor::operator=(
     return *this;
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr Elem* circular_array::ReferElem(Elem* data, size_t elem_stride,
                                           size_t slot_cnt, size_t rot,
                                           size_t idx) {
@@ -81,7 +89,7 @@ constexpr size_t circular_array::GetLongestContSucr(size_t elem_cnt,
 
 namespace circular_array::detail {
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr void CheckCntr_  // NOLINT(misc-use-internal-linkage)
     (Cntr<Elem> const& self) {
     Elem* data{ self.data };
@@ -95,121 +103,158 @@ constexpr void CheckCntr_  // NOLINT(misc-use-internal-linkage)
     ZETA_Core_DebugUtils_Diag_PromiseAssert(elem_size <= elem_stride);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(elem_cnt <= slot_cnt);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(slot_cnt <= ZETA_Core_max_capacity);
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(rot < slot_cnt);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(slot_cnt == 0 ? rot == 0
+                                                          : rot < slot_cnt);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(data != nullptr || slot_cnt == 0);
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr void CheckCursor_  // NOLINT(misc-use-internal-linkage)
     (Cntr<Elem> const& self, Cursor const* cursor) {
     (CheckCntr_)(self);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(cursor != nullptr);
 
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(&self == cursor->cntr);
+#if ZETA_Core_DebugEnable
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(self.stamp == cursor->stamp);
+#endif
 
-    Elem* data{ self.data };
-    size_t elem_stride{ self.elem_stride };
     size_t elem_cnt{ self.elem_cnt };
-    size_t slot_cnt{ self.slot_cnt };
-    size_t rot{ self.rot };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
         seq_cntr::op_check::CanRefer(cursor->idx, 1, elem_cnt));
-
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        elem_cnt <= cursor->idx ||
-        cursor->elem ==
-            (ReferElem)(data, elem_stride, slot_cnt, rot, cursor->idx));
 }
 
-template <typename TransferOpLike, typename DstElem, typename SrcElem>
-constexpr void ForwardTransfer_(TransferOpLike transfer_op_like,
-                                DstElem* dst_data, SrcElem* src_data,
-                                size_t dst_elem_stride, size_t src_elem_stride,
-                                size_t dst_rot, size_t src_rot,
-                                size_t dst_elem_cnt, size_t src_elem_cnt,
-                                size_t dst_slot_cnt, size_t src_slot_cnt,
-                                size_t dst_beg, size_t src_beg, size_t cnt) {
+enum struct Direction_ : unsigned char {
+    L = 0,
+    R = 1,
+};
+
+template <Direction_ direction, lifecycle::IsDstStorageView DstStorageView,
+          lifecycle::IsSrcStorageView SrcStorageView>
+constexpr void DataTransfer_(meta::ValueWrapper<Direction_, direction>,
+                             DstStorageView dst_data, SrcStorageView src_data,
+                             size_t dst_elem_stride, size_t src_elem_stride,
+                             size_t dst_rot, size_t src_rot,
+                             size_t dst_elem_cnt, size_t src_elem_cnt,
+                             size_t dst_slot_cnt, size_t src_slot_cnt,
+                             size_t dst_beg, size_t src_beg, size_t cnt) {
+    size_t dst_idx;
+    size_t src_idx;
+
+    if constexpr (direction == Direction_::L) {
+        dst_idx = dst_beg + cnt - 1;
+        src_idx = src_beg + cnt - 1;
+    } else if constexpr (direction == Direction_::R) {
+        dst_idx = dst_beg;
+        src_idx = src_beg;
+    } else {
+        static_assert(false);
+    }
+
+    while (0 < cnt) {
+        size_t cur_cnt;
+
+        if constexpr (direction == Direction_::L) {
+            cur_cnt = comparison_utils::BasicMin(
+                cnt,
+                (GetLongestContPred)(dst_elem_cnt, dst_slot_cnt, dst_rot,
+                                     dst_idx + 1),
+                (GetLongestContPred)(src_elem_cnt, src_slot_cnt, src_rot,
+                                     src_idx + 1));
+        } else if constexpr (direction == Direction_::R) {
+            cur_cnt = comparison_utils::BasicMin(
+                cnt,
+                (GetLongestContSucr)(dst_elem_cnt, dst_slot_cnt, dst_rot,
+                                     dst_idx),
+                (GetLongestContSucr)(src_elem_cnt, src_slot_cnt, src_rot,
+                                     src_idx));
+        } else {
+            static_assert(false);
+        }
+
+        auto* dst_iter{ (ReferElem)(dst_data.ptr, dst_elem_stride, dst_slot_cnt,
+                                    dst_rot, dst_idx) };
+
+        auto* src_iter{ (ReferElem)(src_data.ptr, src_elem_stride, src_slot_cnt,
+                                    src_rot, src_idx) };
+
+        if constexpr (direction == Direction_::L) {
+            for (size_t i{ cur_cnt }; 0 < i;
+                 --i, dst_iter = utils::PtrDec(dst_iter, dst_elem_stride),
+                      src_iter = utils::PtrDec(src_iter, src_elem_stride)) {
+                lifecycle::StorageTransfer(DstStorageView{ dst_iter },
+                                           SrcStorageView{ src_iter });
+            }
+
+            dst_idx -= cur_cnt;
+            src_idx -= cur_cnt;
+        } else if constexpr (direction == Direction_::R) {
+            for (size_t i{ cur_cnt }; 0 < i;
+                 --i, dst_iter = utils::PtrInc(dst_iter, dst_elem_stride),
+                      src_iter = utils::PtrInc(src_iter, src_elem_stride)) {
+                lifecycle::StorageTransfer(DstStorageView{ dst_iter },
+                                           SrcStorageView{ src_iter });
+            }
+
+            dst_idx += cur_cnt;
+            src_idx += cur_cnt;
+        } else {
+            static_assert(false);
+        }
+
+        cnt -= cur_cnt;
+    }
+}
+
+template <
+    meta::IsAnySame<seq_endpoint::acceptor::Tag, seq_endpoint::provider::Tag>
+        EndpointTag,
+    lifecycle::IsStorageView StorageView, typename Endpoint>
+constexpr void EndpointTransfer_(EndpointTag, StorageView data,
+                                 size_t elem_stride, size_t rot,
+                                 size_t elem_cnt, size_t slot_cnt, size_t beg,
+                                 size_t cnt, Endpoint&& endpoint) {
     while (0 < cnt) {
         size_t cur_cnt{ comparison_utils::BasicMin(
-            cnt,
-            (GetLongestContSucr)(dst_elem_cnt, dst_slot_cnt, dst_rot, dst_beg),
-            (GetLongestContSucr)(src_elem_cnt, src_slot_cnt, src_rot,
-                                 src_beg)) };
+            cnt, (GetLongestContSucr)(elem_cnt, slot_cnt, rot, beg)) };
 
-        {
-            DstElem* dst_iter{ (ReferElem)(dst_data, dst_elem_stride,
-                                           dst_slot_cnt, dst_rot, dst_beg) };
+        auto elem{ (ReferElem)(data.ptr, elem_stride, slot_cnt, rot, beg) };
 
-            SrcElem* src_iter{ (ReferElem)(src_data, src_elem_stride,
-                                           src_slot_cnt, src_rot, src_beg) };
-
-            for (size_t i{ 0 }; i < cur_cnt;
-                 ++i, dst_iter = utils::PtrInc(dst_iter, dst_elem_stride),
-                      src_iter = utils::PtrInc(src_iter, src_elem_stride)) {
-                lifecycle::DataTransfer(transfer_op_like,
-                                        static_cast<DstElem*>(dst_iter),
-                                        *static_cast<SrcElem*>(src_iter));
-            }
+        if constexpr (meta::IsSame<EndpointTag, seq_endpoint::acceptor::Tag>) {
+            seq_endpoint::acceptor::Transfer(
+                endpoint, StorageView{ elem },
+                static_cast<ptrdiff_t>(elem_stride), cur_cnt);
+        } else if constexpr (meta::IsSame<EndpointTag,
+                                          seq_endpoint::provider::Tag>) {
+            seq_endpoint::provider::Transfer(
+                endpoint, StorageView{ elem },
+                static_cast<ptrdiff_t>(elem_stride), cur_cnt);
+        } else {
+            static_assert(false);
         }
 
-        dst_beg += cur_cnt;
-        src_beg += cur_cnt;
-
+        beg += cur_cnt;
         cnt -= cur_cnt;
     }
 }
 
-template <typename TransferOpLike, typename DstElem, typename SrcElem>
-constexpr void BackwardTransfer_(TransferOpLike transfer_op_like,
-                                 DstElem* dst_data, SrcElem* src_data,
-                                 size_t dst_elem_stride, size_t src_elem_stride,
-                                 size_t dst_rot, size_t src_rot,
-                                 size_t dst_elem_cnt, size_t src_elem_cnt,
-                                 size_t dst_slot_cnt, size_t src_slot_cnt,
-                                 size_t dst_beg, size_t src_beg, size_t cnt) {
-    for (size_t dst_end{ dst_beg + cnt }, src_end{ src_beg + cnt }; 0 < cnt;) {
-        size_t cur_cnt{ comparison_utils::BasicMin(
-            cnt,
-            (GetLongestContPred)(dst_elem_cnt, dst_slot_cnt, dst_rot, dst_end),
-            (GetLongestContPred)(src_elem_cnt, src_slot_cnt, src_rot,
-                                 src_end)) };
+}  // namespace circular_array::detail
 
-        {
-            DstElem* dst_iter{ (ReferElem)(dst_data, dst_elem_stride,
-                                           dst_slot_cnt, dst_rot,
-                                           dst_end - 1) };
-
-            SrcElem* src_iter{ (ReferElem)(src_data, src_elem_stride,
-                                           src_slot_cnt, src_rot,
-                                           src_end - 1) };
-
-            for (size_t i{ 0 }; i < cur_cnt;
-                 ++i, dst_iter = utils::PtrDec(dst_iter, dst_elem_stride),
-                      src_iter = utils::PtrDec(src_iter, src_elem_stride)) {
-                lifecycle::DataTransfer(transfer_op_like,
-                                        static_cast<DstElem*>(dst_iter),
-                                        *static_cast<SrcElem*>(src_iter));
-            }
-        }
-
-        dst_end -= cur_cnt;
-        src_end -= cur_cnt;
-
-        cnt -= cur_cnt;
+template <typename DstCntr, typename SrcCntr>
+constexpr void circular_array::SegTransfer(DstCntr&& dst_cntr,
+                                           SrcCntr&& src_cntr, size_t dst_beg,
+                                           size_t src_beg, size_t cnt)
+    requires requires {
+        requires IsCntr<meta::RemoveCVRef<DstCntr>>;
+        requires IsCntr<meta::RemoveCVRef<SrcCntr>>;
     }
-}
+{
+    using DstElem = meta::RemoveConst<typename DstCntr::Elem>;
+    using SrcElem = meta::RemoveConst<typename SrcCntr::Elem>;
 
-template <lifecycle::IsDataTransferOpLike TransferOpLike, typename DstCntr,
-          typename SrcCntr>
-constexpr void SegTransfer_(TransferOpLike transfer_op_like, DstCntr& dst_cntr,
-                            SrcCntr& src_cntr, size_t dst_beg, size_t src_beg,
-                            size_t cnt) {
-    using DstElem =
-        meta::MakeConstIf<typename DstCntr::Elem, meta::IsConst<DstCntr>>;
-    using SrcElem =
-        meta::MakeConstIf<typename SrcCntr::Elem, meta::IsConst<SrcCntr>>;
+    using DstStorageView = lifecycle::ForwardStorageView<DstCntr, DstElem>;
+    using SrcStorageView = lifecycle::ForwardStorageView<SrcCntr, SrcElem>;
 
     detail::CheckCntr_(dst_cntr);
     detail::CheckCntr_(src_cntr);
@@ -249,102 +294,36 @@ constexpr void SegTransfer_(TransferOpLike transfer_op_like, DstCntr& dst_cntr,
 
 VEC_FW_COPY:
     {
-        detail::ForwardTransfer_(
-            transfer_op_like, dst_data, src_data, dst_elem_stride,
-            src_elem_stride, dst_rot, src_rot, dst_elem_cnt, src_elem_cnt,
-            dst_slot_cnt, src_slot_cnt, dst_beg, src_beg, cnt);
+        detail::DataTransfer_(
+            meta::AutoValueWrapper<detail::Direction_::R>{},
+            DstStorageView{ dst_data }, SrcStorageView{ src_data },
+            dst_elem_stride, src_elem_stride, dst_rot, src_rot, dst_elem_cnt,
+            src_elem_cnt, dst_slot_cnt, src_slot_cnt, dst_beg, src_beg, cnt);
 
         return;
     }
 
 VEC_BW_MOVE:
     {
-        detail::BackwardTransfer_(
-            transfer_op_like, dst_data, src_data, dst_elem_stride,
-            src_elem_stride, dst_rot, src_rot, dst_elem_cnt, src_elem_cnt,
-            dst_slot_cnt, src_slot_cnt, dst_beg, src_beg, cnt);
+        detail::DataTransfer_(
+            meta::AutoValueWrapper<detail::Direction_::L>{},
+            DstStorageView{ dst_data }, SrcStorageView{ src_data },
+            dst_elem_stride, src_elem_stride, dst_rot, src_rot, dst_elem_cnt,
+            src_elem_cnt, dst_slot_cnt, src_slot_cnt, dst_beg, src_beg, cnt);
 
         return;
     }
 }
 
-template <typename SrcElem,
-          seq_endpoint::acceptor::IsAcceptor<SrcElem> Acceptor>
-constexpr void AcceptorTransfer_(
-    lifecycle::DataTransferSemantics src_transfer_semantics, SrcElem* src_data,
-    size_t src_elem_stride, size_t src_rot, size_t src_elem_cnt,
-    size_t src_slot_cnt, size_t src_beg, size_t cnt, Acceptor&& acceptor) {
-    while (0 < cnt) {
-        size_t cur_cnt{ comparison_utils::BasicMin(
-            cnt, (GetLongestContSucr)(src_elem_cnt, src_slot_cnt, src_rot,
-                                      src_beg)) };
-
-        seq_endpoint::acceptor::Transfer(
-            acceptor, src_transfer_semantics,
-            (ReferElem)(src_data, src_elem_stride, src_slot_cnt, src_rot,
-                        src_beg),
-            static_cast<ptrdiff_t>(src_elem_stride), cur_cnt);
-
-        src_beg += cur_cnt;
-
-        cnt -= cur_cnt;
-    }
-}
-
-template <typename DstElem,
-          seq_endpoint::provider::IsProvider<DstElem> Provider>
-constexpr void ProviderTransfer_(lifecycle::DataLifeState dst_life_state,
-                                 DstElem* dst_data, size_t dst_elem_stride,
-                                 size_t dst_rot, size_t dst_elem_cnt,
-                                 size_t dst_slot_cnt, size_t dst_beg,
-                                 size_t cnt, Provider&& provider) {
-    while (0 < cnt) {
-        size_t cur_cnt{ comparison_utils::BasicMin(
-            cnt, (GetLongestContSucr)(dst_elem_cnt, dst_slot_cnt, dst_rot,
-                                      dst_beg)) };
-
-        seq_endpoint::provider::Transfer(
-            provider, dst_life_state,
-            (ReferElem)(dst_data, dst_elem_stride, dst_slot_cnt, dst_rot,
-                        dst_beg),
-            static_cast<ptrdiff_t>(dst_elem_stride), cur_cnt);
-
-        dst_beg += cur_cnt;
-
-        cnt -= cur_cnt;
-    }
-}
-
-}  // namespace circular_array::detail
-
-template <lifecycle::IsDataTransferOpLike TransferOpLike, typename DstElem,
-          typename SrcElem>
-constexpr void circular_array::SegAssign(TransferOpLike transfer_op_like,
-                                         Cntr<DstElem>& dst_cntr,
-                                         Cntr<SrcElem>& src_cntr,
-                                         size_t dst_beg, size_t src_beg,
-                                         size_t cnt) {
-    detail::SegTransfer_(transfer_op_like, dst_cntr, src_cntr, dst_beg, src_beg,
-                         cnt);
-}
-
-template <lifecycle::IsDataTransferOpLike TransferOpLike, typename DstElem,
-          typename SrcElem>
-constexpr void circular_array::SegAssign(TransferOpLike transfer_op_like,
-                                         Cntr<DstElem>& dst_cntr,
-                                         Cntr<SrcElem> const& src_cntr,
-                                         size_t dst_beg, size_t src_beg,
-                                         size_t cnt) {
-    detail::SegTransfer_(transfer_op_like, dst_cntr, src_cntr, dst_beg, src_beg,
-                         cnt);
-}
-
-template <typename Elem>
+template <meta::IsObj Elem>
+template <
+    meta::IsAnySame<circular_array::Cntr<Elem>&, circular_array::Cntr<Elem>&&>
+        TargetCntr>
 constexpr seq_cntr::capability::Flag
 circular_array::Cntr<Elem>::GetStaticEnabledCapabilityFlag(
-    seq_cntr::Tag, meta::TypeWrapper<Cntr>) {
+    seq_cntr::Tag, meta::TypeWrapper<TargetCntr>) {
     return seq_cntr::capability::FlagBuilder{
-        .GetElemCnt = true,
+        .GetElemCnt    = true,
         .GetMaxElemCnt = true,
 
         .GetLBCursor = true,
@@ -353,28 +332,28 @@ circular_array::Cntr<Elem>::GetStaticEnabledCapabilityFlag(
         .PeekL = true,
         .PeekR = true,
 
-        .Refer = true,
+        .Refer   = true,
         .Derefer = true,
 
-        .Read = true,
-        .Write = true,
+        .Read      = true,
+        .Write     = true,
         .ReadWrite = true,
 
-        .PushL = true,
-        .PushR = true,
+        .PushL  = true,
+        .PushR  = true,
         .Insert = true,
 
-        .PopL = true,
-        .PopR = true,
-        .Erase = true,
+        .PopL     = true,
+        .PopR     = true,
+        .Erase    = true,
         .EraseAll = true,
 
         .CopyCursor = true,
 
         .AreEqualCursor = true,
-        .CompareCursor = true,
-        .GetCursorDist = true,
-        .GetCursorIdx = true,
+        .CompareCursor  = true,
+        .GetCursorDist  = true,
+        .GetCursorIdx   = true,
 
         .CursorStepL = true,
         .CursorStepR = true,
@@ -384,42 +363,51 @@ circular_array::Cntr<Elem>::GetStaticEnabledCapabilityFlag(
     }();
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
+template <meta::IsAnySame<circular_array::Cntr<Elem> const&,
+                          circular_array::Cntr<Elem> const&&>
+              TargetCntr>
 constexpr seq_cntr::capability::Flag
 circular_array::Cntr<Elem>::GetStaticEnabledCapabilityFlag(
-    seq_cntr::Tag, meta::TypeWrapper<Cntr const>) {
+    seq_cntr::Tag, meta::TypeWrapper<TargetCntr>) {
     return (GetStaticEnabledCapabilityFlag)(seq_cntr::Tag{},
-                                            meta::TypeWrapper<Cntr>{}) &
+                                            meta::TypeWrapper<Cntr&>{}) &
            seq_cntr::capability::const_capability_flag;
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
+template <
+    meta::IsAnySame<circular_array::Cntr<Elem>&, circular_array::Cntr<Elem>&&>
+        TargetCntr>
 constexpr seq_cntr::capability::Flag
 circular_array::Cntr<Elem>::GetStaticDisabledCapabilityFlag(
-    seq_cntr::Tag, meta::TypeWrapper<Cntr>) {
+    seq_cntr::Tag, meta::TypeWrapper<TargetCntr>) {
     return seq_cntr::capability::empty_capability_flag;
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
+template <meta::IsAnySame<circular_array::Cntr<Elem> const&,
+                          circular_array::Cntr<Elem> const&&>
+              TargetCntr>
 constexpr seq_cntr::capability::Flag
 circular_array::Cntr<Elem>::GetStaticDisabledCapabilityFlag(
-    seq_cntr::Tag, meta::TypeWrapper<Cntr const>) {
+    seq_cntr::Tag, meta::TypeWrapper<TargetCntr>) {
     return seq_cntr::capability::non_const_capability_flag;
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr seq_cntr::capability::Flag
 circular_array::Cntr<Elem>::GetDynamicEnabledCapabilityFlag(seq_cntr::Tag) {
     return seq_cntr::capability::empty_capability_flag;
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr seq_cntr::capability::Flag
 circular_array::Cntr<Elem>::GetDynamicDisabledCapabilityFlag(seq_cntr::Tag) {
     return seq_cntr::capability::empty_capability_flag;
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr void* circular_array::Cntr<Elem>::GetReferedInstPtr(
     this Cntr const& self, seq_cntr::Tag) {
     detail::CheckCntr_(self);
@@ -427,27 +415,28 @@ constexpr void* circular_array::Cntr<Elem>::GetReferedInstPtr(
     return const_cast<void*>(static_cast<void const*>(&self));
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
+template <meta::IsAnySame<
+    circular_array::Cntr<Elem>&, circular_array::Cntr<Elem> const&,
+    circular_array::Cntr<Elem>&&, circular_array::Cntr<Elem> const&&>
+              TargetCntr>
 constexpr meta::TypeWrapper<Elem> circular_array::Cntr<Elem>::GetElemType(
-    seq_cntr::Tag, meta::TypeWrapper<Cntr>) {
+    seq_cntr::Tag, meta::TypeWrapper<TargetCntr>) {
     return {};
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
+template <meta::IsAnySame<
+    circular_array::Cntr<Elem>&, circular_array::Cntr<Elem> const&,
+    circular_array::Cntr<Elem>&&, circular_array::Cntr<Elem> const&&>
+              TargetCntr>
 constexpr meta::TypeWrapper<circular_array::Cursor>
 circular_array::Cntr<Elem>::GetCursorType(seq_cntr::Tag,
-                                          meta::TypeWrapper<Cntr>) {
+                                          meta::TypeWrapper<TargetCntr>) {
     return {};
 }
 
-template <typename Elem>
-constexpr meta::TypeWrapper<circular_array::Cursor>
-circular_array::Cntr<Elem>::GetCursorType(seq_cntr::Tag,
-                                          meta::TypeWrapper<Cntr const>) {
-    return {};
-}
-
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr size_t circular_array::Cntr<Elem>::GetElemStride(
     this Cntr const& self, seq_cntr::Tag) {
     detail::CheckCntr_(self);
@@ -455,7 +444,7 @@ constexpr size_t circular_array::Cntr<Elem>::GetElemStride(
     return self.elem_stride;
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr size_t circular_array::Cntr<Elem>::GetIdxOffset(this Cntr const& self,
                                                           seq_cntr::Tag) {
     detail::CheckCntr_(self);
@@ -463,7 +452,7 @@ constexpr size_t circular_array::Cntr<Elem>::GetIdxOffset(this Cntr const& self,
     return self.rot;
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr size_t circular_array::Cntr<Elem>::GetElemCnt(this Cntr const& self,
                                                         seq_cntr::Tag) {
     detail::CheckCntr_(self);
@@ -471,7 +460,7 @@ constexpr size_t circular_array::Cntr<Elem>::GetElemCnt(this Cntr const& self,
     return self.elem_cnt;
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr size_t circular_array::Cntr<Elem>::GetMaxElemCnt(
     this Cntr const& self, seq_cntr::Tag) {
     detail::CheckCntr_(self);
@@ -479,7 +468,7 @@ constexpr size_t circular_array::Cntr<Elem>::GetMaxElemCnt(
     return self.slot_cnt;
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr void circular_array::Cntr<Elem>::GetLBCursor(this Cntr const& self,
                                                        seq_cntr::Tag,
                                                        Cursor* dst_cursor) {
@@ -487,12 +476,14 @@ constexpr void circular_array::Cntr<Elem>::GetLBCursor(this Cntr const& self,
 
     if (dst_cursor == nullptr) { return; }
 
-    dst_cursor->cntr = &self;
     dst_cursor->idx = static_cast<size_t>(-1);
-    dst_cursor->elem = nullptr;
+
+#if ZETA_Core_DebugEnable
+    dst_cursor->stamp = self.stamp;
+#endif
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr void circular_array::Cntr<Elem>::GetRBCursor(this Cntr const& self,
                                                        seq_cntr::Tag,
                                                        Cursor* dst_cursor) {
@@ -500,22 +491,24 @@ constexpr void circular_array::Cntr<Elem>::GetRBCursor(this Cntr const& self,
 
     if (dst_cursor == nullptr) { return; }
 
-    dst_cursor->cntr = &self;
     dst_cursor->idx = self.elem_cnt;
-    dst_cursor->elem = nullptr;
+
+#if ZETA_Core_DebugEnable
+    dst_cursor->stamp = self.stamp;
+#endif
 }
 
-template <typename Elem>
-template <typename DstElem>
+template <meta::IsObj Elem>
+template <lifecycle::IsDstStorageView DstStorageView>
 constexpr void circular_array::Cntr<Elem>::PeekL(
-    this auto& self, seq_cntr::Tag, bool lazy_copy_elem,
-    seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
-    lifecycle::DataLifeState dst_elem_life_state, DstElem* dst_elem) {
+    this auto&& self, seq_cntr::Tag, bool lazy_copy_elem,
+    lifecycle::DynamicStorageView<Elem>* dst_elem_view, Cursor* dst_cursor,
+    DstStorageView dst_elem) {
     detail::CheckCntr_(self);
 
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_elem_ptr_view != nullptr ||
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_elem_view != nullptr ||
                                             dst_cursor != nullptr ||
-                                            dst_elem != nullptr);
+                                            dst_elem.ptr != nullptr);
 
     Elem* data{ self.data };
     size_t elem_stride{ self.elem_stride };
@@ -523,50 +516,38 @@ constexpr void circular_array::Cntr<Elem>::PeekL(
     size_t slot_cnt{ self.slot_cnt };
     size_t rot{ self.rot };
 
-    Elem* elem{ 0 < elem_cnt ? (ReferElem)(data, elem_stride, slot_cnt, rot, 0)
-                             : nullptr };
+    lifecycle::ForwardStorageView<decltype(self), Elem> elem_view{
+        elem_cnt == 0 ? nullptr
+                      : (ReferElem)(data, elem_stride, slot_cnt, rot, 0)
+    };
 
-    if (dst_elem_ptr_view != nullptr) {
-        dst_elem_ptr_view->ptr = elem;
-
-        if constexpr (meta::IsConst<decltype(self)>) {
-            dst_elem_ptr_view->aliasability =
-                elem == nullptr
-                    ? seq_cntr::ElemPtrView::AliasabilityEnum::Null
-                    : seq_cntr::ElemPtrView::AliasabilityEnum::ReadOnly;
-        } else {
-            dst_elem_ptr_view->aliasability =
-                elem == nullptr
-                    ? seq_cntr::ElemPtrView::AliasabilityEnum::Null
-                    : seq_cntr::ElemPtrView::AliasabilityEnum::ReadWrite;
-        }
-    }
+    if (dst_elem_view != nullptr) { *dst_elem_view = elem_view; }
 
     if (dst_cursor != nullptr) {
-        dst_cursor->cntr = &self;
         dst_cursor->idx = 0;
-        dst_cursor->elem = elem;
+
+#if ZETA_Core_DebugEnable
+        dst_cursor->stamp = self.stamp;
+#endif
     }
 
-    if (elem != nullptr && !lazy_copy_elem && dst_elem != nullptr) {
-        lifecycle::DataTransfer(
-            lifecycle::DeriveDataTransferOp(
-                dst_elem_life_state, lifecycle::DataTransferSemantics::Copy),
-            dst_elem, *elem);
+    if (elem_view.ptr != nullptr && !lazy_copy_elem &&
+        dst_elem.ptr != nullptr) {
+        lifecycle::StorageTransfer(dst_elem, elem_view);
     }
 }
 
-template <typename Elem>
-template <typename DstElem>
+template <meta::IsObj Elem>
+template <lifecycle::IsDstStorageView DstStorageView>
 constexpr void circular_array::Cntr<Elem>::PeekR(
-    this auto& self, seq_cntr::Tag, bool lazy_copy_elem,
-    seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
-    lifecycle::DataLifeState dst_elem_life_state, DstElem* dst_elem) {
+    this auto&& self, seq_cntr::Tag, bool lazy_copy_elem,
+    lifecycle::DynamicStorageView<Elem>* dst_elem_view, Cursor* dst_cursor,
+    DstStorageView dst_elem) {
     detail::CheckCntr_(self);
 
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_elem_ptr_view != nullptr ||
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_elem_view != nullptr ||
                                             dst_cursor != nullptr ||
-                                            dst_elem != nullptr);
+                                            dst_elem.ptr != nullptr);
 
     Elem* data{ self.data };
     size_t elem_stride{ self.elem_stride };
@@ -574,51 +555,39 @@ constexpr void circular_array::Cntr<Elem>::PeekR(
     size_t slot_cnt{ self.slot_cnt };
     size_t rot{ self.rot };
 
-    Elem* elem{ 0 < elem_cnt ? (ReferElem)(data, elem_stride, slot_cnt, rot,
-                                           elem_cnt - 1)
-                             : nullptr };
+    lifecycle::ForwardStorageView<decltype(self), Elem> elem_view{
+        elem_cnt == 0
+            ? nullptr
+            : (ReferElem)(data, elem_stride, slot_cnt, rot, elem_cnt - 1)
+    };
 
-    if (dst_elem_ptr_view != nullptr) {
-        dst_elem_ptr_view->ptr = elem;
-
-        if constexpr (meta::IsConst<decltype(self)>) {
-            dst_elem_ptr_view->aliasability =
-                elem == nullptr
-                    ? seq_cntr::ElemPtrView::AliasabilityEnum::Null
-                    : seq_cntr::ElemPtrView::AliasabilityEnum::ReadOnly;
-        } else {
-            dst_elem_ptr_view->aliasability =
-                elem == nullptr
-                    ? seq_cntr::ElemPtrView::AliasabilityEnum::Null
-                    : seq_cntr::ElemPtrView::AliasabilityEnum::ReadWrite;
-        }
-    }
+    if (dst_elem_view != nullptr) { *dst_elem_view = elem_view; }
 
     if (dst_cursor != nullptr) {
-        dst_cursor->cntr = &self;
         dst_cursor->idx = elem_cnt - 1;
-        dst_cursor->elem = elem;
+
+#if ZETA_Core_DebugEnable
+        dst_cursor->stamp = self.stamp;
+#endif
     }
 
-    if (elem != nullptr && !lazy_copy_elem && dst_elem != nullptr) {
-        lifecycle::DataTransfer(
-            lifecycle::DeriveDataTransferOp(
-                dst_elem_life_state, lifecycle::DataTransferSemantics::Copy),
-            dst_elem, *elem);
+    if (elem_view.ptr != nullptr && !lazy_copy_elem &&
+        dst_elem.ptr != nullptr) {
+        lifecycle::StorageTransfer(dst_elem, elem_view);
     }
 }
 
-template <typename Elem>
-template <typename DstElem>
+template <meta::IsObj Elem>
+template <lifecycle::IsDstStorageView DstStorageView>
 constexpr void circular_array::Cntr<Elem>::Refer(
-    this auto& self, seq_cntr::Tag, size_t idx, bool lazy_copy_elem,
-    seq_cntr::ElemPtrView* dst_elem_ptr_view, Cursor* dst_cursor,
-    lifecycle::DataLifeState dst_elem_life_state, DstElem* dst_elem) {
+    this auto&& self, seq_cntr::Tag, size_t idx, bool lazy_copy_elem,
+    lifecycle::DynamicStorageView<Elem>* dst_elem_view, Cursor* dst_cursor,
+    DstStorageView dst_elem) {
     detail::CheckCntr_(self);
 
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_elem_ptr_view != nullptr ||
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_elem_view != nullptr ||
                                             dst_cursor != nullptr ||
-                                            dst_elem != nullptr);
+                                            dst_elem.ptr != nullptr);
 
     Elem* data{ self.data };
     size_t elem_stride{ self.elem_stride };
@@ -629,201 +598,223 @@ constexpr void circular_array::Cntr<Elem>::Refer(
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
         seq_cntr::op_check::CanRefer(idx, 1, elem_cnt));
 
-    Elem* elem{ idx < elem_cnt
-                    ? (ReferElem)(data, elem_stride, slot_cnt, rot, idx)
-                    : nullptr };
+    lifecycle::ForwardStorageView<decltype(self), Elem> elem_view{
+        idx < elem_cnt ? (ReferElem)(data, elem_stride, slot_cnt, rot, idx)
+                       : nullptr
+    };
 
-    if (dst_elem_ptr_view != nullptr) {
-        dst_elem_ptr_view->ptr = elem;
-
-        if constexpr (meta::IsConst<decltype(self)>) {
-            dst_elem_ptr_view->aliasability =
-                elem == nullptr
-                    ? seq_cntr::ElemPtrView::AliasabilityEnum::Null
-                    : seq_cntr::ElemPtrView::AliasabilityEnum::ReadOnly;
-        } else {
-            dst_elem_ptr_view->aliasability =
-                elem == nullptr
-                    ? seq_cntr::ElemPtrView::AliasabilityEnum::Null
-                    : seq_cntr::ElemPtrView::AliasabilityEnum::ReadWrite;
-        }
-    }
+    if (dst_elem_view != nullptr) { *dst_elem_view = elem_view; }
 
     if (dst_cursor != nullptr) {
-        dst_cursor->cntr = &self;
         dst_cursor->idx = idx;
-        dst_cursor->elem = elem;
+
+#if ZETA_Core_DebugEnable
+        dst_cursor->stamp = self.stamp;
+#endif
     }
 
-    if (elem != nullptr && !lazy_copy_elem && dst_elem != nullptr) {
-        lifecycle::DataTransfer(
-            lifecycle::DeriveDataTransferOp(
-                dst_elem_life_state, lifecycle::DataTransferSemantics::Copy),
-            dst_elem, *elem);
+    if (elem_view.ptr != nullptr && !lazy_copy_elem &&
+        dst_elem.ptr != nullptr) {
+        lifecycle::StorageTransfer(dst_elem, elem_view);
     }
 }
 
-template <typename Elem>
-template <typename DstElem>
+template <meta::IsObj Elem>
+template <lifecycle::IsDstStorageView DstStorageView>
 constexpr void circular_array::Cntr<Elem>::Derefer(
-    this auto& self, seq_cntr::Tag, Cursor const* pos_cursor,
-    bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
-    lifecycle::DataLifeState dst_elem_life_state, DstElem* dst_elem) {
+    this auto&& self, seq_cntr::Tag, Cursor const* pos_cursor,
+    bool lazy_copy_elem, lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+    DstStorageView dst_elem) {
     detail::CheckCursor_(self, pos_cursor);
 
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_elem_ptr_view != nullptr ||
-                                            dst_elem != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_elem_view != nullptr ||
+                                            dst_elem.ptr != nullptr);
 
-    Elem* elem{ static_cast<Elem*>(pos_cursor->elem) };
+    Elem* data{ self.data };
+    size_t elem_stride{ self.elem_stride };
+    size_t elem_cnt{ self.elem_cnt };
+    size_t slot_cnt{ self.slot_cnt };
+    size_t rot{ self.rot };
 
-    if (dst_elem_ptr_view != nullptr) {
-        dst_elem_ptr_view->ptr = elem;
+    size_t idx{ pos_cursor->idx };
 
-        if constexpr (meta::IsConst<decltype(self)>) {
-            dst_elem_ptr_view->aliasability =
-                elem == nullptr
-                    ? seq_cntr::ElemPtrView::AliasabilityEnum::Null
-                    : seq_cntr::ElemPtrView::AliasabilityEnum::ReadOnly;
-        } else {
-            dst_elem_ptr_view->aliasability =
-                elem == nullptr
-                    ? seq_cntr::ElemPtrView::AliasabilityEnum::Null
-                    : seq_cntr::ElemPtrView::AliasabilityEnum::ReadWrite;
-        }
-    }
+    lifecycle::ForwardStorageView<decltype(self), Elem> elem_view{
+        idx < elem_cnt ? (ReferElem)(data, elem_stride, slot_cnt, rot, idx)
+                       : nullptr
+    };
 
-    if (elem != nullptr && !lazy_copy_elem && dst_elem != nullptr) {
-        lifecycle::DataTransfer(
-            lifecycle::DeriveDataTransferOp(
-                dst_elem_life_state, lifecycle::DataTransferSemantics::Copy),
-            dst_elem, *elem);
+    if (dst_elem_view != nullptr) { *dst_elem_view = elem_view; }
+
+    if (elem_view.ptr != nullptr && !lazy_copy_elem &&
+        dst_elem.ptr != nullptr) {
+        lifecycle::StorageTransfer(dst_elem, elem_view);
     }
 }
 
 namespace circular_array::detail {
 
-template <seq_endpoint::Type type, typename Elem, typename Endpoint>
-void ReadWrite_  // NOLINT(misc-use-internal-linkage)
-    (Cntr<Elem>& self, size_t idx, size_t cnt, Endpoint&& endpoint,
-     Cursor* dst_cursor) {
-    static_assert(type == seq_endpoint::Type::Acceptor ||
-                  type == seq_endpoint::Type::Provider);
+enum struct ReadWriteOpType_ : unsigned char {
+    Read,
+    Write,
+    ReadWrite,
+};
+
+template <lifecycle::StorageSemantics cntr_semantics, meta::IsObj Elem,
+          ReadWriteOpType_ op_type,
+          typename Endpoint>
+constexpr void ReadWriteOp_  // NOLINT(misc-use-internal-linkage)
+    (lifecycle::StorageView<cntr_semantics, Cntr<Elem>> self_view,
+     meta::ValueWrapper<ReadWriteOpType_, op_type>, size_t idx, size_t cnt,
+     Endpoint&& endpoint, Cursor* dst_cursor) {
+    static_assert(cntr_semantics == lifecycle::StorageSemantics::LeftObj ||
+                  cntr_semantics == lifecycle::StorageSemantics::ConstLeftObj ||
+                  cntr_semantics == lifecycle::StorageSemantics::RightObj ||
+                  cntr_semantics == lifecycle::StorageSemantics::ConstRightObj);
+
+    static_assert(op_type == ReadWriteOpType_::Read ||
+                  op_type == ReadWriteOpType_::Write ||
+                  op_type == ReadWriteOpType_::ReadWrite);
+
+    auto&& self{ self_view.GetRef() };
 
     (CheckCntr_)(self);
 
     Elem* data{ self.data };
     size_t elem_stride{ self.elem_stride };
-    size_t rot{ self.rot };
     size_t elem_cnt{ self.elem_cnt };
     size_t slot_cnt{ self.slot_cnt };
+    size_t rot{ self.rot };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
         seq_cntr::op_check::CanDerefer(idx, cnt, elem_cnt));
 
-    while (0 < cnt) {
-        size_t cur_cnt{ comparison_utils::BasicMin(
-            cnt, (GetLongestContSucr)(elem_cnt, slot_cnt, rot, idx)) };
-
-        Elem* elem{ (ReferElem)(data, elem_stride, slot_cnt, rot, idx) };
-
-        if constexpr (type == seq_endpoint::Type::Acceptor) {
-            seq_endpoint::acceptor::Transfer(
-                endpoint, lifecycle::DataTransferSemantics::Copy, elem,
-                static_cast<ptrdiff_t>(elem_stride), cur_cnt);
-        } else if constexpr (type == seq_endpoint::Type::Provider) {
-            seq_endpoint::provider::Transfer(
-                endpoint, lifecycle::DataLifeState::Obj, elem,
-                static_cast<ptrdiff_t>(elem_stride), cur_cnt);
-        } else {
-            ZETA_Core_DebugUtils_Diag_Unreachable();
-        }
-
-        idx += cur_cnt;
-        cnt -= cur_cnt;
+    if constexpr ((op_type == ReadWriteOpType_::Write ||
+                   op_type == ReadWriteOpType_::ReadWrite) &&
+                  (cntr_semantics == lifecycle::StorageSemantics::LeftObj ||
+                   cntr_semantics == lifecycle::StorageSemantics::RightObj)) {
+#if ZETA_Core_DebugEnable
+        self.stamp = debug_utils::revision::GetStamp();
+#endif
     }
 
+    if constexpr (op_type == ReadWriteOpType_::Read ||
+                  op_type == ReadWriteOpType_::ReadWrite) {
+        (EndpointTransfer_)(
+            seq_endpoint::acceptor::Tag{},
+            lifecycle::StorageView<cntr_semantics, Elem>{ data }, elem_stride,
+            rot, elem_cnt, slot_cnt, idx, cnt, endpoint);
+    } else if constexpr (op_type == ReadWriteOpType_::Write) {
+        (EndpointTransfer_)(
+            seq_endpoint::provider::Tag{},
+            lifecycle::StorageView<cntr_semantics, Elem>{ data }, elem_stride,
+            rot, elem_cnt, slot_cnt, idx, cnt, endpoint);
+    } else {
+        static_assert(false);
+    }
+
+    idx += cnt;
+
     if (dst_cursor != nullptr) {
-        dst_cursor->cntr = &self;
         dst_cursor->idx = idx;
-        dst_cursor->elem =
-            idx < elem_cnt ? (ReferElem)(data, elem_stride, slot_cnt, rot, idx)
-                           : nullptr;
+
+#if ZETA_Core_DebugEnable
+        dst_cursor->stamp = self.stamp;
+#endif
     }
 }
 
 }  // namespace circular_array::detail
 
-template <typename Elem>
+template <meta::IsObj Elem>
 template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
-constexpr void circular_array::Cntr<Elem>::Read(this Cntr const& self,
-                                                seq_cntr::Tag,
+constexpr void circular_array::Cntr<Elem>::Read(this auto&& self, seq_cntr::Tag,
                                                 Cursor const* pos_cursor,
                                                 size_t cnt, Acceptor&& acceptor,
                                                 Cursor* dst_cursor) {
     detail::CheckCursor_(self, pos_cursor);
 
-    detail::ReadWrite_<seq_endpoint::Type::Acceptor>(
-        const_cast<Cntr&>(self), pos_cursor->idx, cnt, acceptor, dst_cursor);
+    detail::ReadWriteOp_(
+        lifecycle::MakeStorageView(meta::Forward<decltype(self)>(self)),
+        meta::AutoValueWrapper<detail::ReadWriteOpType_::Read>{},
+        pos_cursor->idx, cnt, acceptor, dst_cursor);
+
+#if ZETA_Core_DebugEnable
+    pos_cursor->stamp = self.stamp;
+#endif
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 template <seq_endpoint::provider::IsProvider<Elem> Provider>
-constexpr void circular_array::Cntr<Elem>::Write(this Cntr& self, seq_cntr::Tag,
-                                                 Cursor const* pos_cursor,
-                                                 size_t cnt,
-                                                 Provider&& provider,
-                                                 Cursor* dst_cursor) {
+constexpr void circular_array::Cntr<Elem>::Write(
+    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag,
+    Cursor const* pos_cursor, size_t cnt, Provider&& provider,
+    Cursor* dst_cursor) {
     detail::CheckCursor_(self, pos_cursor);
 
-    detail::ReadWrite_<seq_endpoint::Type::Provider>(self, pos_cursor->idx, cnt,
-                                                     provider, dst_cursor);
+    detail::ReadWriteOp_(
+        lifecycle::MakeStorageView(meta::Forward<decltype(self)>(self)),
+        meta::AutoValueWrapper<detail::ReadWriteOpType_::Write>{},
+        pos_cursor->idx, cnt, provider, dst_cursor);
+
+#if ZETA_Core_DebugEnable
+    pos_cursor->stamp = self.stamp;
+#endif
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
 constexpr void circular_array::Cntr<Elem>::ReadWrite(
-    this Cntr& self, seq_cntr::Tag, Cursor const* pos_cursor, size_t cnt,
-    Acceptor&& acceptor, Cursor* dst_cursor) {
+    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag,
+    Cursor const* pos_cursor, size_t cnt, Acceptor&& acceptor,
+    Cursor* dst_cursor) {
     detail::CheckCursor_(self, pos_cursor);
 
-    detail::ReadWrite_<seq_endpoint::Type::Acceptor>(self, pos_cursor->idx, cnt,
-                                                     acceptor, dst_cursor);
+    detail::ReadWriteOp_(
+        lifecycle::MakeStorageView(meta::Forward<decltype(self)>(self)),
+        meta::AutoValueWrapper<detail::ReadWriteOpType_::ReadWrite>{},
+        pos_cursor->idx, cnt, acceptor, dst_cursor);
+
+#if ZETA_Core_DebugEnable
+    pos_cursor->stamp = self.stamp;
+#endif
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
-constexpr void circular_array::Cntr<Elem>::IdxRead(this Cntr const& self,
-                                                   size_t idx, size_t cnt,
+constexpr void circular_array::Cntr<Elem>::IdxRead(this auto&& self, size_t idx,
+                                                   size_t cnt,
                                                    Acceptor&& acceptor) {
-    detail::ReadWrite_<seq_endpoint::Type::Acceptor>(
-        const_cast<Cntr&>(self), idx, cnt, acceptor, nullptr);
+    detail::ReadWriteOp_(
+        lifecycle::MakeStorageView(meta::Forward<decltype(self)>(self)),
+        meta::AutoValueWrapper<detail::ReadWriteOpType_::Read>{}, idx, cnt,
+        acceptor, nullptr);
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 template <seq_endpoint::provider::IsProvider<Elem> Provider>
-constexpr void circular_array::Cntr<Elem>::IdxWrite(this Cntr& self, size_t idx,
-                                                    size_t cnt,
-                                                    Provider&& provider) {
-    detail::ReadWrite_<seq_endpoint::Type::Provider>(self, idx, cnt, provider,
-                                                     nullptr);
+constexpr void circular_array::Cntr<Elem>::IdxWrite(
+    this meta::IsNonConstWithoutRef auto&& self, size_t idx, size_t cnt,
+    Provider&& provider) {
+    detail::ReadWriteOp_(
+        self, meta::AutoValueWrapper<detail::ReadWriteOpType_::Write>{}, idx,
+        cnt, provider, nullptr);
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
-constexpr void circular_array::Cntr<Elem>::IdxReadWrite(this Cntr& self,
-                                                        size_t idx, size_t cnt,
-                                                        Acceptor&& acceptor) {
-    detail::ReadWrite_<seq_endpoint::Type::Acceptor>(self, idx, cnt, acceptor,
-                                                     nullptr);
+constexpr void circular_array::Cntr<Elem>::IdxReadWrite(
+    this meta::IsNonConstWithoutRef auto&& self, size_t idx, size_t cnt,
+    Acceptor&& acceptor) {
+    detail::ReadWriteOp_(
+        self, meta::AutoValueWrapper<detail::ReadWriteOpType_::ReadWrite>{},
+        idx, cnt, acceptor, nullptr);
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 template <seq_endpoint::provider::IsProvider<Elem> Provider>
-constexpr void circular_array::Cntr<Elem>::PushL(this Cntr& self, seq_cntr::Tag,
-                                                 size_t cnt,
-                                                 Provider&& provider,
-                                                 Cursor* dst_beg_cursor,
-                                                 Cursor* dst_end_cursor) {
+constexpr void circular_array::Cntr<Elem>::PushL(
+    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag, size_t cnt,
+    Provider&& provider, Cursor* dst_beg_cursor, Cursor* dst_end_cursor) {
     detail::CheckCntr_(self);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_beg_cursor == nullptr ||
@@ -833,31 +824,27 @@ constexpr void circular_array::Cntr<Elem>::PushL(this Cntr& self, seq_cntr::Tag,
     self.IdxInsert(0, cnt, provider);
 
     if (dst_beg_cursor != nullptr) {
-        dst_beg_cursor->cntr = &self;
         dst_beg_cursor->idx = 0;
-        dst_beg_cursor->elem = 0 < self.elem_cnt
-                                   ? (ReferElem)(self.data, self.elem_stride,
-                                                 self.slot_cnt, self.rot, 0)
-                                   : nullptr;
+
+#if ZETA_Core_DebugEnable
+        dst_beg_cursor->stamp = self.stamp;
+#endif
     }
 
     if (dst_end_cursor != nullptr) {
-        dst_end_cursor->cntr = &self;
         dst_end_cursor->idx = cnt;
-        dst_end_cursor->elem = cnt < self.elem_cnt
-                                   ? (ReferElem)(self.data, self.elem_stride,
-                                                 self.slot_cnt, self.rot, cnt)
-                                   : nullptr;
+
+#if ZETA_Core_DebugEnable
+        dst_end_cursor->stamp = self.stamp;
+#endif
     }
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 template <seq_endpoint::provider::IsProvider<Elem> Provider>
-constexpr void circular_array::Cntr<Elem>::PushR(this Cntr& self, seq_cntr::Tag,
-                                                 size_t cnt,
-                                                 Provider&& provider,
-                                                 Cursor* dst_beg_cursor,
-                                                 Cursor* dst_end_cursor) {
+constexpr void circular_array::Cntr<Elem>::PushR(
+    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag, size_t cnt,
+    Provider&& provider, Cursor* dst_beg_cursor, Cursor* dst_end_cursor) {
     detail::CheckCntr_(self);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_beg_cursor == nullptr ||
@@ -869,56 +856,51 @@ constexpr void circular_array::Cntr<Elem>::PushR(this Cntr& self, seq_cntr::Tag,
     self.IdxInsert(old_elem_cnt, cnt, provider);
 
     if (dst_beg_cursor != nullptr) {
-        dst_beg_cursor->cntr = &self;
         dst_beg_cursor->idx = old_elem_cnt;
-        dst_beg_cursor->elem =
-            old_elem_cnt < self.elem_cnt
-                ? (ReferElem)(self.data, self.elem_stride, self.slot_cnt,
-                              self.rot, old_elem_cnt)
-                : nullptr;
+
+#if ZETA_Core_DebugEnable
+        dst_beg_cursor->stamp = self.stamp;
+#endif
     }
 
     if (dst_end_cursor != nullptr) {
-        dst_end_cursor->cntr = &self;
         dst_end_cursor->idx = self.elem_cnt;
-        dst_end_cursor->elem = nullptr;
+
+#if ZETA_Core_DebugEnable
+        dst_end_cursor->stamp = self.stamp;
+#endif
     }
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 template <seq_endpoint::provider::IsProvider<Elem> Provider>
 constexpr void circular_array::Cntr<Elem>::Insert(
-    this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor, size_t cnt,
-    Provider&& provider, Cursor* dst_cursor) {
+    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag,
+    Cursor* pos_cursor, size_t cnt, Provider&& provider, Cursor* dst_cursor) {
     detail::CheckCursor_(self, pos_cursor);
 
     size_t idx{ pos_cursor->idx };
 
     self.IdxInsert(idx, cnt, provider);
 
-    Elem* data{ self.data };
-    size_t elem_stride{ self.elem_stride };
-    size_t elem_cnt{ self.elem_cnt };
-    size_t slot_cnt{ self.slot_cnt };
-    size_t rot{ self.rot };
-
-    pos_cursor->elem = (ReferElem)(data, elem_stride, slot_cnt, rot, idx);
+#if ZETA_Core_DebugEnable
+    pos_cursor->stamp = self.stamp;
+#endif
 
     if (dst_cursor != nullptr) {
-        dst_cursor->cntr = &self;
         dst_cursor->idx = idx + cnt;
-        dst_cursor->elem =
-            idx + cnt < elem_cnt
-                ? (ReferElem)(data, elem_stride, slot_cnt, rot, idx + cnt)
-                : nullptr;
+
+#if ZETA_Core_DebugEnable
+        dst_cursor->stamp = self.stamp;
+#endif
     }
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 template <seq_endpoint::provider::IsProvider<Elem> Provider>
-constexpr void circular_array::Cntr<Elem>::IdxInsert(this Cntr& self,
-                                                     size_t idx, size_t cnt,
-                                                     Provider&& provider) {
+constexpr void circular_array::Cntr<Elem>::IdxInsert(
+    this meta::IsNonConstWithoutRef auto&& self, size_t idx, size_t cnt,
+    Provider&& provider) {
     detail::CheckCntr_(self);
 
     Elem* data{ self.data };
@@ -927,108 +909,127 @@ constexpr void circular_array::Cntr<Elem>::IdxInsert(this Cntr& self,
     size_t slot_cnt{ self.slot_cnt };
     size_t rot{ self.rot };
 
-    if (cnt == 0) { return; }
-
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
         seq_cntr::op_check::CanInsert(idx, cnt, elem_cnt, slot_cnt));
 
-    size_t l_size{ idx };
-    size_t r_size{ elem_cnt - idx };
+#if ZETA_Core_DebugEnable
+    self.stamp = debug_utils::revision::GetStamp();
+#endif
+
+    if (cnt == 0) { return; }
+
+    size_t l_cnt{ idx };
+    size_t r_cnt{ elem_cnt - idx };
 
     self.elem_cnt = elem_cnt += cnt;
 
     unsigned long long random_seed{ utils::GetRandom() };
 
-    if (utils::Choose2(l_size <= r_size, r_size <= l_size, &random_seed) == 0) {
+    switch (utils::Choose2(l_cnt <= r_cnt, r_cnt <= l_cnt, &random_seed)) {
+    case utils::Choose2Result::Case0: {
         self.rot = rot = (rot < cnt ? rot + slot_cnt : rot) - cnt;
 
-        if (l_size < cnt) {
-            detail::ForwardTransfer_(
-                meta::AutoValueWrapper<
-                    lifecycle::DataTransferOp::MoveConstruct>{},
-                data, data, elem_stride, elem_stride, rot, rot, elem_cnt,
-                elem_cnt, slot_cnt, slot_cnt, 0, cnt, l_size);
+        if (l_cnt < cnt) {
+            detail::DataTransfer_(
+                meta::AutoValueWrapper<detail::Direction_::R>{},
+                lifecycle::ConstructingMemToObjView<Elem>{ data },
+                lifecycle::RightObjView<Elem>{ data }, elem_stride, elem_stride,
+                rot, rot, elem_cnt, elem_cnt, slot_cnt, slot_cnt, 0, cnt,
+                l_cnt);
 
-            detail::ProviderTransfer_(lifecycle::DataLifeState::Mem, data,
-                                      elem_stride, rot, elem_cnt, slot_cnt,
-                                      l_size, cnt - l_size, provider);
+            detail::EndpointTransfer_(
+                seq_endpoint::provider::Tag{},
+                lifecycle::ConstructingMemToObjView<Elem>{ data }, elem_stride,
+                rot, elem_cnt, slot_cnt, l_cnt, cnt - l_cnt, provider);
 
-            detail::ProviderTransfer_(lifecycle::DataLifeState::Obj, data,
+            detail::EndpointTransfer_(seq_endpoint::provider::Tag{},
+                                      lifecycle::LeftObjView<Elem>{ data },
                                       elem_stride, rot, elem_cnt, slot_cnt, cnt,
-                                      l_size, provider);
+                                      l_cnt, provider);
         } else {
-            detail::ForwardTransfer_(
-                meta::AutoValueWrapper<
-                    lifecycle::DataTransferOp::MoveConstruct>{},
-                data, data, elem_stride, elem_stride, rot, rot, elem_cnt,
-                elem_cnt, slot_cnt, slot_cnt, 0, cnt, cnt);
+            detail::DataTransfer_(
+                meta::AutoValueWrapper<detail::Direction_::R>{},
+                lifecycle::ConstructingMemToObjView<Elem>{ data },
+                lifecycle::RightObjView<Elem>{ data }, elem_stride, elem_stride,
+                rot, rot, elem_cnt, elem_cnt, slot_cnt, slot_cnt, 0, cnt, cnt);
 
-            if (cnt < l_size) {
-                detail::ForwardTransfer_(
-                    meta::AutoValueWrapper<
-                        lifecycle::DataTransferOp::MoveAssign>{},
-                    data, data, elem_stride, elem_stride, rot, rot, elem_cnt,
-                    elem_cnt, slot_cnt, slot_cnt, cnt, cnt + cnt, l_size - cnt);
-            }
+            detail::DataTransfer_(
+                meta::AutoValueWrapper<detail::Direction_::R>{},
+                lifecycle::LeftObjView<Elem>{ data },
+                lifecycle::RightObjView<Elem>{ data }, elem_stride, elem_stride,
+                rot, rot, elem_cnt, elem_cnt, slot_cnt, slot_cnt, cnt,
+                cnt + cnt, l_cnt - cnt);
 
-            detail::ProviderTransfer_(lifecycle::DataLifeState::Obj, data,
+            detail::EndpointTransfer_(seq_endpoint::provider::Tag{},
+                                      lifecycle::LeftObjView<Elem>{ data },
                                       elem_stride, rot, elem_cnt, slot_cnt,
-                                      l_size, cnt, provider);
+                                      l_cnt, cnt, provider);
         }
-    } else {
-        if (r_size < cnt) {
-            detail::BackwardTransfer_(
-                meta::AutoValueWrapper<
-                    lifecycle::DataTransferOp::MoveConstruct>{},
-                data, data, elem_stride, elem_stride, rot, rot, elem_cnt,
-                elem_cnt, slot_cnt, slot_cnt, l_size + cnt, l_size, r_size);
 
-            detail::ProviderTransfer_(lifecycle::DataLifeState::Obj, data,
-                                      elem_stride, rot, elem_cnt, slot_cnt,
-                                      l_size, r_size, provider);
+        break;
+    }
 
-            detail::ProviderTransfer_(lifecycle::DataLifeState::Mem, data,
+    case utils::Choose2Result::Case1: {
+        if (r_cnt < cnt) {
+            detail::DataTransfer_(
+                meta::AutoValueWrapper<detail::Direction_::L>{},
+                lifecycle::ConstructingMemToObjView<Elem>{ data },
+                lifecycle::RightObjView<Elem>{ data }, elem_stride, elem_stride,
+                rot, rot, elem_cnt, elem_cnt, slot_cnt, slot_cnt, l_cnt + cnt,
+                l_cnt, r_cnt);
+
+            detail::EndpointTransfer_(seq_endpoint::provider::Tag{},
+                                      lifecycle::LeftObjView<Elem>{ data },
                                       elem_stride, rot, elem_cnt, slot_cnt,
-                                      l_size + r_size, cnt - r_size, provider);
+                                      l_cnt, r_cnt, provider);
+
+            detail::EndpointTransfer_(
+                seq_endpoint::provider::Tag{},
+                lifecycle::ConstructingMemToObjView<Elem>{ data }, elem_stride,
+                rot, elem_cnt, slot_cnt, l_cnt + r_cnt, cnt - r_cnt, provider);
         } else {
-            detail::ForwardTransfer_(
-                meta::AutoValueWrapper<
-                    lifecycle::DataTransferOp::MoveConstruct>{},
-                data, data, elem_stride, elem_stride, rot, rot, elem_cnt,
-                elem_cnt, slot_cnt, slot_cnt, l_size + r_size,
-                l_size + r_size - cnt, cnt);
+            detail::DataTransfer_(
+                meta::AutoValueWrapper<detail::Direction_::L>{},
+                lifecycle::ConstructingMemToObjView<Elem>{ data },
+                lifecycle::RightObjView<Elem>{ data }, elem_stride, elem_stride,
+                rot, rot, elem_cnt, elem_cnt, slot_cnt, slot_cnt, l_cnt + r_cnt,
+                l_cnt + r_cnt - cnt, cnt);
 
-            if (cnt < r_size) {
-                detail::BackwardTransfer_(
-                    meta::AutoValueWrapper<
-                        lifecycle::DataTransferOp::MoveAssign>{},
-                    data, data, elem_stride, elem_stride, rot, rot, elem_cnt,
-                    elem_cnt, slot_cnt, slot_cnt, l_size + cnt, l_size,
-                    r_size - cnt);
-            }
+            detail::DataTransfer_(
+                meta::AutoValueWrapper<detail::Direction_::L>{},
+                lifecycle::LeftObjView<Elem>{ data },
+                lifecycle::RightObjView<Elem>{ data }, elem_stride, elem_stride,
+                rot, rot, elem_cnt, elem_cnt, slot_cnt, slot_cnt, l_cnt + cnt,
+                l_cnt, r_cnt - cnt);
 
-            detail::ProviderTransfer_(lifecycle::DataLifeState::Obj, data,
+            detail::EndpointTransfer_(seq_endpoint::provider::Tag{},
+                                      lifecycle::LeftObjView<Elem>{ data },
                                       elem_stride, rot, elem_cnt, slot_cnt,
-                                      l_size, cnt, provider);
+                                      l_cnt, cnt, provider);
         }
+
+        break;
+    }
+
+    default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
-constexpr void circular_array::Cntr<Elem>::PopL(this Cntr& self, seq_cntr::Tag,
-                                                size_t cnt, Acceptor&& acceptor,
-                                                Cursor* dst_cursor) {
+constexpr void circular_array::Cntr<Elem>::PopL(
+    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag, size_t cnt,
+    Acceptor&& acceptor, Cursor* dst_cursor) {
     detail::CheckCntr_(self);
 
     self.IdxErase(0, cnt, acceptor, dst_cursor);
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
-constexpr void circular_array::Cntr<Elem>::PopR(this Cntr& self, seq_cntr::Tag,
-                                                size_t cnt, Acceptor&& acceptor,
-                                                Cursor* dst_cursor) {
+constexpr void circular_array::Cntr<Elem>::PopR(
+    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag, size_t cnt,
+    Acceptor&& acceptor, Cursor* dst_cursor) {
     detail::CheckCntr_(self);
 
     size_t elem_cnt{ self.elem_cnt };
@@ -1036,29 +1037,23 @@ constexpr void circular_array::Cntr<Elem>::PopR(this Cntr& self, seq_cntr::Tag,
     self.IdxErase(elem_cnt - cnt, cnt, acceptor, dst_cursor);
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
-constexpr void circular_array::Cntr<Elem>::Erase(this Cntr& self, seq_cntr::Tag,
-                                                 Cursor* pos_cursor, size_t cnt,
-                                                 Acceptor&& acceptor) {
+constexpr void circular_array::Cntr<Elem>::Erase(
+    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag,
+    Cursor* pos_cursor, size_t cnt, Acceptor&& acceptor) {
     detail::CheckCursor_(self, pos_cursor);
 
     size_t idx{ pos_cursor->idx };
 
     self.IdxErase(idx, cnt, acceptor, pos_cursor);
-
-    pos_cursor->elem = idx < self.elem_cnt
-                           ? (ReferElem)(self.data, self.elem_stride,
-                                         self.slot_cnt, self.rot, idx)
-                           : nullptr;
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
-constexpr void circular_array::Cntr<Elem>::IdxErase(this Cntr& self, size_t idx,
-                                                    size_t cnt,
-                                                    Acceptor&& acceptor,
-                                                    Cursor* dst_cursor) {
+constexpr void circular_array::Cntr<Elem>::IdxErase(
+    this meta::IsNonConstWithoutRef auto&& self, size_t idx, size_t cnt,
+    Acceptor&& acceptor, Cursor* dst_cursor) {
     detail::CheckCntr_(self);
 
     Elem* data{ self.data };
@@ -1070,46 +1065,116 @@ constexpr void circular_array::Cntr<Elem>::IdxErase(this Cntr& self, size_t idx,
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
         seq_cntr::op_check::CanErase(idx, cnt, elem_cnt));
 
+#if ZETA_Core_DebugEnable
+    self.stamp = debug_utils::revision::GetStamp();
+#endif
+
     if (cnt == 0) {
         if (dst_cursor != nullptr) {
-            dst_cursor->cntr = &self;
             dst_cursor->idx = idx;
-            dst_cursor->elem = idx < elem_cnt ? (ReferElem)(data, elem_stride,
-                                                            slot_cnt, rot, idx)
-                                              : nullptr;
+
+#if ZETA_Core_DebugEnable
+            dst_cursor->stamp = self.stamp;
+#endif
         }
 
         return;
     }
 
-    size_t l_size{ idx };
-    size_t r_size{ elem_cnt - idx - cnt };
+    size_t l_cnt{ idx };
+    size_t r_cnt{ elem_cnt - idx - cnt };
 
     unsigned long long random_seed{ utils::GetRandom() };
 
-    detail::AcceptorTransfer_(lifecycle::DataTransferSemantics::Reloc, data,
-                              elem_stride, rot, elem_cnt, slot_cnt, idx, cnt,
-                              acceptor);
+    switch (utils::Choose2(l_cnt <= r_cnt, r_cnt <= l_cnt, &random_seed)) {
+    case utils::Choose2Result::Case0: {
+        if (l_cnt < cnt) {
+            detail::EndpointTransfer_(
+                seq_endpoint::acceptor::Tag{},
+                lifecycle::DestructingObjToMemView<Elem>{ data }, elem_stride,
+                rot, elem_cnt, slot_cnt, l_cnt, cnt - l_cnt, acceptor);
 
-    if (utils::Choose2(l_size <= r_size, r_size <= l_size, &random_seed) == 0) {
-        if (0 < l_size) {
-            detail::BackwardTransfer_(
-                meta::AutoValueWrapper<
-                    lifecycle::DataTransferOp::RelocConstruct>{},
-                data, data, elem_stride, elem_stride, rot, rot, elem_cnt,
-                elem_cnt, slot_cnt, slot_cnt, cnt, 0, l_size);
+            detail::EndpointTransfer_(seq_endpoint::acceptor::Tag{},
+                                      lifecycle::RightObjView<Elem>{ data },
+                                      elem_stride, rot, elem_cnt, slot_cnt, cnt,
+                                      l_cnt, acceptor);
+
+            detail::DataTransfer_(
+                meta::AutoValueWrapper<detail::Direction_::L>{},
+                lifecycle::LeftObjView<Elem>{ data },
+                lifecycle::DestructingObjToMemView<Elem>{ data }, elem_stride,
+                elem_stride, rot, rot, elem_cnt, elem_cnt, slot_cnt, slot_cnt,
+                cnt, 0, l_cnt);
+        } else {
+            detail::EndpointTransfer_(seq_endpoint::acceptor::Tag{},
+                                      lifecycle::RightObjView<Elem>{ data },
+                                      elem_stride, rot, elem_cnt, slot_cnt,
+                                      l_cnt, cnt, acceptor);
+
+            detail::DataTransfer_(
+                meta::AutoValueWrapper<detail::Direction_::L>{},
+                lifecycle::LeftObjView<Elem>{ data },
+                lifecycle::RightObjView<Elem>{ data }, elem_stride, elem_stride,
+                rot, rot, elem_cnt, elem_cnt, slot_cnt, slot_cnt, cnt + cnt,
+                cnt, l_cnt - cnt);
+
+            detail::DataTransfer_(
+                meta::AutoValueWrapper<detail::Direction_::L>{},
+                lifecycle::LeftObjView<Elem>{ data },
+                lifecycle::DestructingObjToMemView<Elem>{ data }, elem_stride,
+                elem_stride, rot, rot, elem_cnt, elem_cnt, slot_cnt, slot_cnt,
+                cnt, 0, cnt);
         }
 
         rot += cnt;
         self.rot = rot = rot < slot_cnt ? rot : rot - slot_cnt;
-    } else {
-        if (0 < r_size) {
-            detail::ForwardTransfer_(
-                meta::AutoValueWrapper<
-                    lifecycle::DataTransferOp::RelocConstruct>{},
-                data, data, elem_stride, elem_stride, rot, rot, elem_cnt,
-                elem_cnt, slot_cnt, slot_cnt, l_size, l_size + cnt, r_size);
+
+        break;
+    }
+
+    case utils::Choose2Result::Case1: {
+        if (r_cnt < cnt) {
+            detail::EndpointTransfer_(seq_endpoint::acceptor::Tag{},
+                                      lifecycle::RightObjView<Elem>{ data },
+                                      elem_stride, rot, elem_cnt, slot_cnt,
+                                      l_cnt, r_cnt, acceptor);
+
+            detail::EndpointTransfer_(
+                seq_endpoint::acceptor::Tag{},
+                lifecycle::DestructingObjToMemView<Elem>{ data }, elem_stride,
+                rot, elem_cnt, slot_cnt, l_cnt + r_cnt, cnt - r_cnt, acceptor);
+
+            detail::DataTransfer_(
+                meta::AutoValueWrapper<detail::Direction_::R>{},
+                lifecycle::LeftObjView<Elem>{ data },
+                lifecycle::DestructingObjToMemView<Elem>{ data }, elem_stride,
+                elem_stride, rot, rot, elem_cnt, elem_cnt, slot_cnt, slot_cnt,
+                l_cnt, l_cnt + cnt, r_cnt);
+        } else {
+            detail::EndpointTransfer_(seq_endpoint::acceptor::Tag{},
+                                      lifecycle::RightObjView<Elem>{ data },
+                                      elem_stride, rot, elem_cnt, slot_cnt,
+                                      l_cnt, cnt, acceptor);
+
+            detail::DataTransfer_(
+                meta::AutoValueWrapper<detail::Direction_::R>{},
+                lifecycle::LeftObjView<Elem>{ data },
+                lifecycle::RightObjView<Elem>{ data }, elem_stride, elem_stride,
+                rot, rot, elem_cnt, elem_cnt, slot_cnt, slot_cnt, l_cnt,
+                l_cnt + cnt, r_cnt - cnt);
+
+            detail::DataTransfer_(
+                meta::AutoValueWrapper<detail::Direction_::R>{},
+                lifecycle::LeftObjView<Elem>{ data },
+                lifecycle::DestructingObjToMemView<Elem>{ data }, elem_stride,
+                elem_stride, rot, rot, elem_cnt, elem_cnt, slot_cnt, slot_cnt,
+                l_cnt + r_cnt - cnt, l_cnt + r_cnt, cnt);
         }
+
+        break;
+    }
+
+    default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 
     self.elem_cnt = (elem_cnt -= cnt);
@@ -1117,25 +1182,25 @@ constexpr void circular_array::Cntr<Elem>::IdxErase(this Cntr& self, size_t idx,
     if (elem_cnt == 0) { self.rot = rot = 0; }
 
     if (dst_cursor != nullptr) {
-        dst_cursor->cntr = &self;
         dst_cursor->idx = idx;
-        dst_cursor->elem =
-            idx < elem_cnt ? (ReferElem)(data, elem_stride, slot_cnt, rot, idx)
-                           : nullptr;
+
+#if ZETA_Core_DebugEnable
+        dst_cursor->stamp = self.stamp;
+#endif
     }
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
-constexpr void circular_array::Cntr<Elem>::EraseAll(this Cntr& self,
-                                                    seq_cntr::Tag,
-                                                    Acceptor&& acceptor) {
+constexpr void circular_array::Cntr<Elem>::EraseAll(
+    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag,
+    Acceptor&& acceptor) {
     detail::CheckCntr_(self);
 
     self.IdxErase(0, self.elem_cnt, acceptor, nullptr);
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr void circular_array::Cntr<Elem>::CopyCursor(this Cntr const& self,
                                                       seq_cntr::Tag,
                                                       Cursor const* src_cursor_,
@@ -1146,12 +1211,14 @@ constexpr void circular_array::Cntr<Elem>::CopyCursor(this Cntr const& self,
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_cursor != nullptr);
 
-    dst_cursor->cntr = &self;
     dst_cursor->idx = src_cursor->idx;
-    dst_cursor->elem = src_cursor->elem;
+
+#if ZETA_Core_DebugEnable
+    dst_cursor->stamp = self.stamp;
+#endif
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr bool circular_array::Cntr<Elem>::AreEqualCursor(
     this Cntr const& self, seq_cntr::Tag, Cursor const* cursor_a,
     Cursor const* cursor_b) {
@@ -1159,7 +1226,7 @@ constexpr bool circular_array::Cntr<Elem>::AreEqualCursor(
            self.GetCursorIdx(seq_cntr::Tag{}, cursor_b);
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr comparison::Ordering circular_array::Cntr<Elem>::CompareCursor(
     this Cntr const& self, seq_cntr::Tag, Cursor const* cursor_a,
     Cursor const* cursor_b) {
@@ -1169,7 +1236,7 @@ constexpr comparison::Ordering circular_array::Cntr<Elem>::CompareCursor(
         self.GetCursorIdx(seq_cntr::Tag{}, cursor_b) + 1);
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr size_t circular_array::Cntr<Elem>::GetCursorDist(
     this Cntr const& self, seq_cntr::Tag, Cursor const* cursor_a,
     Cursor const* cursor_b) {
@@ -1177,7 +1244,7 @@ constexpr size_t circular_array::Cntr<Elem>::GetCursorDist(
            self.GetCursorIdx(seq_cntr::Tag{}, cursor_a);
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr size_t circular_array::Cntr<Elem>::GetCursorIdx(
     this Cntr const& self, seq_cntr::Tag, Cursor const* cursor_) {
     Cursor const* cursor{ static_cast<Cursor const*>(cursor_) };
@@ -1187,32 +1254,26 @@ constexpr size_t circular_array::Cntr<Elem>::GetCursorIdx(
     return cursor->idx;
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr void circular_array::Cntr<Elem>::CursorStepL(this Cntr const& self,
                                                        seq_cntr::Tag,
                                                        Cursor* cursor) {
     self.CursorAdvanceL(seq_cntr::Tag{}, cursor, 1);
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr void circular_array::Cntr<Elem>::CursorStepR(this Cntr const& self,
                                                        seq_cntr::Tag,
                                                        Cursor* cursor) {
     self.CursorAdvanceR(seq_cntr::Tag{}, cursor, 1);
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr void circular_array::Cntr<Elem>::CursorAdvanceL(this Cntr const& self,
                                                           seq_cntr::Tag,
                                                           Cursor* cursor,
                                                           size_t step) {
     detail::CheckCursor_(self, cursor);
-
-    Elem* data{ self.data };
-    size_t elem_stride{ self.elem_stride };
-    size_t elem_cnt{ self.elem_cnt };
-    size_t slot_cnt{ self.slot_cnt };
-    size_t rot{ self.rot };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(step <= cursor->idx + 1);
 
@@ -1220,23 +1281,19 @@ constexpr void circular_array::Cntr<Elem>::CursorAdvanceL(this Cntr const& self,
 
     cursor->idx = idx;
 
-    cursor->elem = idx < elem_cnt
-                       ? (ReferElem)(data, elem_stride, slot_cnt, rot, idx)
-                       : nullptr;
+#if ZETA_Core_DebugEnable
+    cursor->stamp = self.stamp;
+#endif
 }
 
-template <typename Elem>
+template <meta::IsObj Elem>
 constexpr void circular_array::Cntr<Elem>::CursorAdvanceR(this Cntr const& self,
                                                           seq_cntr::Tag,
                                                           Cursor* cursor,
                                                           size_t step) {
     detail::CheckCursor_(self, cursor);
 
-    Elem* data{ self.data };
-    size_t elem_stride{ self.elem_stride };
     size_t elem_cnt{ self.elem_cnt };
-    size_t slot_cnt{ self.slot_cnt };
-    size_t rot{ self.rot };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(step <= elem_cnt - cursor->idx);
 
@@ -1244,19 +1301,18 @@ constexpr void circular_array::Cntr<Elem>::CursorAdvanceR(this Cntr const& self,
 
     cursor->idx = idx;
 
-    cursor->elem = idx < elem_cnt
-                       ? (ReferElem)(data, elem_stride, slot_cnt, rot, idx)
-                       : nullptr;
+#if ZETA_Core_DebugEnable
+    cursor->stamp = self.stamp;
+#endif
 }
 
-template <typename Elem>
-constexpr void circular_array::Cntr<Elem>::SanityCheck(
-    void const* cntr_, debug_utils::sanity::SanityCheckScope) {
-    Cntr const* cntr{ static_cast<Cntr const*>(cntr_) };
-
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(cntr != nullptr);
-
-    detail::CheckCntr_(*cntr);
-}
+static_assert(seq_cntr::IsSeqCntr<circular_array::Cntr<int>&>);
+static_assert(seq_cntr::IsSeqCntr<circular_array::Cntr<int> const&>);
+static_assert(seq_cntr::IsSeqCntr<circular_array::Cntr<int>&&>);
+static_assert(seq_cntr::IsSeqCntr<circular_array::Cntr<int> const&&>);
 
 }  // namespace zeta::core
+
+#if ZETA_Core_Editor
+#pragma pop_macro("ZETA_Core_DebugEnable")
+#endif

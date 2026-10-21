@@ -1,9 +1,9 @@
 #pragma once
 
-#pragma push_macro("EnDataNode")
+#pragma push_macro("DataNodeEn")
 
-#define EnDataNode 0
+#define DataNodeEn 0
 
 #include <zeta/core/multi_level_table.mpp.hpp>
 
-#pragma pop_macro("EnDataNode")
+#pragma pop_macro("DataNodeEn")

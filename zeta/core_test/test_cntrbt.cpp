@@ -2,7 +2,6 @@
 #include <zeta/core/basic_bin_tree_node.hpp>
 #include <zeta/core/basic_bin_tree_node.ipp>
 #include <zeta/core/bin_tree.ipp>
-#include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/integral.hpp>
@@ -16,7 +15,8 @@ using BinTreeNode = zeta::core::basic_bin_tree_node::Node<
     zeta::core::meta::AutoValueWrapper<true>,
     zeta::core::meta::AutoValueWrapper<false>,
     zeta::core::meta::AutoValueWrapper<true>,
-    zeta::core::basic_bin_tree_node::PrimaryColorTagEnum::P>;
+    zeta::core::meta::AutoValueWrapper<
+        zeta::core::basic_bin_tree_node::PrimaryColorTagEnum::P>>;
 
 struct Node {
     BinTreeNode n;
@@ -168,7 +168,7 @@ inline void CompareRL() {
 }
 
 inline void Sanitize() {
-    zeta::core::rbtree::Sanitize(nullptr, root);
+    zeta::core::rbtree::SanityCheck(nullptr, root);
     CompareLR();
     CompareRL();
 }

@@ -12,16 +12,17 @@ constexpr auto comparison::DecayOrdering(OpTag, Ordering ordering) {
     if constexpr (meta::IsSame<OpTag, OpTags::Order>) {
         return ordering;
     } else {
-        return (meta::ToUnderlying(OpTag::value) &
-                meta::ToUnderlying(ordering)) != 0;
+        return (meta::EnumToUnderlying(meta::GetValueWrapperValue<OpTag>) &
+                meta::EnumToUnderlying(ordering)) != 0;
     }
 }
 
 template <typename Comparator, comparison::IsOpTag OpTag, typename A,
           typename B>
-    requires comparison::CanCompare<Comparator, A, B>
 constexpr decltype(auto) comparison::Compare(Comparator const& cmptr, OpTag,
-                                             A const& a, B const& b) {
+                                             A const& a, B const& b)
+    requires CanCompare<Comparator, A, B>
+{
     return cmptr.Compare(Tag{}, OpTag{}, a, b);
 }
 
@@ -76,7 +77,8 @@ constexpr auto comparison::EmptyComparator::Compare(OpTag, A const&, B const&) {
     if constexpr (meta::IsSame<OpTag, OpTags::Order>) {
         return Ordering::Equal;
     } else {
-        return (meta::ToUnderlying(OpTag::value) & Bits::equal) != 0;
+        return (meta::EnumToUnderlying(meta::GetValueWrapperValue<OpTag>) &
+                Bits::equal) != 0;
     }
 }
 
@@ -109,55 +111,61 @@ comparison::CppStdBasicComparator<Op, A, B>::operator()(A const& a,
 }  // namespace zeta::core
 
 template <typename A, typename B>
+constexpr bool operator==(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
         zeta::core::meta::RemoveCVRef<A>,
         zeta::core::meta::RemoveCVRef<B>>::enable_equal
-constexpr bool operator==(A const& a, B const& b) {
+{
     return zeta::core::comparison::BasicCompare(
         zeta::core::comparison::OpTags::Equal{}, a, b);
 }
 
 template <typename A, typename B>
+constexpr bool operator!=(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
         zeta::core::meta::RemoveCVRef<A>,
         zeta::core::meta::RemoveCVRef<B>>::enable_not_equal
-constexpr bool operator!=(A const& a, B const& b) {
+{
     return zeta::core::comparison::BasicCompare(
         zeta::core::comparison::OpTags::NotEqual{}, a, b);
 }
 
 template <typename A, typename B>
+constexpr bool operator<(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
         zeta::core::meta::RemoveCVRef<A>,
         zeta::core::meta::RemoveCVRef<B>>::enable_less
-constexpr bool operator<(A const& a, B const& b) {
+{
     return zeta::core::comparison::BasicCompare(
         zeta::core::comparison::OpTags::Less{}, a, b);
 }
 
 template <typename A, typename B>
+constexpr bool operator<=(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
         zeta::core::meta::RemoveCVRef<A>,
         zeta::core::meta::RemoveCVRef<B>>::enable_less_equal
-constexpr bool operator<=(A const& a, B const& b) {
+{
     return zeta::core::comparison::BasicCompare(
         zeta::core::comparison::OpTags::LessEqual{}, a, b);
 }
 
 template <typename A, typename B>
+constexpr bool operator>(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
         zeta::core::meta::RemoveCVRef<A>,
         zeta::core::meta::RemoveCVRef<B>>::enable_greater
-constexpr bool operator>(A const& a, B const& b) {
+{
     return zeta::core::comparison::BasicCompare(
         zeta::core::comparison::OpTags::Greater{}, a, b);
 }
 
 template <typename A, typename B>
+constexpr bool operator>=(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
         zeta::core::meta::RemoveCVRef<A>,
         zeta::core::meta::RemoveCVRef<B>>::enable_greater_equal
-constexpr bool operator>=(A const& a, B const& b) {
+{
     return zeta::core::comparison::BasicCompare(
         zeta::core::comparison::OpTags::GreaterEqual{}, a, b);
 }

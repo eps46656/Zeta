@@ -3,6 +3,9 @@
 #include <zeta/core/comparison_utils.ipp>
 #include <zeta/core/integral_endec.hpp>
 #include <zeta/core/integral_math.ipp>
+#include <zeta/core/lifecycle.ipp>
+#include <zeta/core/lin_seq_endpoint.ipp>
+#include <zeta/core/meta.hpp>
 #include <zeta/core/pair.ipp>
 #include <zeta/core/seq_endpoint.ipp>
 #include <zeta/core/utils.hpp>
@@ -41,21 +44,24 @@ integral_endec::CanonicalizeIntegral(Integral value, Integral range_max) {
     };
 }
 
-template <seq_endpoint::acceptor::IsAcceptor Acceptor,
-          integral_endec::IsEndiannessLike EndiannessLike,
-          integral::IsUnsignedIntegral DigitIntegral, size_t DigitWidth,
-          typename DigitCntLike, integral::IsIntegral SrcIntegral>
+template <integral::IsUnsignedIntegral DigitIntegral,
+          integral_endec::IsEndiannessLike EndiannessLike, size_t DigitWidth,
+          typename DigitCntLike, integral::IsIntegral SrcIntegral,
+          seq_endpoint::acceptor::IsAcceptor<DigitIntegral> Acceptor>
     requires requires {
         requires 0 < DigitWidth;
         requires DigitWidth <= integral::WidthOf<DigitIntegral>;
+
+        requires meta::IsSame<DigitCntLike, size_t> ||
+                     meta::IsValueWrapperT<DigitCntLike, size_t>;
     }
 constexpr integral_endec::EncodeResult integral_endec::Encode(
-    Acceptor&& acceptor, EndiannessLike endianness_like,
-    meta::TypeWrapper<DigitIntegral>, meta::ValueWrapper<size_t, DigitWidth>,
-    DigitCntLike digit_cnt_like, SrcIntegral src_value) {
+    EndiannessLike endianness_like, meta::TypeWrapper<DigitIntegral>,
+    meta::ValueWrapper<size_t, DigitWidth>, DigitCntLike digit_cnt_like,
+    SrcIntegral src_value, Acceptor&& acceptor) {
     constexpr bool is_signed{ integral::IsSignedIntegral<SrcIntegral> };
 
-    using OpUnsignedIntegral = decltype([]() {
+    using OpUnsignedIntegral = meta::GetTypeWrapperType<decltype([]() {
         if constexpr (integral::WidthOf<SrcIntegral> <=
                       integral::WidthOf<unsigned>) {
             return meta::TypeWrapper<unsigned _BitInt(
@@ -80,7 +86,7 @@ constexpr integral_endec::EncodeResult integral_endec::Encode(
                                        DigitWidth) *
                 DigitWidth)>{};
         }
-    }())::Type;
+    }())>;
 
     Endianness endianness_value{ [=]() -> Endianness {
         if constexpr (meta::IsValueWrapperT<EndiannessLike, Endianness>) {
@@ -93,12 +99,12 @@ constexpr integral_endec::EncodeResult integral_endec::Encode(
     }() };
 
     size_t digit_cnt{ [=]() -> size_t {
-        if constexpr (meta::IsValueWrapperT<DigitCntLike, size_t>) {
-            static_assert(0 < DigitCntLike::value);
-            return DigitCntLike::value;
-        } else if constexpr (meta::IsSame<DigitCntLike, size_t>) {
+        if constexpr (meta::IsSame<DigitCntLike, size_t>) {
             ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < digit_cnt_like);
             return digit_cnt_like;
+        } else if constexpr (meta::IsValueWrapperT<DigitCntLike, size_t>) {
+            static_assert(0 < DigitCntLike::value);
+            return DigitCntLike::value;
         } else {
             static_assert(false);
         }
@@ -157,15 +163,16 @@ constexpr integral_endec::EncodeResult integral_endec::Encode(
 
         proc_highest_eff_digit(buffer[eff_digit_cnt - 1]);
 
-        seq_endpoint::acceptor::Transfer(acceptor, buffer,
-                                         sizeof(DigitIntegral),
-                                         sizeof(DigitIntegral), eff_digit_cnt);
+        seq_endpoint::acceptor::Transfer(
+            acceptor, lifecycle::LeftObjView<DigitIntegral>{ buffer },
+            sizeof(DigitIntegral), eff_digit_cnt);
 
         if (0 < exc_digit_cnt) {
             buffer[0] = is_neg ? digit_range_max : 0;
 
             seq_endpoint::acceptor::Transfer(
-                acceptor, buffer, sizeof(DigitIntegral), 0, exc_digit_cnt);
+                acceptor, lifecycle::LeftObjView<DigitIntegral>{ buffer }, 0,
+                exc_digit_cnt);
         }
 
         break;
@@ -176,7 +183,8 @@ constexpr integral_endec::EncodeResult integral_endec::Encode(
             buffer[0] = is_neg ? digit_range_max : 0;
 
             seq_endpoint::acceptor::Transfer(
-                acceptor, buffer, sizeof(DigitIntegral), 0, exc_digit_cnt);
+                acceptor, lifecycle::LeftObjView<DigitIntegral>{ buffer }, 0,
+                exc_digit_cnt);
         }
 
         for (size_t i{ eff_digit_cnt }; 0 < i--;) {
@@ -193,9 +201,9 @@ constexpr integral_endec::EncodeResult integral_endec::Encode(
 
         proc_highest_eff_digit(buffer[0]);
 
-        seq_endpoint::acceptor::Transfer(acceptor, buffer,
-                                         sizeof(DigitIntegral),
-                                         sizeof(DigitIntegral), eff_digit_cnt);
+        seq_endpoint::acceptor::Transfer(
+            acceptor, lifecycle::LeftObjView<DigitIntegral>{ buffer },
+            sizeof(DigitIntegral), eff_digit_cnt);
 
         break;
     }
@@ -214,21 +222,26 @@ constexpr integral_endec::EncodeResult integral_endec::Encode(
     };
 }
 
-template <seq_endpoint::provider::IsProvider Provider,
-          integral_endec::IsEndiannessLike EndiannessLike,
+template <integral_endec::IsEndiannessLike EndiannessLike,
           integral::IsUnsignedIntegral DigitIntegral, size_t DigitWidth,
-          typename DigitCntLike, integral::IsIntegral DstIntegral>
+          typename DigitCntLike, integral::IsIntegral DstIntegral,
+          seq_endpoint::provider::IsProvider<DigitIntegral> Provider>
     requires requires {
         requires 0 < DigitWidth;
         requires DigitWidth <= integral::WidthOf<DigitIntegral>;
+
+        requires meta::IsSame<DigitCntLike, size_t> ||
+                     meta::IsValueWrapperT<DigitCntLike, size_t> ||
+                     meta::IsSame<DigitCntLike,
+                                  integral_endec::VariableOctetCntTag>;
     }
 constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
-    Provider&& provider, EndiannessLike endianness_like,
-    meta::TypeWrapper<DigitIntegral>, meta::ValueWrapper<size_t, DigitWidth>,
-    DigitCntLike digit_cnt_like, meta::TypeWrapper<DstIntegral>) {
+    EndiannessLike endianness_like, meta::TypeWrapper<DigitIntegral>,
+    meta::ValueWrapper<size_t, DigitWidth>, DigitCntLike digit_cnt_like,
+    meta::TypeWrapper<DstIntegral>, Provider&& provider) {
     constexpr bool is_signed{ integral::IsSignedIntegral<DstIntegral> };
 
-    using OpUnsignedIntegral = decltype([]() {
+    using OpUnsignedIntegral = meta::GetTypeWrapperType<decltype([]() {
         if constexpr (integral::WidthOf<DstIntegral> <=
                       integral::WidthOf<unsigned>) {
             return meta::TypeWrapper<unsigned>{};
@@ -241,7 +254,7 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
         } else {
             return meta::TypeWrapper<integral::MakeUnsignedOf<DstIntegral>>{};
         }
-    }())::Type;
+    }())>;
 
     Endianness endianness_value{ [=]() -> Endianness {
         if constexpr (meta::IsValueWrapperT<EndiannessLike, Endianness>) {
@@ -263,15 +276,16 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
         integral::WidthOf<OpUnsignedIntegral>, DigitWidth) };
 
     size_t digit_cnt{ [=]() -> size_t {
-        if constexpr (meta::IsSame<DigitCntLike,
-                                   integral_endec::VariableOctetCntTag>) {
-            return 0;
+        if constexpr (meta::IsSame<DigitCntLike, size_t>) {
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < digit_cnt_like);
+            return digit_cnt_like;
         } else if constexpr (meta::IsValueWrapperT<DigitCntLike, size_t>) {
             static_assert(0 < DigitCntLike::value);
             return DigitCntLike::value;
-        } else if constexpr (meta::IsSame<DigitCntLike, size_t>) {
-            ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < digit_cnt_like);
-            return digit_cnt_like;
+        } else if constexpr (meta::IsSame<
+                                 DigitCntLike,
+                                 integral_endec::VariableOctetCntTag>) {
+            return 0;
         } else {
             static_assert(false);
         }
@@ -299,8 +313,8 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
     auto transfer_digits{ [&provider, &pad_zero](DigitIntegral* dst,
                                                  size_t elem_cnt) -> void {
         size_t transfer_elem_cnt{ seq_endpoint::provider::Transfer(
-            provider, dst, sizeof(DigitIntegral), sizeof(DigitIntegral),
-            elem_cnt) };
+            provider, lifecycle::LeftObjView<DigitIntegral>{ dst },
+            sizeof(DigitIntegral), elem_cnt) };
 
         ZETA_Core_DebugUtils_Diag_PromiseAssert(transfer_elem_cnt <= elem_cnt);
 
@@ -408,7 +422,7 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
 
         if (digit_cnt == 0) {
             eff_digit_cnt = seq_endpoint::provider::Transfer(
-                provider, buffer_l, sizeof(DigitIntegral),
+                provider, lifecycle::LeftObjView<DigitIntegral>{ buffer_l },
                 sizeof(DigitIntegral), dst_int_digit_cnt);
 
             proc_digits_from_buffer(buffer_l, eff_digit_cnt);
@@ -416,7 +430,8 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
             if (eff_digit_cnt == dst_int_digit_cnt) {
                 for (;;) {
                     size_t cur_act_digit_cnt{ seq_endpoint::provider::Transfer(
-                        provider, buffer_h, sizeof(DigitIntegral),
+                        provider,
+                        lifecycle::LeftObjView<DigitIntegral>{ buffer_h },
                         sizeof(DigitIntegral), op_un_int_digit_cnt) };
 
                     if (cur_act_digit_cnt == 0) { break; }
@@ -461,7 +476,7 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
 
             for (;; exceeded = true) {
                 last_eff_digit_cnt = seq_endpoint::provider::Transfer(
-                    provider, buffer_l, sizeof(DigitIntegral),
+                    provider, lifecycle::LeftObjView<DigitIntegral>{ buffer_l },
                     sizeof(DigitIntegral), buffer_digit_cnt);
 
                 proc_digits_from_buffer(buffer_l, last_eff_digit_cnt);
@@ -535,7 +550,7 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
                 eff_digit_cnt_l = dst_int_digit_cnt;
             } else {
                 seq_endpoint::provider::Transfer(
-                    provider, buffer_l, sizeof(DigitIntegral),
+                    provider, lifecycle::LeftObjView<DigitIntegral>{ buffer_l },
                     sizeof(DigitIntegral), digit_cnt);
 
                 eff_digit_cnt_h = 0;

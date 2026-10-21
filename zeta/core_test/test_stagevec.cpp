@@ -27,10 +27,10 @@ using DebugDeque = zeta::core::debug_deque::Cntr<Elem>;
 
 inline void test_seq_cntr() {
     unsigned random_seed{ static_cast<unsigned>(time(nullptr)) };
-    unsigned fixed_seed{ 1780833973 };
+    unsigned fixed_seed{ 1'780'833'973 };
 
-    unsigned seed{ random_seed };
-    // unsigned seed{ fixed_seed };
+    // unsigned seed{ random_seed };
+    unsigned seed{ fixed_seed };
 
     ZETA_Core_DebugUtils_Logging_ImmLogCurPos();
 
@@ -38,7 +38,7 @@ inline void test_seq_cntr() {
     ZETA_Core_DebugUtils_Logging_ImmLogVar(fixed_seed);
     ZETA_Core_DebugUtils_Logging_ImmLogVar(seed);
 
-    zeta::core_test::SetRandomSeed(seed);
+    zeta::core_test::random::SetRandomSeed(seed);
 
     zeta::core::poly_seq_cntr::Cntr seq_cntr_a_origin{
         zeta::core_test::debug_deque_utils::Create<Elem>()

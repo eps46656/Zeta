@@ -9,7 +9,7 @@
 
 #if ZETA_Core_DebugEnable
 
-#define ZETA_Core_DebugStructPadding char ZETA_Core_TmpName[sizeof(void*)]
+#define ZETA_Core_DebugStructPadding char ZETA_Core_TmpName[sizeof(void*)]{ 0 };
 
 #else
 
@@ -48,7 +48,7 @@ constexpr std::string GetTypeStr();
 
 enum struct LogType : unsigned char {
     TimePos = 0,
-    Var = 1,
+    Var     = 1,
 };
 
 struct TimePosLog {
@@ -65,7 +65,7 @@ struct TimePosLog {
 struct LogContent {
     std::string type;
     std::string name;
-    std::deque<std::string> vals;
+    std::vector<std::string> vals;
 
     constexpr void Clear(this LogContent& log_content);
 
@@ -74,7 +74,7 @@ struct LogContent {
 
 struct Log {
     TimePosLog time_pos_log;
-    std::deque<LogContent> log_contents;
+    std::vector<LogContent> log_contents;
 
     constexpr void Clear(this Log& log);
 

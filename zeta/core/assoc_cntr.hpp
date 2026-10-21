@@ -8,33 +8,13 @@
 #include <zeta/core/lin_seq_endpoint.hpp>
 #include <zeta/core/poly_comparison.hpp>
 #include <zeta/core/poly_seq_endpoint.hpp>
+#include <zeta/core/seq_endpoint.hpp>
 #include <zeta/core/seq_endpoint.ipp>
 #include <zeta/core/utils.hpp>
 
 namespace zeta::core::assoc_cntr {
 
 constexpr size_t max_max_elem_cnt{ integral::RangeMaxOf<size_t> / 2 };
-
-template <typename Acceptor>
-concept IsReader = seq_endpoint::acceptor::IsAcceptor<acceptor>;
-
-template <typename Provider>
-concept IsWriter = seq_endpoint::provider::IsProvider<provider>;
-
-template <typename Acceptor>
-concept IsReaderWriter = seq_endpoint::provider::IsProvider<Acceptor>;
-
-using EmptyReader = seq_endpoint::acceptor::BasicAcceptor;
-using EmptyWriter = seq_endpoint::provider::BasicProvider;
-using EmptyReaderWriter =
-    seq_endpoint::acceptor_provider::EmptyAcceptorProvider;
-
-using LinSeqReader = lin_seq_endpoint::acceptor::Acceptor;
-using LinSeqWriter = lin_seq_endpoint::provider::Provider;
-
-using FnReader = poly_seq_endpoint::acceptor::Acceptor;
-using FnWriter = poly_seq_endpoint::provider::Provider;
-using FnReaderWriter = poly_seq_endpoint::acceptor_provider::AcceptorProvider;
 
 namespace capability {
 
@@ -98,7 +78,7 @@ enum struct Kind : unsigned char {
 #pragma pop_macro("F")
 };
 
-using Flag = unsigned int;
+using Flag = unsigned;
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
 struct FlagBuilder {
@@ -117,9 +97,9 @@ struct FlagBuilder {
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define F(name, num, is_const) \
-    (static_cast<Flag>(this->name) << meta::ToUnderlying(Kind::name))
+    (static_cast<Flag>(this->name) << meta::EnumToUnderlying(Kind::name))
 
-        return (static_cast<Flag>(1) << meta::ToUnderlying(Kind::Always)) |
+        return (static_cast<Flag>(1) << meta::EnumToUnderlying(Kind::Always)) |
                ZETA_Core_AssocCntr_CapabilityWithoutAlwaysNever_XMacro(F, |);
 
 #pragma pop_macro("F")
@@ -206,13 +186,29 @@ struct CursorLimit {
 
 struct Tag {};
 
+#pragma push_macro("Elem")
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define Elem(CntrType)                                                 \
+    zeta::core::meta::GetTypeWrapperType<                              \
+        decltype(zeta::core::meta::RemoveCVRef<CntrType>::GetElemType( \
+            zeta::core::assoc_cntr::Tag{},                             \
+            zeta::core::meta::TypeWrapper<meta::RemoveRef<CntrType>>{}))>
+
+#pragma push_macro("Cursor")
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define Cursor(CntrType)                                                 \
+    zeta::core::meta::GetTypeWrapperType<                                \
+        decltype(zeta::core::meta::RemoveCVRef<CntrType>::GetCursorType( \
+            zeta::core::assoc_cntr::Tag{},                               \
+            zeta::core::meta::TypeWrapper<meta::RemoveRef<CntrType>>{}))>
+
 #pragma push_macro("SatisfiesMethodMacro")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define SatisfiesMethodMacro(cap, method, ret, ...)                       \
     requires(Cntr::GetStaticDisabledCapabilityFlag(                       \
                  tag, meta::TypeWrapper<Cntr>{}) &                        \
              (static_cast<capability::Flag>(1)                            \
-              << meta::ToUnderlying(capability::Kind::cap))) != 0 ||      \
+              << meta::EnumToUnderlying(capability::Kind::cap))) != 0 ||  \
                     meta::IsMatched<meta::RemoveRef<decltype(cntr.method( \
                                         tag, __VA_ARGS__))>,              \
                                     decltype(ret)>
@@ -225,9 +221,8 @@ concept IsAssocCntr = requires(
     comparison::ArchetypeComparator key_elem_cmptr,
     seq_endpoint::acceptor::ArchetypeAcceptor reader,
     seq_endpoint::provider::ArchetypeProvider writer,
-    seq_endpoint::provider::ArchetypeProvider acceptor,
     comparison::Ordering ordering_val,
-    meta::GetTypeWrapperType<decltype(Cntr::GetCursorType(
+    zeta::core::meta::GetTypeWrapperType<decltype(Cntr::GetCursorType(
         tag, cntr_type_wrapper))>* cursor_ptr,
     meta::AlwaysMatchedTag unused) {
     requires requires {
@@ -601,27 +596,31 @@ constexpr decltype(auto) Find(Cntr& cntr, void const* key,
                               ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
                               void* dst_elem);
 
-template <typename Cntr, IsWriter provider>
-constexpr decltype(auto) Insert(Cntr& cntr, void const* elem, provider&& writer,
+template <typename Cntr,
+          seq_endpoint::provider::IsProvider<Elem(Cntr)> Provider>
+constexpr decltype(auto) Insert(Cntr& cntr, void const* elem, Provider&& writer,
                                 void* dst_cursor);
 
 template <typename Cntr, hash::CanHash<void const*> KeyHasher,
           comparison::CanCompare<void const*, void const*> KeyElemComparator,
-          IsWriter provider>
+          seq_endpoint::provider::IsProvider<Elem(Cntr)> Provider>
 constexpr decltype(auto) Insert(Cntr& cntr, void const* key,
                                 KeyHasher key_hasher,
                                 KeyElemComparator key_elem_cmptr,
-                                provider&& writer, void* dst_cursor);
+                                Provider&& writer, void* dst_cursor);
 
-template <typename Cntr, assoc_cntr::IsReader acceptor>
-constexpr decltype(auto) PopL(Cntr& cntr, size_t cnt, acceptor&& reader);
+template <typename Cntr,
+          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
+constexpr decltype(auto) PopL(Cntr& cntr, size_t cnt, Acceptor&& reader);
 
-template <typename Cntr, assoc_cntr::IsReader acceptor>
-constexpr decltype(auto) PopR(Cntr& cntr, size_t cnt, acceptor&& reader);
+template <typename Cntr,
+          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
+constexpr decltype(auto) PopR(Cntr& cntr, size_t cnt, Acceptor&& reader);
 
-template <typename Cntr, assoc_cntr::IsReader acceptor>
+template <typename Cntr,
+          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
 constexpr decltype(auto) Erase(Cntr& cntr, void* pos_cursor, size_t cnt,
-                               acceptor&& reader);
+                               Acceptor&& reader);
 
 template <typename Cntr>
 constexpr decltype(auto) EraseAll(Cntr& cntr);

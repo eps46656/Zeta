@@ -2,32 +2,42 @@
 
 #include <zeta/core/basic_llist_node.hpp>
 #include <zeta/core/debug_utils/diag.ipp>
+#include <zeta/core/debug_utils/lifecycle_sanity.ipp>
 #include <zeta/core/llist.hpp>
 
 ZETA_Core_ClangdPreambleBarrier;
 
 #pragma push_macro("NodeTplParamList")
-#define NodeTplParamList \
-    typename LinkType, typename LColorTag, typename RColorTag
+#define NodeTplParamList typename Link, bool l_color_en, bool r_color_en
 
 #pragma push_macro("NodeTplArgList")
-#define NodeTplArgList LinkType, LColorTag, RColorTag
+#define NodeTplArgList Link, l_color_en, r_color_en
 
 namespace zeta::core {
 
 template <NodeTplParamList>
-constexpr void basic_llist_node::Node<NodeTplArgList>::Construct(
-    this Node& self) {
-    if constexpr (LColorTag::value) {
-        self.l.SetPtrColor(alignof(Node), &self, &self, 0);
+constexpr basic_llist_node::Node<NodeTplArgList>::Node()
+#if ZETA_Core_DebugEnable
+    : obj_hook{
+          this,
+          sizeof(*this),
+          {
+              ZETA_Core_DebugUtils_LifecycleSanity_ObjHook_FieldMember(l),
+              ZETA_Core_DebugUtils_LifecycleSanity_ObjHook_FieldMember(r),
+          },
+      }
+#endif
+{
+    if constexpr (l_color_en) {
+        this->l.SetPtrColor(alignof(Node), this, this, 0);
     } else {
-        self.l.SetPtr(alignof(Node), &self, &self);
+        this->l.SetPtr(alignof(Node), this, this);
     }
 
-    if constexpr (RColorTag::value) {
-        self.r.SetPtrColor(alignof(Node), &self, &self, 0);
+    if constexpr (r_color_en) {
+        this->r.SetPtrColor(alignof(Node), this, this, 0);
     } else {
-        self.r.SetPtr(alignof(Node), &self, &self);
+        this->r.SetPtr(alignof(Node), this, this);
     }
 }
 

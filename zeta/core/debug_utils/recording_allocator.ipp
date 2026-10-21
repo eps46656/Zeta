@@ -1,26 +1,17 @@
 #pragma once
 
 #include <zeta/core/debug_utils/diag.ipp>
-#include <zeta/core/debug_utils/memory.ipp>
+#include <zeta/core/debug_utils/mem_recording.ipp>
 #include <zeta/core/debug_utils/recording_allocator.hpp>
-#include <zeta/core/debug_utils/sanity.ipp>
 
 namespace zeta::core::debug_utils {
 
 template <allocator::IsAllocator TargetAllocator>
 constexpr recording_allocator::Allocator<TargetAllocator>::Allocator(
     std::shared_ptr<TargetAllocator> target_alctr,
-    debug_utils::memory::MemRecorderClient const& mrc)
+    debug_utils::mem_recording::MemRecorderClient const& mrc)
     : target_alctr{ target_alctr }, mrc{ mrc } {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(this->target_alctr != nullptr);
-
-    debug_utils::sanity::RegisterSanityCheckFunc(
-        this, debug_utils::sanity::DummySanityCheckFunc);
-}
-
-template <allocator::IsAllocator TargetAllocator>
-constexpr recording_allocator::Allocator<TargetAllocator>::~Allocator() {
-    debug_utils::sanity::UnregisterSanityCheckFunc(this);
 }
 
 template <allocator::IsAllocator TargetAllocator>
@@ -68,38 +59,17 @@ constexpr void recording_allocator::Allocator<TargetAllocator>::Deallocate(
 }
 
 template <allocator::IsAllocator TargetAllocator>
-constexpr debug_utils::memory::MemRecorder const&
+constexpr debug_utils::mem_recording::MemRecorder const&
 recording_allocator::Allocator<TargetAllocator>::GetMemRecorder(
     this Allocator const& self) {
     return self.mrc.GetMemRecorder();
 }
 
 template <allocator::IsAllocator TargetAllocator>
-constexpr debug_utils::memory::MemRecorderClient const&
+constexpr debug_utils::mem_recording::MemRecorderClient const&
 recording_allocator::Allocator<TargetAllocator>::GetMemRecorderClient(
     this Allocator const& self) {
     return self.mrc;
-}
-
-template <allocator::IsAllocator TargetAllocator>
-constexpr void recording_allocator::Allocator<TargetAllocator>::SanityCheck(
-    void const* self_, debug_utils::sanity::SanityCheckScope scope) {
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(self_ != nullptr);
-
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        scope == debug_utils::sanity::SanityCheckScope::Basic ||
-        scope == debug_utils::sanity::SanityCheckScope::Complete);
-
-    auto& self{ *static_cast<Allocator<TargetAllocator> const*>(self_) };
-
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(self.target_alctr != nullptr);
-
-    sanity::ExpandFinishedSanityCheckScope(
-        self_, debug_utils::sanity::SanityCheckScope::Basic);
-
-    if (scope == debug_utils::sanity::SanityCheckScope::Basic) { return; }
-
-    debug_utils::sanity::SanityCheck(self.target_alctr.get(), scope);
 }
 
 template <allocator::IsAllocator InAllocator>

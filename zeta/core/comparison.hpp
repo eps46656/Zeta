@@ -16,22 +16,22 @@ struct Bits {
 };
 
 enum struct Op : unsigned char {
-    Order = 0,
-    Equal = Bits::equal,
-    NotEqual = Bits::less | Bits::greater,
-    Less = Bits::less,
-    LessEqual = Bits::less | Bits::equal,
-    Greater = Bits::greater,
+    Order        = 0,
+    Equal        = Bits::equal,
+    NotEqual     = Bits::less | Bits::greater,
+    Less         = Bits::less,
+    LessEqual    = Bits::less | Bits::equal,
+    Greater      = Bits::greater,
     GreaterEqual = Bits::greater | Bits::equal,
 };
 
 struct OpTags {
-    using Order = meta::AutoValueWrapper<Op::Order>;
-    using Equal = meta::AutoValueWrapper<Op::Equal>;
-    using NotEqual = meta::AutoValueWrapper<Op::NotEqual>;
-    using Less = meta::AutoValueWrapper<Op::Less>;
-    using LessEqual = meta::AutoValueWrapper<Op::LessEqual>;
-    using Greater = meta::AutoValueWrapper<Op::Greater>;
+    using Order        = meta::AutoValueWrapper<Op::Order>;
+    using Equal        = meta::AutoValueWrapper<Op::Equal>;
+    using NotEqual     = meta::AutoValueWrapper<Op::NotEqual>;
+    using Less         = meta::AutoValueWrapper<Op::Less>;
+    using LessEqual    = meta::AutoValueWrapper<Op::LessEqual>;
+    using Greater      = meta::AutoValueWrapper<Op::Greater>;
     using GreaterEqual = meta::AutoValueWrapper<Op::GreaterEqual>;
 };
 
@@ -47,8 +47,8 @@ concept IsOpTag = meta::IsAnySame<T,                    //
                                   >;
 
 enum struct Ordering : unsigned char {
-    Less = Bits::less,
-    Equal = Bits::equal,
+    Less    = Bits::less,
+    Equal   = Bits::equal,
     Greater = Bits::greater,
 };
 
@@ -88,9 +88,9 @@ concept CanCompare = requires(Comparator const& cmptr, Tag tag, A const& a,
 };
 
 template <typename Comparator, IsOpTag OpTag, typename A, typename B>
-    requires comparison::CanCompare<Comparator, A, B>
 constexpr decltype(auto) Compare(Comparator const& cmptr, OpTag, A const& a,
-                                 B const& b);
+                                 B const& b)
+    requires comparison::CanCompare<Comparator, A, B>;
 
 template <typename A, typename B>
 struct NativeOperatorComparatorAdapter {
@@ -159,37 +159,37 @@ struct CppStdBasicComparator {
 }  // namespace zeta::core::comparison
 
 template <typename A, typename B>
+constexpr bool operator==(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
         zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_equal
-constexpr bool operator==(A const& a, B const& b);
+        zeta::core::meta::RemoveCVRef<B>>::enable_equal;
 
 template <typename A, typename B>
+constexpr bool operator!=(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
         zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_not_equal
-constexpr bool operator!=(A const& a, B const& b);
+        zeta::core::meta::RemoveCVRef<B>>::enable_not_equal;
 
 template <typename A, typename B>
+constexpr bool operator<(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
         zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_less
-constexpr bool operator<(A const& a, B const& b);
+        zeta::core::meta::RemoveCVRef<B>>::enable_less;
 
 template <typename A, typename B>
+constexpr bool operator<=(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
         zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_less_equal
-constexpr bool operator<=(A const& a, B const& b);
+        zeta::core::meta::RemoveCVRef<B>>::enable_less_equal;
 
 template <typename A, typename B>
+constexpr bool operator>(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
         zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_greater
-constexpr bool operator>(A const& a, B const& b);
+        zeta::core::meta::RemoveCVRef<B>>::enable_greater;
 
 template <typename A, typename B>
+constexpr bool operator>=(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
         zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_greater_equal
-constexpr bool operator>=(A const& a, B const& b);
+        zeta::core::meta::RemoveCVRef<B>>::enable_greater_equal;

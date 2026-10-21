@@ -44,7 +44,7 @@ struct FormatConfig {
 
 struct FormatContext {
     FormatConfig config;
-    unsigned int indent_level;
+    unsigned indent_level;
 };
 
 enum struct EncInnerState : unsigned char {
@@ -93,40 +93,40 @@ enum struct EncInnerState : unsigned char {
 };
 
 enum struct EncState : unsigned char {
-    ReceivingValue = meta::ToUnderlying(EncInnerState::ReceivingValue),
+    ReceivingValue = meta::EnumToUnderlying(EncInnerState::ReceivingValue),
 
     ReceivingNumericIntPartDigit =
-        meta::ToUnderlying(EncInnerState::ReceivingNumericIntPartDigit),
+        meta::EnumToUnderlying(EncInnerState::ReceivingNumericIntPartDigit),
 
-    ReceivingNumericIntPartDigitOrNext =
-        meta::ToUnderlying(EncInnerState::ReceivingNumericIntPartDigitOrNext),
+    ReceivingNumericIntPartDigitOrNext = meta::EnumToUnderlying(
+        EncInnerState::ReceivingNumericIntPartDigitOrNext),
 
-    ReceivingNumericFracPartDigitOrNext =
-        meta::ToUnderlying(EncInnerState::ReceivingNumericFracPartDigitOrNext),
+    ReceivingNumericFracPartDigitOrNext = meta::EnumToUnderlying(
+        EncInnerState::ReceivingNumericFracPartDigitOrNext),
 
-    ReceivingNumericExpPartSignOrNext =
-        meta::ToUnderlying(EncInnerState::ReceivingNumericExpPartSignOrNext),
+    ReceivingNumericExpPartSignOrNext = meta::EnumToUnderlying(
+        EncInnerState::ReceivingNumericExpPartSignOrNext),
 
     ReceivingNumericExpPartDigit =
-        meta::ToUnderlying(EncInnerState::ReceivingNumericExpPartDigit),
+        meta::EnumToUnderlying(EncInnerState::ReceivingNumericExpPartDigit),
 
-    ReceivingNumericExpPartDigitOrNext =
-        meta::ToUnderlying(EncInnerState::ReceivingNumericExpPartDigitOrNext),
+    ReceivingNumericExpPartDigitOrNext = meta::EnumToUnderlying(
+        EncInnerState::ReceivingNumericExpPartDigitOrNext),
 
     ReceivingStringCharOrFinish = 40,
 
     ReceivingArrayElemOrFinish =
-        meta::ToUnderlying(EncInnerState::ReceivingArrayElemOrFinishLead),
+        meta::EnumToUnderlying(EncInnerState::ReceivingArrayElemOrFinishLead),
 
     ReceivingObjectKeyOrFinish =
-        meta::ToUnderlying(EncInnerState::ReceivingObjectKeyOrFinishLead),
+        meta::EnumToUnderlying(EncInnerState::ReceivingObjectKeyOrFinishLead),
 
     ReceivingObjectValue =
-        meta::ToUnderlying(EncInnerState::ReceivingObjectValue),
+        meta::EnumToUnderlying(EncInnerState::ReceivingObjectValue),
 
-    Finished = meta::ToUnderlying(EncInnerState::Finished),
+    Finished = meta::EnumToUnderlying(EncInnerState::Finished),
 
-    Corrupted = meta::ToUnderlying(EncInnerState::Corrupted),
+    Corrupted = meta::EnumToUnderlying(EncInnerState::Corrupted),
 };
 
 enum struct EncReason : unsigned char {
@@ -276,48 +276,57 @@ enum struct DecInnerState : unsigned char {
 };
 
 enum struct DecState : unsigned char {
-    SendingNull = meta::ToUnderlying(DecInnerState::SendingNull),
+    SendingNull = meta::EnumToUnderlying(DecInnerState::SendingNull),
 
-    SendingBoolean = meta::ToUnderlying(DecInnerState::SendingBoolean),
+    SendingBoolean = meta::EnumToUnderlying(DecInnerState::SendingBoolean),
 
-    SendingNumericSign = meta::ToUnderlying(DecInnerState::SendingNumericSign),
+    SendingNumericSign =
+        meta::EnumToUnderlying(DecInnerState::SendingNumericSign),
 
     SendingNumericIntPartDigit =
-        meta::ToUnderlying(DecInnerState::SendingNumericIntPartDigitLead),
+        meta::EnumToUnderlying(DecInnerState::SendingNumericIntPartDigitLead),
 
     SendingNumericFracPartDigit =
-        meta::ToUnderlying(DecInnerState::SendingNumericFracPartDigit),
+        meta::EnumToUnderlying(DecInnerState::SendingNumericFracPartDigit),
 
     SendingNumericExpPartE =
-        meta::ToUnderlying(DecInnerState::SendingNumericExpPartE),
+        meta::EnumToUnderlying(DecInnerState::SendingNumericExpPartE),
 
     SendingNumericExpPartSign =
-        meta::ToUnderlying(DecInnerState::SendingNumericExpPartSign),
+        meta::EnumToUnderlying(DecInnerState::SendingNumericExpPartSign),
 
     SendingNumericExpPartDigit =
-        meta::ToUnderlying(DecInnerState::SendingNumericExpPartDigitLead),
+        meta::EnumToUnderlying(DecInnerState::SendingNumericExpPartDigitLead),
 
     SendingNumericFinish =
-        meta::ToUnderlying(DecInnerState::SendingNumericFinish),
+        meta::EnumToUnderlying(DecInnerState::SendingNumericFinish),
 
-    SendingStringStart = meta::ToUnderlying(DecInnerState::SendingStringStart),
-    SendingStringChar = meta::ToUnderlying(DecInnerState::SendingStringChar),
+    SendingStringStart =
+        meta::EnumToUnderlying(DecInnerState::SendingStringStart),
+    SendingStringChar =
+        meta::EnumToUnderlying(DecInnerState::SendingStringChar),
     SendingStringFinish =
-        meta::ToUnderlying(DecInnerState::SendingStringFinish),
+        meta::EnumToUnderlying(DecInnerState::SendingStringFinish),
 
-    SendingArrayStart = meta::ToUnderlying(DecInnerState::SendingArrayStart),
-    SendingArrayElem = meta::ToUnderlying(DecInnerState::SendingArrayElemLead),
-    SendingArrayFinish = meta::ToUnderlying(DecInnerState::SendingArrayFinish),
+    SendingArrayStart =
+        meta::EnumToUnderlying(DecInnerState::SendingArrayStart),
+    SendingArrayElem =
+        meta::EnumToUnderlying(DecInnerState::SendingArrayElemLead),
+    SendingArrayFinish =
+        meta::EnumToUnderlying(DecInnerState::SendingArrayFinish),
 
-    SendingObjectStart = meta::ToUnderlying(DecInnerState::SendingObjectStart),
-    SendingObjectKey = meta::ToUnderlying(DecInnerState::SendingObjectKeyLead),
-    SendingObjectValue = meta::ToUnderlying(DecInnerState::SendingObjectValue),
+    SendingObjectStart =
+        meta::EnumToUnderlying(DecInnerState::SendingObjectStart),
+    SendingObjectKey =
+        meta::EnumToUnderlying(DecInnerState::SendingObjectKeyLead),
+    SendingObjectValue =
+        meta::EnumToUnderlying(DecInnerState::SendingObjectValue),
     SendingObjectFinish =
-        meta::ToUnderlying(DecInnerState::SendingObjectFinish),
+        meta::EnumToUnderlying(DecInnerState::SendingObjectFinish),
 
-    Finished = meta::ToUnderlying(DecInnerState::Finished),
+    Finished = meta::EnumToUnderlying(DecInnerState::Finished),
 
-    Corrupted = meta::ToUnderlying(DecInnerState::Corrupted),
+    Corrupted = meta::EnumToUnderlying(DecInnerState::Corrupted),
 };
 
 enum struct DecReason : unsigned char {

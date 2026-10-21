@@ -8,14 +8,13 @@
 ZETA_Core_ClangdPreambleBarrier;
 
 #pragma push_macro("FixedPointTplParamList")
-#define FixedPointTplParamList(prefix, suffix)                       \
-    meta::IsValueWrapperT<bool> prefix##SignedTag##suffix,           \
-        meta::IsValueWrapperT<size_t> prefix##IntegralWidth##suffix, \
-        meta::IsValueWrapperT<size_t> prefix##FractionWidth##suffix
+#define FixedPointTplParamList(prefix, suffix)                             \
+    bool prefix##is_signed##suffix, size_t prefix##integral_width##suffix, \
+        size_t prefix##fraction_width##suffix
 
 #pragma push_macro("FixedPointTplArgList")
 #define FixedPointTplArgList(prefix) \
-    prefix##SignedTag, prefix##IntegralWidth, prefix##FractionWidth
+    prefix##is_signed, prefix##integral_width, prefix##fraction_width
 
 namespace zeta::core::fixed_point {
 
@@ -29,22 +28,21 @@ constexpr size_t max_fraction_width{ max_total_width };
 
 template <FixedPointTplParamList(, _)>
 struct FixedPoint {
-    using SignedTag = SignedTag_;
-    using IntegralWidth = IntegralWidth_;
-    using FractionWidth = FractionWidth_;
+    static constexpr bool is_signed{ is_signed_ };
+    static constexpr size_t integral_width{ integral_width_ };
+    static constexpr bool fraction_width{ fraction_width_ };
 
-    static_assert(IntegralWidth::value <= max_integral_width);
+    static_assert(integral_width <= max_integral_width);
 
-    static_assert(FractionWidth::value <= max_fraction_width);
+    static_assert(fraction_width <= max_fraction_width);
 
-    static_assert(2 <= IntegralWidth::value + FractionWidth::value);
-    static_assert(IntegralWidth::value + FractionWidth::value <=
-                  max_total_width);
+    static_assert(2 <= integral_width + fraction_width);
+    static_assert(integral_width + fraction_width <= max_total_width);
 
-    using Value = meta::Conditional<
-        SignedTag::value,
-        signed _BitInt(IntegralWidth::value + FractionWidth::value),
-        unsigned _BitInt(IntegralWidth::value + FractionWidth::value)>;
+    using Value =
+        meta::Conditional<is_signed,
+                          signed _BitInt(integral_width + fraction_width),
+                          unsigned _BitInt(integral_width + fraction_width)>;
 
     Value value;
 
@@ -101,9 +99,9 @@ template <FixedPointTplParamList(A, ), FixedPointTplParamList(B, )>
 constexpr auto operator/(FixedPoint<FixedPointTplArgList(A)> const& a,
                          FixedPoint<FixedPointTplArgList(B)> const& b);
 
-template <size_t FractionWidth, integral::IsIntegral Num,
+template <size_t fraction_width, integral::IsIntegral Num,
           integral::IsIntegral Denom>
-constexpr auto FromFraction(meta::ValueWrapper<size_t, FractionWidth>, Num num,
+constexpr auto FromFraction(meta::ValueWrapper<size_t, fraction_width>, Num num,
                             Denom denom);
 
 template <integral::IsIntegral Integral>

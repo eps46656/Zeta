@@ -173,7 +173,7 @@ constexpr void EquistrideLinSeqCopy_(void* dst_, void const* src_,
             src += shift;
 
             elem_stride = -elem_stride;
-            shift = -shift;
+            shift       = -shift;
         }
     }
 
@@ -239,7 +239,7 @@ constexpr void EquistrideLinSeqCopy_(void* dst_, void const* src_,
             src += shift;
 
             elem_stride = -elem_stride;
-            shift = -shift;
+            shift       = -shift;
         }
     }
 
@@ -341,17 +341,19 @@ constexpr void utils::LinSeqCopy(void* dst, void const* src, size_t elem_size,
                                    src_elem_stride, cnt);
 }
 
-namespace utils::detail {
+template <lifecycle::IsDstStorageView DstStorageView,
+          lifecycle::IsSrcStorageView SrcStorageView,
+          integral::IsIntegral DstElemStride,
+          integral::IsIntegral SrcElemStride>
+constexpr void utils::DisjointLinSeqTransfer(DstStorageView dst,
+                                             SrcStorageView src,
+                                             DstElemStride dst_elem_stride,
+                                             SrcElemStride src_elem_stride,
+                                             size_t cnt) {
+    using DstElem = typename DstStorageView::Obj;
+    using SrcElem = typename SrcStorageView::Obj;
 
-template <integral::IsIntegral StrideIntegral,
-          lifecycle::IsDataTransferOpLike DataTransferOpLike, typename DstElem,
-          typename SrcElem>
-constexpr void DisjointLinSeqTransfer_(DataTransferOpLike data_transfer_op_like,
-                                       DstElem* dst, SrcElem* src,
-                                       StrideIntegral dst_elem_stride,
-                                       StrideIntegral src_elem_stride,
-                                       size_t cnt) {
-    if (dst == src || cnt == 0) { return; }
+    if (dst.ptr == src.ptr || cnt == 0) { return; }
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
         dst_elem_stride == 0 ||
@@ -366,37 +368,17 @@ constexpr void DisjointLinSeqTransfer_(DataTransferOpLike data_transfer_op_like,
     ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= 1 || dst_elem_stride != 0 ||
                                             src_elem_stride == 0);
 
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst != nullptr);
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(src != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst.ptr != nullptr);
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(src.ptr != nullptr);
 
     if (dst_elem_stride == 0) {  // src_elem_stride == 0
         cnt = 1;
     }
 
-    for (; 0 < cnt--; dst = (PtrInc)(dst, dst_elem_stride),
-                      src = (PtrInc)(src, src_elem_stride)) {
-        lifecycle::DataTransfer(data_transfer_op_like, dst, *src);
+    for (; 0 < cnt--; dst.ptr = (PtrInc)(dst.ptr, dst_elem_stride),
+                      src.ptr = (PtrInc)(src.ptr, src_elem_stride)) {
+        lifecycle::StorageTransfer(dst, src);
     }
-}
-
-}  // namespace utils::detail
-
-template <lifecycle::IsDataTransferOpLike DataTransferOpLike, typename DstElem,
-          typename SrcElem>
-constexpr void utils::DisjointLinSeqTransfer(
-    DataTransferOpLike data_transfer_op_like, DstElem* dst, SrcElem* src,
-    size_t dst_elem_stride, size_t src_elem_stride, size_t cnt) {
-    detail::DisjointLinSeqTransfer_<size_t>(
-        data_transfer_op_like, dst, src, dst_elem_stride, src_elem_stride, cnt);
-}
-
-template <lifecycle::IsDataTransferOpLike DataTransferOpLike, typename DstElem,
-          typename SrcElem>
-constexpr void utils::DisjointLinSeqTransfer(
-    DataTransferOpLike data_transfer_op_like, DstElem* dst, SrcElem* src,
-    ptrdiff_t dst_elem_stride, ptrdiff_t src_elem_stride, size_t cnt) {
-    detail::DisjointLinSeqTransfer_<ptrdiff_t>(
-        data_transfer_op_like, dst, src, dst_elem_stride, src_elem_stride, cnt);
 }
 
 namespace utils::detail {
@@ -429,7 +411,7 @@ constexpr void EquistrideLinSeqMove_(void* dst_, void const* src_,
         src += shift;
 
         elem_stride = -elem_stride;
-        shift = -shift;
+        shift       = -shift;
     }
 
     if (elem_size == static_cast<size_t>(elem_stride)) {
@@ -691,32 +673,47 @@ constexpr unsigned long long utils::GetRandom() {
     return (SimpleRandomRotate)(&seed);
 }
 
-constexpr int utils::Choose2(bool cond0, bool cond1,
-                             unsigned long long* random_seed) {
-    switch (static_cast<int>(cond1) * 0b10 + static_cast<int>(cond0) * 0b01) {
-    case 0b00: return -1;
-    case 0b01: return 0;
-    case 0b10: return 1;
-    case 0b11: return static_cast<int>((SimpleRandomRotate)(random_seed) % 2);
+constexpr utils::Choose2Result utils::Choose2(unsigned long long* random_seed) {
+    return static_cast<Choose2Result>((SimpleRandomRotate)(random_seed) % 2);
+}
+
+constexpr utils::Choose2Result utils::Choose2(bool cond0, bool cond1,
+                                              unsigned long long* random_seed) {
+    unsigned m{ static_cast<unsigned>(cond1) * 0b10 +
+                static_cast<unsigned>(cond0) * 0b01 };
+
+    switch (m) {
+    case 0b01: return Choose2Result::Case0;
+    case 0b10: return Choose2Result::Case1;
+    case 0b11: return (Choose2)(random_seed);
     default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 }
 
-constexpr int utils::Choose3(bool cond0, bool cond1, bool cond2,
-                             unsigned long long* random_seed) {
-    switch (static_cast<int>(cond2) * 0b100 +  //
-            static_cast<int>(cond1) * 0b010 +  //
-            static_cast<int>(cond0) * 0b001) {
-    case 0b000: return -1;
-    case 0b001: return 0;
-    case 0b010: return 1;
-    case 0b100: return 2;
-    case 0b011: return static_cast<int>((SimpleRandomRotate)(random_seed) % 2);
+constexpr utils::Choose3Result utils::Choose3(bool cond0, bool cond1,
+                                              bool cond2,
+                                              unsigned long long* random_seed) {
+    unsigned m{ static_cast<unsigned>(cond2) * 0b100 +  //
+                static_cast<unsigned>(cond1) * 0b010 +  //
+                static_cast<unsigned>(cond0) * 0b001 };
+
+    switch (m) {
+    case 0b001: return Choose3Result::Case0;
+    case 0b010: return Choose3Result::Case1;
+    case 0b100: return Choose3Result::Case2;
+    case 0b011:
+        return static_cast<Choose3Result>((SimpleRandomRotate)(random_seed) %
+                                          2);
     case 0b101:
-        return static_cast<int>((SimpleRandomRotate)(random_seed) % 2) * 2;
+        return static_cast<Choose3Result>((SimpleRandomRotate)(random_seed) %
+                                          2 * 2);
     case 0b110:
-        return static_cast<int>((SimpleRandomRotate)(random_seed) % 2) + 1;
-    case 0b111: return static_cast<int>((SimpleRandomRotate)(random_seed) % 3);
+        return static_cast<Choose3Result>(
+            (SimpleRandomRotate)(random_seed) % 2 + 1);
+    case 0b111:
+        return static_cast<Choose3Result>((SimpleRandomRotate)(random_seed) %
+                                          3);
+
     default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 }

@@ -12,12 +12,12 @@ namespace zeta::core {
     return alctr.method_name(Tag{}, __VA_ARGS__); \
     static_assert(true)
 
-template <typename Allocator>
+template <allocator::IsAllocator Allocator>
 constexpr decltype(auto) allocator::GetReferedInstPtr(Allocator& alctr) {
     CallMethod(GetReferedInstPtr, alctr);
 }
 
-template <typename Allocator>
+template <allocator::IsAllocator Allocator>
 constexpr decltype(auto) allocator::GetAlign(Allocator& alctr) {
     size_t align{ alctr.GetAlign(Tag{}) };
 
@@ -26,19 +26,19 @@ constexpr decltype(auto) allocator::GetAlign(Allocator& alctr) {
     return align;
 }
 
-template <typename Allocator>
+template <allocator::IsAllocator Allocator>
 constexpr decltype(auto) allocator::Allocate(Allocator& alctr, size_t size) {
     CallMethod(Allocate, size);
 }
 
-template <typename Allocator>
+template <allocator::IsAllocator Allocator>
 constexpr decltype(auto) allocator::Deallocate(Allocator& alctr, void* ptr) {
     CallMethod(Deallocate, ptr);
 }
 
 #pragma pop_macro("CallMethod")
 
-template <typename Allocator>
+template <allocator::IsAllocator Allocator>
 constexpr decltype(auto) allocator::SafeAllocate(Allocator& alctr, size_t align,
                                                  size_t size) {
     size_t self_align{ (GetAlign)(alctr) };
@@ -55,7 +55,7 @@ constexpr decltype(auto) allocator::SafeAllocate(Allocator& alctr, size_t align,
     return ptr;
 }
 
-template <typename Allocator>
+template <allocator::IsAllocator Allocator>
 constexpr allocator::VTable allocator::BuildVTableBasic() {
     return {
         .Allocate =
@@ -70,21 +70,21 @@ constexpr allocator::VTable allocator::BuildVTableBasic() {
     };
 }
 
-template <typename Allocator>
+template <allocator::IsAllocator Allocator>
 constexpr allocator::VTable allocator::BuildVTableImpl<Allocator>::Call() {
     return (BuildVTableBasic<Allocator>)();
 }
 
 namespace allocator::detail {
 
-template <typename Allocator>
+template <allocator::IsAllocator Allocator>
 struct VTableHolder_ {
     static constexpr VTable vtable{ BuildVTableImpl<Allocator>::Call() };
 };
 
 }  // namespace allocator::detail
 
-template <typename Allocator>
+template <allocator::IsAllocator Allocator>
 constexpr allocator::VTable const& allocator::GetVTable() {
     return detail::VTableHolder_<Allocator>::vtable;
 }

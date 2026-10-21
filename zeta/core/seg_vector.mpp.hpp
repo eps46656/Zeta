@@ -59,27 +59,6 @@ ZETA_Core_ClangdPreambleBarrier;
 
 #endif
 
-#if EnStaging
-
-#pragma push_macro("CntrTplParamList")
-#define CntrTplParamList(suffix)                                    \
-    typename OriginLike##suffix, typename SegAllocatorLike##suffix, \
-        typename DataAllocatorLike##suffix
-
-#pragma push_macro("CntrTplArgList")
-#define CntrTplArgList OriginLike, SegAllocatorLike, DataAllocatorLike
-
-#else
-
-#pragma push_macro("CntrTplParamList")
-#define CntrTplParamList(suffix) \
-    typename SegAllocatorLike##suffix, typename DataAllocatorLike##suffix
-
-#pragma push_macro("CntrTplArgList")
-#define CntrTplArgList SegAllocatorLike, DataAllocatorLike
-
-#endif
-
 namespace zeta::core::Namespace {
 
 constexpr size_t max_seg_elem_slot_cnt{ integral::RangeMaxOf<unsigned short> };
@@ -90,26 +69,29 @@ static constexpr unsigned dat_color{ 2 };
 static constexpr unsigned null_color{ 3 };
 #endif
 
-using CircularArray = circular_array::Cntr;
+template <meta::IsObj Elem>
+using CircularArray = circular_array::Cntr<Elem>;
 
 using Node =
 #if EnStaging
     basic_bin_tree_node::Node<
         void*,
-        meta::AutoValueWrapper<true>,                // PColor
-        meta::AutoValueWrapper<true>,                // LColor
-        meta::AutoValueWrapper<false>,               // RColor
-        meta::AutoValueWrapper<true>,                // AccSize
-        basic_bin_tree_node::PrimaryColorTagEnum::P  // PrimaryColor
+        meta::AutoValueWrapper<true>,   // PColor
+        meta::AutoValueWrapper<true>,   // LColor
+        meta::AutoValueWrapper<false>,  // RColor
+        meta::AutoValueWrapper<true>,   // AccSize
+        meta::AutoValueWrapper<
+            basic_bin_tree_node::PrimaryColorTagEnum::P>  // PrimaryColor
         >;
 #else
     basic_bin_tree_node::Node<
         void*,
-        meta::AutoValueWrapper<true>,                // PColor
-        meta::AutoValueWrapper<true>,                // LColor
-        meta::AutoValueWrapper<false>,               // RColor
-        meta::AutoValueWrapper<true>,                // AccSize
-        basic_bin_tree_node::PrimaryColorTagEnum::P  // PrimaryColor
+        meta::AutoValueWrapper<true>,   // PColor
+        meta::AutoValueWrapper<true>,   // LColor
+        meta::AutoValueWrapper<false>,  // RColor
+        meta::AutoValueWrapper<true>,   // AccSize
+        meta::AutoValueWrapper<
+            basic_bin_tree_node::PrimaryColorTagEnum::P>  // PrimaryColor
         >;
 #endif
 
@@ -173,17 +155,29 @@ struct Stats {
     size_t dat_size;
 };
 
-template <CntrTplParamList(_)>
+template <
+#if EnStaging
+
+    typename OriginLike_,
+#else
+    meta::IsObj Elem_,
+#endif
+    typename SegAllocatorLike_, typename DataAllocatorLike_>
 struct Cntr {
+#if EnStaging
+    using Elem = meta::GetTypeWrapperType<decltype(seq_cntr::GetElemType(
+        meta::TypeWrapper<meta::GetInstType<OriginLike_>>{}))>;
+#else
+    using Elem = Elem_;
+#endif
+
 #if EnStaging
     using OriginLike = OriginLike_;
 #endif
 
-    using SegAllocatorLike = SegAllocatorLike_;
+    using SegAllocatorLike  = SegAllocatorLike_;
     using DataAllocatorLike = DataAllocatorLike_;
 
-    size_t elem_size;
-    size_t elem_stride;
     size_t seg_elem_slot_cnt;
 
     Node* lb;
@@ -205,10 +199,7 @@ struct Cntr {
         typename SegAllocatorLikeConstructArg,
         typename DataAllocatorLikeConstructArg>
     constexpr Cntr(
-#if !EnStaging
-        size_t elem_size,
-#endif
-        size_t elem_stride, size_t seg_elem_slot_cnt,
+        size_t seg_elem_slot_cnt,
 #if EnStaging
         OriginLikeConstructArg&& origin_like_construct_arg,
 #endif
@@ -223,7 +214,7 @@ struct Cntr {
         typename DataAllocatorLikeConstructArg, typename SrcOriginLike,
         typename SrcSegAllocatorLike, typename SrcDataAllocatorLike>
     constexpr Cntr(
-        size_t elem_stride, size_t seg_elem_slot_cnt,
+        size_t seg_elem_slot_cnt,
 #if EnStaging
         OriginLikeConstructArg&& origin_like_construct_arg,
 #endif
@@ -232,6 +223,8 @@ struct Cntr {
         Cntr<
 #if EnStaging
             SrcOriginLike,
+#else
+            Elem,
 #endif
             SrcSegAllocatorLike, SrcDataAllocatorLike> const& src_cntr);
 
@@ -307,7 +300,7 @@ struct Cntr {
 
     template <typename Acceptor>
     constexpr void Read(this Cntr const& self, seq_cntr::Tag,
-                        Cursor* pos_cursor, size_t cnt, acceptor&& reader,
+                        Cursor* pos_cursor, size_t cnt, Acceptor&& reader,
                         Cursor* dst_cursor);
 
     template <typename Provider>
@@ -333,15 +326,15 @@ struct Cntr {
 
     template <typename Acceptor>
     constexpr void PopL(this Cntr& self, seq_cntr::Tag, size_t cnt,
-                        acceptor&& reader);
+                        Acceptor&& reader);
 
     template <typename Acceptor>
     constexpr void PopR(this Cntr& self, seq_cntr::Tag, size_t cnt,
-                        acceptor&& reader);
+                        Acceptor&& reader);
 
     template <typename Acceptor>
     constexpr void Erase(this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor,
-                         size_t cnt, acceptor&& reader);
+                         size_t cnt, Acceptor&& reader);
 
     constexpr void EraseAll(this Cntr& self, seq_cntr::Tag);
 
@@ -396,14 +389,11 @@ struct Cntr {
 
     constexpr Stats GetStats(this Cntr const& self);
 
-    static constexpr void SanityCheck(
-        void const* cntr, debug_utils::sanity::SanityCheckScope scope);
+    constexpr void SanityCheck(this Cntr const& self);
 };
 
 }  // namespace zeta::core::Namespace
 
 #pragma pop_macro("Namespace")
-#pragma pop_macro("CntrTplParamList")
-#pragma pop_macro("CntrTplArgList")
 
 #endif

@@ -95,14 +95,14 @@ struct Cntr {
                            provider&& writer, void* dst_cursor);
 
     template <assoc_cntr::IsReader acceptor>
-    constexpr void PopL(this Cntr& cntr, size_t cnt, acceptor&& reader);
+    constexpr void PopL(this Cntr& cntr, size_t cnt, Acceptor&& reader);
 
     template <assoc_cntr::IsReader acceptor>
-    constexpr void PopR(this Cntr& cntr, size_t cnt, acceptor&& reader);
+    constexpr void PopR(this Cntr& cntr, size_t cnt, Acceptor&& reader);
 
     template <assoc_cntr::IsReader acceptor>
     constexpr void Erase(this Cntr& cntr, void* pos_cursor, size_t cnt,
-                         acceptor&& reader);
+                         Acceptor&& reader);
 
     constexpr void EraseAll(this Cntr& cntr);
 

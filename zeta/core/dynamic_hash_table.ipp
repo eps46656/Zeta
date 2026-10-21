@@ -509,7 +509,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Insert(
 template <CntrTplParamList>
 template <assoc_cntr::IsReader acceptor>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PopL(
-    this Cntr& self, assoc_cntr::Tag, size_t cnt, acceptor&& reader) {
+    this Cntr& self, assoc_cntr::Tag, size_t cnt, Acceptor&& reader) {
     detail::CheckCntr_(self);
 
     auto& node_alctr{ meta::GetInstRef(self.node_alctr_like) };
@@ -535,7 +535,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PopL(
 template <CntrTplParamList>
 template <assoc_cntr::IsReader acceptor>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PopR(
-    this Cntr& self, assoc_cntr::Tag, size_t cnt, acceptor&& reader) {
+    this Cntr& self, assoc_cntr::Tag, size_t cnt, Acceptor&& reader) {
     detail::CheckCntr_(self);
 
     auto& node_alctr{ meta::GetInstRef(self.node_alctr_like) };
@@ -562,7 +562,7 @@ template <CntrTplParamList>
 template <assoc_cntr::IsReader acceptor>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Erase(
     this Cntr& self, assoc_cntr::Tag, Cursor* pos_cursor, size_t cnt,
-    acceptor&& reader) {
+    Acceptor&& reader) {
     detail::CheckCursor_(self, pos_cursor);
 
     auto& node_alctr{ meta::GetInstRef(self.node_alctr_like) };

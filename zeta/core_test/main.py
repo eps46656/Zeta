@@ -396,6 +396,30 @@ def add_deps(build_graph: building_utils.BuildGraph, config: Config):
         ],
     )
 
+    add_k_build_node(
+        "test_seg_utils",
+        [
+            zeta_core_out_dir / "mem_recorder.bc",
+            out_dir / "timer.bc",
+        ],
+    )
+
+    add_k_build_node(
+        "test_stacktrace",
+        [
+            zeta_core_out_dir / "mem_recorder.bc",
+            out_dir / "timer.bc",
+        ],
+    )
+
+    add_k_build_node(
+        "test_print_tree",
+        [
+            zeta_core_out_dir / "mem_recorder.bc",
+            out_dir / "timer.bc",
+        ],
+    )
+
     add_k_build_node("test_pipe", list())
 
     add_k_build_node("test_qsort", list())

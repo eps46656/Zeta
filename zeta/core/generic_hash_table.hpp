@@ -4,6 +4,7 @@
 #include <zeta/core/array.ipp>
 #include <zeta/core/basic_bin_tree_node.hpp>
 #include <zeta/core/comparison_utils.ipp>
+#include <zeta/core/debug_utils/lifecycle_sanity.hpp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/fixed_point.hpp>
 #include <zeta/core/fixed_point.ipp>
@@ -109,13 +110,19 @@ RehashingConfig constexpr default_rehashing_config{
 struct Node {
     ZETA_Core_DebugStructPadding;
 
+    debug_utils::lifecycle_sanity::ObjHook obj_hook;
+
     TreeNode tn;
 
     unsigned long long hash_code;
 
     ZETA_Core_DebugStructPadding;
 
-    constexpr void Construct();
+#if ZETA_Core_DebugEnable
+    constexpr Node();
+#endif
+
+    constexpr void Init();
 };
 
 template <CntrTplParamList(_)>
@@ -155,8 +162,8 @@ struct Cntr {
     constexpr Cntr(RehashingConfig const& rehashing_config,
                    NodeHashLikeInitArg&& hasher_construct_arg,
                    ComparatorInitArg&& cmptr_construct_arg,
-                   TableNodeAllocatorInitArg&& table_node_alctr_construct_arg,
-                   SaltRandomEngineInitArg&& salt_random_engine_construct_arg);
+                   SaltRandomEngineInitArg&& salt_random_engine_construct_arg,
+                   TableNodeAllocatorInitArg&& table_node_alctr_construct_arg);
 
     constexpr ~Cntr();
 
@@ -184,16 +191,12 @@ struct Cntr {
 
     constexpr bool RunPending(this Cntr& self, size_t quota);
 
-    constexpr auto GetEffFactor(this Cntr const& ght);
+    constexpr auto GetEffFactor(this Cntr const& self);
 
-    /*
-constexpr void Sanitize(
-        void
-    );
-    */
-
-    static constexpr void SanityCheck(
-        void const* self, debug_utils::sanity::SanityCheckScope scope);
+    constexpr void SanityCheck(
+        this Cntr const& self,
+        debug_utils::mem_recording::MemRecorder& table_node_recorder,
+        debug_utils::mem_recording::MemRecorder& node_recorder);
 };
 
 }  // namespace zeta::core::generic_hash_table

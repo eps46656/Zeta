@@ -250,11 +250,11 @@ template <typename CodeAcceptorLikeConstructArg>
 constexpr json_utils::Encoder<CodepointAcceptorLike>::Encoder(
     CodeAcceptorLikeConstructArg&& cpa_like_construct_arg,
     FormatConfig const& fmt_config)
-    : cpa_like{ ZETA_Core_Lifecycle_UnpackConstructArg(
+    : cpa_like{ ZETA_Core_Lifecycle_UnpackConstructArgs(
           CodepointAcceptorLike, CodeAcceptorLikeConstructArg,
           cpa_like_construct_arg) },
       fmt_ctx{ fmt_config, 0 } {
-    this->depth = 1;
+    this->depth     = 1;
     this->states[0] = EncInnerState::ReceivingValue;
 }
 
@@ -945,9 +945,8 @@ constexpr json_utils::Decoder<CodepointProviderLike>::Decoder(
     CodeProviderLikeConstructArgs&&... cpp_like_construct_args)
     : depth{ 0 },
       buffer_state{ BufferState::Empty },
-      cpp_like{ ZETA_Core_Lifecycle_UnpackConstructArgs(
-          CodepointProviderLike, CodeProviderLikeConstructArgs,
-          cpp_like_construct_args) } {
+      cpp_like{ meta::Forward<CodeProviderLikeConstructArgs>(
+          cpp_like_construct_args)... } {
     detail::DiscoverNextElem_(*this).Discard();
 }
 
@@ -1091,15 +1090,15 @@ json_utils::Decoder<CodepointProviderLike>::ReceiveBoolean(this Decoder& self) {
 
     switch (detail::CodepointFetch_(self)) {
     case ascii::CharCodeTable::f: {
-        expected_cp = expected_false_cp + 1;
-        expected_cp_len = 5 - 1;
+        expected_cp         = expected_false_cp + 1;
+        expected_cp_len     = 5 - 1;
         expected_bool_value = false;
         break;
     }
 
     case ascii::CharCodeTable::t: {
-        expected_cp = expected_true_cp + 1;
-        expected_cp_len = 4 - 1;
+        expected_cp         = expected_true_cp + 1;
+        expected_cp_len     = 4 - 1;
         expected_bool_value = true;
         break;
     }

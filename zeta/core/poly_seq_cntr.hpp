@@ -1,13 +1,12 @@
 #pragma once
 
-#include <zeta/core/debug_utils/sanity.hpp>
 #include <zeta/core/poly_seq_endpoint.hpp>
 #include <zeta/core/seq_cntr.hpp>
 #include <zeta/core/type_identity.hpp>
 
 namespace zeta::core::poly_seq_cntr {
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 struct Cntr {
     type_identity::TypeHashCode elem_type_hash_code;
     type_identity::TypeHashCode cursor_type_hash_code;
@@ -29,30 +28,29 @@ struct Cntr {
 
     constexpr Cntr(Cntr&&) = default;
 
-    template <seq_cntr::IsSeqCntr TargetCntr>
-    constexpr Cntr(TargetCntr& target_cntr);
-
-    constexpr ~Cntr();
+    template <seq_cntr::IsSeqCntrWithRRef TargetCntr>
+    constexpr Cntr(TargetCntr&& target_cntr);
 
     constexpr Cntr& operator=(Cntr const&) = default;
 
-    template <seq_cntr::IsSeqCntr TargetCntr>
-    constexpr void Set(this Cntr& self, TargetCntr& target_cntr)
+    template <seq_cntr::IsSeqCntrWithRRef TargetCntr>
+    constexpr void Set(this Cntr& self, TargetCntr&& target_cntr)
         requires meta::IsSame<
-            Elem, meta::GetTypeWrapperType<
-                      decltype(seq_cntr::GetElemType<TargetCntr>())>>;
+            Elem, meta::GetTypeWrapperType<decltype(seq_cntr::GetElemType(
+                      meta::TypeWrapper<TargetCntr&&>{}))>>;
 
+    template <
+        meta::IsAnySame<Cntr&, Cntr const&, Cntr&&, Cntr const&&> TargetCntr>
     static constexpr seq_cntr::capability::Flag GetStaticEnabledCapabilityFlag(
-        seq_cntr::Tag, meta::TypeWrapper<Cntr>);
+        seq_cntr::Tag, meta::TypeWrapper<TargetCntr>);
 
-    static constexpr seq_cntr::capability::Flag GetStaticEnabledCapabilityFlag(
-        seq_cntr::Tag, meta::TypeWrapper<Cntr const>);
-
+    template <meta::IsAnySame<Cntr&, Cntr&&> TargetCntr>
     static constexpr seq_cntr::capability::Flag GetStaticDisabledCapabilityFlag(
-        seq_cntr::Tag, meta::TypeWrapper<Cntr>);
+        seq_cntr::Tag, meta::TypeWrapper<TargetCntr>);
 
+    template <meta::IsAnySame<Cntr const&, Cntr const&&> TargetCntr>
     static constexpr seq_cntr::capability::Flag GetStaticDisabledCapabilityFlag(
-        seq_cntr::Tag, meta::TypeWrapper<Cntr const>);
+        seq_cntr::Tag, meta::TypeWrapper<TargetCntr>);
 
     constexpr seq_cntr::capability::Flag GetDynamicEnabledCapabilityFlag(
         this Cntr& self, seq_cntr::Tag);
@@ -68,14 +66,15 @@ struct Cntr {
 
     constexpr void* GetReferedInstPtr(this Cntr const& self, seq_cntr::Tag);
 
+    template <
+        meta::IsAnySame<Cntr&, Cntr const&, Cntr&&, Cntr const&&> TargetCntr>
     static constexpr meta::TypeWrapper<Elem> GetElemType(
-        seq_cntr::Tag, meta::TypeWrapper<Cntr>);
+        seq_cntr::Tag, meta::TypeWrapper<TargetCntr>);
 
+    template <
+        meta::IsAnySame<Cntr&, Cntr const&, Cntr&&, Cntr const&&> TargetCntr>
     static constexpr meta::TypeWrapper<seq_cntr::CursorLimit> GetCursorType(
-        seq_cntr::Tag, meta::TypeWrapper<Cntr>);
-
-    static constexpr meta::TypeWrapper<seq_cntr::CursorLimit> GetCursorType(
-        seq_cntr::Tag, meta::TypeWrapper<Cntr const>);
+        seq_cntr::Tag, meta::TypeWrapper<TargetCntr>);
 
     constexpr size_t GetSride(this Cntr const& self, seq_cntr::Tag);
 
@@ -91,33 +90,33 @@ struct Cntr {
     constexpr void GetRBCursor(this Cntr const& self, seq_cntr::Tag,
                                seq_cntr::CursorLimit* dst_cursor);
 
+    template <lifecycle::IsDstStorageView DstStorageView>
     constexpr void PeekL(this Cntr const& self, seq_cntr::Tag,
                          bool lazy_copy_elem,
-                         seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                         lifecycle::DynamicStorageView<Elem>* dst_elem_view,
                          seq_cntr::CursorLimit* dst_cursor,
-                         lifecycle::DataLifeState dst_elem_life_state,
-                         Elem* dst_elem);
+                         DstStorageView dst_elem);
 
+    template <lifecycle::IsDstStorageView DstStorageView>
     constexpr void PeekR(this Cntr const& self, seq_cntr::Tag,
                          bool lazy_copy_elem,
-                         seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                         lifecycle::DynamicStorageView<Elem>* dst_elem_view,
                          seq_cntr::CursorLimit* dst_cursor,
-                         lifecycle::DataLifeState dst_elem_life_state,
-                         Elem* dst_elem);
+                         DstStorageView dst_elem);
 
+    template <lifecycle::IsDstStorageView DstStorageView>
     constexpr void Refer(this Cntr const& self, seq_cntr::Tag, size_t idx,
                          bool lazy_copy_elem,
-                         seq_cntr::ElemPtrView* dst_elem_ptr_view,
+                         lifecycle::DynamicStorageView<Elem>* dst_elem_view,
                          seq_cntr::CursorLimit* dst_cursor,
-                         lifecycle::DataLifeState dst_elem_life_state,
-                         Elem* dst_elem);
+                         DstStorageView dst_elem);
 
+    template <lifecycle::IsDstStorageView DstStorageView>
     constexpr void Derefer(this Cntr const& self, seq_cntr::Tag,
                            seq_cntr::CursorLimit* pos_cursor,
                            bool lazy_copy_elem,
-                           seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                           lifecycle::DataLifeState dst_elem_life_state,
-                           Elem* dst_elem);
+                           lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+                           DstStorageView dst_elem);
 
     template <typename Acceptor>
     constexpr void Read(this Cntr const& self, seq_cntr::Tag,
@@ -201,9 +200,6 @@ struct Cntr {
                                   seq_cntr::CursorLimit* cursor, size_t step);
 
     constexpr void Check(this Cntr const& self);
-
-    static constexpr void SanityCheck(
-        void const* self, debug_utils::sanity::SanityCheckScope scope);
 };
 
 }  // namespace zeta::core::poly_seq_cntr

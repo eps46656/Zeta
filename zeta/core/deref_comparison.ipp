@@ -10,9 +10,8 @@ template <typename TargetComparatorLike, meta::IsValueWrapperT<bool> DerefA,
 template <typename... TargetComparatorInitArgs>
 constexpr deref_comparison::Comparator<TargetComparatorLike, DerefA, DerefB>::
     Comparator(TargetComparatorInitArgs&&... target_cmptr_init_args)
-    : target_cmptr_like{ ZETA_Core_Lifecycle_UnpackConstructArgs(
-          TargetComparatorLike, TargetComparatorInitArgs,
-          target_cmptr_init_args) } {}
+    : target_cmptr_like{ meta::Forward<TargetComparatorInitArgs>(
+          target_cmptr_init_args)... } {}
 
 template <typename TargetComparatorLike, meta::IsValueWrapperT<bool> DerefA,
           meta::IsValueWrapperT<bool> DerefB>

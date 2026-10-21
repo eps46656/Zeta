@@ -6,18 +6,31 @@ namespace zeta::core::poly_seq_endpoint {
 
 namespace acceptor {
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 struct Acceptor {
     void* target_acceptor;
 
-    size_t (*transfer)(void* target_acceptor,
-                       lifecycle::DataTransferSemantics src_transfer_semantics,
-                       void* src, ptrdiff_t src_elem_stride, size_t cnt);
+    struct {
+        size_t (*destructing_obj_to_mem)(
+            void* target_acceptor, lifecycle::DestructingObjToMemView<Elem> src,
+            ptrdiff_t src_elem_stride, size_t cnt);
 
-    size_t (*const_transfer)(
-        void* target_acceptor,
-        lifecycle::DataTransferSemantics src_transfer_semantics,
-        void const* src, ptrdiff_t src_elem_stride, size_t cnt);
+        size_t (*left_obj)(void* target_acceptor,
+                           lifecycle::LeftObjView<Elem> src,
+                           ptrdiff_t src_elem_stride, size_t cnt);
+
+        size_t (*const_left_obj)(void* target_acceptor,
+                                 lifecycle::ConstLeftObjView<Elem> src,
+                                 ptrdiff_t src_elem_stride, size_t cnt);
+
+        size_t (*right_obj)(void* target_acceptor,
+                            lifecycle::RightObjView<Elem> src,
+                            ptrdiff_t src_elem_stride, size_t cnt);
+
+        size_t (*const_right_obj)(void* target_acceptor,
+                                  lifecycle::ConstRightObjView<Elem> src,
+                                  ptrdiff_t src_elem_stride, size_t cnt);
+    } transfer;
 
     constexpr Acceptor() = default;
 
@@ -36,28 +49,34 @@ struct Acceptor {
     constexpr bool IsEnd(this Acceptor const& self,
                          seq_endpoint::acceptor::Tag);
 
-    constexpr size_t Transfer(
-        this Acceptor& self, seq_endpoint::acceptor::Tag,
-        lifecycle::DataTransferSemantics src_transfer_semantics, Elem* src,
-        ptrdiff_t src_elem_stride, size_t cnt);
-
-    constexpr size_t Transfer(
-        this Acceptor& self, seq_endpoint::acceptor::Tag,
-        lifecycle::DataTransferSemantics src_transfer_semantics,
-        Elem const* src, ptrdiff_t src_elem_stride, size_t cnt);
+    template <lifecycle::IsSrcStorageView<Elem> SrcStorageView>
+    constexpr size_t Transfer(this Acceptor& self, seq_endpoint::acceptor::Tag,
+                              SrcStorageView src, ptrdiff_t src_elem_stride,
+                              size_t cnt);
 };
 
 }  // namespace acceptor
 
 namespace provider {
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 struct Provider {
     void* target_provider;
 
-    size_t (*transfer)(void* target_provider,
-                       lifecycle::DataLifeState dst_life_state, void* dst,
-                       ptrdiff_t dst_elem_stride, size_t cnt);
+    struct {
+        size_t (*constructing_mem_to_obj)(
+            void* target_provider,
+            lifecycle::ConstructingMemToObjView<Elem> dst,
+            ptrdiff_t dst_elem_stride, size_t cnt);
+
+        size_t (*left_obj)(void* target_provider,
+                           lifecycle::LeftObjView<Elem> dst,
+                           ptrdiff_t dst_elem_stride, size_t cnt);
+
+        size_t (*right_obj)(void* target_provider,
+                            lifecycle::RightObjView<Elem> dst,
+                            ptrdiff_t dst_elem_stride, size_t cnt);
+    } transfer;
 
     constexpr Provider() = default;
 
@@ -76,9 +95,10 @@ struct Provider {
     constexpr bool IsEnd(this Provider const& self,
                          seq_endpoint::provider::Tag);
 
+    template <lifecycle::IsDstStorageView<Elem> DstStorageView>
     constexpr size_t Transfer(this Provider& self, seq_endpoint::provider::Tag,
-                              lifecycle::DataLifeState dst_life_state,
-                              Elem* dst, ptrdiff_t dst_elem_stride, size_t cnt);
+                              DstStorageView dst, ptrdiff_t dst_elem_stride,
+                              size_t cnt);
 };
 
 }  // namespace provider

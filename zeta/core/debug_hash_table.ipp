@@ -4,7 +4,6 @@
 #include <zeta/core/assoc_cntr.hpp>
 #include <zeta/core/debug_hash_table.hpp>
 #include <zeta/core/debug_utils/diag.ipp>
-#include <zeta/core/debug_utils/sanity.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/function_ref.ipp>
 #include <zeta/core/integral.hpp>
@@ -82,16 +81,11 @@ constexpr debug_hash_table::Cntr<CntrTplArgList>::Cntr() {
                 *static_cast<ElemComparatorLike const*>(elem_cmptr),
                 comparison::OpTags::Equal{}, elem_a, elem_b);
         };
-
-    debug_utils::sanity::RegisterSanityCheckFunc(
-        this, debug_utils::sanity::DummySanityCheckFunc);
 }
 
 template <CntrTplParamList>
 constexpr debug_hash_table::Cntr<CntrTplArgList>::~Cntr() {
     detail::CheckCntr_(*this);
-
-    debug_utils::sanity::UnregisterSanityCheckFunc(this);
 }
 
 template <CntrTplParamList>
@@ -487,7 +481,7 @@ template <assoc_cntr::IsReader acceptor>
 constexpr void debug_hash_table::Cntr<CntrTplArgList>::PopL(this Cntr& self,
                                                             assoc_cntr::Tag,
                                                             size_t cnt,
-                                                            acceptor&& reader) {
+                                                            Acceptor&& reader) {
     detail::CheckCntr_(self);
 
     auto* hash_table{ self.hash_table };
@@ -513,7 +507,7 @@ template <assoc_cntr::IsReader acceptor>
 constexpr void debug_hash_table::Cntr<CntrTplArgList>::PopR(this Cntr& self,
                                                             assoc_cntr::Tag,
                                                             size_t cnt,
-                                                            acceptor&& reader) {
+                                                            Acceptor&& reader) {
     detail::CheckCntr_(self);
 
     auto* hash_table{ self.hash_table };
@@ -539,7 +533,7 @@ template <CntrTplParamList>
 template <assoc_cntr::IsReader acceptor>
 constexpr void debug_hash_table::Cntr<CntrTplArgList>::Erase(
     this Cntr& self, assoc_cntr::Tag, Cursor* pos_cursor, size_t cnt,
-    acceptor&& reader) {
+    Acceptor&& reader) {
     detail::CheckCursor_(self, pos_cursor);
 
     auto* hash_table{ self.hash_table };

@@ -5,51 +5,63 @@
 
 namespace zeta::core::seq_endpoint {
 
-enum struct Type : unsigned char {
+enum struct Kind : unsigned char {
     Acceptor = 0b01,
     Provider = 0b10,
 };
 
 namespace acceptor {
 
-using Tag = meta::AutoValueWrapper<Type::Acceptor>;
+using Tag = meta::AutoValueWrapper<Kind::Acceptor>;
 
 template <typename Acceptor, typename Elem>
-concept IsAcceptor = requires(
-    Acceptor& inst, Tag tag,
-    lifecycle::DataTransferSemantics transfer_semantics, Elem* data,
-    ptrdiff_t elem_stride, size_t cnt) {
-    requires meta::IsContainerElem<Elem>;
+concept IsAcceptor = requires(Acceptor& inst, Tag tag, Elem* data,
+                              ptrdiff_t elem_stride, size_t cnt) {
+    requires meta::IsNonConstObj<Elem>;
 
     requires meta::IsSame<meta::RemoveCVRef<decltype(inst.IsEnd(tag))>, bool>;
 
-    requires meta::IsSame<
+#pragma push_macro("TransferCase")
+#define TransferCase(storage_semantics_name)                                \
+    requires meta::IsSame<                                                  \
+        meta::RemoveCVRef<decltype(inst.Transfer(                           \
+            tag,                                                            \
+            lifecycle::StorageView<                                         \
+                lifecycle::StorageSemantics::storage_semantics_name, Elem>{ \
+                data },                                                     \
+            elem_stride, cnt))>,                                            \
+        size_t>
 
-        meta::RemoveCVRef<decltype(inst.Transfer(tag, transfer_semantics, data,
-                                                 elem_stride, cnt))>,
-        size_t>;
+    TransferCase(DestructingObjToMem);
+    TransferCase(LeftObj);
+    TransferCase(ConstLeftObj);
+    TransferCase(RightObj);
+    TransferCase(ConstRightObj);
+
+#pragma pop_macro("TransferCase")
 };
 
 template <typename Acceptor>
 constexpr decltype(auto) IsEnd(Acceptor&& inst);
 
-template <typename Acceptor, typename SrcElem>
-constexpr decltype(auto) Transfer(
-    Acceptor&& inst, lifecycle::DataTransferSemantics src_transfer_semantics,
-    SrcElem* src, ptrdiff_t src_elem_stride, size_t cnt);
+template <typename Acceptor, lifecycle::IsSrcStorageView SrcStorageView>
+constexpr decltype(auto) Transfer(Acceptor&& inst, SrcStorageView src,
+                                  ptrdiff_t src_elem_stride, size_t cnt);
 
-template <typename Acceptor, typename SrcElem>
-constexpr decltype(auto) Transfer(
-    Acceptor&& inst, lifecycle::DataTransferSemantics src_transfer_semantics,
-    SrcElem const* src, ptrdiff_t src_elem_stride, size_t cnt);
+struct EmptyAcceptor {
+    static constexpr bool IsEnd(Tag);
+
+    template <lifecycle::IsSrcStorageView SrcStorageView>
+    static constexpr size_t Transfer(Tag, SrcStorageView src,
+                                     ptrdiff_t src_elem_stride, size_t cnt);
+};
 
 struct BasicAcceptor {
     static constexpr bool IsEnd(Tag);
 
-    template <typename SrcElem>
-    static constexpr size_t Transfer(
-        Tag, lifecycle::DataTransferSemantics src_transfer_semantics,
-        SrcElem* src, ptrdiff_t src_elem_stride, size_t cnt);
+    template <lifecycle::IsSrcStorageView SrcStorageView>
+    static constexpr size_t Transfer(Tag, SrcStorageView src,
+                                     ptrdiff_t src_elem_stride, size_t cnt);
 };
 
 template <typename Acceptor>
@@ -62,38 +74,54 @@ using ArchetypeAcceptor = BasicAcceptor;
 
 namespace provider {
 
-using Tag = meta::AutoValueWrapper<Type::Provider>;
+using Tag = meta::AutoValueWrapper<Kind::Provider>;
 
 template <typename Provider, typename Elem>
-concept IsProvider = requires(Provider& inst, Tag tag,
-                              lifecycle::DataLifeState life_state, Elem* data,
-                              ptrdiff_t elem_stride, size_t cnt) {
-    requires meta::IsContainerElem<Elem>;
+concept IsProvider = requires(Provider& inst, Tag tag, Elem* data,
+                              Elem* const_data, ptrdiff_t elem_stride,
+                              size_t cnt) {
+    requires meta::IsObj<Elem>;
 
     requires meta::IsSame<meta::RemoveCVRef<decltype(inst.IsEnd(tag))>, bool>;
 
-    requires meta::IsSame<meta::RemoveCVRef<decltype(inst.Transfer(
-                              tag, life_state, data, elem_stride, cnt))>,
-                          size_t>;
+#pragma push_macro("TransferCase")
+#define TransferCase(storage_semantics_name)                                \
+    requires meta::IsSame<                                                  \
+        meta::RemoveCVRef<decltype(inst.Transfer(                           \
+            tag,                                                            \
+            lifecycle::StorageView<                                         \
+                lifecycle::StorageSemantics::storage_semantics_name, Elem>{ \
+                data },                                                     \
+            elem_stride, cnt))>,                                            \
+        size_t>
+
+    TransferCase(ConstructingMemToObj);
+    TransferCase(LeftObj);
+    TransferCase(RightObj);
+
+#pragma pop_macro("TransferCase")
 };
 
 template <typename Provider>
 constexpr decltype(auto) IsEnd(Provider&& inst);
 
-template <typename Provider, typename DstElem>
-constexpr decltype(auto) Transfer(Provider&& inst,
-                                  lifecycle::DataLifeState dst_life_state,
-                                  DstElem* dst, ptrdiff_t dst_elem_stride,
-                                  size_t cnt);
+template <typename Provider, lifecycle::IsDstStorageView DstStorageView>
+constexpr decltype(auto) Transfer(Provider&& inst, DstStorageView dst,
+                                  ptrdiff_t dst_elem_stride, size_t cnt);
+
+struct EmptyProvider {
+    static constexpr bool IsEnd(Tag);
+
+    template <lifecycle::IsDstStorageView DstStorageView>
+    static constexpr size_t Transfer(Tag, DstStorageView, ptrdiff_t, size_t);
+};
 
 struct BasicProvider {
     static constexpr bool IsEnd(Tag);
 
-    template <typename DstElem>
-    static constexpr size_t Transfer(Tag,
-                                     lifecycle::DataLifeState dst_life_state,
-                                     DstElem* dst, ptrdiff_t dst_elem_stride,
-                                     size_t cnt);
+    template <lifecycle::IsDstStorageView DstStorageView>
+    static constexpr size_t Transfer(Tag, DstStorageView dst,
+                                     ptrdiff_t dst_elem_stride, size_t cnt);
 };
 
 template <typename Provider>
@@ -103,5 +131,9 @@ concept IsBasicProvider =
 using ArchetypeProvider = BasicProvider;
 
 }  // namespace provider
+
+template <typename SeqEndpoint, typename Elem>
+concept IsEndpoint = acceptor::IsAcceptor<SeqEndpoint, Elem> ||
+                     provider::IsProvider<SeqEndpoint, Elem>;
 
 }  // namespace zeta::core::seq_endpoint

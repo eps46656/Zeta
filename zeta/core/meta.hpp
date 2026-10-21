@@ -215,10 +215,19 @@ template <typename T>
 using RemoveVRef = RemoveVolatile<RemoveRef<T>>;
 
 template <typename T>
-using RemoveCVRef = RemoveConst<RemoveVolatile<RemoveRef<T>>>;
+using RemoveCVRef = RemoveCV<RemoveRef<T>>;
 
 template <typename T>
 concept IsConst = __is_const(T);
+
+template <typename T>
+concept IsNonConst = !IsConst<T>;
+
+template <typename T>
+concept IsConstWithoutRef = IsConst<RemoveRef<T>>;
+
+template <typename T>
+concept IsNonConstWithoutRef = IsNonConst<RemoveRef<T>>;
 
 template <typename T>
 concept IsVolatile = __is_volatile(T);
@@ -286,13 +295,19 @@ template <typename T>
 concept IsCompound = __is_compound(T);
 
 template <typename T>
-concept IsObject = __is_object(T);
+concept IsObj = __is_object(T);
 
 template <typename T>
-concept IsLValueRef = __is_lvalue_reference(T);
+concept IsNonConstObj = IsObj<T> && !IsConst<T>;
 
 template <typename T>
-concept IsRValueRef = __is_rvalue_reference(T);
+concept IsConstObj = IsObj<T> && IsConst<T>;
+
+template <typename T>
+concept IsLRef = __is_lvalue_reference(T);
+
+template <typename T>
+concept IsRRef = __is_rvalue_reference(T);
 
 template <typename T>
 concept IsRef = __is_reference(T);
@@ -322,7 +337,7 @@ template <IsEnum Enum>
 using UnderlyingType = __underlying_type(Enum);
 
 template <IsEnum Enum>
-constexpr UnderlyingType<Enum> ToUnderlying(Enum e) {
+constexpr UnderlyingType<Enum> EnumToUnderlying(Enum e) {
     return static_cast<UnderlyingType<Enum>>(e);
 }
 
@@ -349,6 +364,9 @@ using Conditional = typename detail::Conditional_<Cond, T1, T2>::Type;
 template <typename T, bool Cond>
 using MakeConstIf = Conditional<Cond, T const, T>;
 
+template <bool CondP, bool CondQ>
+concept Implies = !CondP || CondQ;
+
 namespace detail {
 
 template <bool Cond, typename _ = void>
@@ -368,7 +386,7 @@ template <bool Cond, typename _ = void>
 using EnableIf = typename detail::EnableIf_<Cond, _>::Type;
 
 template <typename T>
-concept IsContainerElem = IsSame<T, RemoveCVRef<T>>;
+concept IsReferable = IsSame<T, RemoveRef<T>>;
 
 template <typename FromT, typename ToT>
 concept IsConvertible = __is_convertible(FromT, ToT);
@@ -380,6 +398,42 @@ constexpr RemoveRef<T>&& Move(
     return static_cast<RemoveRef<T>&&>(t);
 }
 
+template <typename Src, typename Dst>
+using CopyConst =
+    Conditional<IsConst<Src>, RemoveConst<Dst> const, RemoveConst<Dst>>;
+
+template <typename Src, typename Dst>
+using CopyVolatile = Conditional<IsVolatile<Src>, RemoveVolatile<Dst> volatile,
+                                 RemoveVolatile<Dst>>;
+
+template <typename Src, typename Dst>
+using CopyCV = CopyConst<Src, CopyVolatile<Src, Dst>>;
+
+namespace detail {
+
+template <typename Src, typename Dst>
+struct CopyRefImpl_ {
+    using Type = Dst;
+};
+
+template <typename Src, typename Dst>
+struct CopyRefImpl_<Src&, Dst> {
+    using Type = Dst&;
+};
+
+template <typename Src, typename Dst>
+struct CopyRefImpl_<Src&&, Dst> {
+    using Type = Dst&&;
+};
+
+}  // namespace detail
+
+template <typename Src, typename Dst>
+using CopyRef = typename detail::CopyRefImpl_<Src, RemoveRef<Dst>>::Type;
+
+template <typename Src, typename Dst>
+using CopyCVRef = CopyRef<Src, CopyCV<Src, Dst>>;
+
 template <typename T>
 constexpr T&& Forward(RemoveRef<T>& t) {
     return static_cast<T&&>(t);
@@ -387,7 +441,7 @@ constexpr T&& Forward(RemoveRef<T>& t) {
 
 template <typename Type_>
 struct TypeWrapper {
-    using Type = Type_;
+    using AnUglyTypeAliasToDiscourageDirectAccess = Type_;
 };
 
 namespace detail {
@@ -409,19 +463,23 @@ concept IsTypeWrapper = detail::IsTypeWrapperImpl_<T>::value;
 
 template <typename T, typename TargetType>
 concept IsTypeWrapperT =
-    IsTypeWrapper<T> && meta::IsSame<typename T::Type, TargetType>;
+    IsTypeWrapper<T> &&
+    meta::IsSame<typename T::AnUglyTypeAliasToDiscourageDirectAccess,
+                 TargetType>;
 
 template <IsTypeWrapper T>
-using GetTypeWrapperType = typename T::Type;
+    requires IsTypeWrapper<T>
+using GetTypeWrapperType = typename T::AnUglyTypeAliasToDiscourageDirectAccess;
 
 template <typename Type_>
 struct ConvertibleTypeWrapper {
-    using Type = Type_;
+    using AnUglyNameOfTypeTodiscourageUserDirectlyAccess = Type_;
 
     constexpr ConvertibleTypeWrapper() = default;
 
     template <typename OtherType>
-        requires IsConvertible<OtherType, Type>
+        requires IsConvertible<OtherType,
+                               AnUglyNameOfTypeTodiscourageUserDirectlyAccess>
     constexpr ConvertibleTypeWrapper  // NOLINT(
                                       // google-explicit-constructor,
                                       // hicpp-explicit-conversions)
@@ -430,19 +488,14 @@ struct ConvertibleTypeWrapper {
 
 template <typename Type_, Type_ Value_>
 struct ValueWrapper {
-    using Type = Type_;
+    using AnUglyTypeAliasToDiscourageDirectAccess = Type_;
 
-    static constexpr Type value{ Value_ };
+    static constexpr AnUglyTypeAliasToDiscourageDirectAccess
+        an_ugly_value_alias_to_discourage_direct_access{ Value_ };
 
     constexpr ValueWrapper() = default;
 
-    template <typename OtherType, OtherType OtherValue>
-        requires IsConvertible<OtherType, Type> &&
-                 (static_cast<Type>(OtherValue) == value)
-    constexpr ValueWrapper  // NOLINT(
-                            // google-explicit-constructor,
-                            // hicpp-explicit-conversions)
-        (ValueWrapper<OtherType, OtherValue> const&){};
+    constexpr ValueWrapper(ValueWrapper const&) = default;
 };
 
 namespace detail {
@@ -464,17 +517,28 @@ concept IsValueWrapper = detail::IsValueWrapperImpl_<T>::value;
 
 template <typename T, typename TargetType>
 concept IsValueWrapperT =
-    IsValueWrapper<T> && meta::IsSame<typename T::Type, TargetType>;
+    IsValueWrapper<T> &&
+    meta::IsSame<typename T::AnUglyTypeAliasToDiscourageDirectAccess,
+                 TargetType>;
 
 template <typename T, typename TargetType, TargetType Value>
 concept IsValueWrapperTV =
-    IsValueWrapperT<T, TargetType> && (T::Value == Value);
+    IsValueWrapperT<T, TargetType> &&
+    (T::an_ugly_value_alias_to_discourage_direct_access == Value);
 
 template <IsValueWrapper T>
-using GetValueWrapperType = typename T::Type;
+    requires IsValueWrapper<T>
+using GetValueWrapperType = typename T::AnUglyTypeAliasToDiscourageDirectAccess;
 
 template <IsValueWrapper T>
-constexpr GetValueWrapperType<T> GetValueWrapperValue{ T::value };
+    requires IsValueWrapper<T>
+constexpr GetValueWrapperType<T> GetValueWrapperValue{
+    T::an_ugly_value_alias_to_discourage_direct_access
+};
+
+template <typename T, typename TargetType>
+concept IsValueOrValueWrapper =
+    meta::IsSame<T, TargetType> || IsValueWrapperT<T, TargetType>;
 
 template <auto Value>
 using AutoValueWrapper = ValueWrapper<RemoveCVRef<decltype(Value)>, Value>;
@@ -490,7 +554,7 @@ constexpr T& GetInstRef(T& inst) {
 }
 
 template <typename T>
-using GetInstRefType = RemoveRef<decltype(GetInstRef(Declval<T>()))>;
+using GetInstType = RemoveRef<decltype(GetInstRef(Declval<T>()))>;
 
 template <typename T>
 constexpr T* GetInstPtr(T* inst) {
@@ -504,5 +568,9 @@ constexpr T* GetInstPtr(T& inst) {
 
 template <typename T>
 constexpr T* GetInstPtr(T&& inst) = delete;
+
+// This function is called to make a consteval expression fail to compile.
+// Do not add constexpr to this function.
+inline void ConstantEvaluationFailure() {}
 
 }  // namespace zeta::core::meta

@@ -69,9 +69,10 @@ constexpr bool assoc_cntr::capability::CheckFlags(
 
 #pragma push_macro("TestCapability")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define TestCapability(cap_flag, cap_name)           \
-    (((cap_flag) & (static_cast<capability::Flag>(1) \
-                    << meta::ToUnderlying(capability::Kind::cap_name))) != 0)
+#define TestCapability(cap_flag, cap_name)                                     \
+    (((cap_flag) & (static_cast<capability::Flag>(1)                           \
+                    << meta::EnumToUnderlying(capability::Kind::cap_name))) != \
+     0)
 
 #pragma push_macro("CallMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -281,19 +282,19 @@ constexpr decltype(auto) assoc_cntr::Insert(Cntr& cntr, void const* key,
 
 template <typename Cntr, assoc_cntr::IsReader acceptor>
 constexpr decltype(auto) assoc_cntr::PopL(Cntr& cntr, size_t cnt,
-                                          acceptor&& reader) {
+                                          Acceptor&& reader) {
     CallMethod(PopL, PopL, cntr, cnt, reader);
 }
 
 template <typename Cntr, assoc_cntr::IsReader acceptor>
 constexpr decltype(auto) assoc_cntr::PopR(Cntr& cntr, size_t cnt,
-                                          acceptor&& reader) {
+                                          Acceptor&& reader) {
     CallMethod(PopR, PopR, cntr, cnt, reader);
 }
 
 template <typename Cntr, assoc_cntr::IsReader acceptor>
 constexpr decltype(auto) assoc_cntr::Erase(Cntr& cntr, void* pos_cursor,
-                                           size_t cnt, acceptor&& reader) {
+                                           size_t cnt, Acceptor&& reader) {
     CallMethod(Erase, Erase, cntr, pos_cursor, cnt, reader);
 }
 

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <zeta/core/debug_utils/sanity.ipp>
 #include <zeta/core/poly_seq_cntr.hpp>
 #include <zeta/core/poly_seq_endpoint.ipp>
 #include <zeta/core/seq_cntr.ipp>
@@ -13,7 +12,7 @@ namespace zeta::core {
 #define TestCapability(cap_flag, cap_name)        \
     (((cap_flag) &                                \
       (static_cast<seq_cntr::capability::Flag>(1) \
-       << meta::ToUnderlying(seq_cntr::capability::Kind::cap_name))) != 0)
+       << meta::EnumToUnderlying(seq_cntr::capability::Kind::cap_name))) != 0)
 
 #pragma push_macro("CallMethod_")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -37,7 +36,7 @@ namespace zeta::core {
 #define CallMethod(cap_name, method, ...) \
     CallMethod_(ZETA_Core_TmpName, cap_name, method, __VA_ARGS__)
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr poly_seq_cntr::Cntr<Elem>::Cntr()
     : max_elem_cnt{ 0 },
       dynamic_enabled_capability_flag{
@@ -47,83 +46,82 @@ constexpr poly_seq_cntr::Cntr<Elem>::Cntr()
           seq_cntr::capability::empty_capability_flag
       },
       vtable{ nullptr },
-      target_cntr{ nullptr } {
-    debug_utils::sanity::RegisterSanityCheckFunc(this, Cntr::SanityCheck);
+      target_cntr{ nullptr } {}
+
+template <meta::IsObj Elem>
+template <seq_cntr::IsSeqCntrWithRRef TargetCntr>
+constexpr poly_seq_cntr::Cntr<Elem>::Cntr(TargetCntr&& target_cntr) {
+    this->Set(meta::Forward<TargetCntr>(target_cntr));
 }
 
-template <meta::IsContainerElem Elem>
-template <seq_cntr::IsSeqCntr TargetCntr>
-constexpr poly_seq_cntr::Cntr<Elem>::Cntr(TargetCntr& target_cntr) {
-    debug_utils::sanity::RegisterSanityCheckFunc(this, Cntr::SanityCheck);
-
-    this->Set(target_cntr);
-}
-
-template <meta::IsContainerElem Elem>
-constexpr poly_seq_cntr::Cntr<Elem>::~Cntr() {
-    debug_utils::sanity::UnregisterSanityCheckFunc(this);
-}
-
-template <meta::IsContainerElem Elem>
-template <seq_cntr::IsSeqCntr TargetCntr>
+template <meta::IsObj Elem>
+template <seq_cntr::IsSeqCntrWithRRef TargetCntr>
 constexpr void poly_seq_cntr::Cntr<Elem>::Set(this Cntr& self,
-                                              TargetCntr& target_cntr)
+                                              TargetCntr&& target_cntr)
     requires meta::IsSame<
-        Elem,
-        meta::GetTypeWrapperType<decltype(seq_cntr::GetElemType<TargetCntr>())>>
+        Elem, meta::GetTypeWrapperType<decltype(seq_cntr::GetElemType(
+                  meta::TypeWrapper<TargetCntr&&>{}))>>
 {
-    self.max_elem_cnt = seq_cntr::GetMaxElemCnt(target_cntr);
+    self.max_elem_cnt =
+        seq_cntr::GetMaxElemCnt(meta::Forward<TargetCntr>(target_cntr));
 
     self.dynamic_enabled_capability_flag =
-        seq_cntr::GetStaticEnabledCapabilityFlag<TargetCntr>() |
-        seq_cntr::GetDynamicEnabledCapabilityFlag(target_cntr);
+        seq_cntr::GetStaticEnabledCapabilityFlag(
+            meta::TypeWrapper<TargetCntr&>{}) |
+        seq_cntr::GetDynamicEnabledCapabilityFlag(
+            meta::Forward<TargetCntr>(target_cntr));
 
     self.dynamic_disabled_capability_flag =
-        seq_cntr::GetStaticDisabledCapabilityFlag<TargetCntr>() |
-        seq_cntr::GetDynamicDisabledCapabilityFlag(target_cntr);
+        seq_cntr::GetStaticDisabledCapabilityFlag(
+            meta::TypeWrapper<TargetCntr&>{}) |
+        seq_cntr::GetDynamicDisabledCapabilityFlag(
+            meta::Forward<TargetCntr>(target_cntr));
 
-    self.vtable = &seq_cntr::GetVTable<TargetCntr>();
+    self.vtable = &seq_cntr::GetVTable<TargetCntr&>();
 
     self.target_cntr =
         const_cast<void*>(static_cast<void const*>(&target_cntr));
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
+template <meta::IsAnySame<
+    poly_seq_cntr::Cntr<Elem>&, poly_seq_cntr::Cntr<Elem> const&,
+    poly_seq_cntr::Cntr<Elem>&&, poly_seq_cntr::Cntr<Elem> const&&>
+              TargetCntr>
 constexpr seq_cntr::capability::Flag
 poly_seq_cntr::Cntr<Elem>::GetStaticEnabledCapabilityFlag(
-    seq_cntr::Tag, meta::TypeWrapper<Cntr>) {
+    seq_cntr::Tag, meta::TypeWrapper<TargetCntr>) {
     return seq_cntr::capability::empty_capability_flag;
 }
 
-template <meta::IsContainerElem Elem>
-constexpr seq_cntr::capability::Flag
-poly_seq_cntr::Cntr<Elem>::GetStaticEnabledCapabilityFlag(
-    seq_cntr::Tag, meta::TypeWrapper<Cntr const>) {
-    return seq_cntr::capability::empty_capability_flag;
-}
-
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
+template <
+    meta::IsAnySame<poly_seq_cntr::Cntr<Elem>&, poly_seq_cntr::Cntr<Elem>&&>
+        TargetCntr>
 constexpr seq_cntr::capability::Flag
 poly_seq_cntr::Cntr<Elem>::GetStaticDisabledCapabilityFlag(
-    seq_cntr::Tag, meta::TypeWrapper<Cntr>) {
+    seq_cntr::Tag, meta::TypeWrapper<TargetCntr>) {
     return seq_cntr::capability::empty_capability_flag;
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
+template <meta::IsAnySame<poly_seq_cntr::Cntr<Elem> const&,
+                          poly_seq_cntr::Cntr<Elem> const&&>
+              TargetCntr>
 constexpr seq_cntr::capability::Flag
 poly_seq_cntr::Cntr<Elem>::GetStaticDisabledCapabilityFlag(
-    seq_cntr::Tag, meta::TypeWrapper<Cntr const>) {
+    seq_cntr::Tag, meta::TypeWrapper<TargetCntr>) {
     return seq_cntr::capability::non_const_capability_flag;
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr seq_cntr::capability::Flag
 poly_seq_cntr::Cntr<Elem>::GetDynamicEnabledCapabilityFlag(this Cntr& self,
                                                            seq_cntr::Tag) {
     return self.dynamic_enabled_capability_flag;
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr seq_cntr::capability::Flag
 poly_seq_cntr::Cntr<Elem>::GetDynamicEnabledCapabilityFlag(
     this Cntr const& self, seq_cntr::Tag) {
@@ -131,14 +129,14 @@ poly_seq_cntr::Cntr<Elem>::GetDynamicEnabledCapabilityFlag(
            seq_cntr::capability::const_capability_flag;
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr seq_cntr::capability::Flag
 poly_seq_cntr::Cntr<Elem>::GetDynamicDisabledCapabilityFlag(this Cntr& self,
                                                             seq_cntr::Tag) {
     return self.dynamic_disabled_capability_flag;
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr seq_cntr::capability::Flag
 poly_seq_cntr::Cntr<Elem>::GetDynamicDisabledCapabilityFlag(
     this Cntr const& self, seq_cntr::Tag) {
@@ -146,93 +144,150 @@ poly_seq_cntr::Cntr<Elem>::GetDynamicDisabledCapabilityFlag(
            seq_cntr::capability::const_capability_flag;
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr void* poly_seq_cntr::Cntr<Elem>::GetReferedInstPtr(
     this Cntr const& self, seq_cntr::Tag) {
     return self.target_cntr;
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
+template <meta::IsAnySame<
+    poly_seq_cntr::Cntr<Elem>&, poly_seq_cntr::Cntr<Elem> const&,
+    poly_seq_cntr::Cntr<Elem>&&, poly_seq_cntr::Cntr<Elem> const&&>
+              TargetCntr>
 constexpr meta::TypeWrapper<Elem> poly_seq_cntr::Cntr<Elem>::GetElemType(
-    seq_cntr::Tag, meta::TypeWrapper<Cntr>) {
+    seq_cntr::Tag, meta::TypeWrapper<TargetCntr>) {
     return {};
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
+template <meta::IsAnySame<
+    poly_seq_cntr::Cntr<Elem>&, poly_seq_cntr::Cntr<Elem> const&,
+    poly_seq_cntr::Cntr<Elem>&&, poly_seq_cntr::Cntr<Elem> const&&>
+              TargetCntr>
 constexpr meta::TypeWrapper<seq_cntr::CursorLimit>
 poly_seq_cntr::Cntr<Elem>::GetCursorType(seq_cntr::Tag,
-                                         meta::TypeWrapper<Cntr>) {
+                                         meta::TypeWrapper<TargetCntr>) {
     return {};
 }
 
-template <meta::IsContainerElem Elem>
-constexpr meta::TypeWrapper<seq_cntr::CursorLimit>
-poly_seq_cntr::Cntr<Elem>::GetCursorType(seq_cntr::Tag,
-                                         meta::TypeWrapper<Cntr const>) {
-    return {};
-}
-
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr size_t poly_seq_cntr::Cntr<Elem>::GetElemCnt(this Cntr const& self,
                                                        seq_cntr::Tag) {
     CallMethod(GetElemCnt, get_elem_cnt);
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr size_t poly_seq_cntr::Cntr<Elem>::GetMaxElemCnt(this Cntr const& self,
                                                           seq_cntr::Tag) {
     CallMethod(GetMaxElemCnt, get_max_elem_cnt);
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr void poly_seq_cntr::Cntr<Elem>::GetLBCursor(
     this Cntr const& self, seq_cntr::Tag, seq_cntr::CursorLimit* dst_cursor) {
     CallMethod(GetLBCursor, get_lb_cursor, dst_cursor);
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr void poly_seq_cntr::Cntr<Elem>::GetRBCursor(
     this Cntr const& self, seq_cntr::Tag, seq_cntr::CursorLimit* dst_cursor) {
     CallMethod(GetRBCursor, get_rb_cursor, dst_cursor);
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
+template <lifecycle::IsDstStorageView DstStorageView>
 constexpr void poly_seq_cntr::Cntr<Elem>::PeekL(
     this Cntr const& self, seq_cntr::Tag, bool lazy_copy_elem,
-    seq_cntr::ElemPtrView* dst_elem_ptr_view, seq_cntr::CursorLimit* dst_cursor,
-    lifecycle::DataLifeState dst_elem_life_state, Elem* dst_elem) {
-    CallMethod(PeekL, peek_l, lazy_copy_elem, dst_elem_ptr_view, dst_cursor,
-               dst_elem_life_state, dst_elem);
+    lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+    seq_cntr::CursorLimit* dst_cursor, DstStorageView dst_elem) {
+    if constexpr (DstStorageView::semantics ==
+                  lifecycle::StorageSemantics::ConstructingMemToObj) {
+        CallMethod(PeekL, peek_l.constructing_mem_to_obj, lazy_copy_elem,
+                   dst_elem_view, dst_cursor, dst_elem);
+    } else if constexpr (DstStorageView::semantics ==
+                         lifecycle::StorageSemantics::LeftObj) {
+        CallMethod(PeekL, peek_l.left_obj, lazy_copy_elem, dst_elem_view,
+                   dst_cursor, dst_elem);
+    } else if constexpr (DstStorageView::semantics ==
+                         lifecycle::StorageSemantics::RightObj) {
+        CallMethod(PeekL, peek_l.right_obj, lazy_copy_elem, dst_elem_view,
+                   dst_cursor, dst_elem);
+    } else {
+        static_assert(false);
+    }
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
+template <lifecycle::IsDstStorageView DstStorageView>
 constexpr void poly_seq_cntr::Cntr<Elem>::PeekR(
     this Cntr const& self, seq_cntr::Tag, bool lazy_copy_elem,
-    seq_cntr::ElemPtrView* dst_elem_ptr_view, seq_cntr::CursorLimit* dst_cursor,
-    lifecycle::DataLifeState dst_elem_life_state, Elem* dst_elem) {
-    CallMethod(PeekR, peek_r, lazy_copy_elem, dst_elem_ptr_view, dst_cursor,
-               dst_elem_life_state, dst_elem);
+    lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+    seq_cntr::CursorLimit* dst_cursor, DstStorageView dst_elem) {
+    if constexpr (DstStorageView::semantics ==
+                  lifecycle::StorageSemantics::ConstructingMemToObj) {
+        CallMethod(PeekR, peek_r.constructing_mem_to_obj, lazy_copy_elem,
+                   dst_elem_view, dst_cursor, dst_elem);
+    } else if constexpr (DstStorageView::semantics ==
+                         lifecycle::StorageSemantics::LeftObj) {
+        CallMethod(PeekR, peek_r.left_obj, lazy_copy_elem, dst_elem_view,
+                   dst_cursor, dst_elem);
+    } else if constexpr (DstStorageView::semantics ==
+                         lifecycle::StorageSemantics::RightObj) {
+        CallMethod(PeekR, peek_r.right_obj, lazy_copy_elem, dst_elem_view,
+                   dst_cursor, dst_elem);
+    } else {
+        static_assert(false);
+    }
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
+template <lifecycle::IsDstStorageView DstStorageView>
 constexpr void poly_seq_cntr::Cntr<Elem>::Refer(
     this Cntr const& self, seq_cntr::Tag, size_t idx, bool lazy_copy_elem,
-    seq_cntr::ElemPtrView* dst_elem_ptr_view, seq_cntr::CursorLimit* dst_cursor,
-    lifecycle::DataLifeState dst_elem_life_state, Elem* dst_elem) {
-    CallMethod(Refer, refer, idx, lazy_copy_elem, dst_elem_ptr_view, dst_cursor,
-               dst_elem_life_state, dst_elem);
+    lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+    seq_cntr::CursorLimit* dst_cursor, DstStorageView dst_elem) {
+    if constexpr (DstStorageView::semantics ==
+                  lifecycle::StorageSemantics::ConstructingMemToObj) {
+        CallMethod(Refer, refer.construsting_mem_to_obj, idx, lazy_copy_elem,
+                   dst_elem_view, dst_cursor, dst_elem);
+    } else if constexpr (DstStorageView::semantics ==
+                         lifecycle::StorageSemantics::LeftObj) {
+        CallMethod(Refer, refer.left_obj, idx, lazy_copy_elem, dst_elem_view,
+                   dst_cursor, dst_elem);
+    } else if constexpr (DstStorageView::semantics ==
+                         lifecycle::StorageSemantics::RightObj) {
+        CallMethod(Refer, refer.right_obj, idx, lazy_copy_elem, dst_elem_view,
+                   dst_cursor, dst_elem);
+    } else {
+        static_assert(false);
+    }
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
+template <lifecycle::IsDstStorageView DstStorageView>
 constexpr void poly_seq_cntr::Cntr<Elem>::Derefer(
     this Cntr const& self, seq_cntr::Tag, seq_cntr::CursorLimit* pos_cursor,
-    bool lazy_copy_elem, seq_cntr::ElemPtrView* dst_elem_ptr_view,
-    lifecycle::DataLifeState dst_elem_life_state, Elem* dst_elem) {
-    CallMethod(Derefer, derefer, pos_cursor, lazy_copy_elem, dst_elem_ptr_view,
-               dst_elem_life_state, dst_elem);
+    bool lazy_copy_elem, lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+    DstStorageView dst_elem) {
+    if constexpr (DstStorageView::semantics ==
+                  lifecycle::StorageSemantics::ConstructingMemToObj) {
+        CallMethod(Derefer, derefer.construsting_mem_to_obj, pos_cursor,
+                   lazy_copy_elem, dst_elem_view, dst_elem);
+    } else if constexpr (DstStorageView::semantics ==
+                         lifecycle::StorageSemantics::LeftObj) {
+        CallMethod(Derefer, derefer.left_obj, pos_cursor, lazy_copy_elem,
+                   dst_elem_view, dst_elem);
+    } else if constexpr (DstStorageView::semantics ==
+                         lifecycle::StorageSemantics::RightObj) {
+        CallMethod(Derefer, derefer.right_obj, pos_cursor, lazy_copy_elem,
+                   dst_elem_view, dst_elem);
+    } else {
+        static_assert(false);
+    }
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 template <typename Acceptor>
 constexpr void poly_seq_cntr::Cntr<Elem>::Read(
     this Cntr const& self, seq_cntr::Tag, seq_cntr::CursorLimit* pos_cursor,
@@ -244,7 +299,7 @@ constexpr void poly_seq_cntr::Cntr<Elem>::Read(
     }
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 template <typename Provider>
 constexpr void poly_seq_cntr::Cntr<Elem>::Write(
     this Cntr& self, seq_cntr::Tag, seq_cntr::CursorLimit* pos_cursor,
@@ -256,7 +311,7 @@ constexpr void poly_seq_cntr::Cntr<Elem>::Write(
     }
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 template <typename Acceptor>
 constexpr void poly_seq_cntr::Cntr<Elem>::ReadWrite(
     this Cntr& self, seq_cntr::Tag, seq_cntr::CursorLimit* pos_cursor,
@@ -265,7 +320,7 @@ constexpr void poly_seq_cntr::Cntr<Elem>::ReadWrite(
                dst_cursor);
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 template <typename Provider>
 constexpr void poly_seq_cntr::Cntr<Elem>::PushL(
     this Cntr& self, seq_cntr::Tag, size_t cnt, Provider&& provider,
@@ -280,7 +335,7 @@ constexpr void poly_seq_cntr::Cntr<Elem>::PushL(
     }
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 template <typename Provider>
 constexpr void poly_seq_cntr::Cntr<Elem>::PushR(
     this Cntr& self, seq_cntr::Tag, size_t cnt, Provider&& provider,
@@ -295,7 +350,7 @@ constexpr void poly_seq_cntr::Cntr<Elem>::PushR(
     }
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 template <typename Provider>
 constexpr void poly_seq_cntr::Cntr<Elem>::Insert(
     this Cntr& self, seq_cntr::Tag, seq_cntr::CursorLimit* pos_cursor,
@@ -307,7 +362,7 @@ constexpr void poly_seq_cntr::Cntr<Elem>::Insert(
     }
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 template <typename Acceptor>
 constexpr void poly_seq_cntr::Cntr<Elem>::PopL(
     this Cntr& self, seq_cntr::Tag, size_t cnt, Acceptor&& acceptor,
@@ -319,7 +374,7 @@ constexpr void poly_seq_cntr::Cntr<Elem>::PopL(
     }
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 template <typename Acceptor>
 constexpr void poly_seq_cntr::Cntr<Elem>::PopR(
     this Cntr& self, seq_cntr::Tag, size_t cnt, Acceptor&& acceptor,
@@ -331,7 +386,7 @@ constexpr void poly_seq_cntr::Cntr<Elem>::PopR(
     }
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 template <typename Acceptor>
 constexpr void poly_seq_cntr::Cntr<Elem>::Erase(
     this Cntr& self, seq_cntr::Tag, seq_cntr::CursorLimit* pos_cursor,
@@ -343,7 +398,7 @@ constexpr void poly_seq_cntr::Cntr<Elem>::Erase(
     }
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 template <typename Acceptor>
 constexpr void poly_seq_cntr::Cntr<Elem>::EraseAll(this Cntr& self,
                                                    seq_cntr::Tag,
@@ -356,60 +411,60 @@ constexpr void poly_seq_cntr::Cntr<Elem>::EraseAll(this Cntr& self,
     }
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr void poly_seq_cntr::Cntr<Elem>::CopyCursor(
     this Cntr const& self, seq_cntr::Tag, seq_cntr::CursorLimit* src_cursor,
     seq_cntr::CursorLimit* dst_cursor) {
     CallMethod(CopyCursor, copy_cursor, src_cursor, dst_cursor);
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr bool poly_seq_cntr::Cntr<Elem>::AreEqualCursor(
     this Cntr const& self, seq_cntr::Tag, seq_cntr::CursorLimit* cursor_a,
     seq_cntr::CursorLimit* cursor_b) {
     CallMethod(AreEqualCursor, are_equal_cursor, cursor_a, cursor_b);
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr comparison::Ordering poly_seq_cntr::Cntr<Elem>::CompareCursor(
     this Cntr const& self, seq_cntr::Tag, seq_cntr::CursorLimit* cursor_a,
     seq_cntr::CursorLimit* cursor_b) {
     CallMethod(CompareCursor, compare_cursor, cursor_a, cursor_b);
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr size_t poly_seq_cntr::Cntr<Elem>::GetCursorDist(
     this Cntr const& self, seq_cntr::Tag, seq_cntr::CursorLimit* cursor_a,
     seq_cntr::CursorLimit* cursor_b) {
     CallMethod(GetCursorDist, get_cursor_dist, cursor_a, cursor_b);
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr size_t poly_seq_cntr::Cntr<Elem>::GetCursorIdx(
     this Cntr const& self, seq_cntr::Tag, seq_cntr::CursorLimit* cursor) {
     CallMethod(GetCursorIdx, get_cursor_idx, cursor);
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr void poly_seq_cntr::Cntr<Elem>::CursorStepL(
     this Cntr const& self, seq_cntr::Tag, seq_cntr::CursorLimit* cursor) {
     CallMethod(CursorStepL, cursor_step_l, cursor);
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr void poly_seq_cntr::Cntr<Elem>::CursorStepR(
     this Cntr const& self, seq_cntr::Tag, seq_cntr::CursorLimit* cursor) {
     CallMethod(CursorStepR, cursor_step_r, cursor);
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr void poly_seq_cntr::Cntr<Elem>::CursorAdvanceL(
     this Cntr const& self, seq_cntr::Tag, seq_cntr::CursorLimit* cursor,
     size_t step) {
     CallMethod(CursorAdvanceL, cursor_advance_l, cursor, step);
 }
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr void poly_seq_cntr::Cntr<Elem>::CursorAdvanceR(
     this Cntr const& self, seq_cntr::Tag, seq_cntr::CursorLimit* cursor,
     size_t step) {
@@ -419,7 +474,7 @@ constexpr void poly_seq_cntr::Cntr<Elem>::CursorAdvanceR(
 #pragma pop_macro("CallMethod")
 #pragma pop_macro("CallMethod_")
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 constexpr void poly_seq_cntr::Cntr<Elem>::Check(this Cntr const& self) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(self.vtable != nullptr);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(self.target_cntr != nullptr);
@@ -485,27 +540,6 @@ constexpr void poly_seq_cntr::Cntr<Elem>::Check(this Cntr const& self) {
     CheckMethod(CursorAdvanceR, cursor_advance_r);
 
 #pragma pop_macro("CheckMethod")
-}
-
-template <meta::IsContainerElem Elem>
-constexpr void poly_seq_cntr::Cntr<Elem>::SanityCheck(
-    void const* self_, debug_utils::sanity::SanityCheckScope scope) {
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(self_ != nullptr);
-
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        scope != debug_utils::sanity::SanityCheckScope::Basic ||
-        scope != debug_utils::sanity::SanityCheckScope::Complete);
-
-    auto& self{ *static_cast<Cntr const*>(self_) };
-
-    self.Check();
-
-    debug_utils::sanity::ExpandFinishedSanityCheckScope(
-        self_, debug_utils::sanity::SanityCheckScope::Basic);
-
-    if (scope == debug_utils::sanity::SanityCheckScope::Complete) {
-        debug_utils::sanity::SanityCheck(self.target_cntr, scope);
-    }
 }
 
 #pragma pop_macro("TestCapability")

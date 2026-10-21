@@ -16,7 +16,7 @@ constexpr unsigned long long hash::Hash(Hasher const& hasher,
 }
 
 template <typename Value>
-constexpr unsigned long long hash::EmptyHasher::Hash(Value const&,
+constexpr unsigned long long hash::EmptyHasher::Hash(Tag, Value const&,
                                                      unsigned long long) {
     return 0;
 }

@@ -10,7 +10,7 @@
 #include <zeta/core/meta.hpp>
 #include <zeta/core/pair.hpp>
 
-namespace zeta::core_test {
+namespace zeta::core_test::random {
 
 constexpr std::mt19937_64& GetRandomEngine() {
     static std::mt19937_64 en;
@@ -66,23 +66,23 @@ constexpr double GenRandomDouble(double lb, double rb) {
     return generator(GetRandomEngine());
 }
 
-constexpr std::deque<size_t> GenRandomPartition(size_t total, size_t part_cnt) {
+constexpr std::vector<size_t> GenRandomPartition(size_t total,
+                                                 size_t part_cnt) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < part_cnt);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(part_cnt <= total);
 
-    if (part_cnt == 1) { return std::deque<size_t>{ total }; }
+    if (part_cnt == 1) { return std::vector<size_t>{ total }; }
 
-    std::deque<size_t> cnts;
+    std::vector<size_t> cnts;
     cnts.resize(part_cnt - 1);
 
     for (size_t i{ 0 }; i < part_cnt - 1; ++i) {
-        cnts[i] = zeta::core_test::GenUniformRandomInt<size_t, size_t>(
-            0, total - part_cnt);
+        cnts[i] = (GenUniformRandomInt<size_t, size_t>)(0, total - part_cnt);
     }
 
     std::sort(cnts.begin(), cnts.end());
 
-    std::deque<size_t> partition;
+    std::vector<size_t> partition;
     partition.resize(part_cnt);
 
     partition[0] = cnts[0] + 1;
@@ -138,6 +138,17 @@ struct RandomCore<double> {
     static constexpr double F() { return (GenRandomDouble)(-1.0, 1.0); }
 };
 
+template <typename T, size_t size>
+struct RandomCore<std::array<T, size>> {
+    static constexpr std::array<T, size> F() {
+        std::array<T, size> ret;
+
+        for (size_t i{ 0 }; i < size; ++i) { ret[i] = GenRandom<T>(); }
+
+        return ret;
+    }
+};
+
 template <typename First, typename Second>
 struct RandomCore<core::pair::Pair<First, Second>> {
     static constexpr core::pair::Pair<First, Second> F() {
@@ -146,20 +157,22 @@ struct RandomCore<core::pair::Pair<First, Second>> {
 };
 
 template <typename Elem>
-constexpr void GenRandomLinSeq(core::lifecycle::DataLifeState data_life_state,
+constexpr void GenRandomLinSeq(core::lifecycle::StorageLifeState life_state,
                                Elem* data, size_t elem_stride, size_t cnt) {
     for (size_t i{ cnt }; 0 < i--;
          data = core::utils::PtrInc(data, elem_stride)) {
-        switch (data_life_state) {
-        case core::lifecycle::DataLifeState::Mem:
+        switch (life_state) {
+        case core::lifecycle::StorageLifeState::Mem:
             new (data) Elem{ (GenRandom<Elem>)() };
             break;
 
-        case core::lifecycle::DataLifeState::Obj:
+        case core::lifecycle::StorageLifeState::Obj:
             *data = (GenRandom<Elem>)();
             break;
+
+        default: ZETA_Core_DebugUtils_Diag_Unreachable();
         }
     }
 }
 
-}  // namespace zeta::core_test
+}  // namespace zeta::core_test::random

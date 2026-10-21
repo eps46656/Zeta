@@ -9,7 +9,7 @@
 
 namespace zeta::core_test::circular_array_utils {
 
-template <core::meta::IsContainerElem Elem>
+template <core::meta::IsObj Elem>
 using CircularArray = core::circular_array::Cntr<Elem>;
 
 template <typename Elem>
@@ -19,11 +19,14 @@ constexpr core::poly_seq_cntr::Cntr<Elem> Create(size_t stride,
     ZETA_Core_DebugUtils_Diag_PromiseAssert(stride % alignof(Elem) == 0);
 
     auto* ca{ static_cast<CircularArray<Elem>*>(new CircularArray<Elem>{
-        .data = static_cast<Elem*>(std::malloc(stride * slot_cnt)),
+        .data        = static_cast<Elem*>(std::malloc(stride * slot_cnt)),
         .elem_stride = stride,
-        .elem_cnt = 0,
-        .slot_cnt = slot_cnt,
-        .rot = 0,
+        .elem_cnt    = 0,
+        .slot_cnt    = slot_cnt,
+        .rot         = 0,
+#if ZETA_Core_DebugEnable
+        .stamp = core::debug_utils::revision::GetStamp(),
+#endif
     }) };
 
     seq_cntr_utils::AddSanitizeFunc(ca, [](void const*) {});
@@ -36,7 +39,7 @@ constexpr core::poly_seq_cntr::Cntr<Elem> Create(size_t stride,
         delete ca;
     });
 
-    static_assert(core::seq_cntr::IsSeqCntr<CircularArray<Elem>>);
+    static_assert(core::seq_cntr::IsSeqCntr<CircularArray<Elem>&>);
 
     return *ca;
 }

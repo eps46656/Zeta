@@ -1,7 +1,6 @@
 #pragma once
 
 #include <zeta/core/debug_utils/diag.ipp>
-#include <zeta/core/debug_utils/sanity.ipp>
 #include <zeta/core/poly_allocator.hpp>
 
 namespace zeta::core {
@@ -26,21 +25,11 @@ namespace zeta::core {
     CallMethod_(ZETA_Core_TmpName, method, __VA_ARGS__)
 
 constexpr poly_allocator::Allocator::Allocator()
-    : align{ 0 }, vtable{ nullptr }, target_alctr{ nullptr } {
-    debug_utils::sanity::RegisterSanityCheckFunc(
-        this, debug_utils::sanity::DummySanityCheckFunc);
-}
+    : align{ 0 }, vtable{ nullptr }, target_alctr{ nullptr } {}
 
 template <allocator::IsAllocator TargetAllocator>
 constexpr poly_allocator::Allocator::Allocator(TargetAllocator& target_alctr) {
-    debug_utils::sanity::RegisterSanityCheckFunc(
-        this, debug_utils::sanity::DummySanityCheckFunc);
-
     this->Set(target_alctr);
-}
-
-constexpr poly_allocator::Allocator::~Allocator() {
-    debug_utils::sanity::UnregisterSanityCheckFunc(this);
 }
 
 template <allocator::IsAllocator TargetAllocator>
@@ -94,26 +83,6 @@ constexpr void poly_allocator::Allocator::Check(this Allocator const& self) {
     CheckMethod(Deallocate);
 
 #pragma pop_macro("CheckMethod")
-}
-
-constexpr void poly_allocator::Allocator::SanityCheck(
-    void const* alctr_, debug_utils::sanity::SanityCheckScope scope) {
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(alctr_ != nullptr);
-
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        scope != debug_utils::sanity::SanityCheckScope::Basic ||
-        scope != debug_utils::sanity::SanityCheckScope::Complete);
-
-    auto& self{ *static_cast<poly_allocator::Allocator const*>(alctr_) };
-
-    self.Check();
-
-    debug_utils::sanity::ExpandFinishedSanityCheckScope(
-        alctr_, debug_utils::sanity::SanityCheckScope::Basic);
-
-    if (scope == debug_utils::sanity::SanityCheckScope::Complete) {
-        debug_utils::sanity::SanityCheck(self.target_alctr, scope);
-    }
 }
 
 }  // namespace zeta::core

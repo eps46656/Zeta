@@ -42,7 +42,7 @@ template <size_t... Idxes, typename... Elems>
 template <size_t Idx>
 constexpr decltype(auto) Tuple_<static_seq::StaticSeq<size_t, Idxes...>,
                                 Elems...>::Access(this auto&& self) {
-    if constexpr (meta::IsRValueRef<decltype(self)>) {
+    if constexpr (meta::IsRRef<decltype(self)>) {
         return (AccessElemWrapper_<Idx>)(self).elem;
     } else {
         return meta::Move((AccessElemWrapper_<Idx>)(self).elem);

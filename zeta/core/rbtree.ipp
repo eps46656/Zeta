@@ -2,7 +2,7 @@
 
 #include <zeta/core/bin_tree.ipp>
 #include <zeta/core/debug_utils/diag.ipp>
-#include <zeta/core/debug_utils/memory.ipp>
+#include <zeta/core/debug_utils/mem_recording.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/rbtree.hpp>
@@ -328,7 +328,8 @@ constexpr Node* rbtree::Extract(Node* pos) {
 namespace rbtree::detail {
 
 template <IsNode Node>
-size_t SanitizeRecursive_(debug_utils::memory::MemRecorder* dst_mr, Node* n) {
+size_t SanitizeRecursive_(debug_utils::mem_recording::MemRecorder& dst_mr,
+                          Node* n) {
     if (n == nullptr) { return 0; }
 
     Node* nl{ bin_tree::GetL(n) };
@@ -344,7 +345,7 @@ size_t SanitizeRecursive_(debug_utils::memory::MemRecorder* dst_mr, Node* n) {
 
     size_t lbh{ (SanitizeRecursive_)(dst_mr, nl) };
 
-    if (dst_mr != nullptr) { dst_mr->Add(n, sizeof(void*)); }
+    dst_mr.Add(n, sizeof(void*));
 
     size_t rbh{ (SanitizeRecursive_)(dst_mr, nr) };
 
@@ -368,8 +369,8 @@ size_t SanitizeRecursive_(debug_utils::memory::MemRecorder* dst_mr, Node* n) {
 }  // namespace rbtree::detail
 
 template <rbtree::IsNode Node>
-constexpr void rbtree::SanityCheck(debug_utils::memory::MemRecorder* dst_mr,
-                                   Node* root) {
+constexpr void rbtree::SanityCheck(
+    debug_utils::mem_recording::MemRecorder& dst_mr, Node* root) {
     if (root == nullptr) { return; }
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(bin_tree::GetP(root) == nullptr);

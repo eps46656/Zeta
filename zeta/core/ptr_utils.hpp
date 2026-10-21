@@ -69,72 +69,72 @@ constexpr void SetPtrColor(SignedIntegral& rel_color_ptr, size_t align,
 
 }  // namespace rel_color_ptr
 
-template <typename LinkType>
-concept IsLinkType = requires {
-    requires !meta::IsConst<LinkType>;
+template <typename Link>
+concept IsLink = requires {
+    requires !meta::IsConst<Link>;
 
-    requires !meta::IsRef<LinkType>;
+    requires !meta::IsRef<Link>;
 
-    requires meta::IsSame<meta::RemoveVolatile<LinkType>, void*> ||
-                 integral::IsSignedIntegral<meta::RemoveVolatile<LinkType>>;
+    requires meta::IsSame<meta::RemoveVolatile<Link>, void*> ||
+                 integral::IsSignedIntegral<meta::RemoveVolatile<Link>>;
 };
 
-template <IsLinkType LinkType_, meta::IsValueWrapperT<bool> ColorTag_>
+template <IsLink Link_, bool color_en_>
 struct AugPtrTpl {
-    using LinkType = LinkType_;
-    using ColorTag = ColorTag_;
+    using Link = Link_;
+    static constexpr bool color_en{ color_en_ };
 
     static constexpr bool is_rel_link{
-        !meta::IsSame<meta::RemoveVolatile<LinkType>, void*>
+        !meta::IsSame<meta::RemoveVolatile<Link>, void*>
     };
 
-    LinkType link;
+    Link link;
 
     constexpr void* GetPtr(this AugPtrTpl const& self)
-        requires(!is_rel_link && !ColorTag::value);
+        requires(!is_rel_link && !color_en);
 
     constexpr void* GetPtr(this AugPtrTpl const& self, size_t align)
         requires(!is_rel_link);
 
     constexpr void* GetPtr(this AugPtrTpl const& self, void const* base)
-        requires ColorTag::value;
+        requires color_en;
 
     constexpr void* GetPtr(this AugPtrTpl const& self, size_t align,
                            void const* base);
 
     constexpr unsigned GetColor(this AugPtrTpl const& self, size_t align)
-        requires(!is_rel_link && ColorTag::value);
+        requires(!is_rel_link && color_en);
 
     constexpr unsigned GetColor(this AugPtrTpl const& self, size_t align,
                                 void const* base)
-        requires ColorTag::value;
+        requires color_en;
 
     constexpr void SetPtr(this AugPtrTpl& self, void* ptr)
-        requires(!is_rel_link && !ColorTag::value);
+        requires(!is_rel_link && !color_en);
 
     constexpr void SetPtr(this AugPtrTpl& self, size_t align, void* ptr)
         requires(!is_rel_link);
 
     constexpr void SetPtr(this AugPtrTpl& self, void const* base, void* ptr)
-        requires(!ColorTag::value);
+        requires(!color_en);
 
     constexpr void SetPtr(this AugPtrTpl& self, size_t align, void const* base,
                           void* ptr);
 
     constexpr void SetColor(this AugPtrTpl& self, size_t align, unsigned color)
-        requires(!is_rel_link && ColorTag::value);
+        requires(!is_rel_link && color_en);
 
     constexpr void SetColor(this AugPtrTpl& self, size_t align,
                             void const* base, unsigned color)
-        requires ColorTag::value;
+        requires color_en;
 
     constexpr void SetPtrColor(this AugPtrTpl& self, size_t align, void* ptr,
                                unsigned color)
-        requires(!is_rel_link && ColorTag::value);
+        requires(!is_rel_link && color_en);
 
     constexpr void SetPtrColor(this AugPtrTpl& self, size_t align,
                                void const* base, void* ptr, unsigned color)
-        requires ColorTag::value;
+        requires color_en;
 };
 
 }  // namespace zeta::core::ptr_utils

@@ -12,44 +12,39 @@ constexpr decltype(auto) acceptor::IsEnd(Acceptor&& inst) {
     return inst.IsEnd(Tag{});
 }
 
-template <typename Acceptor, typename SrcElem>
-constexpr decltype(auto) acceptor::Transfer(
-    Acceptor&& inst, lifecycle::DataTransferSemantics src_transfer_semantics,
-    SrcElem* src, ptrdiff_t src_elem_stride, size_t cnt) {
-    return inst.Transfer(Tag{}, src_transfer_semantics, src, src_elem_stride,
-                         cnt);
+template <typename Acceptor, lifecycle::IsSrcStorageView SrcStorageView>
+constexpr decltype(auto) acceptor::Transfer(Acceptor&& inst, SrcStorageView src,
+                                            ptrdiff_t src_elem_stride,
+                                            size_t cnt) {
+    return inst.Transfer(Tag{}, src, src_elem_stride, cnt);
 }
 
-template <typename Acceptor, typename SrcElem>
-constexpr decltype(auto) acceptor::Transfer(
-    Acceptor&& inst, lifecycle::DataTransferSemantics src_transfer_semantics,
-    SrcElem const* src, ptrdiff_t src_elem_stride, size_t cnt) {
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        src_transfer_semantics == lifecycle::DataTransferSemantics::Copy);
+constexpr bool acceptor::EmptyAcceptor::IsEnd(Tag) { return false; }
 
-    return inst.Transfer(Tag{}, src_transfer_semantics, src, src_elem_stride,
-                         cnt);
+template <lifecycle::IsSrcStorageView SrcStorageView>
+constexpr size_t acceptor::EmptyAcceptor::Transfer(Tag, SrcStorageView src,
+                                                   ptrdiff_t src_elem_stride,
+                                                   size_t cnt) {
+    lin_seq_utils::Check(src.ptr, src_elem_stride, cnt);
+    return cnt;
 }
 
 constexpr bool acceptor::BasicAcceptor::IsEnd(Tag) { return false; }
 
-template <typename SrcElem>
-constexpr size_t acceptor::BasicAcceptor::Transfer(
-    Tag, lifecycle::DataTransferSemantics src_transfer_semantics, SrcElem* src,
-    ptrdiff_t src_elem_stride, size_t cnt) {
-    lin_seq_utils::Check(src, src_elem_stride, cnt);
+template <lifecycle::IsSrcStorageView SrcStorageView>
+constexpr size_t acceptor::BasicAcceptor::Transfer(Tag, SrcStorageView src,
+                                                   ptrdiff_t src_elem_stride,
+                                                   size_t cnt) {
+    lin_seq_utils::Check(src.ptr, src_elem_stride, cnt);
 
-    if (cnt == 0) { return 0; }
-
-    switch (src_transfer_semantics) {
-    case lifecycle::DataTransferSemantics::Copy:
-    case lifecycle::DataTransferSemantics::Move: return cnt;
-    case lifecycle::DataTransferSemantics::Reloc: break;
-    }
-
-    for (size_t i{ src_elem_stride == 0 ? 1 : cnt }; 0 < i--;
-         src = utils::PtrInc(src, src_elem_stride)) {
-        lifecycle::InvokeDestructor(*src);
+    if constexpr (src.semantics ==
+                  lifecycle::StorageSemantics::DestructingObjToMem) {
+        if (0 < cnt) {
+            for (size_t i{ src_elem_stride == 0 ? 1 : cnt }; 0 < i--;
+                 src.ptr = utils::PtrInc(src.ptr, src_elem_stride)) {
+                lifecycle::InvokeDestructor(*src.ptr);
+            }
+        }
     }
 
     return cnt;
@@ -62,34 +57,39 @@ constexpr decltype(auto) provider::IsEnd(Provider&& inst) {
     return inst.IsEnd(Tag{});
 }
 
-template <typename Provider, typename DstElem>
-constexpr decltype(auto) provider::Transfer(
-    Provider&& inst, lifecycle::DataLifeState dst_life_state, DstElem* dst,
-    ptrdiff_t dst_elem_stride, size_t cnt) {
-    return inst.Transfer(Tag{}, dst_life_state, dst, dst_elem_stride, cnt);
+template <typename Provider, lifecycle::IsDstStorageView DstStorageView>
+constexpr decltype(auto) provider::Transfer(Provider&& inst, DstStorageView dst,
+                                            ptrdiff_t dst_elem_stride,
+                                            size_t cnt) {
+    return inst.Transfer(Tag{}, dst, dst_elem_stride, cnt);
+}
+
+constexpr bool provider::EmptyProvider::IsEnd(Tag) { return false; }
+
+template <lifecycle::IsDstStorageView DstStorageView>
+constexpr size_t provider::EmptyProvider::Transfer(Tag, DstStorageView dst,
+                                                   ptrdiff_t dst_elem_stride,
+                                                   size_t cnt) {
+    lin_seq_utils::Check(dst.ptr, dst_elem_stride, cnt);
+    return cnt;
 }
 
 constexpr bool provider::BasicProvider::IsEnd(Tag) { return false; }
 
-template <typename DstElem>
-constexpr size_t provider::BasicProvider::Transfer(
-    Tag, lifecycle::DataLifeState dst_life_state, DstElem* dst,
-    ptrdiff_t dst_elem_stride, size_t cnt) {
-    lin_seq_utils::Check(dst, dst_elem_stride, cnt);
+template <lifecycle::IsDstStorageView DstStorageView>
+constexpr size_t provider::BasicProvider::Transfer(Tag, DstStorageView dst,
+                                                   ptrdiff_t dst_elem_stride,
+                                                   size_t cnt) {
+    lin_seq_utils::Check(dst.ptr, dst_elem_stride, cnt);
 
-    if (cnt == 0) { return 0; }
-
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_life_state ==
-                                            lifecycle::DataLifeState::Mem);
-
-    switch (dst_life_state) {
-    case lifecycle::DataLifeState::Obj: return cnt;
-    case lifecycle::DataLifeState::Mem: break;
-    }
-
-    for (size_t i{ dst_elem_stride == 0 ? 1 : cnt }; 0 < i--;
-         dst = utils::PtrInc(dst, dst_elem_stride)) {
-        lifecycle::InvokeDestructor(*dst);
+    if constexpr (dst.semantics ==
+                  lifecycle::StorageSemantics::ConstructingMemToObj) {
+        if (0 < cnt) {
+            for (size_t i{ dst_elem_stride == 0 ? 1 : cnt }; 0 < i--;
+                 dst.ptr = utils::PtrInc(dst.ptr, dst_elem_stride)) {
+                lifecycle::InvokeConstructor(dst.ptr);
+            }
+        }
     }
 
     return cnt;

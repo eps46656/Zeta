@@ -8,6 +8,7 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/function_ref.hpp>
 #include <zeta/core/integral.hpp>
+#include <zeta/core/lifecycle.hpp>
 #include <zeta/core/lin_seq_endpoint.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/poly_seq_endpoint.ipp>
@@ -99,9 +100,9 @@ struct FlagBuilder {
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define F(name, num, is_const) \
-    (static_cast<Flag>(this->name) << meta::ToUnderlying(Kind::name))
+    (static_cast<Flag>(this->name) << meta::EnumToUnderlying(Kind::name))
 
-        return (static_cast<Flag>(1) << meta::ToUnderlying(Kind::Always)) |
+        return (static_cast<Flag>(1) << meta::EnumToUnderlying(Kind::Always)) |
                ZETA_Core_SeqCntr_CapabilityWithoutAlwaysNever_XMacro(F, |);
 
 #pragma pop_macro("F")
@@ -158,29 +159,15 @@ static_assert((non_const_capability_flag & const_capability_flag) ==
 static_assert((non_const_capability_flag | const_capability_flag) ==
               full_capability_flag);
 
-constexpr bool CheckFlags(capability::Flag static_enabled_capability_flag,
-                          capability::Flag static_disabled_capability_flag);
+constexpr bool CheckFlags(capability::Flag se_cap_flag,
+                          capability::Flag sd_cap_flag);
 
-constexpr bool CheckFlags(capability::Flag static_enabled_capability_flag,
-                          capability::Flag static_disabled_capability_flag,
-                          capability::Flag dynamic_enabled_capability_flag,
-                          capability::Flag dynamic_disabled_capability_flag);
+constexpr bool CheckFlags(capability::Flag se_cap_flag,
+                          capability::Flag sd_cap_flag,
+                          capability::Flag de_cap_flag,
+                          capability::Flag dd_cap_flag);
 
 }  // namespace capability
-
-struct ElemPtrView {
-    enum struct AliasabilityEnum : unsigned char {
-        Null = 0,
-        ReadOnly = 1,
-        ReadWrite = 2,
-    };
-
-    void* ptr;
-    AliasabilityEnum aliasability;
-
-    bool operator==(ElemPtrView const&) const = default;
-    bool operator!=(ElemPtrView const&) const = default;
-};
 
 struct alignas(max_align_t) CursorLimit {
     void* content[8];
@@ -194,7 +181,7 @@ struct Tag {};
     zeta::core::meta::GetTypeWrapperType<                              \
         decltype(zeta::core::meta::RemoveCVRef<CntrType>::GetElemType( \
             zeta::core::seq_cntr::Tag{},                               \
-            zeta::core::meta::TypeWrapper<meta::RemoveRef<CntrType>>{}))>
+            zeta::core::meta::TypeWrapper<CntrType>{}))>
 
 #pragma push_macro("Cursor")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -202,61 +189,74 @@ struct Tag {};
     zeta::core::meta::GetTypeWrapperType<                                \
         decltype(zeta::core::meta::RemoveCVRef<CntrType>::GetCursorType( \
             zeta::core::seq_cntr::Tag{},                                 \
-            zeta::core::meta::TypeWrapper<meta::RemoveRef<CntrType>>{}))>
+            zeta::core::meta::TypeWrapper<CntrType>{}))>
 
-#pragma push_macro("SatisfiesMethodMacro")
+#pragma push_macro("RequiresMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define SatisfiesMethodMacro(cap, method, ret, ...)                       \
-    requires(meta::RemoveCVRef<Cntr>::GetStaticDisabledCapabilityFlag(    \
-                 tag, meta::TypeWrapper<meta::RemoveRef<Cntr>>{}) &       \
-             (static_cast<capability::Flag>(1)                            \
-              << meta::ToUnderlying(capability::Kind::cap))) != 0 ||      \
-                    meta::IsMatched<meta::RemoveRef<decltype(cntr.method( \
-                                        tag, __VA_ARGS__))>,              \
-                                    decltype(ret)>
+#define RequiresMethod(cap, method, ret, ...)                              \
+    requires {                                                             \
+        requires(                                                          \
+            (meta::RemoveRef<Cntr>::GetStaticDisabledCapabilityFlag(       \
+                 tag, meta::TypeWrapper<Cntr>{}) &                         \
+             (static_cast<capability::Flag>(1)                             \
+              << meta::EnumToUnderlying(capability::Kind::cap))) != 0 ||   \
+            meta::IsMatched<                                               \
+                meta::RemoveRef<                                           \
+                    decltype(static_cast<meta::Conditional<                \
+                                 meta::IsRRef<Cntr>, Cntr&&, Cntr&>>(cntr) \
+                                 .method(tag, __VA_ARGS__))>,              \
+                decltype(ret)>);                                           \
+    }
 
 template <typename Cntr>
 concept IsSeqCntr = requires(
-    Cntr& cntr, Tag tag,
-    meta::TypeWrapper<meta::RemoveRef<Cntr>> cntr_type_wrapper, bool bool_val,
-    int int_val, size_t size_val, Cursor(Cntr) * cursor_ptr,
-    ElemPtrView* elem_ptr_view_ptr, Elem(Cntr) * elem_ptr,
-    seq_endpoint::acceptor::ArchetypeAcceptor acceptor,
+    Cntr cntr, Tag tag, meta::TypeWrapper<Cntr> cntr_type_wrapper,
+    bool bool_val, int int_val, size_t size_val, Cursor(Cntr) * cursor_ptr,
+    lifecycle::ConstructingMemToObjView<Elem(Cntr)>
+        constructing_mem_to_obj_view,
+    lifecycle::DestructingObjToMemView<Elem(Cntr)> destructing_obj_to_mem_view,
+    lifecycle::LeftObjView<Elem(Cntr)> left_obj_view,
+    lifecycle::ConstLeftObjView<Elem(Cntr)> const_left_obj_view,
+    lifecycle::RightObjView<Elem(Cntr)> right_obj_view,
+    lifecycle::ConstRightObjView<Elem(Cntr)> const_right_obj_view,
+    lifecycle::DynamicStorageView<Elem(Cntr)> dynamic_obj_view,
+    Elem(Cntr) * elem_ptr, seq_endpoint::acceptor::ArchetypeAcceptor acceptor,
     seq_endpoint::provider::ArchetypeProvider provider,
-    lifecycle::DataLifeState lifestate_val, comparison::Ordering ordering_val,
-    meta::AlwaysMatchedTag unused) {
+    comparison::Ordering ordering_val, meta::AlwaysMatchedTag unused) {
+    requires meta::IsRef<Cntr>;
+
     requires requires {
         requires meta::IsSame<
             meta::RemoveRef<decltype(cntr.GetReferedInstPtr(tag))>, void*>;
 
         requires meta::IsSame<
-            meta::RemoveRef<decltype(meta::RemoveCVRef<Cntr>::
-                                         GetStaticEnabledCapabilityFlag(
-                                             tag, cntr_type_wrapper))>,
+            meta::RemoveRef<
+                decltype(meta::RemoveRef<Cntr>::GetStaticEnabledCapabilityFlag(
+                    tag, cntr_type_wrapper))>,
             capability::Flag>;
 
-        requires(meta::RemoveCVRef<Cntr>::GetStaticEnabledCapabilityFlag(
+        requires(meta::RemoveRef<Cntr>::GetStaticEnabledCapabilityFlag(
                      tag, cntr_type_wrapper) &
                  capability::empty_capability_flag) ==
                     capability::empty_capability_flag;
 
-        requires(meta::RemoveCVRef<Cntr>::GetStaticEnabledCapabilityFlag(
+        requires(meta::RemoveRef<Cntr>::GetStaticEnabledCapabilityFlag(
                      tag, cntr_type_wrapper) |
                  capability::full_capability_flag) ==
                     capability::full_capability_flag;
 
         requires meta::IsSame<
-            meta::RemoveRef<decltype(meta::RemoveCVRef<Cntr>::
-                                         GetStaticDisabledCapabilityFlag(
-                                             tag, cntr_type_wrapper))>,
+            meta::RemoveRef<
+                decltype(meta::RemoveRef<Cntr>::GetStaticDisabledCapabilityFlag(
+                    tag, cntr_type_wrapper))>,
             capability::Flag>;
 
-        requires(meta::RemoveCVRef<Cntr>::GetStaticDisabledCapabilityFlag(
+        requires(meta::RemoveRef<Cntr>::GetStaticDisabledCapabilityFlag(
                      tag, cntr_type_wrapper) &
                  capability::empty_capability_flag) ==
                     capability::empty_capability_flag;
 
-        requires(meta::RemoveCVRef<Cntr>::GetStaticDisabledCapabilityFlag(
+        requires(meta::RemoveRef<Cntr>::GetStaticDisabledCapabilityFlag(
                      tag, cntr_type_wrapper) |
                  capability::full_capability_flag) ==
                     capability::full_capability_flag;
@@ -271,465 +271,596 @@ concept IsSeqCntr = requires(
                 tag))>,
             capability::Flag>;
 
-        requires(meta::RemoveCVRef<Cntr>::GetStaticEnabledCapabilityFlag(
+        requires(meta::RemoveRef<Cntr>::GetStaticEnabledCapabilityFlag(
                      tag, cntr_type_wrapper) &
-                 meta::RemoveCVRef<Cntr>::GetStaticDisabledCapabilityFlag(
+                 meta::RemoveRef<Cntr>::GetStaticDisabledCapabilityFlag(
                      tag, cntr_type_wrapper)) ==
                     capability::empty_capability_flag;
 
-        requires meta::IsContainerElem<meta::GetTypeWrapperType<
-            decltype(meta::RemoveCVRef<Cntr>::GetElemType(Tag{},
-                                                          cntr_type_wrapper))>>;
+        requires meta::IsObj<meta::GetTypeWrapperType<
+            decltype(meta::RemoveRef<Cntr>::GetElemType(Tag{},
+                                                        cntr_type_wrapper))>>;
 
         requires meta::IsTypeWrapper<
-            decltype(meta::RemoveCVRef<Cntr>::GetCursorType(
-                tag, cntr_type_wrapper))>;
+            decltype(meta::RemoveRef<Cntr>::GetCursorType(tag,
+                                                          cntr_type_wrapper))>;
     };
 
-    SatisfiesMethodMacro(  //
-        GetElemCnt,        // capability
-        GetElemCnt,        // method
-                           //
-        size_val           // ret
+    requires RequiresMethod(  //
+        GetElemCnt,           // capability
+        GetElemCnt,           // method
+                              //
+        size_val              // ret
     );
 
-    SatisfiesMethodMacro(  //
-        GetMaxElemCnt,     // capability
-        GetMaxElemCnt,     // method
-                           //
-        size_val           // ret
+    requires RequiresMethod(  //
+        GetMaxElemCnt,        // capability
+        GetMaxElemCnt,        // method
+                              //
+        size_val              // ret
     );
 
-    SatisfiesMethodMacro(  //
-        GetLBCursor,       // capability
-        GetLBCursor,       // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr         // cursor
+    requires RequiresMethod(  //
+        GetLBCursor,          // capability
+        GetLBCursor,          // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr            // cursor
     );
 
-    SatisfiesMethodMacro(  //
-        GetRBCursor,       // capability
-        GetRBCursor,       // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr         // cursor
+    requires RequiresMethod(  //
+        GetRBCursor,          // capability
+        GetRBCursor,          // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr            // cursor
     );
 
-    SatisfiesMethodMacro(   //
-        PeekL,              // capability
-        PeekL,              // method
-                            //
-        unused,             // ret
-                            //
-        bool_val,           // lazy_copy_elem
-        elem_ptr_view_ptr,  // dst_elem_ptr_view
-        cursor_ptr,         // dst_cursor, optional
-        lifestate_val,      // dst_elem_life_state
-        elem_ptr            // dst_elem, optional
+    // -------------------------------------------------------------------------
+
+    requires RequiresMethod(          //
+        PeekL,                        // capability
+        PeekL,                        // method
+                                      //
+        unused,                       // ret
+                                      //
+        bool_val,                     // lazy_copy_elem
+        &dynamic_obj_view,            // dst_elem_view
+        cursor_ptr,                   // dst_cursor, optional
+        constructing_mem_to_obj_view  // dst_elem, optional
     );
 
-    SatisfiesMethodMacro(   //
-        PeekR,              // capability
-        PeekR,              // method
-                            //
-        unused,             // ret
-                            //
-        bool_val,           // lazy_copy_elem
-        elem_ptr_view_ptr,  // dst_elem_ptr_view
-        cursor_ptr,         // dst_cursor, optional
-        lifestate_val,      // dst_elem_life_state
-        elem_ptr            // dst_elem, optional
+    requires RequiresMethod(  //
+        PeekL,                // capability
+        PeekL,                // method
+                              //
+        unused,               // ret
+                              //
+        bool_val,             // lazy_copy_elem
+        &dynamic_obj_view,    // dst_elem_view
+        cursor_ptr,           // dst_cursor, optional
+        left_obj_view         // dst_elem, optional
     );
 
-    SatisfiesMethodMacro(   //
-        Refer,              // capability
-        Refer,              // method
-                            //
-        unused,             // ret
-                            //
-        size_val,           // idx
-        bool_val,           // lazy_copy_elem
-        elem_ptr_view_ptr,  // dst_elem_ptr_view
-        cursor_ptr,         // dst_cursor, optional
-        lifestate_val,      // dst_elem_life_state
-        elem_ptr            // dst_elem, optional
+    requires RequiresMethod(  //
+        PeekL,                // capability
+        PeekL,                // method
+                              //
+        unused,               // ret
+                              //
+        bool_val,             // lazy_copy_elem
+        &dynamic_obj_view,    // dst_elem_view
+        cursor_ptr,           // dst_cursor, optional
+        right_obj_view        // dst_elem, optional
     );
 
-    SatisfiesMethodMacro(   //
-        Derefer,            // capability
-        Derefer,            // method
-                            //
-        unused,             // ret
-                            //
-        cursor_ptr,         // pos_cursor
-        bool_val,           // lazy_copy_elem
-        elem_ptr_view_ptr,  // dst_elem_ptr_view
-        lifestate_val,      // dst_elem_life_state
-        elem_ptr            // dst_elem, optional
+    // -------------------------------------------------------------------------
+
+    requires RequiresMethod(          //
+        PeekR,                        // capability
+        PeekR,                        // method
+                                      //
+        unused,                       // ret
+                                      //
+        bool_val,                     // lazy_copy_elem
+        &dynamic_obj_view,            // dst_elem_view
+        cursor_ptr,                   // dst_cursor, optional
+        constructing_mem_to_obj_view  // dst_elem, optional
     );
 
-    SatisfiesMethodMacro(  //
-        Read,              // capability
-        Read,              // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr,        // pos_cursor
-        size_val,          // cnt
-        acceptor,          // acceptor
-        cursor_ptr         // dst_cursor
+    requires RequiresMethod(  //
+        PeekR,                // capability
+        PeekR,                // method
+                              //
+        unused,               // ret
+                              //
+        bool_val,             // lazy_copy_elem
+        &dynamic_obj_view,    // dst_elem_view
+        cursor_ptr,           // dst_cursor, optional
+        left_obj_view         // dst_elem, optional
     );
 
-    SatisfiesMethodMacro(  //
-        Write,             // capability
-        Write,             // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr,        // pos_cursor, point to original position
-        size_val,          // cnt
-        provider,          // provider
-        cursor_ptr         // dst_cursor, optional, point to final position
-                           // after write
+    requires RequiresMethod(  //
+        PeekR,                // capability
+        PeekR,                // method
+                              //
+        unused,               // ret
+                              //
+        bool_val,             // lazy_copy_elem
+        &dynamic_obj_view,    // dst_elem_view
+        cursor_ptr,           // dst_cursor, optional
+        right_obj_view        // dst_elem, optional
     );
 
-    SatisfiesMethodMacro(  //
-        ReadWrite,         // capability
-        ReadWrite,         // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr,        // pos_cursor
-        size_val,          // cnt
-        acceptor,          // acceptor
-        cursor_ptr         // dst_cursor
+    // -------------------------------------------------------------------------
+
+    requires RequiresMethod(          //
+        Refer,                        // capability
+        Refer,                        // method
+                                      //
+        unused,                       // ret
+                                      //
+        size_val,                     // idx
+        bool_val,                     // lazy_copy_elem
+        &dynamic_obj_view,            // dst_elem_view
+        cursor_ptr,                   // dst_cursor, optional
+        constructing_mem_to_obj_view  // dst_elem, optional
     );
 
-    SatisfiesMethodMacro(  //
-        PushL,             // capability
-        PushL,             // method
-                           //
-        unused,            // ret
-                           //
-        size_val,          // cnt
-        provider,          // provider
-        cursor_ptr,        // dst_beg_cursor
-        cursor_ptr         // dst_end_cursor
+    requires RequiresMethod(  //
+        Refer,                // capability
+        Refer,                // method
+                              //
+        unused,               // ret
+                              //
+        size_val,             // idx
+        bool_val,             // lazy_copy_elem
+        &dynamic_obj_view,    // dst_elem_view
+        cursor_ptr,           // dst_cursor, optional
+        left_obj_view         // dst_elem, optional
     );
 
-    SatisfiesMethodMacro(  //
-        PushR,             // capability
-        PushR,             // method
-                           //
-        unused,            // ret
-                           //
-        size_val,          // cnt
-        provider,          // provider
-        cursor_ptr,        // dst_beg_cursor
-        cursor_ptr         // dst_end_cursor
+    requires RequiresMethod(  //
+        Refer,                // capability
+        Refer,                // method
+                              //
+        unused,               // ret
+                              //
+        size_val,             // idx
+        bool_val,             // lazy_copy_elem
+        &dynamic_obj_view,    // dst_elem_view
+        cursor_ptr,           // dst_cursor, optional
+        right_obj_view        // dst_elem, optional
     );
 
-    SatisfiesMethodMacro(  //
-        Insert,            // capability
-        Insert,            // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr,        // pos_cursor
-        size_val,          // cnt
-        provider,          // provider
-        cursor_ptr         // dst_cursor
+    // -------------------------------------------------------------------------
+
+    requires RequiresMethod(          //
+        Derefer,                      // capability
+        Derefer,                      // method
+                                      //
+        unused,                       // ret
+                                      //
+        cursor_ptr,                   // pos_cursor
+        bool_val,                     // lazy_copy_elem
+        &dynamic_obj_view,            // dst_elem_view
+        constructing_mem_to_obj_view  // dst_elem, optional
     );
 
-    SatisfiesMethodMacro(  //
-        PopL,              // capability
-        PopL,              // method
-                           //
-        unused,            // ret
-                           //
-        size_val,          // cnt
-        acceptor,          // acceptor
-        cursor_ptr         // dst_cursor, optional
+    requires RequiresMethod(  //
+        Derefer,              // capability
+        Derefer,              // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr,           // pos_cursor
+        bool_val,             // lazy_copy_elem
+        &dynamic_obj_view,    // dst_elem_view
+        left_obj_view         // dst_elem, optional
     );
 
-    SatisfiesMethodMacro(  //
-        PopR,              // capability
-        PopR,              // method
-                           //
-        unused,            // ret
-                           //
-        size_val,          // cnt
-        acceptor,          // acceptor
-        cursor_ptr         // dst_cursor, optional
+    requires RequiresMethod(  //
+        Derefer,              // capability
+        Derefer,              // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr,           // pos_cursor
+        bool_val,             // lazy_copy_elem
+        &dynamic_obj_view,    // dst_elem_view
+        right_obj_view        // dst_elem, optional
     );
 
-    SatisfiesMethodMacro(  //
-        Erase,             // capability
-        Erase,             // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr,        // pos_cursor
-        size_val,          // cnt
-        acceptor           // acceptor
+    // -------------------------------------------------------------------------
+
+    requires RequiresMethod(  //
+        Read,                 // capability
+        Read,                 // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr,           // pos_cursor
+        size_val,             // cnt
+        acceptor,             // acceptor
+        cursor_ptr            // dst_cursor
     );
 
-    SatisfiesMethodMacro(  //
-        EraseAll,          // capability
-        EraseAll,          // method
-                           //
-        unused,            // ret
-                           //
-        acceptor           // acceptor
+    requires meta::Implies<                //
+        meta::IsNonConstWithoutRef<Cntr>,  //
+        RequiresMethod(                    //
+            Write,                         // capability
+            Write,                         // method
+                                           //
+            unused,                        // ret
+                                           //
+            cursor_ptr,                    // pos_cursor, point to original
+                                           // position
+            size_val,                      // cnt
+            provider,                      // provider
+            cursor_ptr                     // dst_cursor, optional, point
+                                           // to final position after write
+            )>;
+
+    requires meta::Implies<                //
+        meta::IsNonConstWithoutRef<Cntr>,  //
+        RequiresMethod(                    //
+            ReadWrite,                     // capability
+            ReadWrite,                     // method
+                                           //
+            unused,                        // ret
+                                           //
+            cursor_ptr,                    // pos_cursor
+            size_val,                      // cnt
+            acceptor,                      // acceptor
+            cursor_ptr                     // dst_cursor
+            )>;
+
+    requires meta::Implies<                //
+        meta::IsNonConstWithoutRef<Cntr>,  //
+        RequiresMethod(                    //
+            PushL,                         // capability
+            PushL,                         // method
+                                           //
+            unused,                        // ret
+                                           //
+            size_val,                      // cnt
+            provider,                      // provider
+            cursor_ptr,                    // dst_beg_cursor
+            cursor_ptr                     // dst_end_cursor
+            )>;
+
+    requires meta::Implies<                //
+        meta::IsNonConstWithoutRef<Cntr>,  //
+        RequiresMethod(                    //
+            PushR,                         // capability
+            PushR,                         // method
+                                           //
+            unused,                        // ret
+                                           //
+            size_val,                      // cnt
+            provider,                      // provider
+            cursor_ptr,                    // dst_beg_cursor
+            cursor_ptr                     // dst_end_cursor
+            )>;
+
+    requires meta::Implies<                //
+        meta::IsNonConstWithoutRef<Cntr>,  //
+        RequiresMethod(                    //
+            Insert,                        // capability
+            Insert,                        // method
+                                           //
+            unused,                        // ret
+                                           //
+            cursor_ptr,                    // pos_cursor
+            size_val,                      // cnt
+            provider,                      // provider
+            cursor_ptr                     // dst_cursor
+            )>;
+
+    requires meta::Implies<                //
+        meta::IsNonConstWithoutRef<Cntr>,  //
+        RequiresMethod(                    //
+            PopL,                          // capability
+            PopL,                          // method
+                                           //
+            unused,                        // ret
+                                           //
+            size_val,                      // cnt
+            acceptor,                      // acceptor
+            cursor_ptr                     // dst_cursor, optional
+            )>;
+
+    requires meta::Implies<                //
+        meta::IsNonConstWithoutRef<Cntr>,  //
+        RequiresMethod(                    //
+            PopR,                          // capability
+            PopR,                          // method
+                                           //
+            unused,                        // ret
+                                           //
+            size_val,                      // cnt
+            acceptor,                      // acceptor
+            cursor_ptr                     // dst_cursor, optional
+            )>;
+
+    requires meta::Implies<                //
+        meta::IsNonConstWithoutRef<Cntr>,  //
+        RequiresMethod(                    //
+            Erase,                         // capability
+            Erase,                         // method
+                                           //
+            unused,                        // ret
+                                           //
+            cursor_ptr,                    // pos_cursor
+            size_val,                      // cnt
+            acceptor                       // acceptor
+            )>;
+
+    requires meta::Implies<                //
+        meta::IsNonConstWithoutRef<Cntr>,  //
+        RequiresMethod(                    //
+            EraseAll,                      // capability
+            EraseAll,                      // method
+                                           //
+            unused,                        // ret
+                                           //
+            acceptor                       // acceptor
+            )>;
+
+    requires RequiresMethod(  //
+        CopyCursor,           // capability
+        CopyCursor,           // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr,           // src_cursor
+        cursor_ptr            // dst_cursor
     );
 
-    SatisfiesMethodMacro(  //
-        CopyCursor,        // capability
-        CopyCursor,        // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr,        // src_cursor
-        cursor_ptr         // dst_cursor
+    requires RequiresMethod(  //
+        AreEqualCursor,       // capability
+        AreEqualCursor,       // method
+                              //
+        bool_val,             //
+                              //
+        cursor_ptr,           // cursor_a
+        cursor_ptr            // cursor_b
     );
 
-    SatisfiesMethodMacro(  //
-        AreEqualCursor,    // capability
-        AreEqualCursor,    // method
-                           //
-        bool_val,          //
-                           //
-        cursor_ptr,        // cursor_a
-        cursor_ptr         // cursor_b
+    requires RequiresMethod(  //
+        CompareCursor,        // capability
+        CompareCursor,        // method
+                              //
+        ordering_val,         //
+                              //
+        cursor_ptr,           // cursor_a
+        cursor_ptr            // cursor_b
     );
 
-    SatisfiesMethodMacro(  //
-        CompareCursor,     // capability
-        CompareCursor,     // method
-                           //
-        ordering_val,      //
-                           //
-        cursor_ptr,        // cursor_a
-        cursor_ptr         // cursor_b
+    requires RequiresMethod(  //
+        GetCursorDist,        // capability
+        GetCursorDist,        // method
+                              //
+        size_val,             //
+                              //
+        cursor_ptr,           // cursor_a
+        cursor_ptr            // cursor_b
     );
 
-    SatisfiesMethodMacro(  //
-        GetCursorDist,     // capability
-        GetCursorDist,     // method
-                           //
-        size_val,          //
-                           //
-        cursor_ptr,        // cursor_a
-        cursor_ptr         // cursor_b
+    requires RequiresMethod(  //
+        GetCursorIdx,         // capability
+        GetCursorIdx,         // method
+                              //
+        size_val,             //
+                              //
+        cursor_ptr            // cursor
     );
 
-    SatisfiesMethodMacro(  //
-        GetCursorIdx,      // capability
-        GetCursorIdx,      // method
-                           //
-        size_val,          //
-                           //
-        cursor_ptr         // cursor
+    requires RequiresMethod(  //
+        CursorStepL,          // capability
+        CursorStepL,          // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr            // cursor
     );
 
-    SatisfiesMethodMacro(  //
-        CursorStepL,       // capability
-        CursorStepL,       // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr         // cursor
+    requires RequiresMethod(  //
+        CursorStepR,          // capability
+        CursorStepR,          // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr            // cursor
     );
 
-    SatisfiesMethodMacro(  //
-        CursorStepR,       // capability
-        CursorStepR,       // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr         // cursor
+    requires RequiresMethod(  //
+        CursorAdvanceL,       // capability
+        CursorAdvanceL,       // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr,           // cursor
+        size_val              // step
     );
 
-    SatisfiesMethodMacro(  //
-        CursorAdvanceL,    // capability
-        CursorAdvanceL,    // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr,        // cursor
-        size_val           // step
-    );
-
-    SatisfiesMethodMacro(  //
-        CursorAdvanceR,    // capability
-        CursorAdvanceR,    // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr,        // cursor
-        size_val           // step
+    requires RequiresMethod(  //
+        CursorAdvanceR,       // capability
+        CursorAdvanceR,       // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr,           // cursor
+        size_val              // step
     );
 };
 
-#pragma pop_macro("SatisfiesMethodMacro")
+#pragma pop_macro("RequiresMethod")
 
-template <IsSeqCntr Cntr>
+template <typename Cntr>
+concept IsSeqCntrWithLRef = IsSeqCntr<Cntr&>;
+
+template <typename Cntr>
+concept IsSeqCntrWithRRef = IsSeqCntr<Cntr&&>;
+
+template <typename Cntr>
+concept IsSeqCntrLike = IsSeqCntr<Cntr> || IsSeqCntr<meta::RemovePointer<Cntr>>;
+
+template <IsSeqCntrWithRRef Cntr>
 constexpr void CheckCapabilityFlags(Cntr&& cntr);
 
-template <IsSeqCntr Cntr>
+template <IsSeqCntrWithRRef Cntr>
 constexpr void* GetReferedInstPtr(Cntr&& cntr);
 
 template <IsSeqCntr Cntr>
-constexpr capability::Flag GetStaticEnabledCapabilityFlag();
+constexpr capability::Flag GetStaticEnabledCapabilityFlag(
+    meta::TypeWrapper<Cntr>);
 
 template <IsSeqCntr Cntr>
-constexpr capability::Flag GetStaticDisabledCapabilityFlag();
+constexpr capability::Flag GetStaticDisabledCapabilityFlag(
+    meta::TypeWrapper<Cntr>);
 
-template <IsSeqCntr Cntr>
+template <IsSeqCntrWithRRef Cntr>
 constexpr capability::Flag GetDynamicEnabledCapabilityFlag(Cntr&& cntr);
 
-template <IsSeqCntr Cntr>
+template <IsSeqCntrWithRRef Cntr>
 constexpr capability::Flag GetDynamicDisabledCapabilityFlag(Cntr&& cntr);
 
-template <IsSeqCntr Cntr>
-constexpr meta::TypeWrapper<Elem(Cntr)> GetElemType();
+template <IsSeqCntrWithRRef Cntr>
+constexpr meta::TypeWrapper<Elem(Cntr)> GetElemType(meta::TypeWrapper<Cntr>);
 
-template <IsSeqCntr Cntr>
-constexpr meta::TypeWrapper<Cursor(Cntr)> GetCursorType();
+template <IsSeqCntrWithRRef Cntr>
+constexpr meta::TypeWrapper<Cursor(Cntr)> GetCursorType(
+    meta::TypeWrapper<Cntr>);
 
-template <IsSeqCntr Cntr>
+template <IsSeqCntrWithRRef Cntr>
 constexpr size_t GetElemCnt(Cntr&& cntr);
 
-template <IsSeqCntr Cntr>
+template <IsSeqCntrWithRRef Cntr>
 constexpr size_t GetMaxElemCnt(Cntr&& cntr);
 
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) GetLBCursor(Cntr&& cntr, Cursor(Cntr) * dst_cursor);
+template <IsSeqCntrWithRRef Cntr>
+constexpr decltype(auto) GetLBCursor(Cntr&& cntr, Cursor(Cntr&&) * dst_cursor);
 
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) GetRBCursor(Cntr&& cntr, Cursor(Cntr) * dst_cursor);
+template <IsSeqCntrWithRRef Cntr>
+constexpr decltype(auto) GetRBCursor(Cntr&& cntr, Cursor(Cntr&&) * dst_cursor);
 
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) PeekL(Cntr&& cntr, bool lazy_copy_elem,
-                               ElemPtrView* dst_elem_ptr_view,
-                               Cursor(Cntr) * dst_cursor,
-                               lifecycle::DataLifeState dst_elem_life_state,
-                               Elem(Cntr) * dst_elem);
+template <IsSeqCntrWithRRef Cntr, lifecycle::IsDstStorageView DstElemView>
+constexpr decltype(auto) PeekL(
+    Cntr&& cntr, bool lazy_copy_elem,
+    lifecycle::DynamicStorageView<Elem(Cntr&&)>* dst_elem_view,
+    Cursor(Cntr&&) * dst_cursor, DstElemView dst_elem);
 
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) PeekR(Cntr&& cntr, bool lazy_copy_elem,
-                               ElemPtrView* dst_elem_ptr_view,
-                               Cursor(Cntr) * dst_cursor,
-                               lifecycle::DataLifeState dst_elem_life_state,
-                               Elem(Cntr) * dst_elem);
+template <IsSeqCntrWithRRef Cntr, lifecycle::IsDstStorageView DstElemView>
+constexpr decltype(auto) PeekR(
+    Cntr&& cntr, bool lazy_copy_elem,
+    lifecycle::DynamicStorageView<Elem(Cntr&&)>* dst_elem_view,
+    Cursor(Cntr&&) * dst_cursor, DstElemView dst_elem);
 
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) Refer(Cntr&& cntr, size_t idx, bool lazy_copy_elem,
-                               ElemPtrView* dst_elem_ptr_view,
-                               Cursor(Cntr) * dst_cursor,
-                               lifecycle::DataLifeState dst_elem_life_state,
-                               Elem(Cntr) * dst_elem);
+template <IsSeqCntrWithRRef Cntr, lifecycle::IsDstStorageView DstElemView>
+constexpr decltype(auto) Refer(
+    Cntr&& cntr, size_t idx, bool lazy_copy_elem,
+    lifecycle::DynamicStorageView<Elem(Cntr&&)>* dst_elem_view,
+    Cursor(Cntr&&) * dst_cursor, DstElemView dst_elem);
 
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) Derefer(Cntr&& cntr, Cursor(Cntr) * pos_cursor,
-                                 bool lazy_copy_elem,
-                                 ElemPtrView* dst_elem_ptr_view,
-                                 lifecycle::DataLifeState dst_elem_life_state,
-                                 Elem(Cntr) * dst_elem);
+template <IsSeqCntrWithRRef Cntr, lifecycle::IsDstStorageView DstElemView>
+constexpr decltype(auto) Derefer(
+    Cntr&& cntr, Cursor(Cntr&&) * pos_cursor, bool lazy_copy_elem,
+    lifecycle::DynamicStorageView<Elem(Cntr&&)>* dst_elem_view,
+    DstElemView dst_elem);
 
-template <IsSeqCntr Cntr,
-          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
-constexpr decltype(auto) Read(Cntr&& cntr, Cursor(Cntr) * pos_cursor,
+template <IsSeqCntrWithRRef Cntr,
+          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr&&)> Acceptor>
+constexpr decltype(auto) Read(Cntr&& cntr, Cursor(Cntr&&) * pos_cursor,
                               size_t cnt, Acceptor&& acceptor,
-                              Cursor(Cntr) * dst_cursor);
+                              Cursor(Cntr&&) * dst_cursor);
 
-template <IsSeqCntr Cntr,
-          seq_endpoint::provider::IsProvider<Elem(Cntr)> Provider>
-constexpr decltype(auto) Write(Cntr&& cntr, Cursor(Cntr) * pos_cursor,
+template <IsSeqCntrWithRRef Cntr,
+          seq_endpoint::provider::IsProvider<Elem(Cntr&&)> Provider>
+constexpr decltype(auto) Write(Cntr&& cntr, Cursor(Cntr&&) * pos_cursor,
                                size_t cnt, Provider&& provider,
-                               Cursor(Cntr) * dst_cursor);
+                               Cursor(Cntr&&) * dst_cursor);
 
-template <IsSeqCntr Cntr,
-          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
-constexpr decltype(auto) ReadWrite(Cntr&& cntr, Cursor(Cntr) * pos_cursor,
+template <IsSeqCntrWithRRef Cntr,
+          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr&&)> Acceptor>
+constexpr decltype(auto) ReadWrite(Cntr&& cntr, Cursor(Cntr&&) * pos_cursor,
                                    size_t cnt, Acceptor&& acceptor,
-                                   Cursor(Cntr) * dst_cursor);
+                                   Cursor(Cntr&&) * dst_cursor);
 
-template <IsSeqCntr Cntr,
-          seq_endpoint::provider::IsProvider<Elem(Cntr)> Provider>
+template <IsSeqCntrWithRRef Cntr,
+          seq_endpoint::provider::IsProvider<Elem(Cntr&&)> Provider>
 constexpr decltype(auto) PushL(Cntr&& cntr, size_t cnt, Provider&& provider,
-                               Cursor(Cntr) * dst_beg_cursor,
-                               Cursor(Cntr) * dst_end_cursor);
+                               Cursor(Cntr&&) * dst_beg_cursor,
+                               Cursor(Cntr&&) * dst_end_cursor);
 
-template <IsSeqCntr Cntr,
-          seq_endpoint::provider::IsProvider<Elem(Cntr)> Provider>
+template <IsSeqCntrWithRRef Cntr,
+          seq_endpoint::provider::IsProvider<Elem(Cntr&&)> Provider>
 constexpr decltype(auto) PushR(Cntr&& cntr, size_t cnt, Provider&& provider,
-                               Cursor(Cntr) * dst_beg_cursor,
-                               Cursor(Cntr) * dst_end_cursor);
+                               Cursor(Cntr&&) * dst_beg_cursor,
+                               Cursor(Cntr&&) * dst_end_cursor);
 
-template <IsSeqCntr Cntr,
-          seq_endpoint::provider::IsProvider<Elem(Cntr)> Provider>
-constexpr decltype(auto) Insert(Cntr&& cntr, Cursor(Cntr) * pos_cursor,
+template <IsSeqCntrWithRRef Cntr,
+          seq_endpoint::provider::IsProvider<Elem(Cntr&&)> Provider>
+constexpr decltype(auto) Insert(Cntr&& cntr, Cursor(Cntr&&) * pos_cursor,
                                 size_t cnt, Provider&& provider,
-                                Cursor(Cntr) * dst_cursor);
+                                Cursor(Cntr&&) * dst_cursor);
 
-template <IsSeqCntr Cntr,
-          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
+template <IsSeqCntrWithRRef Cntr,
+          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr&&)> Acceptor>
 constexpr decltype(auto) PopL(Cntr&& cntr, size_t cnt, Acceptor&& acceptor,
-                              Cursor(Cntr) * dst_cursor);
+                              Cursor(Cntr&&) * dst_cursor);
 
-template <IsSeqCntr Cntr,
-          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
+template <IsSeqCntrWithRRef Cntr,
+          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr&&)> Acceptor>
 constexpr decltype(auto) PopR(Cntr&& cntr, size_t cnt, Acceptor&& acceptor,
-                              Cursor(Cntr) * dst_cursor);
+                              Cursor(Cntr&&) * dst_cursor);
 
-template <IsSeqCntr Cntr,
-          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
-constexpr decltype(auto) Erase(Cntr&& cntr, Cursor(Cntr) * pos_cursor,
+template <IsSeqCntrWithRRef Cntr,
+          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr&&)> Acceptor>
+constexpr decltype(auto) Erase(Cntr&& cntr, Cursor(Cntr&&) * pos_cursor,
                                size_t cnt, Acceptor&& acceptor);
 
-template <IsSeqCntr Cntr,
-          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
+template <IsSeqCntrWithRRef Cntr,
+          seq_endpoint::acceptor::IsAcceptor<Elem(Cntr&&)> Acceptor>
 constexpr decltype(auto) EraseAll(Cntr&& cntr, Acceptor&& acceptor);
 
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) CopyCursor(Cntr&& cntr, Cursor(Cntr) * src_cursor,
-                                    Cursor(Cntr) * dst_cursor);
+template <IsSeqCntrWithRRef Cntr>
+constexpr decltype(auto) CopyCursor(Cntr&& cntr, Cursor(Cntr&&) * src_cursor,
+                                    Cursor(Cntr&&) * dst_cursor);
 
-template <IsSeqCntr Cntr>
-constexpr bool AreEqualCursor(Cntr&& cntr, Cursor(Cntr) * cursor_a,
-                              Cursor(Cntr) * cursor_b);
+template <IsSeqCntrWithRRef Cntr>
+constexpr bool AreEqualCursor(Cntr&& cntr, Cursor(Cntr&&) * cursor_a,
+                              Cursor(Cntr&&) * cursor_b);
 
-template <IsSeqCntr Cntr>
+template <IsSeqCntrWithRRef Cntr>
 constexpr comparison::Ordering CompareCursor(Cntr&& cntr,
-                                             Cursor(Cntr) * cursor_a,
-                                             Cursor(Cntr) * cursor_b);
+                                             Cursor(Cntr&&) * cursor_a,
+                                             Cursor(Cntr&&) * cursor_b);
 
-template <IsSeqCntr Cntr>
-constexpr size_t GetCursorDist(Cntr&& cntr, Cursor(Cntr) * cursor_a,
-                               Cursor(Cntr) * cursor_b);
+template <IsSeqCntrWithRRef Cntr>
+constexpr size_t GetCursorDist(Cntr&& cntr, Cursor(Cntr&&) * cursor_a,
+                               Cursor(Cntr&&) * cursor_b);
 
-template <IsSeqCntr Cntr>
-constexpr size_t GetCursorIdx(Cntr&& cntr, Cursor(Cntr) * cursor);
+template <IsSeqCntrWithRRef Cntr>
+constexpr size_t GetCursorIdx(Cntr&& cntr, Cursor(Cntr&&) * cursor);
 
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) CursorStepL(Cntr&& cntr, Cursor(Cntr) * cursor);
+template <IsSeqCntrWithRRef Cntr>
+constexpr decltype(auto) CursorStepL(Cntr&& cntr, Cursor(Cntr&&) * cursor);
 
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) CursorStepR(Cntr&& cntr, Cursor(Cntr) * cursor);
+template <IsSeqCntrWithRRef Cntr>
+constexpr decltype(auto) CursorStepR(Cntr&& cntr, Cursor(Cntr&&) * cursor);
 
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) CursorAdvanceL(Cntr&& cntr, Cursor(Cntr) * cursor,
+template <IsSeqCntrWithRRef Cntr>
+constexpr decltype(auto) CursorAdvanceL(Cntr&& cntr, Cursor(Cntr&&) * cursor,
                                         size_t step);
 
-template <IsSeqCntr Cntr>
-constexpr decltype(auto) CursorAdvanceR(Cntr&& cntr, Cursor(Cntr) * cursor,
+template <IsSeqCntrWithRRef Cntr>
+constexpr decltype(auto) CursorAdvanceR(Cntr&& cntr, Cursor(Cntr&&) * cursor,
                                         size_t step);
 
-template <meta::IsContainerElem Elem>
+template <meta::IsObj Elem>
 struct VTable {
     unsigned long long custom_tags[4];
 
@@ -741,27 +872,76 @@ struct VTable {
 
     void (*get_rb_cursor)(void* cntr, seq_cntr::CursorLimit* dst_cursor);
 
-    void (*peek_l)(void* cntr, bool lazy_copy_elem,
-                   ElemPtrView* dst_elem_ptr_view,
-                   seq_cntr::CursorLimit* dst_cursor,
-                   lifecycle::DataLifeState dst_elem_life_state,
-                   void* dst_elem);
+    struct {
+        void (*constructing_mem_to_obj)(
+            void* cntr, bool lazy_copy_elem,
+            lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+            seq_cntr::CursorLimit* dst_cursor,
+            lifecycle::ConstructingMemToObjView<Elem> dst_elem);
 
-    void (*peek_r)(void* cntr, bool lazy_copy_elem,
-                   ElemPtrView* dst_elem_ptr_view,
-                   seq_cntr::CursorLimit* dst_cursor,
-                   lifecycle::DataLifeState dst_elem_life_state,
-                   void* dst_elem);
+        void (*left_obj)(void* cntr, bool lazy_copy_elem,
+                         lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+                         seq_cntr::CursorLimit* dst_cursor,
+                         lifecycle::LeftObjView<Elem> dst_elem);
 
-    void (*refer)(void* cntr, size_t idx, bool lazy_copy_elem,
-                  ElemPtrView* dst_elem_ptr_view,
-                  seq_cntr::CursorLimit* dst_cursor,
-                  lifecycle::DataLifeState dst_elem_life_state, void* dst_elem);
+        void (*right_obj)(void* cntr, bool lazy_copy_elem,
+                          lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+                          seq_cntr::CursorLimit* dst_cursor,
+                          lifecycle::RightObjView<Elem> dst_elem);
+    } peek_l;
 
-    void (*derefer)(void* cntr, seq_cntr::CursorLimit* pos_cursor,
-                    bool lazy_copy_elem, ElemPtrView* dst_elem_ptr_view,
-                    lifecycle::DataLifeState dst_elem_life_state,
-                    void* dst_elem);
+    struct {
+        void (*constructing_mem_to_obj)(
+            void* cntr, bool lazy_copy_elem,
+            lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+            seq_cntr::CursorLimit* dst_cursor,
+            lifecycle::ConstructingMemToObjView<Elem> dst_elem);
+
+        void (*left_obj)(void* cntr, bool lazy_copy_elem,
+                         lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+                         seq_cntr::CursorLimit* dst_cursor,
+                         lifecycle::LeftObjView<Elem> dst_elem);
+
+        void (*right_obj)(void* cntr, bool lazy_copy_elem,
+                          lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+                          seq_cntr::CursorLimit* dst_cursor,
+                          lifecycle::RightObjView<Elem> dst_elem);
+    } peek_r;
+
+    struct {
+        void (*constructing_mem_to_obj)(
+            void* cntr, size_t idx, bool lazy_copy_elem,
+            lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+            seq_cntr::CursorLimit* dst_cursor,
+            lifecycle::ConstructingMemToObjView<Elem> dst_elem);
+
+        void (*left_obj)(void* cntr, size_t idx, bool lazy_copy_elem,
+                         lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+                         seq_cntr::CursorLimit* dst_cursor,
+                         lifecycle::LeftObjView<Elem> dst_elem);
+
+        void (*right_obj)(void* cntr, size_t idx, bool lazy_copy_elem,
+                          lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+                          seq_cntr::CursorLimit* dst_cursor,
+                          lifecycle::RightObjView<Elem> dst_elem);
+    } refer;
+
+    struct {
+        void (*constructing_mem_to_obj)(
+            void* cntr, seq_cntr::CursorLimit* pos_cursor, bool lazy_copy_elem,
+            lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+            lifecycle::ConstructingMemToObjView<Elem> dst_elem);
+
+        void (*left_obj)(void* cntr, seq_cntr::CursorLimit* pos_cursor,
+                         bool lazy_copy_elem,
+                         lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+                         lifecycle::LeftObjView<Elem> dst_elem);
+
+        void (*right_obj)(void* cntr, seq_cntr::CursorLimit* pos_cursor,
+                          bool lazy_copy_elem,
+                          lifecycle::DynamicStorageView<Elem>* dst_elem_view,
+                          lifecycle::RightObjView<Elem> dst_elem);
+    } derefer;
 
     struct {
         void (*basic)(void* cntr, seq_cntr::CursorLimit* pos_cursor, size_t cnt,
@@ -879,14 +1059,6 @@ struct VTable {
                                             unsigned long long arg1,
                                             unsigned long long arg2,
                                             unsigned long long arg3);
-};
-
-template <IsSeqCntr Cntr>
-constexpr VTable<Elem(Cntr)> BuildVTableBasic();
-
-template <IsSeqCntr Cntr>
-struct BuildVTableImpl {
-    static constexpr VTable<Elem(Cntr)> Call();
 };
 
 template <IsSeqCntr Cntr>

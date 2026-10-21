@@ -58,12 +58,16 @@
 
 #endif
 
+#if ZETA_Core_DebugEnable
+
 #define ZETA_Core_DebugUtils_Diag_Assert_(tmp_cond, tmp_cond_log, cond)       \
     {                                                                         \
         decltype(auto) tmp_cond{ (cond) };                                    \
                                                                               \
         if (tmp_cond) {                                                       \
         } else {                                                              \
+            zeta::core::meta::ConstantEvaluationFailure();                    \
+                                                                              \
             zeta::core::debug_utils::logging::Log tmp_cond_log{               \
                 .time_pos_log{                                                \
                     ZETA_Core_DebugUtils_Logging_MakeCurTimePosLog() },       \
@@ -101,7 +105,25 @@
                                                                               \
             std::abort();                                                     \
         }                                                                     \
-    }
+    }                                                                         \
+    static_assert(true)
+
+#else
+
+#define ZETA_Core_DebugUtils_Diag_Assert_(tmp_cond, tmp_cond_log, cond) \
+    {                                                                   \
+        if consteval {                                                  \
+            decltype(auto) tmp_cond{ (cond) };                          \
+                                                                        \
+            if (tmp_cond) {                                             \
+            } else {                                                    \
+                zeta::core::meta::ConstantEvaluationFailure();          \
+            }                                                           \
+        }                                                               \
+    }                                                                   \
+    static_assert(true)
+
+#endif
 
 #define ZETA_Core_DebugUtils_Diag_Assert(cond)                              \
     ZETA_Core_DebugUtils_Diag_Assert_(ZETA_Core_TmpName, ZETA_Core_TmpName, \

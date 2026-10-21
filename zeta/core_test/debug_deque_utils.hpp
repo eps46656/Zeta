@@ -23,7 +23,7 @@ constexpr core::poly_seq_cntr::Cntr<Elem> Create() {
 
     auto* dd{ &pack->debug_deque };
 
-    static_assert(core::seq_cntr::IsSeqCntr<DebugDeque<Elem>>);
+    static_assert(core::seq_cntr::IsSeqCntr<DebugDeque<Elem>&>);
 
     seq_cntr_utils::AddSanitizeFunc(dd, [](void const* dd_) {
         DebugDeque<Elem> const* dd{ static_cast<DebugDeque<Elem> const*>(dd_) };

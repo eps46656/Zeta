@@ -130,7 +130,7 @@ constexpr decltype(auto) comparison_utils::LinMemSeqLexCompare(
 
     if (a_elem_stride == 0 && b_elem_stride == 0 && 0 < cnt) { cnt = 1; }
 
-    for (size_t i{ 0 }; i < cnt; ++i, a += a_elem_stride, b += b_elem_stride) {
+    for (size_t i{ cnt }; 0 < i; --i, a += a_elem_stride, b += b_elem_stride) {
         comparison::Ordering cmp{ (MemLexCompare)(comparison::OpTags::Order{},
                                                   a, b, a_elem_size,
                                                   b_elem_size) };
@@ -219,10 +219,10 @@ constexpr auto BasicPairWiseLexCompare_(OpTag, A const& a, B const& b,
                                         Args const&... args) {
     if constexpr (sizeof...(args) == 0) {
         return comparison::BasicCompare(OpTag{}, a, b);
-    } else if (meta::IsSame<OpTag, comparison::OpTags::Equal>) {
+    } else if constexpr (meta::IsSame<OpTag, comparison::OpTags::Equal>) {
         return comparison::BasicCompare(OpTag{}, a, b) &&
                (BasicPairWiseLexCompare_)(OpTag{}, args...);
-    } else if (meta::IsSame<OpTag, comparison::OpTags::NotEqual>) {
+    } else if constexpr (meta::IsSame<OpTag, comparison::OpTags::NotEqual>) {
         return comparison::BasicCompare(OpTag{}, a, b) ||
                (BasicPairWiseLexCompare_)(OpTag{}, args...);
     } else {
@@ -242,30 +242,6 @@ template <comparison::IsOpTag OpTag, typename... Args>
 constexpr auto comparison_utils::BasicPairWiseLexCompare(OpTag op,
                                                          Args const&... args) {
     return detail::BasicPairWiseLexCompare_(op, args...);
-}
-
-template <typename Comparator, typename SeqA, typename SeqB>
-int SeqWiseLexCompare(Comparator const& cmptr, SeqA&& a, SeqB&& b) {
-    bool a_has_elem{ a.HasElem() };
-    bool b_has_elem{ b.HasElem() };
-
-    for (;;) {
-        switch (a_has_elem * 0b10 + b_has_elem * 0b01) {
-        case 0b00: return 0;
-        case 0b01: return -1;
-        case 0b10: return 1;
-        }
-
-        auto&& x_elem{ a.Get() };
-        auto&& y_elem{ b.Get() };
-
-        int cmp{ comparison::Compare(cmptr, x_elem, y_elem) };
-
-        if (cmp != 0) { return cmp; }
-
-        a_has_elem = a.Next();
-        b_has_elem = b.Next();
-    }
 }
 
 }  // namespace zeta::core

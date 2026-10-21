@@ -12,10 +12,10 @@ namespace zeta::core {
 #pragma push_macro("TestCapability")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define TestCapability(cap_flag, cap_name)          \
-    (((cap_flag) &                                  \
-      (static_cast<assoc_cntr::capability::Flag>(1) \
-       << meta::ToUnderlying(assoc_cntr::capability::Kind::cap_name))) != 0)
+#define TestCapability(cap_flag, cap_name)                                     \
+    (((cap_flag) &                                                             \
+      (static_cast<assoc_cntr::capability::Flag>(1) << meta::EnumToUnderlying( \
+           assoc_cntr::capability::Kind::cap_name))) != 0)
 
 #pragma push_macro("CallMethod_")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -168,7 +168,7 @@ constexpr void* assoc_cntr_ref::Cntr::Insert(
 
 template <assoc_cntr::IsReader acceptor>
 constexpr void assoc_cntr_ref::Cntr::PopL(this Cntr& cntr, size_t cnt,
-                                          acceptor&& reader) {
+                                          Acceptor&& reader) {
     using RawReader = meta::RemoveCVRef<acceptor>;
 
     if constexpr (meta::IsSame<RawReader, assoc_cntr::EmptyReader>) {
@@ -182,7 +182,7 @@ constexpr void assoc_cntr_ref::Cntr::PopL(this Cntr& cntr, size_t cnt,
 
 template <assoc_cntr::IsReader acceptor>
 constexpr void assoc_cntr_ref::Cntr::PopR(this Cntr& cntr, size_t cnt,
-                                          acceptor&& reader) {
+                                          Acceptor&& reader) {
     using RawReader = meta::RemoveCVRef<acceptor>;
 
     if constexpr (meta::IsSame<RawReader, assoc_cntr::EmptyReader>) {
@@ -196,7 +196,7 @@ constexpr void assoc_cntr_ref::Cntr::PopR(this Cntr& cntr, size_t cnt,
 
 template <assoc_cntr::IsReader acceptor>
 constexpr void assoc_cntr_ref::Cntr::Erase(this Cntr& cntr, void* pos_cursor,
-                                           size_t cnt, acceptor&& reader) {
+                                           size_t cnt, Acceptor&& reader) {
     using RawReader = meta::RemoveCVRef<acceptor>;
 
     if constexpr (meta::IsSame<RawReader, assoc_cntr::EmptyReader>) {

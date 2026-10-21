@@ -214,13 +214,13 @@ constexpr void logging::Log::Print(this Log const& log, std::ostream& os) {
 namespace logging::detail {
 
 template <typename T>
-constexpr std::deque<std::string> ToStr_(T const& var) {
+constexpr std::vector<std::string> ToStr_(T const& var) {
     return VarPrinter<T, NullFormatTag>::ToStr(var, NullFormatTag{});
 }
 
 template <typename T, typename FormatTag>
-constexpr std::deque<std::string> ToStr_(T const& var,
-                                         FormatTag const& format_tag) {
+constexpr std::vector<std::string> ToStr_(T const& var,
+                                          FormatTag const& format_tag) {
     return VarPrinter<T, FormatTag>::ToStr(var, format_tag);
 }
 
@@ -228,8 +228,8 @@ constexpr std::deque<std::string> ToStr_(T const& var,
 
 template <>
 struct logging::VarPrinter<bool, logging::NullFormatTag> {
-    static constexpr std::deque<std::string> ToStr(bool const& val,
-                                                   NullFormatTag) {
+    static constexpr std::vector<std::string> ToStr(bool const& val,
+                                                    NullFormatTag) {
         return { val ? " True" : "False" };
     }
 };
@@ -375,11 +375,11 @@ constexpr std::string UnsignedIntegralToHexStr_(UnsignedIntegral value,
 
 template <integral::IsIntegral Integral>
 struct logging::VarPrinter<Integral, logging::BinFormatTag> {
-    static constexpr std::deque<std::string> ToStr(Integral const& val,
-                                                   BinFormatTag) {
+    static constexpr std::vector<std::string> ToStr(Integral const& val,
+                                                    BinFormatTag) {
         constexpr size_t width{ detail::GetWidth_<Integral, 2>() };
 
-        std::deque<std::string> ret;
+        std::vector<std::string> ret;
 
         ret.push_back(ZETA_Core_DebugUtils_Logging_ValSecondaryColorCode +
                       detail::GetIntegralRuler_(width, 8, 1, 1) +
@@ -413,11 +413,11 @@ struct logging::VarPrinter<Integral, logging::BinFormatTag> {
 
 template <integral::IsIntegral Integral>
 struct logging::VarPrinter<Integral, logging::DecFormatTag> {
-    static constexpr std::deque<std::string> ToStr(Integral const& val,
-                                                   DecFormatTag) {
+    static constexpr std::vector<std::string> ToStr(Integral const& val,
+                                                    DecFormatTag) {
         constexpr size_t width{ detail::GetWidth_<Integral, 10>() };
 
-        std::deque<std::string> ret;
+        std::vector<std::string> ret;
 
         ret.push_back(ZETA_Core_DebugUtils_Logging_ValSecondaryColorCode +
                       detail::GetIntegralRuler_(width, 3, 1, 3) +
@@ -438,11 +438,11 @@ struct logging::VarPrinter<Integral, logging::DecFormatTag> {
 
 template <integral::IsIntegral Integral>
 struct logging::VarPrinter<Integral, logging::HexFormatTag> {
-    static constexpr std::deque<std::string> ToStr(Integral const& val,
-                                                   HexFormatTag) {
+    static constexpr std::vector<std::string> ToStr(Integral const& val,
+                                                    HexFormatTag) {
         constexpr size_t width{ detail::GetWidth_<Integral, 16>() };
 
-        std::deque<std::string> ret;
+        std::vector<std::string> ret;
 
         ret.push_back(ZETA_Core_DebugUtils_Logging_ValSecondaryColorCode +
                       detail::GetIntegralRuler_(width, 8, 1, 4) +
@@ -476,11 +476,11 @@ struct logging::VarPrinter<Integral, logging::HexFormatTag> {
 
 template <integral::IsIntegral Integral>
 struct logging::VarPrinter<Integral, logging::BinHexFormatTag> {
-    static constexpr std::deque<std::string> ToStr(Integral const& val,
-                                                   BinHexFormatTag) {
+    static constexpr std::vector<std::string> ToStr(Integral const& val,
+                                                    BinHexFormatTag) {
         constexpr size_t width{ detail::GetWidth_<Integral, 2>() };
 
-        std::deque<std::string> ret;
+        std::vector<std::string> ret;
 
         ret.push_back(ZETA_Core_DebugUtils_Logging_ValSecondaryColorCode +
                       detail::GetIntegralRuler_(width, 8, 1, 1) +
@@ -530,15 +530,15 @@ struct logging::VarPrinter<Integral, logging::BinHexFormatTag> {
 
 template <integral::IsIntegral Integral>
 struct logging::VarPrinter<Integral, logging::NullFormatTag> {
-    static constexpr std::deque<std::string> ToStr(Integral const& val,
-                                                   NullFormatTag) {
+    static constexpr std::vector<std::string> ToStr(Integral const& val,
+                                                    NullFormatTag) {
         return VarPrinter<Integral, DecFormatTag>::ToStr(val, DecFormatTag{});
     }
 };
 
 template <typename T>
 struct logging::VarPrinter<T*, logging::BinFormatTag> {
-    static constexpr std::deque<std::string> ToStr(T* ptr, BinFormatTag) {
+    static constexpr std::vector<std::string> ToStr(T* ptr, BinFormatTag) {
         return VarPrinter<uintptr_t, BinFormatTag>::ToStr(
             reinterpret_cast<uintptr_t>(ptr), BinFormatTag{});
     }
@@ -546,7 +546,7 @@ struct logging::VarPrinter<T*, logging::BinFormatTag> {
 
 template <typename T>
 struct logging::VarPrinter<T*, logging::HexFormatTag> {
-    static constexpr std::deque<std::string> ToStr(T* ptr, HexFormatTag) {
+    static constexpr std::vector<std::string> ToStr(T* ptr, HexFormatTag) {
         return VarPrinter<uintptr_t, HexFormatTag>::ToStr(
             reinterpret_cast<uintptr_t>(ptr), HexFormatTag{});
     }
@@ -554,7 +554,7 @@ struct logging::VarPrinter<T*, logging::HexFormatTag> {
 
 template <typename T>
 struct logging::VarPrinter<T*, logging::BinHexFormatTag> {
-    static constexpr std::deque<std::string> ToStr(T* ptr, BinHexFormatTag) {
+    static constexpr std::vector<std::string> ToStr(T* ptr, BinHexFormatTag) {
         return VarPrinter<uintptr_t, BinHexFormatTag>::ToStr(
             reinterpret_cast<uintptr_t>(ptr), BinHexFormatTag{});
     }
@@ -562,7 +562,7 @@ struct logging::VarPrinter<T*, logging::BinHexFormatTag> {
 
 template <typename T>
 struct logging::VarPrinter<T*, logging::NullFormatTag> {
-    static constexpr std::deque<std::string> ToStr(T* ptr, NullFormatTag) {
+    static constexpr std::vector<std::string> ToStr(T* ptr, NullFormatTag) {
         return VarPrinter<uintptr_t, BinHexFormatTag>::ToStr(
             reinterpret_cast<uintptr_t>(ptr), BinHexFormatTag{});
     }
@@ -570,40 +570,40 @@ struct logging::VarPrinter<T*, logging::NullFormatTag> {
 
 template <>
 struct logging::VarPrinter<char[], logging::NullFormatTag> {
-    static constexpr std::deque<std::string> ToStr(char const* val,
-                                                   NullFormatTag) {
+    static constexpr std::vector<std::string> ToStr(char const* val,
+                                                    NullFormatTag) {
         return { std::string{ val } };
     }
 };
 
 template <size_t N>
 struct logging::VarPrinter<char[N], logging::NullFormatTag> {
-    static constexpr std::deque<std::string> ToStr(char const* val,
-                                                   NullFormatTag) {
+    static constexpr std::vector<std::string> ToStr(char const* val,
+                                                    NullFormatTag) {
         return { std::string{ val } };
     }
 };
 
 template <>
 struct logging::VarPrinter<char*, logging::NullFormatTag> {
-    static constexpr std::deque<std::string> ToStr(char const* val,
-                                                   NullFormatTag) {
+    static constexpr std::vector<std::string> ToStr(char const* val,
+                                                    NullFormatTag) {
         return { std::string{ val } };
     }
 };
 
 template <>
 struct logging::VarPrinter<char const*, logging::NullFormatTag> {
-    static constexpr std::deque<std::string> ToStr(char const* val,
-                                                   NullFormatTag) {
+    static constexpr std::vector<std::string> ToStr(char const* val,
+                                                    NullFormatTag) {
         return { std::string{ val } };
     }
 };
 
 template <>
 struct logging::VarPrinter<std::string, logging::NullFormatTag> {
-    static constexpr std::deque<std::string> ToStr(std::string const& str,
-                                                   NullFormatTag) {
+    static constexpr std::vector<std::string> ToStr(std::string const& str,
+                                                    NullFormatTag) {
         return { str };
     }
 };

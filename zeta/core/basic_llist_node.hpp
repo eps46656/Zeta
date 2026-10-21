@@ -1,5 +1,6 @@
 #pragma once
 
+#include <zeta/core/debug_utils/lifecycle_sanity.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/llist.hpp>
 #include <zeta/core/ptr_utils.hpp>
@@ -7,29 +8,33 @@
 ZETA_Core_ClangdPreambleBarrier;
 
 #pragma push_macro("NodeTplParamList")
-#define NodeTplParamList(suffix)                           \
-    typename LinkType##suffix, typename LColorTag##suffix, \
-        typename RColorTag##suffix
+#define NodeTplParamList(suffix) \
+    typename Link##suffix, bool l_color_en##suffix, bool r_color_en##suffix
 
 #pragma push_macro("NodeTplArgList")
-#define NodeTplArgList LinkType, LColorTag, RColorTag
+#define NodeTplArgList Link, l_color_en, r_color_en
 
 namespace zeta::core::basic_llist_node {
 
 template <NodeTplParamList(_)>
 struct Node {
-    using LinkType = LinkType_;
-    using LColorTag = LColorTag_;
-    using RColorTag = RColorTag_;
+    using Link = Link_;
 
-    ptr_utils::AugPtrTpl<LinkType, LColorTag> l;
-    ptr_utils::AugPtrTpl<LinkType, RColorTag> r;
+    static constexpr bool l_color_en{ l_color_en_ };
+    static constexpr bool r_color_en{ r_color_en_ };
+
+#if ZETA_Core_DebugEnable
+    debug_utils::lifecycle_sanity::ObjHook obj_hook;
+#endif
+
+    ptr_utils::AugPtrTpl<Link, l_color_en> l;
+    ptr_utils::AugPtrTpl<Link, r_color_en> r;
 
     static constexpr bool IsRelLink{
-        ptr_utils::AugPtrTpl<LinkType, LColorTag>::IsRelLink
+        ptr_utils::AugPtrTpl<Link, l_color_en>::IsRelLink
     };
 
-    constexpr void Construct(this Node& self);
+    constexpr Node();
 
     constexpr Node* GetLPtr(this Node& self);
     constexpr Node* GetRPtr(this Node& self);
@@ -69,11 +74,10 @@ struct llist::NodeTraits<basic_llist_node::Node<NodeTplArgList> const> {
         basic_llist_node::Node<NodeTplArgList> const* n);
 };
 
-template <typename LinkType, typename LColorTag, typename RColorTag>
-struct llist::NodeTraits<
-    basic_llist_node::Node<LinkType, LColorTag, RColorTag> >
+template <typename Link, bool l_color_en, bool r_color_en>
+struct llist::NodeTraits<basic_llist_node::Node<Link, l_color_en, r_color_en> >
     : public llist::NodeTraits<
-          basic_llist_node::Node<LinkType, LColorTag, RColorTag> const> {
+          basic_llist_node::Node<Link, l_color_en, r_color_en> const> {
     static constexpr bool IsConst();
 
     static basic_llist_node::Node<NodeTplArgList>* GetL(

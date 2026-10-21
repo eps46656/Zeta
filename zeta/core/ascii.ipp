@@ -8,7 +8,7 @@ namespace zeta::core {
 
 namespace ascii::detail {
 
-array::Array<CharEnum, 256> char_table{ []() {
+constexpr array::Array<CharEnum, 256> char_table{ []() {
     array::Array<CharEnum, 256> ret{ CharEnum::null };
 
 #pragma push_macro("F")
