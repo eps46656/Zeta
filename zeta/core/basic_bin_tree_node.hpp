@@ -75,7 +75,7 @@ struct Node : public NodeBase<NodeTplArgList(_)> {
                   primary_color_ == PrimaryColor::L ||
                   primary_color_ == PrimaryColor::R);
 
-    static constexpr PrimaryColor primary_color{ primary_color };
+    static constexpr PrimaryColor primary_color{ primary_color_ };
 
     static constexpr bool has_priomary_color{
         primary_color == PrimaryColor::P || primary_color == PrimaryColor::L ||
@@ -92,9 +92,16 @@ struct Node : public NodeBase<NodeTplArgList(_)> {
     constexpr Node(size_t acc_size)
         requires acc_size_en;
 
-    static constexpr bool IsConst(bin_tree::Tag, meta::TypeWrapper<Node>);
+    constexpr void Reset()
+        requires(!acc_size_en);
 
-    static constexpr bool IsConst(bin_tree::Tag, meta::TypeWrapper<Node const>);
+    constexpr void Reset(size_t acc_size)
+        requires acc_size_en;
+
+    static constexpr bool IsConstType(bin_tree::Tag, meta::TypeWrapper<Node>);
+
+    static constexpr bool IsConstType(bin_tree::Tag,
+                                      meta::TypeWrapper<Node const>);
 
     static constexpr bool HasAccSize(bin_tree::Tag, meta::TypeWrapper<Node>);
 

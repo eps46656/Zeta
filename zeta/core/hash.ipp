@@ -7,27 +7,28 @@
 
 namespace zeta::core {
 
-template <typename Hasher, typename Value>
-    requires hash::CanHash<Hasher, Value>
+template <meta::IsNonReferenceType Hasher, meta::IsNonReferenceType Value>
 constexpr unsigned long long hash::Hash(Hasher const& hasher,
                                         Value const& value,
-                                        unsigned long long salt) {
+                                        unsigned long long salt)
+    requires hash::CanHash<Hasher, Value>
+{
     return hasher.Hash(Tag{}, value, salt);
 }
 
-template <typename Value>
+template <meta::IsNonReferenceType Value>
 constexpr unsigned long long hash::EmptyHasher::Hash(Tag, Value const&,
                                                      unsigned long long) {
     return 0;
 }
 
-template <typename Value>
+template <meta::IsNonReferenceType Value>
 unsigned long long hash::BasicHash(Value const& value,
                                    unsigned long long salt) {
     return (Hash)(BasicHasher<Value>{}, value, salt);
 }
 
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr unsigned long long hash::BasicHasher<Integral>::Hash(
     Tag, Integral integral, unsigned long long salt) {
     auto unsigned_integral{ integral::MakeUnsignedOf<Integral>{ integral } };
@@ -61,25 +62,25 @@ constexpr unsigned long long hash::BasicHasher<Integral>::Hash(
     return value;
 }
 
-template <meta::IsPointer Pointer>
+template <meta::IsPointerType Pointer>
 constexpr unsigned long long hash::BasicHasher<Pointer>::Hash(
     Tag, void* const pointer, unsigned long long salt) {
     return (BasicHash)(reinterpret_cast<uintptr_t>(pointer), salt);
 }
 
-template <typename Value>
+template <meta::IsNonReferenceType Value>
 constexpr unsigned long long hash::UniversalBasicHasher::Hash(
     Tag, Value const& value, unsigned long long salt) {
     return (BasicHash)(value, salt);
 }
 
-template <typename Value>
+template <meta::IsNonReferenceType Value>
 unsigned long long hash::TypeErasedBasicHash(void const* value,
                                              unsigned long long salt) {
     return (BasicHash<Value>)(*static_cast<Value const*>(value), salt);
 }
 
-template <typename Value>
+template <meta::IsNonReferenceType Value>
 size_t hash::CppStdBasicHash<Value>::operator()(Value const& value) const {
     return static_cast<size_t>((BasicHash<Value>)(value, 0));
 }

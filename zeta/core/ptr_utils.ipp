@@ -61,13 +61,13 @@ constexpr void ptr_utils::color_ptr::SetPtrColor(void*& color_ptr, size_t align,
                                             color);
 }
 
-template <integral::IsSignedIntegral SignedIntegral>
+template <integral::IsSignedIntegralType SignedIntegral>
 constexpr void* ptr_utils::rel_ptr::GetPtr(SignedIntegral rel_ptr,
                                            void const* base) {
     return const_cast<char*>(static_cast<char const*>(base) + rel_ptr);
 }
 
-template <integral::IsSignedIntegral SignedIntegral>
+template <integral::IsSignedIntegralType SignedIntegral>
 constexpr void ptr_utils::rel_ptr::SetPtr(SignedIntegral& rel_ptr,
                                           void const* base, void* ptr) {
     ptrdiff_t diff{ static_cast<char*>(ptr) - static_cast<char const*>(base) };
@@ -81,20 +81,20 @@ constexpr void ptr_utils::rel_ptr::SetPtr(SignedIntegral& rel_ptr,
     ZETA_Core_DebugUtils_Diag_PromiseAssert((GetPtr)(rel_ptr, base) == ptr);
 }
 
-template <integral::IsSignedIntegral SignedIntegral>
+template <integral::IsSignedIntegralType SignedIntegral>
 constexpr void* ptr_utils::rel_color_ptr::GetPtr(SignedIntegral rel_color_ptr,
                                                  size_t align,
                                                  void const* base) {
     return (GetPtrColor)(rel_color_ptr, align, base).first;
 }
 
-template <integral::IsSignedIntegral SignedIntegral>
+template <integral::IsSignedIntegralType SignedIntegral>
 constexpr unsigned ptr_utils::rel_color_ptr::GetColor(
     SignedIntegral rel_color_ptr, size_t align, void const* base) {
     return (GetPtrColor)(rel_color_ptr, align, base).second;
 }
 
-template <integral::IsSignedIntegral SignedIntegral>
+template <integral::IsSignedIntegralType SignedIntegral>
 constexpr pair::Pair<void*, unsigned> ptr_utils::rel_color_ptr::GetPtrColor(
     SignedIntegral rel_color_ptr, size_t align, void const* base) {
     void* x{ const_cast<void*>(__builtin_align_down(
@@ -108,7 +108,7 @@ constexpr pair::Pair<void*, unsigned> ptr_utils::rel_color_ptr::GetPtrColor(
     return { ptr, color };
 }
 
-template <integral::IsSignedIntegral SignedIntegral>
+template <integral::IsSignedIntegralType SignedIntegral>
 constexpr void ptr_utils::rel_color_ptr::SetPtr(SignedIntegral& rel_color_ptr,
                                                 size_t align, void const* base,
                                                 void* ptr) {
@@ -116,7 +116,7 @@ constexpr void ptr_utils::rel_color_ptr::SetPtr(SignedIntegral& rel_color_ptr,
                   (GetColor)(rel_color_ptr, align, base));
 }
 
-template <integral::IsSignedIntegral SignedIntegral>
+template <integral::IsSignedIntegralType SignedIntegral>
 constexpr void ptr_utils::rel_color_ptr::SetColor(SignedIntegral& rel_color_ptr,
                                                   size_t align,
                                                   void const* base,
@@ -125,7 +125,7 @@ constexpr void ptr_utils::rel_color_ptr::SetColor(SignedIntegral& rel_color_ptr,
                   (GetPtr)(rel_color_ptr, align, base), color);
 }
 
-template <integral::IsSignedIntegral SignedIntegral>
+template <integral::IsSignedIntegralType SignedIntegral>
 constexpr void ptr_utils::rel_color_ptr::SetPtrColor(
     SignedIntegral& rel_color_ptr, size_t align, void const* base, void* ptr,
     unsigned color) {

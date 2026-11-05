@@ -56,8 +56,8 @@ constexpr void LinSeqCopy(void* dst, void const* src, size_t elem_size,
 
 template <lifecycle::IsDstStorageView DstStorageView,
           lifecycle::IsSrcStorageView SrcStorageView,
-          integral::IsIntegral DstElemStride,
-          integral::IsIntegral SrcElemStride>
+          integral::IsIntegralType DstElemStride,
+          integral::IsIntegralType SrcElemStride>
 constexpr void DisjointLinSeqTransfer(DstStorageView dst, SrcStorageView src,
                                       DstElemStride dst_elem_stride,
                                       SrcElemStride src_elem_stride,
@@ -65,8 +65,8 @@ constexpr void DisjointLinSeqTransfer(DstStorageView dst, SrcStorageView src,
 
 template <lifecycle::IsDstStorageView DstStorageView,
           lifecycle::IsSrcStorageView SrcStorageView,
-          integral::IsIntegral DstElemStride,
-          integral::IsIntegral SrcElemStride>
+          integral::IsIntegralType DstElemStride,
+          integral::IsIntegralType SrcElemStride>
 constexpr void LinSeqTransfer(DstStorageView dst, SrcStorageView src,
                               DstElemStride dst_elem_stride,
                               SrcElemStride src_elem_stride, size_t cnt);

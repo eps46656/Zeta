@@ -6,7 +6,7 @@ namespace zeta::core::unicode {
 
 using unichar_t = unsigned;
 
-static_assert(integral::IsUnsignedIntegral<unichar_t>);
+static_assert(integral::IsUnsignedIntegralType<unichar_t>);
 static_assert(21 <= integral::WidthOf<unichar_t>);
 
 constexpr unichar_t surrogate_range_min{ 0xD800 };

@@ -23,9 +23,9 @@ constexpr void SetRandomSeed(unsigned random_seed) {
 
 template <typename RetInt, typename LBInt, typename RBInt>
 constexpr RetInt GenUniformRandomInt(LBInt lb, RBInt rb) {
-    static_assert(core::integral::IsIntegral<RetInt>);
-    static_assert(core::integral::IsIntegral<LBInt>);
-    static_assert(core::integral::IsIntegral<RBInt>);
+    static_assert(core::integral::IsIntegralType<RetInt>);
+    static_assert(core::integral::IsIntegralType<LBInt>);
+    static_assert(core::integral::IsIntegralType<RBInt>);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
         core::integral_math::Compare(core::comparison::OpTags::LessEqual{},
@@ -40,7 +40,7 @@ constexpr RetInt GenUniformRandomInt(LBInt lb, RBInt rb) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(ret_lb <= ret_rb);
 
     using GenInt =
-        core::meta::Conditional<core::integral::IsSignedIntegral<RetInt>,
+        core::meta::Conditional<core::integral::IsSignedIntegralType<RetInt>,
                                 signed long long, unsigned long long>;
 
     std::uniform_int_distribution<GenInt> generator{
@@ -110,15 +110,15 @@ void GenRandoms(Iterator beg, Iterator end) {
 }
 
 template <typename T>
-    requires(core::integral::IsIntegral<T> || core::meta::IsPointer<T>)
+    requires(core::integral::IsIntegralType<T> || core::meta::IsPointerType<T>)
 struct RandomCore<T> {
     static constexpr T F() {
-        if constexpr (core::integral::IsIntegral<T>) {
+        if constexpr (core::integral::IsIntegralType<T>) {
             return GenUniformRandomInt<T>(core::integral::RangeMinOf<T>,
                                           core::integral::RangeMaxOf<T>);
         }
 
-        if constexpr (core::meta::IsPointer<T>) {
+        if constexpr (core::meta::IsPointerType<T>) {
             return reinterpret_cast<T>(
                 GenUniformRandomInt<uintptr_t>(0x1'0000'0000, 0x1'ffff'ffff) *
                 alignof(T));

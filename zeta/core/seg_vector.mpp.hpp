@@ -38,7 +38,7 @@
 #include <zeta/core/circular_array.hpp>
 #include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
-#include <zeta/core/generic_hash_table.hpp>
+// #include <zeta/core/generic_hash_table.hpp>
 #include <zeta/core/integral.hpp>
 #include <zeta/core/meta.hpp>
 #include <zeta/core/pool_allocator.hpp>
@@ -69,29 +69,27 @@ static constexpr unsigned dat_color{ 2 };
 static constexpr unsigned null_color{ 3 };
 #endif
 
-template <meta::IsObj Elem>
+template <meta::IsObjectType Elem>
 using CircularArray = circular_array::Cntr<Elem>;
 
 using Node =
 #if EnStaging
     basic_bin_tree_node::Node<
         void*,
-        meta::AutoValueWrapper<true>,   // PColor
-        meta::AutoValueWrapper<true>,   // LColor
-        meta::AutoValueWrapper<false>,  // RColor
-        meta::AutoValueWrapper<true>,   // AccSize
-        meta::AutoValueWrapper<
-            basic_bin_tree_node::PrimaryColorTagEnum::P>  // PrimaryColor
+        true,                                 // PColor
+        true,                                 // LColor
+        false,                                // RColor
+        true,                                 // AccSize
+        basic_bin_tree_node::PrimaryColor::P  // PrimaryColor
         >;
 #else
     basic_bin_tree_node::Node<
         void*,
-        meta::AutoValueWrapper<true>,   // PColor
-        meta::AutoValueWrapper<true>,   // LColor
-        meta::AutoValueWrapper<false>,  // RColor
-        meta::AutoValueWrapper<true>,   // AccSize
-        meta::AutoValueWrapper<
-            basic_bin_tree_node::PrimaryColorTagEnum::P>  // PrimaryColor
+        true,                                 // PColor
+        true,                                 // LColor
+        false,                                // RColor
+        true,                                 // AccSize
+        basic_bin_tree_node::PrimaryColor::P  // PrimaryColor
         >;
 #endif
 
@@ -116,19 +114,36 @@ struct Seg {
             unsigned short rot;
         } dat;
     };
+
+    constexpr Seg();
 };
 
 struct Cursor {
-    void const* cntr;
     size_t idx;
     void* n;
     size_t seg_idx;
 
-    void* elem_ptr;
-    bool elem_ptr_is_valid;
+    mutable bool elem_ptr_is_resolved;
+    mutable void* elem_ptr;
 
-    bool operator==(Cursor const&) const = default;
-    bool operator!=(Cursor const&) const = default;
+#if ZETA_Core_DebugEnable
+    mutable debug_utils::revision::Stamp stamp;
+#endif
+
+    constexpr Cursor() = default;
+
+    constexpr Cursor(Cursor const& src_cursor) = default;
+
+    constexpr Cursor(seq_cntr::CursorLimit const& src_cursor);
+
+    constexpr operator seq_cntr::CursorLimit(this Cursor const& self);
+
+    constexpr Cursor& operator=(Cursor const& src_cursor) = default;
+
+    constexpr Cursor& operator=(seq_cntr::CursorLimit const& src_cursor);
+
+    constexpr bool operator==(Cursor const&) const = default;
+    constexpr bool operator!=(Cursor const&) const = default;
 };
 
 #if EnStaging
@@ -157,22 +172,28 @@ struct Stats {
 
 template <
 #if EnStaging
-
-    typename OriginLike_,
+    seq_cntr::IsSeqCntrLike OriginLike_,
 #else
-    meta::IsObj Elem_,
+    meta::IsNonConstObjectType Elem_,
 #endif
-    typename SegAllocatorLike_, typename DataAllocatorLike_>
+    allocator::IsAllocatorLike SegAllocatorLike_,
+    allocator::IsAllocatorLike DataAllocatorLike_>
 struct Cntr {
 #if EnStaging
     using Elem = meta::GetTypeWrapperType<decltype(seq_cntr::GetElemType(
-        meta::TypeWrapper<meta::GetInstType<OriginLike_>>{}))>;
+        meta::TypeWrapper<meta::GetInstTypeFromLike<OriginLike_>&>{}))>;
 #else
     using Elem = Elem_;
 #endif
 
 #if EnStaging
     using OriginLike = OriginLike_;
+
+    using Origin = meta::GetInstTypeFromLike<OriginLike>;
+
+    using OriginCursor =
+        meta::GetTypeWrapperType<decltype(seq_cntr::GetCursorType(
+            meta::TypeWrapper<meta::GetInstTypeFromLike<OriginLike_>&>{}))>;
 #endif
 
     using SegAllocatorLike  = SegAllocatorLike_;
@@ -191,6 +212,10 @@ struct Cntr {
 
     SegAllocatorLike seg_alctr_like;
     DataAllocatorLike data_alctr_like;
+
+#if ZETA_Core_DebugEnable
+    debug_utils::revision::Stamp stamp;
+#endif
 
     template <
 #if EnStaging
@@ -235,17 +260,21 @@ struct Cntr {
 
     constexpr ~Cntr();
 
+    template <meta::IsAnySame<Cntr&, Cntr&&> TargetCntr>
     static constexpr seq_cntr::capability::Flag GetStaticEnabledCapabilityFlag(
-        seq_cntr::Tag, meta::TypeWrapper<Cntr>);
+        seq_cntr::Tag, meta::TypeWrapper<TargetCntr>);
 
+    template <meta::IsAnySame<Cntr const&, Cntr const&&> TargetCntr>
     static constexpr seq_cntr::capability::Flag GetStaticEnabledCapabilityFlag(
-        seq_cntr::Tag, meta::TypeWrapper<Cntr const>);
+        seq_cntr::Tag, meta::TypeWrapper<TargetCntr>);
 
+    template <meta::IsAnySame<Cntr&, Cntr&&> TargetCntr>
     static constexpr seq_cntr::capability::Flag GetStaticDisabledCapabilityFlag(
-        seq_cntr::Tag, meta::TypeWrapper<Cntr>);
+        seq_cntr::Tag, meta::TypeWrapper<TargetCntr>);
 
+    template <meta::IsAnySame<Cntr const&, Cntr const&&> TargetCntr>
     static constexpr seq_cntr::capability::Flag GetStaticDisabledCapabilityFlag(
-        seq_cntr::Tag, meta::TypeWrapper<Cntr const>);
+        seq_cntr::Tag, meta::TypeWrapper<TargetCntr>);
 
     static constexpr seq_cntr::capability::Flag GetDynamicEnabledCapabilityFlag(
         seq_cntr::Tag);
@@ -255,13 +284,15 @@ struct Cntr {
 
     constexpr void* GetReferedInstPtr(this Cntr const& self, seq_cntr::Tag);
 
-    static constexpr meta::TypeWrapper<Cursor> GetCursorType(
-        seq_cntr::Tag, meta::TypeWrapper<Cntr>);
+    template <
+        meta::IsAnySame<Cntr&, Cntr const&, Cntr&&, Cntr const&&> TargetCntr>
+    static constexpr meta::TypeWrapper<Elem> GetElemType(
+        seq_cntr::Tag, meta::TypeWrapper<TargetCntr>);
 
+    template <
+        meta::IsAnySame<Cntr&, Cntr const&, Cntr&&, Cntr const&&> TargetCntr>
     static constexpr meta::TypeWrapper<Cursor> GetCursorType(
-        seq_cntr::Tag, meta::TypeWrapper<Cntr const>);
-
-    static constexpr size_t GetCursorSize(seq_cntr::Tag);
+        seq_cntr::Tag, meta::TypeWrapper<TargetCntr>);
 
     constexpr size_t GetElemSize(this Cntr const& self, seq_cntr::Tag);
 
@@ -275,68 +306,73 @@ struct Cntr {
     constexpr void GetRBCursor(this Cntr const& self, seq_cntr::Tag,
                                Cursor* dst_cursor);
 
-    constexpr void PeekL(this auto& self, seq_cntr::Tag, bool lazy_copy_elem,
-                         seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                         Cursor* dst_cursor, void* dst_elem);
+    constexpr void PeekL(this auto&& self, seq_cntr::Tag, Cursor* dst_cursor,
+                         resolving::Packet<Elem, Elem>* resolving_packet);
 
-    constexpr void PeekR(this auto& self, seq_cntr::Tag, bool lazy_copy_elem,
-                         seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                         Cursor* dst_cursor, void* dst_elem);
+    constexpr void PeekR(this auto&& self, seq_cntr::Tag, Cursor* dst_cursor,
+                         resolving::Packet<Elem, Elem>* resolving_packet);
 
-    constexpr void Refer(this auto& self, seq_cntr::Tag, size_t idx,
-                         bool lazy_copy_elem,
-                         seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                         Cursor* dst_cursor, void* dst_elem);
+    constexpr void Refer(this auto&& self, seq_cntr::Tag, size_t idx,
+                         Cursor* dst_cursor,
+                         resolving::Packet<Elem, Elem>* resolving_packet);
 
-    constexpr void Derefer(this auto& self, seq_cntr::Tag, Cursor* pos_cursor,
-                           bool lazy_copy_elem,
-                           seq_cntr::ElemPtrView* dst_elem_ptr_view,
-                           void* dst_elem);
+    constexpr void Derefer(this auto&& self, seq_cntr::Tag,
+                           Cursor const* pos_cursor,
+                           resolving::Packet<Elem, Elem>* resolving_packet);
 
     template <typename Predictor>
-    constexpr void* FindFirst(this Cntr& self, seq_cntr::Tag,
+    constexpr void* FindFirst(this auto&& self, seq_cntr::Tag,
                               Predictor&& predictor, Cursor* dst_cursor,
-                              void* dst_elem);
+                              resolving::Packet<Elem, Elem>* resolving_packet);
 
-    template <typename Acceptor>
-    constexpr void Read(this Cntr const& self, seq_cntr::Tag,
-                        Cursor* pos_cursor, size_t cnt, Acceptor&& reader,
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
+    constexpr void Read(this auto&& self, seq_cntr::Tag,
+                        Cursor const* pos_cursor, size_t cnt,
+                        Acceptor&& acceptor, Cursor* dst_cursor);
+
+    template <seq_endpoint::provider::IsProvider<Elem> Provider>
+    constexpr void Write(this meta::IsNonConstWithoutReference auto&& self,
+                         seq_cntr::Tag, Cursor* pos_cursor, size_t cnt,
+                         Provider&& provider, Cursor* dst_cursor);
+
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
+    constexpr void ReadWrite(this meta::IsNonConstWithoutReference auto&& self,
+                             seq_cntr::Tag, Cursor* pos_cursor, size_t cnt,
+                             Acceptor&& acceptor, Cursor* dst_cursor);
+
+    template <seq_endpoint::provider::IsProvider<Elem> Provider>
+    constexpr void PushL(this meta::IsNonConstWithoutReference auto&& self,
+                         seq_cntr::Tag, size_t cnt, Provider&& provider,
+                         Cursor* dst_beg_cursor, Cursor* dst_end_cursor);
+
+    template <seq_endpoint::provider::IsProvider<Elem> Provider>
+    constexpr void PushR(this meta::IsNonConstWithoutReference auto&& self,
+                         seq_cntr::Tag, size_t cnt, Provider&& provider,
+                         Cursor* dst_beg_cursor, Cursor* dst_end_cursor);
+
+    template <seq_endpoint::provider::IsProvider<Elem> Provider>
+    constexpr void Insert(this meta::IsNonConstWithoutReference auto&& self,
+                          seq_cntr::Tag, Cursor* pos_cursor, size_t cnt,
+                          Provider&& provider, Cursor* dst_cursor);
+
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
+    constexpr void PopL(this meta::IsNonConstWithoutReference auto&& self,
+                        seq_cntr::Tag, size_t cnt, Acceptor&& acceptor,
                         Cursor* dst_cursor);
 
-    template <typename Provider>
-    constexpr void Write(this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor,
-                         size_t cnt, Provider&& writer, Cursor* dst_cursor);
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
+    constexpr void PopR(this meta::IsNonConstWithoutReference auto&& self,
+                        seq_cntr::Tag, size_t cnt, Acceptor&& acceptor,
+                        Cursor* dst_cursor);
 
-    template <typename Acceptor>
-    constexpr void ReadWrite(this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor,
-                             size_t cnt, Acceptor&& acceptor,
-                             Cursor* dst_cursor);
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
+    constexpr void Erase(this meta::IsNonConstWithoutReference auto&& self,
+                         seq_cntr::Tag, Cursor* pos_cursor, size_t cnt,
+                         Acceptor&& acceptor);
 
-    template <typename Provider>
-    constexpr void PushL(this Cntr& self, seq_cntr::Tag, size_t cnt,
-                         Provider&& writer, Cursor* dst_cursor);
-
-    template <typename Provider>
-    constexpr void PushR(this Cntr& self, seq_cntr::Tag, size_t cnt,
-                         Provider&& writer, Cursor* dst_cursor);
-
-    template <typename Provider>
-    constexpr void Insert(this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor,
-                          size_t cnt, Provider&& writer, Cursor* dst_cursor);
-
-    template <typename Acceptor>
-    constexpr void PopL(this Cntr& self, seq_cntr::Tag, size_t cnt,
-                        Acceptor&& reader);
-
-    template <typename Acceptor>
-    constexpr void PopR(this Cntr& self, seq_cntr::Tag, size_t cnt,
-                        Acceptor&& reader);
-
-    template <typename Acceptor>
-    constexpr void Erase(this Cntr& self, seq_cntr::Tag, Cursor* pos_cursor,
-                         size_t cnt, Acceptor&& reader);
-
-    constexpr void EraseAll(this Cntr& self, seq_cntr::Tag);
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
+    constexpr void EraseAll(this meta::IsNonConstWithoutReference auto&& self,
+                            seq_cntr::Tag, Acceptor&& acceptor);
 
     constexpr void Reset(this Cntr& self);
 
@@ -357,21 +393,23 @@ struct Cntr {
 #endif
 
     constexpr void CopyCursor(this Cntr const& self, seq_cntr::Tag,
-                              Cursor* src_cursor, Cursor* dst_cursor);
+                              Cursor const* src_cursor, Cursor* dst_cursor);
 
     constexpr bool AreEqualCursor(this Cntr const& self, seq_cntr::Tag,
-                                  Cursor* cursor_a, Cursor* cursor_b);
+                                  Cursor const* cursor_a,
+                                  Cursor const* cursor_b);
 
     constexpr comparison::Ordering CompareCursor(this Cntr const& self,
                                                  seq_cntr::Tag,
-                                                 Cursor* cursor_a,
-                                                 Cursor* cursor_b);
+                                                 Cursor const* cursor_a,
+                                                 Cursor const* cursor_b);
 
     constexpr size_t GetCursorDist(this Cntr const& self, seq_cntr::Tag,
-                                   Cursor* cursor_a, Cursor* cursor_b);
+                                   Cursor const* cursor_a,
+                                   Cursor const* cursor_b);
 
     constexpr size_t GetCursorIdx(this Cntr const& self, seq_cntr::Tag,
-                                  Cursor* cursor);
+                                  Cursor const* cursor);
 
     constexpr void CursorStepL(this Cntr const& self, seq_cntr::Tag,
                                Cursor* cursor);
@@ -389,7 +427,9 @@ struct Cntr {
 
     constexpr Stats GetStats(this Cntr const& self);
 
-    constexpr void SanityCheck(this Cntr const& self);
+    constexpr void SanityCheck(
+        this Cntr const& self, debug_utils::mem_recording::MemRecorder& seg_mr,
+        debug_utils::mem_recording::MemRecorder& data_mr);
 };
 
 }  // namespace zeta::core::Namespace

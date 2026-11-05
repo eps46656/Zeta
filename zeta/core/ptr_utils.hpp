@@ -32,38 +32,38 @@ constexpr void SetPtrColor(void*& color_ptr, size_t align, void* ptr,
 
 namespace rel_ptr {
 
-template <integral::IsSignedIntegral SignedIntegral>
+template <integral::IsSignedIntegralType SignedIntegral>
 constexpr void* GetPtr(SignedIntegral rel_ptr, void const* base);
 
-template <integral::IsSignedIntegral SignedIntegral>
+template <integral::IsSignedIntegralType SignedIntegral>
 constexpr void SetPtr(SignedIntegral& rel_ptr, void const* base, void* ptr);
 
 }  // namespace rel_ptr
 
 namespace rel_color_ptr {
 
-template <integral::IsSignedIntegral SignedIntegral>
+template <integral::IsSignedIntegralType SignedIntegral>
 constexpr void* GetPtr(SignedIntegral rel_color_ptr, size_t align,
                        void const* base);
 
-template <integral::IsSignedIntegral SignedIntegral>
+template <integral::IsSignedIntegralType SignedIntegral>
 constexpr unsigned GetColor(SignedIntegral rel_color_ptr, size_t align,
                             void const* base);
 
-template <integral::IsSignedIntegral SignedIntegral>
+template <integral::IsSignedIntegralType SignedIntegral>
 constexpr pair::Pair<void*, unsigned> GetPtrColor(SignedIntegral rel_color_ptr,
                                                   size_t align,
                                                   void const* base);
 
-template <integral::IsSignedIntegral SignedIntegral>
+template <integral::IsSignedIntegralType SignedIntegral>
 constexpr void SetPtr(SignedIntegral& rel_color_ptr, size_t align,
                       void const* base, void* ptr);
 
-template <integral::IsSignedIntegral SignedIntegral>
+template <integral::IsSignedIntegralType SignedIntegral>
 constexpr void SetColor(SignedIntegral& rel_color_ptr, size_t align,
                         void const* base, unsigned color);
 
-template <integral::IsSignedIntegral SignedIntegral>
+template <integral::IsSignedIntegralType SignedIntegral>
 constexpr void SetPtrColor(SignedIntegral& rel_color_ptr, size_t align,
                            void const* base, void* ptr, unsigned color);
 
@@ -71,12 +71,12 @@ constexpr void SetPtrColor(SignedIntegral& rel_color_ptr, size_t align,
 
 template <typename Link>
 concept IsLink = requires {
-    requires !meta::IsConst<Link>;
+    requires !meta::IsConstType<Link>;
 
-    requires !meta::IsRef<Link>;
+    requires !meta::IsReferenceType<Link>;
 
     requires meta::IsSame<meta::RemoveVolatile<Link>, void*> ||
-                 integral::IsSignedIntegral<meta::RemoveVolatile<Link>>;
+                 integral::IsSignedIntegralType<meta::RemoveVolatile<Link>>;
 };
 
 template <IsLink Link_, bool color_en_>

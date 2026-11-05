@@ -37,7 +37,7 @@ template <typename ElemHasherLike>
 constexpr unsigned long long
 dynamic_hash_table::NodeHasherWrapper<ElemHasherLike>::Hash(
     generic_hash_table::Node const* ghtn, unsigned long long salt) const {
-    return hash::Hash(meta::GetInstRef(this->elem_hasher),
+    return hash::Hash(meta::GetInstRefFromLike(this->elem_hasher),
                       ZETA_Core_MemberToStruct(Node, ghtn, ghtn)->data, salt);
 }
 
@@ -48,7 +48,7 @@ dynamic_hash_table::NodeComparatorWrapper<ElemComparatorLike>::Compare(
     OpTag op, generic_hash_table::Node const* ghtn_a,
     generic_hash_table::Node const* ghtn_b) const {
     return comparison::Compare(
-        meta::GetInstRef(this->elem_cmptr), op,
+        meta::GetInstRefFromLike(this->elem_cmptr), op,
         ZETA_Core_MemberToStruct(Node, ghtn, ghtn_a)->data,
         ZETA_Core_MemberToStruct(Node, ghtn, ghtn_b)->data);
 }
@@ -59,7 +59,7 @@ constexpr auto
 dynamic_hash_table::KeyNodeComparatorWrapper<KeyNodeComparatorLike>::Compare(
     OpTag op, void const* key_a, generic_hash_table::Node const* ghtn_b) const {
     return comparison::Compare(
-        meta::GetInstRef(this->key_elem_cmptr), op, key_a,
+        meta::GetInstRefFromLike(this->key_elem_cmptr), op, key_a,
         ZETA_Core_MemberToStruct(Node, ghtn, ghtn_b)->data);
 }
 
@@ -150,8 +150,8 @@ dynamic_hash_table::Cntr<CntrTplArgList>::GetStaticEnabledCapabilityFlag(
     return assoc_cntr::capability::FlagBuilder{
         .GetCursorSize = true,
 
-        .GetElemSize = true,
-        .GetElemCnt = true,
+        .GetElemSize   = true,
+        .GetElemCnt    = true,
         .GetMaxElemCnt = true,
 
         .GetLBCursor = true,
@@ -166,17 +166,17 @@ dynamic_hash_table::Cntr<CntrTplArgList>::GetStaticEnabledCapabilityFlag(
 
         .Insert = true,
 
-        .PopL = true,
-        .PopR = true,
-        .Erase = true,
+        .PopL     = true,
+        .PopR     = true,
+        .Erase    = true,
         .EraseAll = true,
 
         .CopyCursor = true,
 
         .AreEqualCursor = true,
-        .CompareCursor = true,
-        .GetCursorDist = true,
-        .GetCursorIdx = true,
+        .CompareCursor  = true,
+        .GetCursorDist  = true,
+        .GetCursorIdx   = true,
 
         .CursorStepL = true,
         .CursorStepR = true,
@@ -192,35 +192,35 @@ dynamic_hash_table::Cntr<CntrTplArgList>::GetStaticEnabledCapabilityFlag(
     assoc_cntr::Tag, meta::TypeWrapper<Cntr const>) {
     return (GetStaticEnabledCapabilityFlag)(assoc_cntr::Tag{},
                                             meta::TypeWrapper<Cntr>{}) &
-           assoc_cntr::capability::const_capability_flag;
+           assoc_cntr::capability::const_cap_flag;
 }
 
 template <CntrTplParamList>
 constexpr assoc_cntr::capability::Flag
 dynamic_hash_table::Cntr<CntrTplArgList>::GetStaticDisabledCapabilityFlag(
     assoc_cntr::Tag, meta::TypeWrapper<Cntr>) {
-    return assoc_cntr::capability::empty_capability_flag;
+    return assoc_cntr::capability::empty_cap_flag;
 }
 
 template <CntrTplParamList>
 constexpr assoc_cntr::capability::Flag
 dynamic_hash_table::Cntr<CntrTplArgList>::GetStaticDisabledCapabilityFlag(
     assoc_cntr::Tag, meta::TypeWrapper<Cntr const>) {
-    return assoc_cntr::capability::non_const_capability_flag;
+    return assoc_cntr::capability::non_const_cap_flag;
 }
 
 template <CntrTplParamList>
 constexpr assoc_cntr::capability::Flag
 dynamic_hash_table::Cntr<CntrTplArgList>::GetDynamicEnabledCapabilityFlag(
     assoc_cntr::Tag) {
-    return assoc_cntr::capability::empty_capability_flag;
+    return assoc_cntr::capability::empty_cap_flag;
 }
 
 template <CntrTplParamList>
 constexpr assoc_cntr::capability::Flag
 dynamic_hash_table::Cntr<CntrTplArgList>::GetDynamicDisabledCapabilityFlag(
     assoc_cntr::Tag) {
-    return assoc_cntr::capability::empty_capability_flag;
+    return assoc_cntr::capability::empty_cap_flag;
 }
 
 template <CntrTplParamList>
@@ -277,7 +277,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::GetLBCursor(
     if (dst_cursor == nullptr) { return; }
 
     dst_cursor->cntr = &self;
-    dst_cursor->lln = self.lln;
+    dst_cursor->lln  = self.lln;
 }
 
 template <CntrTplParamList>
@@ -288,7 +288,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::GetRBCursor(
     if (dst_cursor == nullptr) { return; }
 
     dst_cursor->cntr = &self;
-    dst_cursor->lln = self.lln;
+    dst_cursor->lln  = self.lln;
 }
 
 template <CntrTplParamList>
@@ -300,7 +300,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PeekL(
 
     Cursor cursor{
         .cntr = &self,
-        .lln = llist::GetR(self.lln),
+        .lln  = llist::GetR(self.lln),
     };
 
     void* elem{ self.lln == cursor.lln
@@ -310,7 +310,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PeekL(
     if (dst_elem_ptr_view != nullptr) {
         dst_elem_ptr_view->ptr = elem;
 
-        if constexpr (meta::IsConst<decltype(self)>) {
+        if constexpr (meta::IsConstType<decltype(self)>) {
             dst_elem_ptr_view->aliasability =
                 elem == nullptr
                     ? assoc_cntr::ElemPtrView::AliasabilityEnum::Null
@@ -325,7 +325,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PeekL(
 
     if (dst_cursor != nullptr) {
         dst_cursor->cntr = cursor.cntr;
-        dst_cursor->lln = cursor.lln;
+        dst_cursor->lln  = cursor.lln;
     }
 
     if (elem != nullptr && !lazy_copy_elem && dst_elem != nullptr) {
@@ -342,7 +342,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PeekR(
 
     Cursor cursor{
         .cntr = &self,
-        .lln = llist::GetL(self.lln),
+        .lln  = llist::GetL(self.lln),
     };
 
     void* elem{ self.lln == cursor.lln
@@ -352,7 +352,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PeekR(
     if (dst_elem_ptr_view != nullptr) {
         dst_elem_ptr_view->ptr = elem;
 
-        if constexpr (meta::IsConst<decltype(self)>) {
+        if constexpr (meta::IsConstType<decltype(self)>) {
             dst_elem_ptr_view->aliasability =
                 elem == nullptr
                     ? assoc_cntr::ElemPtrView::AliasabilityEnum::Null
@@ -367,7 +367,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PeekR(
 
     if (dst_cursor != nullptr) {
         dst_cursor->cntr = cursor.cntr;
-        dst_cursor->lln = cursor.lln;
+        dst_cursor->lln  = cursor.lln;
     }
 
     if (elem != nullptr && !lazy_copy_elem && dst_elem != nullptr) {
@@ -391,7 +391,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Derefer(
     if (dst_elem_ptr_view != nullptr) {
         dst_elem_ptr_view->ptr = elem;
 
-        if constexpr (meta::IsConst<decltype(self)>) {
+        if constexpr (meta::IsConstType<decltype(self)>) {
             dst_elem_ptr_view->aliasability =
                 elem == nullptr
                     ? assoc_cntr::ElemPtrView::AliasabilityEnum::Null
@@ -445,7 +445,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Find(
 
         if (dst_cursor != nullptr) {
             dst_cursor->cntr = &self;
-            dst_cursor->lln = self.lln;
+            dst_cursor->lln  = self.lln;
         }
 
         return;
@@ -456,7 +456,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Find(
     if (dst_elem_ptr_view != nullptr) {
         dst_elem_ptr_view->ptr = node->data;
 
-        if constexpr (meta::IsConst<decltype(self)>) {
+        if constexpr (meta::IsConstType<decltype(self)>) {
             dst_elem_ptr_view->aliasability =
                 assoc_cntr::ElemPtrView::AliasabilityEnum::ReadOnly;
         } else {
@@ -467,7 +467,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Find(
 
     if (dst_cursor != nullptr) {
         dst_cursor->cntr = &self;
-        dst_cursor->lln = &node->lln;
+        dst_cursor->lln  = &node->lln;
     }
 
     if (!lazy_copy_elem && dst_elem != nullptr) {
@@ -485,7 +485,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Insert(
     Provider&& writer, Cursor* dst_cursor) {
     detail::CheckCntr_(self);
 
-    auto& node_alctr{ meta::GetInstRef(self.node_alctr_like) };
+    auto& node_alctr{ meta::GetInstRefFromLike(self.node_alctr_like) };
 
     Node* node{ static_cast<Node*>(allocator::SafeAllocate(
         node_alctr, alignof(Node),
@@ -502,7 +502,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Insert(
 
     if (dst_cursor != nullptr) {
         dst_cursor->cntr = &self;
-        dst_cursor->lln = &node->lln;
+        dst_cursor->lln  = &node->lln;
     }
 }
 
@@ -512,7 +512,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PopL(
     this Cntr& self, assoc_cntr::Tag, size_t cnt, Acceptor&& reader) {
     detail::CheckCntr_(self);
 
-    auto& node_alctr{ meta::GetInstRef(self.node_alctr_like) };
+    auto& node_alctr{ meta::GetInstRefFromLike(self.node_alctr_like) };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= self.GetElemCnt());
 
@@ -538,7 +538,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::PopR(
     this Cntr& self, assoc_cntr::Tag, size_t cnt, Acceptor&& reader) {
     detail::CheckCntr_(self);
 
-    auto& node_alctr{ meta::GetInstRef(self.node_alctr_like) };
+    auto& node_alctr{ meta::GetInstRefFromLike(self.node_alctr_like) };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= self.GetElemCnt());
 
@@ -565,7 +565,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Erase(
     Acceptor&& reader) {
     detail::CheckCursor_(self, pos_cursor);
 
-    auto& node_alctr{ meta::GetInstRef(self.node_alctr_like) };
+    auto& node_alctr{ meta::GetInstRefFromLike(self.node_alctr_like) };
 
     for (; 0 < cnt; --cnt) {
         ZETA_Core_DebugUtils_Diag_PromiseAssert(self.lln != pos_cursor->lln);
@@ -590,7 +590,7 @@ constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::Erase(
 template <CntrTplParamList>
 constexpr void dynamic_hash_table::Cntr<CntrTplArgList>::EraseAll(
     this Cntr& self, assoc_cntr::Tag) {
-    auto& node_alctr{ meta::GetInstRef(self.node_alctr_like) };
+    auto& node_alctr{ meta::GetInstRefFromLike(self.node_alctr_like) };
 
     for (;;) {
         LListNode* nxt_lln{ llist::GetR(self.lln) };
@@ -689,28 +689,28 @@ constexpr assoc_cntr::capability::Flag
 assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList>>::
     GetStaticEnabledCapabilityFlag() {
     return assoc_cntr::capability::FlagBuilder{
-        .GetCursorSize = true,
-        .GetElemSize = true,
-        .GetElemCnt = true,
-        .GetMaxElemCnt = true,
-        .GetLBCursor = true,
-        .GetRBCursor = true,
-        .PeekL = true,
-        .PeekR = true,
-        .Derefer = true,
-        .Find = true,
-        .Insert = true,
-        .PopL = true,
-        .PopR = true,
-        .Erase = true,
-        .EraseAll = true,
-        .CopyCursor = true,
+        .GetCursorSize  = true,
+        .GetElemSize    = true,
+        .GetElemCnt     = true,
+        .GetMaxElemCnt  = true,
+        .GetLBCursor    = true,
+        .GetRBCursor    = true,
+        .PeekL          = true,
+        .PeekR          = true,
+        .Derefer        = true,
+        .Find           = true,
+        .Insert         = true,
+        .PopL           = true,
+        .PopR           = true,
+        .Erase          = true,
+        .EraseAll       = true,
+        .CopyCursor     = true,
         .AreEqualCursor = true,
-        .CompareCursor = false,
-        .GetCursorDist = false,
-        .GetCursorIdx = false,
-        .CursorStepL = true,
-        .CursorStepR = true,
+        .CompareCursor  = false,
+        .GetCursorDist  = false,
+        .GetCursorIdx   = false,
+        .CursorStepL    = true,
+        .CursorStepR    = true,
         .CursorAdvanceL = false,
         .CursorAdvanceR = false,
     }();
@@ -721,28 +721,28 @@ constexpr assoc_cntr::capability::Flag
 assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList>>::
     GetStaticDisabledCapabilityFlag() {
     return assoc_cntr::capability::FlagBuilder{
-        .GetCursorSize = false,
-        .GetElemSize = false,
-        .GetElemCnt = false,
-        .GetMaxElemCnt = false,
-        .GetLBCursor = false,
-        .GetRBCursor = false,
-        .PeekL = false,
-        .PeekR = false,
-        .Derefer = false,
-        .Find = false,
-        .Insert = false,
-        .PopL = false,
-        .PopR = false,
-        .Erase = false,
-        .EraseAll = false,
-        .CopyCursor = false,
+        .GetCursorSize  = false,
+        .GetElemSize    = false,
+        .GetElemCnt     = false,
+        .GetMaxElemCnt  = false,
+        .GetLBCursor    = false,
+        .GetRBCursor    = false,
+        .PeekL          = false,
+        .PeekR          = false,
+        .Derefer        = false,
+        .Find           = false,
+        .Insert         = false,
+        .PopL           = false,
+        .PopR           = false,
+        .Erase          = false,
+        .EraseAll       = false,
+        .CopyCursor     = false,
         .AreEqualCursor = false,
-        .CompareCursor = true,
-        .GetCursorDist = true,
-        .GetCursorIdx = true,
-        .CursorStepL = false,
-        .CursorStepR = false,
+        .CompareCursor  = true,
+        .GetCursorDist  = true,
+        .GetCursorIdx   = true,
+        .CursorStepL    = false,
+        .CursorStepR    = false,
         .CursorAdvanceL = true,
         .CursorAdvanceR = true,
     }();
@@ -752,7 +752,7 @@ template <CntrTplParamList>
 constexpr assoc_cntr::capability::Flag
 assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList>>::
     GetDynamicEnabledCapabilityFlag(dynamic_hash_table::Cntr<CntrTplArgList>&) {
-    return assoc_cntr::capability::empty_capability_flag;
+    return assoc_cntr::capability::empty_cap_flag;
 }
 
 template <CntrTplParamList>
@@ -760,7 +760,7 @@ constexpr assoc_cntr::capability::Flag
 assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList>>::
     GetDynamicDisabledCapabilityFlag(
         dynamic_hash_table::Cntr<CntrTplArgList>&) {
-    return assoc_cntr::capability::empty_capability_flag;
+    return assoc_cntr::capability::empty_cap_flag;
 }
 
 template <CntrTplParamList>
@@ -769,7 +769,7 @@ assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList> const>::
     GetStaticEnabledCapabilityFlag() {
     return assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList>>::
                GetStaticEnabledCapabilityFlag() &
-           assoc_cntr::capability::const_capability_flag;
+           assoc_cntr::capability::const_cap_flag;
 }
 
 template <CntrTplParamList>
@@ -778,7 +778,7 @@ assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList> const>::
     GetStaticDisabledCapabilityFlag() {
     return assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList>>::
                GetStaticDisabledCapabilityFlag() |
-           assoc_cntr::capability::non_const_capability_flag;
+           assoc_cntr::capability::non_const_cap_flag;
 }
 
 template <CntrTplParamList>
@@ -786,7 +786,7 @@ constexpr assoc_cntr::capability::Flag
 assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList> const>::
     GetDynamicEnabledCapabilityFlag(
         dynamic_hash_table::Cntr<CntrTplArgList> const&) {
-    return assoc_cntr::capability::empty_capability_flag;
+    return assoc_cntr::capability::empty_cap_flag;
 }
 
 template <CntrTplParamList>
@@ -794,7 +794,7 @@ constexpr assoc_cntr::capability::Flag
 assoc_cntr::CntrTraits<dynamic_hash_table::Cntr<CntrTplArgList> const>::
     GetDynamicDisabledCapabilityFlag(
         dynamic_hash_table::Cntr<CntrTplArgList> const&) {
-    return assoc_cntr::capability::empty_capability_flag;
+    return assoc_cntr::capability::empty_cap_flag;
 }
 
 }  // namespace zeta::core

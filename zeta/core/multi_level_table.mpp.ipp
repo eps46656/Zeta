@@ -34,9 +34,9 @@ ZETA_Core_ClangdPreambleBarrier;
 #define Namespace multi_level_data_table
 
 #pragma push_macro("CntrTplParamList")
-#define CntrTplParamList                                      \
-    integral::IsUnsignedIntegral ActiveMap, meta::IsObj Data, \
-        allocator::IsAllocatorLike NavNodeAllocatorLike,      \
+#define CntrTplParamList                                                 \
+    integral::IsUnsignedIntegralType ActiveMap, meta::IsObjectType Data, \
+        allocator::IsAllocatorLike NavNodeAllocatorLike,                 \
         allocator::IsAllocatorLike DataNodeAllocatorLike
 
 #pragma push_macro("CntrTplArgList")
@@ -49,8 +49,8 @@ ZETA_Core_ClangdPreambleBarrier;
 #define Namespace multi_level_ptr_table
 
 #pragma push_macro("CntrTplParamList")
-#define CntrTplParamList                    \
-    integral::IsUnsignedIntegral ActiveMap, \
+#define CntrTplParamList                        \
+    integral::IsUnsignedIntegralType ActiveMap, \
         allocator::IsAllocatorLike NavNodeAllocatorLike
 
 #pragma push_macro("CntrTplArgList")
@@ -62,7 +62,7 @@ namespace zeta::core {
 
 namespace Namespace::detail {
 
-template <integral::IsUnsignedIntegral ActiveMap>
+template <integral::IsUnsignedIntegralType ActiveMap>
 constexpr bool TestActiveMap_(ActiveMap active_map, BranchNum idx) {
     return (active_map & (static_cast<ActiveMap>(1)
                           << static_cast<unsigned long long>(idx))) != 0;
@@ -94,7 +94,7 @@ constexpr BranchNum PullBranchIdx_(
 
 namespace Namespace::detail {
 
-template <integral::IsUnsignedIntegral ActiveMap>
+template <integral::IsUnsignedIntegralType ActiveMap>
 constexpr size_t GetNavNodeSize_(BranchNum branch_num,
                                  meta::TypeWrapper<ActiveMap>) {
     return __builtin_offsetof(ZETA_Core_Identity(NavNode<ActiveMap>),
@@ -103,7 +103,7 @@ constexpr size_t GetNavNodeSize_(BranchNum branch_num,
 
 }  // namespace Namespace::detail
 
-template <integral::IsUnsignedIntegral ActiveMap>
+template <integral::IsUnsignedIntegralType ActiveMap>
 constexpr Namespace::NavNode<ActiveMap>::NavNode(
     [[maybe_unused]] BranchNum branch_num)
     :
@@ -120,7 +120,7 @@ constexpr Namespace::NavNode<ActiveMap>::NavNode(
 namespace Namespace::detail {
 
 template <allocator::IsAllocator NavNodeAllocator,
-          integral::IsUnsignedIntegral ActiveMap>
+          integral::IsUnsignedIntegralType ActiveMap>
 constexpr NavNode<ActiveMap>* CreateNavNode_(NavNodeAllocator& nav_node_alctr,
                                              BranchNum branch_num,
                                              meta::TypeWrapper<ActiveMap>) {
@@ -135,7 +135,7 @@ constexpr NavNode<ActiveMap>* CreateNavNode_(NavNodeAllocator& nav_node_alctr,
 namespace Namespace::detail {
 
 template <allocator::IsAllocator NavNodeAllocator,
-          integral::IsUnsignedIntegral ActiveMap>
+          integral::IsUnsignedIntegralType ActiveMap>
 constexpr void DestroyNavNode_(NavNodeAllocator& nav_node_alctr,
                                NavNode<ActiveMap>* node) {
     node->~NavNode<ActiveMap>();
@@ -148,7 +148,7 @@ constexpr void DestroyNavNode_(NavNodeAllocator& nav_node_alctr,
 
 namespace Namespace::detail {
 
-template <integral::IsUnsignedIntegral ActiveMap, meta::IsObj Data>
+template <integral::IsUnsignedIntegralType ActiveMap, meta::IsObjectType Data>
 constexpr size_t GetDataNodeSize_(BranchNum branch_num,
                                   meta::TypeWrapper<ActiveMap>,
                                   meta::TypeWrapper<Data>) {
@@ -158,7 +158,7 @@ constexpr size_t GetDataNodeSize_(BranchNum branch_num,
 
 }  // namespace Namespace::detail
 
-template <integral::IsUnsignedIntegral ActiveMap, meta::IsObj Data>
+template <integral::IsUnsignedIntegralType ActiveMap, meta::IsObjectType Data>
 constexpr Namespace::DataNode<ActiveMap, Data>::DataNode(
     [[maybe_unused]] BranchNum branch_num)
     :
@@ -176,7 +176,7 @@ constexpr Namespace::DataNode<ActiveMap, Data>::DataNode(
 namespace Namespace::detail {
 
 template <allocator::IsAllocator DataNodeAllocator,
-          integral::IsUnsignedIntegral ActiveMap, meta::IsObj Data>
+          integral::IsUnsignedIntegralType ActiveMap, meta::IsObjectType Data>
 constexpr DataNode<ActiveMap, Data>* CreateDataNode_(
     DataNodeAllocator& data_node_alctr, BranchNum branch_num,
     meta::TypeWrapper<ActiveMap>, meta::TypeWrapper<Data>) {
@@ -188,7 +188,7 @@ constexpr DataNode<ActiveMap, Data>* CreateDataNode_(
 }
 
 template <allocator::IsAllocator DataNodeAllocator,
-          integral::IsUnsignedIntegral ActiveMap, meta::IsObj Data>
+          integral::IsUnsignedIntegralType ActiveMap, meta::IsObjectType Data>
 constexpr void DestroyDataNode_(DataNodeAllocator& data_node_alctr,
                                 DataNode<ActiveMap, Data>* node) {
     node->~DataNode<ActiveMap, Data>();
@@ -243,10 +243,10 @@ constexpr Namespace::Cntr<CntrTplArgList>::Cntr(
           this,
           sizeof(*this),
           {
-              ZETA_Core_DebugUtils_LifecycleSanity_ObjHook_StorageMember(
+              ZETA_Core_DebugUtils_LifecycleSanity_ObjHook_FieldMember(
                   nav_node_alctr_like),
 #if DataNodeEn
-              ZETA_Core_DebugUtils_LifecycleSanity_ObjHook_StorageMember(
+              ZETA_Core_DebugUtils_LifecycleSanity_ObjHook_FieldMember(
                   data_node_alctr_like),
 #endif
           },
@@ -333,14 +333,9 @@ constexpr Namespace::Cntr<CntrTplArgList>::Cntr(
 
 template <CntrTplParamList>
 constexpr Namespace::Cntr<CntrTplArgList>::~Cntr() {
-    this->Destruct();
-}
+    if (this->level == 0) { return; }
 
-template <CntrTplParamList>
-constexpr void Namespace::Cntr<CntrTplArgList>::Destruct(this Cntr& self) {
-    if (self.level == 0) { return; }
-
-    self.EraseAll(
+    this->EraseAll(
 #if DataNodeEn
         seq_endpoint::acceptor::BasicAcceptor{}
 #endif
@@ -348,12 +343,14 @@ constexpr void Namespace::Cntr<CntrTplArgList>::Destruct(this Cntr& self) {
 }
 
 template <CntrTplParamList>
-constexpr void Namespace::Cntr<CntrTplArgList>::Disown(this Cntr& self) {
+constexpr void Namespace::Cntr<CntrTplArgList>::Disown(
+    this meta::IsNonConstWithoutReference auto&& self) {
     self.level = 0;
 }
 
 template <CntrTplParamList>
-constexpr size_t Namespace::Cntr<CntrTplArgList>::GetElemCnt(this Cntr& self) {
+constexpr size_t Namespace::Cntr<CntrTplArgList>::GetElemCnt(
+    this Cntr const& self) {
     detail::CheckCntr_(self);
 
     return self.elem_cnt;
@@ -361,7 +358,7 @@ constexpr size_t Namespace::Cntr<CntrTplArgList>::GetElemCnt(this Cntr& self) {
 
 template <CntrTplParamList>
 constexpr size_t Namespace::Cntr<CntrTplArgList>::GetMaxElemCnt(
-    this Cntr& self) {
+    this Cntr const& self) {
     detail::CheckCntr_(self);
 
     size_t ret{ 1 };
@@ -382,10 +379,18 @@ template <CntrTplParamList>
 template <seq_endpoint::provider::IsProvider<Namespace::BranchNum>
               SrcBranchIdxesProvider>
 constexpr auto Namespace::Cntr<CntrTplArgList>::Access(
-    this auto& self,
+    this auto&& self,
     SrcBranchIdxesProvider&&
         src_branch_idxes_provider  // NOLINT(cppcoreguidelines-missing-std-forward)
-    ) -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>* {
+    )
+    -> meta::ConditionalAddConst<
+        meta::IsConstTypeWithoutReference<decltype(self)>,
+#if DataNodeEn
+        Elem
+#else
+        void
+#endif
+        >* {
     detail::CheckCntr_(self);
 
     unsigned level{ self.level };
@@ -435,20 +440,28 @@ template <CntrTplParamList>
 template <seq_endpoint::acceptor::IsAcceptor<Namespace::BranchNum>
               DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindFirst(
-    this auto& self,
+    this auto&& self,
     DstBranchIdxesAcceptor&&
         dst_branch_idxes_acceptor  // NOLINT(cppcoreguidelines-missing-std-forward)
-    ) -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>* {
+    )
+    -> meta::ConditionalAddConst<
+        meta::IsConstTypeWithoutReference<decltype(self)>,
+#if DataNodeEn
+        Elem
+#else
+        void
+#endif
+        >* {
     detail::CheckCntr_(self);
 
     constexpr BranchNum zero{ 0 };
 
     return self.FindNextIncl(
         lin_seq_endpoint::provider::Provider<
-            lifecycle::ConstLeftObjView<BranchNum const>>{
+            lifecycle::ConstLeftObjView<BranchNum>>{
             .data{ &zero },
-            .elem_stride = 0,
-            .elem_cnt    = integral::RangeMaxOf<size_t>,
+            .elem_stride{ 0 },
+            .elem_cnt{ integral::RangeMaxOf<size_t> },
         },
         dst_branch_idxes_acceptor);
 }
@@ -457,10 +470,12 @@ template <CntrTplParamList>
 template <seq_endpoint::acceptor::IsAcceptor<Namespace::BranchNum>
               DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindLast(
-    this auto& self,
+    this auto&& self,
     DstBranchIdxesAcceptor&&
         dst_branch_idxes_acceptor  // NOLINT(cppcoreguidelines-missing-std-forward)
-    ) -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>* {
+    )
+    -> meta::ConditionalAddConst<
+        meta::IsConstTypeWithoutReference<decltype(self)>, void>* {
     detail::CheckCntr_(self);
 
     BranchNum branch_idxes[level_max];
@@ -471,10 +486,10 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindLast(
 
     return self.FindPrevIncl(
         lin_seq_endpoint::provider::Provider<
-            lifecycle::ConstLeftObjView<BranchNum const>>{
+            lifecycle::ConstLeftObjView<BranchNum>>{
             .data{ branch_idxes + (self.level - 1) },
-            .elem_stride = -static_cast<ptrdiff_t>(sizeof(BranchNum)),
-            .elem_cnt    = integral::RangeMaxOf<size_t>,
+            .elem_stride{ -static_cast<ptrdiff_t>(sizeof(BranchNum)) },
+            .elem_cnt{ integral::RangeMaxOf<size_t> },
         },
         dst_branch_idxes_acceptor);
 }
@@ -485,12 +500,20 @@ template <seq_endpoint::provider::IsProvider<Namespace::BranchNum>
           seq_endpoint::acceptor::IsAcceptor<Namespace::BranchNum>
               DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
-    this auto& self,
+    this auto&& self,
     SrcBranchIdxesProvider&&
         src_branch_idxes_provider,  // NOLINT(cppcoreguidelines-missing-std-forward)
     DstBranchIdxesAcceptor&&
         dst_branch_idxes_acceptor  // NOLINT(cppcoreguidelines-missing-std-forward)
-    ) -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>* {
+    )
+    -> meta::ConditionalAddConst<
+        meta::IsConstTypeWithoutReference<decltype(self)>,
+#if DataNodeEn
+        Elem
+#else
+        void
+#endif
+        >* {
     detail::CheckCntr_(self);
 
     unsigned level{ self.level };
@@ -548,8 +571,8 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevIncl(
 
             seq_endpoint::acceptor::Transfer(
                 dst_branch_idxes_acceptor,
-                lifecycle::ConstLeftObjView<BranchNum const>{ branch_idxes +
-                                                              (level - 1) },
+                lifecycle::ConstLeftObjView<BranchNum>{ branch_idxes +
+                                                        (level - 1) },
                 -static_cast<ptrdiff_t>(sizeof(BranchNum)), level);
 
 #if DataNodeEn
@@ -641,12 +664,20 @@ template <seq_endpoint::provider::IsProvider<Namespace::BranchNum>
           seq_endpoint::acceptor::IsAcceptor<Namespace::BranchNum>
               DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevExcl(
-    this auto& self,
+    this auto&& self,
     SrcBranchIdxesProvider&&
         src_branch_idxes_provider,  // NOLINT(cppcoreguidelines-missing-std-forward
     DstBranchIdxesAcceptor&&
         dst_branch_idxes_acceptor  // NOLINT(cppcoreguidelines-missing-std-forward
-    ) -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>* {
+    )
+    -> meta::ConditionalAddConst<
+        meta::IsConstTypeWithoutReference<decltype(self)>,
+#if DataNodeEn
+        Elem
+#else
+        void
+#endif
+        >* {
     detail::CheckCntr_(self);
 
     unsigned level{ self.level };
@@ -670,8 +701,7 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindPrevExcl(
 
     seq_endpoint::acceptor::Transfer(
         dst_branch_idxes_acceptor,
-        lifecycle::ConstLeftObjView<BranchNum const>{ branch_idxes +
-                                                      (level - 1) },
+        lifecycle::ConstLeftObjView<BranchNum>{ branch_idxes + (level - 1) },
         -static_cast<ptrdiff_t>(sizeof(BranchNum)), level);
 
     return nullptr;
@@ -680,10 +710,10 @@ L1:;
 
     return self.FindPrevIncl(
         lin_seq_endpoint::provider::Provider<
-            lifecycle::ConstLeftObjView<BranchNum const>>{
+            lifecycle::ConstLeftObjView<BranchNum>>{
             .data{ branch_idxes + (level - 1) },
-            .elem_stride = -static_cast<ptrdiff_t>(sizeof(BranchNum)),
-            .elem_cnt    = level,
+            .elem_stride{ -static_cast<ptrdiff_t>(sizeof(BranchNum)) },
+            .elem_cnt{ level },
         },
         dst_branch_idxes_acceptor);
 }
@@ -694,12 +724,20 @@ template <seq_endpoint::provider::IsProvider<Namespace::BranchNum>
           seq_endpoint::acceptor::IsAcceptor<Namespace::BranchNum>
               DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
-    this auto& self,
+    this auto&& self,
     SrcBranchIdxesProvider&&
         src_branch_idxes_provider,  // NOLINT(cppcoreguidelines-missing-std-forward)
     DstBranchIdxesAcceptor&&
         dst_branch_idxes_acceptor  // NOLINT(cppcoreguidelines-missing-std-forward)
-    ) -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>* {
+    )
+    -> meta::ConditionalAddConst<
+        meta::IsConstTypeWithoutReference<decltype(self)>,
+#if DataNodeEn
+        Elem
+#else
+        void
+#endif
+        >* {
     detail::CheckCntr_(self);
 
     unsigned level{ self.level };
@@ -712,7 +750,7 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
 
         seq_endpoint::acceptor::Transfer(
             dst_branch_idxes_acceptor,
-            lifecycle::ConstLeftObjView<BranchNum const>{ &zero }, 0, level);
+            lifecycle::ConstLeftObjView<BranchNum>{ &zero }, 0, level);
 
         return nullptr;
     }
@@ -773,8 +811,7 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
 
             seq_endpoint::acceptor::Transfer(
                 dst_branch_idxes_acceptor,
-                lifecycle::ConstLeftObjView<BranchNum const>{ &zero }, 0,
-                level);
+                lifecycle::ConstLeftObjView<BranchNum>{ &zero }, 0, level);
 
             return nullptr;
         }
@@ -820,8 +857,7 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextIncl(
 
     seq_endpoint::acceptor::Transfer(
         dst_branch_idxes_acceptor,
-        lifecycle::ConstLeftObjView<BranchNum const>{ branch_idxes +
-                                                      (level - 1) },
+        lifecycle::ConstLeftObjView<BranchNum>{ branch_idxes + (level - 1) },
         -static_cast<ptrdiff_t>(sizeof(BranchNum)), level);
 
 #if DataNodeEn
@@ -838,12 +874,20 @@ template <seq_endpoint::provider::IsProvider<Namespace::BranchNum>
           seq_endpoint::acceptor::IsAcceptor<Namespace::BranchNum>
               DstBranchIdxesAcceptor>
 constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextExcl(
-    this auto& self,
+    this auto&& self,
     SrcBranchIdxesProvider&&
         src_branch_idxes_provider,  // NOLINT(cppcoreguidelines-missing-std-forward
     DstBranchIdxesAcceptor&&
         dst_branch_idxes_acceptor  // NOLINT(cppcoreguidelines-missing-std-forward
-    ) -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>* {
+    )
+    -> meta::ConditionalAddConst<
+        meta::IsConstTypeWithoutReference<decltype(self)>,
+#if DataNodeEn
+        Elem
+#else
+        void
+#endif
+        >* {
     detail::CheckCntr_(self);
 
     unsigned level{ self.level };
@@ -870,7 +914,7 @@ constexpr auto Namespace::Cntr<CntrTplArgList>::FindNextExcl(
 
         seq_endpoint::acceptor::Transfer(
             dst_branch_idxes_acceptor,
-            lifecycle::ConstLeftObjView<BranchNum const>{ &zero }, 0, level);
+            lifecycle::ConstLeftObjView<BranchNum>{ &zero }, 0, level);
     }
 
     return nullptr;
@@ -879,10 +923,10 @@ L1:;
 
     return self.FindNextIncl(
         lin_seq_endpoint::provider::Provider<
-            lifecycle::ConstLeftObjView<BranchNum const>>{
+            lifecycle::ConstLeftObjView<BranchNum>>{
             .data{ branch_idxes + (level - 1) },
-            .elem_stride = -static_cast<ptrdiff_t>(sizeof(BranchNum)),
-            .elem_cnt    = level,
+            .elem_stride{ -static_cast<ptrdiff_t>(sizeof(BranchNum)) },
+            .elem_cnt{ level },
         },
         dst_branch_idxes_acceptor);
 }
@@ -896,7 +940,7 @@ template <seq_endpoint::provider::IsProvider<Namespace::BranchNum>
 #endif
           >
 constexpr pair::Pair<void*, bool> Namespace::Cntr<CntrTplArgList>::Insert(
-    this Cntr& self,
+    this meta::IsNonConstWithoutReference auto&& self,
     SrcBranchIdxesProvider&&
         src_branch_idxes_provider  // NOLINT(cppcoreguidelines-missing-std-forward)
 #if DataNodeEn
@@ -911,10 +955,11 @@ constexpr pair::Pair<void*, bool> Namespace::Cntr<CntrTplArgList>::Insert(
     unsigned level{ self.level };
     BranchNum const* branch_nums{ self.branch_nums };
 
-    auto& nav_node_alctr{ meta::GetInstRef(self.nav_node_alctr_like) };
+    auto& nav_node_alctr{ meta::GetInstRefFromLike(self.nav_node_alctr_like) };
 
 #if DataNodeEn
-    auto& data_node_alctr{ meta::GetInstRef(self.data_node_alctr_like) };
+    auto& data_node_alctr{ meta::GetInstRefFromLike(
+        self.data_node_alctr_like) };
 #endif
 
     if (self.root == nullptr) {
@@ -1034,7 +1079,10 @@ constexpr pair::Pair<void*, bool> Namespace::Cntr<CntrTplArgList>::Insert(
     }
 #endif
 
-    return { .first = addr, .second = newly_inserted };
+    return {
+        .first{ addr },
+        .second{ newly_inserted },
+    };
 }
 
 template <CntrTplParamList>
@@ -1046,7 +1094,7 @@ template <seq_endpoint::provider::IsProvider<Namespace::BranchNum>
 #endif
           >
 constexpr bool Namespace::Cntr<CntrTplArgList>::Erase(
-    this Cntr& self,
+    this meta::IsNonConstWithoutReference auto&& self,
     SrcBranchIdxesProvider&&
         src_branch_idxes_provider  // NOLINT(cppcoreguidelines-missing-std-forward)
 #if DataNodeEn
@@ -1069,10 +1117,11 @@ constexpr bool Namespace::Cntr<CntrTplArgList>::Erase(
         return false;
     }
 
-    auto& nav_node_alctr{ meta::GetInstRef(self.nav_node_alctr_like) };
+    auto& nav_node_alctr{ meta::GetInstRefFromLike(self.nav_node_alctr_like) };
 
 #if DataNodeEn
-    auto& data_node_alctr{ meta::GetInstRef(self.data_node_alctr_like) };
+    auto& data_node_alctr{ meta::GetInstRefFromLike(
+        self.data_node_alctr_like) };
 #endif
 
     void* nodes[level_max];
@@ -1183,10 +1232,11 @@ constexpr void EraseAllRecursive_(Cntr<CntrTplArgList>& self, void* node,
                                   DataAcceptor&& data_acceptor
 #endif
 ) {
-    auto& nav_node_alctr{ meta::GetInstRef(self.nav_node_alctr_like) };
+    auto& nav_node_alctr{ meta::GetInstRefFromLike(self.nav_node_alctr_like) };
 
 #if DataNodeEn
-    auto& data_node_alctr{ meta::GetInstRef(self.data_node_alctr_like) };
+    auto& data_node_alctr{ meta::GetInstRefFromLike(
+        self.data_node_alctr_like) };
 #endif
 
     if (level_i == 0) {
@@ -1240,7 +1290,7 @@ template <CntrTplParamList>
 template <seq_endpoint::acceptor::IsAcceptor<Namespace::BranchNum> DataAcceptor>
 #endif
 constexpr void Namespace::Cntr<CntrTplArgList>::EraseAll(
-    this Cntr& self
+    this meta::IsNonConstWithoutReference auto&& self
 #if DataNodeEn
     ,
     DataAcceptor&& data_acceptor
@@ -1268,10 +1318,10 @@ constexpr void Namespace::Cntr<CntrTplArgList>::EraseAll(
 
 namespace Namespace::detail {
 
-template <integral::IsUnsignedIntegral ActiveMap
+template <integral::IsUnsignedIntegralType ActiveMap
 #if DataNodeEn
           ,
-          meta::IsObj Data
+          meta::IsObjectType Data
 #endif
           >
 size_t SanityCheckRecursive_  // NOLINT(
@@ -1367,7 +1417,8 @@ size_t SanityCheckRecursive_  // NOLINT(
 
 template <CntrTplParamList>
 constexpr void Namespace::Cntr<CntrTplArgList>::SanityCheck(
-    this Cntr& self, debug_utils::mem_recording::MemRecorder& nav_node_recorder
+    this Cntr const& self,
+    debug_utils::mem_recording::MemRecorder& nav_node_recorder
 #if DataNodeEn
     ,
     debug_utils::mem_recording::MemRecorder& data_node_recorder

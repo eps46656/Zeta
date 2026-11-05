@@ -57,9 +57,9 @@ constexpr bool lifecycle_sanity::RegionCompare::operator()(
 constexpr lifecycle_sanity::RegionInfo::operator RegionKey(
     this RegionInfo const& self) {
     return {
-        .id   = self.id,
-        .beg  = self.beg,
-        .size = self.size,
+        .id{ self.id },
+        .beg{ self.beg },
+        .size{ self.size },
     };
 }
 
@@ -74,9 +74,9 @@ lifecycle_sanity::LifecycleServer::FindRegion_(this LifecycleServer const& self,
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < size);
 
     auto iter{ self.region_table_.upper_bound(RegionKey{
-        .id   = identity_graph::max_id,
-        .beg  = beg,
-        .size = size,
+        .id{ identity_graph::max_id },
+        .beg{ beg },
+        .size{ size },
     }) };
 
     if (iter == self.region_table_.begin()) { return self.region_table_.end(); }
@@ -113,9 +113,9 @@ lifecycle_sanity::LifecycleServer::FindDeepestContainingRegion(
     char const* end{ beg + size };
 
     auto iter{ self.region_table_.upper_bound(RegionKey{
-        .id   = 0,
-        .beg  = beg,
-        .size = 0,
+        .id{ 0 },
+        .beg{ beg },
+        .size{ 0 },
     }) };
 
     if (iter != self.region_table_.end() && detail::PtrLess_(iter->beg, end)) {
@@ -217,11 +217,11 @@ lifecycle_sanity::LifecycleServer::InsertRegion_(this LifecycleServer& self,
     }
 
     auto p{ self.region_table_.insert(RegionInfo{
-        .id         = identity_graph::GetId(""),
-        .beg        = beg,
-        .size       = size,
-        .life_state = life_state,
-        .depth      = parent == nullptr ? 0 : parent->depth + 1,
+        .id{ identity_graph::GetId("") },
+        .beg{ beg },
+        .size{ size },
+        .life_state{ life_state },
+        .depth{ parent == nullptr ? 0 : parent->depth + 1 },
         .parents{ parents },
         .children{},
     }) };
@@ -450,8 +450,7 @@ inline std::unordered_map<ObjHook const*, ObjHookInfo_> obj_hook_table_;
 constexpr lifecycle_sanity::ObjHook::ObjHook(
     void const* beg, size_t size,
     std::vector<std::pair<void const*, size_t>> const& sub_mem_regions) {
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        detail::obj_hook_table_.count(this) == 0);
+    this->AssertIsNotConstructed();
 
     RegionInfo const* region{ region_server.ConstructObj(beg, size,
                                                          sub_mem_regions) };
@@ -463,7 +462,7 @@ constexpr lifecycle_sanity::ObjHook::ObjHook(
                     .insert({
                         this,
                         {
-                            .region = region,
+                            .region{ region },
                         },
                     })
                     .second };
@@ -473,6 +472,8 @@ constexpr lifecycle_sanity::ObjHook::ObjHook(
 }
 
 constexpr lifecycle_sanity::ObjHook::~ObjHook() {
+    this->AssertIsConstructed();
+
     auto iter{ FindAt(detail::obj_hook_table_, this) };
 
     detail::ObjHookInfo_ const& obj_hook_info{ iter->second };
@@ -486,10 +487,16 @@ constexpr lifecycle_sanity::ObjHook::~ObjHook() {
     detail::obj_hook_table_.erase(iter);
 }
 
-constexpr void lifecycle_sanity::ObjHook::AssertIsValid(
+constexpr void lifecycle_sanity::ObjHook::AssertIsConstructed(
     this ObjHook const& self) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
         detail::obj_hook_table_.count(&self) == 1);
+}
+
+constexpr void lifecycle_sanity::ObjHook::AssertIsNotConstructed(
+    this ObjHook const& self) {
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        detail::obj_hook_table_.count(&self) == 0);
 }
 
 namespace lifecycle_sanity::detail {
@@ -507,13 +514,14 @@ template <typename T>
 constexpr std::pair<void const*, size_t> GetFieldRegion_(meta::TypeWrapper<T>,
                                                          void const* beg,
                                                          size_t size) {
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(beg != nullptr);
-
     if (size == 0) { return { nullptr, 0 }; }
 
-    if constexpr (meta::IsTriviallyConstructible<T>) {
+    if constexpr (meta::IsReferenceType<T> ||
+                  meta::IsTriviallyConstructible<T>) {
         return { nullptr, 0 };
     } else {
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(beg != nullptr);
+
         return { beg, size };
     }
 }

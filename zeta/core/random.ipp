@@ -10,8 +10,8 @@
 namespace zeta::core {
 
 template <typename Engine>
-constexpr bool random::IsConst() {
-    return EngineTraits<Engine>::IsConst();
+constexpr bool random::IsConstType() {
+    return EngineTraits<Engine>::IsConstType();
 }
 
 template <typename Engine>
@@ -27,7 +27,7 @@ auto random::Fetch(Engine& engine) {
 
     using Integral = decltype(ret);
 
-    static_assert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegralType<Integral>);
 
     static_assert(bit_cnt <= integral::WidthOf<Integral>);
 
@@ -43,7 +43,7 @@ auto random::Fetch(Engine& engine) {
 
 template <typename Engine>
 void random::CheckContract(Engine& engine) {
-    constexpr bool is_const{ (IsConst<Engine>)() };
+    constexpr bool is_const{ (IsConstType<Engine>)() };
 
     ZETA_Core_Unused([&] { (GetBitCnt<Engine>)(); });
 
@@ -56,9 +56,9 @@ template <typename UnsignedIntegral, typename Engine>
 UnsignedIntegral random::GetRandomInt(Engine& engine) {
     (CheckContract<Engine>)(engine);
 
-    static_assert(!(IsConst<Engine>)());
+    static_assert(!(IsConstType<Engine>)());
 
-    static_assert(integral::IsUnsignedIntegral<UnsignedIntegral>);
+    static_assert(integral::IsUnsignedIntegralType<UnsignedIntegral>);
 
     UnsignedIntegral ret{ static_cast<UnsignedIntegral>((Fetch)(engine)) };
 
@@ -80,9 +80,9 @@ template <typename Engine, typename Integral>
 Integral random::GetRandomInt(Engine& engine, Integral min, Integral max) {
     (CheckContract<Engine>)(engine);
 
-    static_assert(!(IsConst<Engine>)());
+    static_assert(!(IsConstType<Engine>)());
 
-    static_assert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegralType<Integral>);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(min <= max);
 
@@ -94,7 +94,7 @@ Integral random::GetRandomInt(Engine& engine, Integral min, Integral max) {
         unsigned _BitInt(integral::WidthOf<Integral> + aug_bit_cnt);
 
     using TmpIntegral =
-        meta::Conditional<integral::IsSignedIntegral<Integral>,
+        meta::Conditional<integral::IsSignedIntegralType<Integral>,
                           signed _BitInt(integral::WidthOf<Integral> + 1),
                           Integral>;
 

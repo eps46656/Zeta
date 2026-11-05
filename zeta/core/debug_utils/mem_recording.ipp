@@ -85,9 +85,6 @@ constexpr void mem_recording::MemRecorder::Contain(this MemRecorder const& self,
 
 constexpr void mem_recording::MemRecorder::InChargeOf(
     this MemRecorder const& self, MemRecorder const& resp_mr) {
-    ZETA_Core_DebugUtils_Diag_LogVar(self.blocks.size());
-    ZETA_Core_DebugUtils_Diag_LogVar(resp_mr.blocks.size());
-
     auto mr_iter{ self.blocks.begin() };
     auto mr_end{ self.blocks.end() };
     auto resp_mr_iter{ resp_mr.blocks.begin() };
@@ -100,21 +97,59 @@ constexpr void mem_recording::MemRecorder::InChargeOf(
 
         if (mr_is_end && resp_mr_is_end) { break; }
 
-        ZETA_Core_DebugUtils_Diag_PromiseAssert(
-            !(!mr_is_end && resp_mr_is_end));
-        ZETA_Core_DebugUtils_Diag_PromiseAssert(
-            !(mr_iter->first < resp_mr_iter->first));
-        // hallucination or use after free: mr uses unallocated mem_recording.
+        if (!mr_is_end && resp_mr_is_end) {
+            ZETA_Core_DebugUtils_Diag_LogVar(mr_iter->first);
+            ZETA_Core_DebugUtils_Diag_LogVar(mr_iter->second);
 
-        ZETA_Core_DebugUtils_Diag_PromiseAssert(
-            !(mr_is_end && !resp_mr_is_end));
-        ZETA_Core_DebugUtils_Diag_PromiseAssert(
-            !(resp_mr_iter->first < mr_iter->first));
-        // mem_recording leak: mr misses allocated mem_recording.
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(
+                !(!mr_is_end && resp_mr_is_end));
 
-        ZETA_Core_DebugUtils_Diag_PromiseAssert(mr_iter->second <=
-                                                resp_mr_iter->second);
-        // overflow: mr uses more than allocated mem_recording.
+            // hallucination or use after free: mr uses unallocated
+            // mem_recording.
+        }
+
+        if (mr_iter->first < resp_mr_iter->first) {
+            ZETA_Core_DebugUtils_Diag_LogVar(mr_iter->first);
+            ZETA_Core_DebugUtils_Diag_LogVar(mr_iter->second);
+
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(
+                !(mr_iter->first < resp_mr_iter->first));
+
+            // hallucination or use after free: mr uses unallocated
+            // mem_recording.
+        }
+
+        if (mr_is_end && !resp_mr_is_end) {
+            ZETA_Core_DebugUtils_Diag_LogVar(resp_mr_iter->first);
+            ZETA_Core_DebugUtils_Diag_LogVar(resp_mr_iter->second);
+
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(
+                !(mr_is_end && !resp_mr_is_end));
+
+            // mem_recording leak: mr misses allocated mem_recording.
+        }
+
+        if (resp_mr_iter->first < mr_iter->first) {
+            ZETA_Core_DebugUtils_Diag_LogVar(resp_mr_iter->first);
+            ZETA_Core_DebugUtils_Diag_LogVar(resp_mr_iter->second);
+
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(
+                !(resp_mr_iter->first < mr_iter->first));
+
+            // mem_recording leak: mr misses allocated mem_recording.
+        }
+
+        if (resp_mr_iter->second < mr_iter->second) {
+            ZETA_Core_DebugUtils_Diag_LogVar(resp_mr_iter->first);
+            ZETA_Core_DebugUtils_Diag_LogVar(resp_mr_iter->second);
+            ZETA_Core_DebugUtils_Diag_LogVar(mr_iter->first);
+            ZETA_Core_DebugUtils_Diag_LogVar(mr_iter->second);
+
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(
+                !(resp_mr_iter->second < mr_iter->second));
+
+            // overflow: mr uses more than allocated mem_recording.
+        }
     }
 }
 

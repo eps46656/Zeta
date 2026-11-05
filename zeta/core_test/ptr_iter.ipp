@@ -53,7 +53,7 @@ bool operator>=(PtrIter<ValueA> const& ptr_iter_a,
 template <typename Value>
 PtrIter<Value>& operator++(PtrIter<Value>& ptr_iter) {
     ptr_iter.ptr =
-        static_cast<core::meta::Conditional<core::meta::IsConst<Value>,
+        static_cast<core::meta::Conditional<core::meta::IsConstType<Value>,
                                             char const*, char*>>(ptr_iter.ptr) +
         ptr_iter.stride;
 
@@ -63,7 +63,7 @@ PtrIter<Value>& operator++(PtrIter<Value>& ptr_iter) {
 template <typename Value>
 PtrIter<Value>& operator--(PtrIter<Value>& ptr_iter) {
     ptr_iter.ptr =
-        static_cast<core::meta::Conditional<core::meta::IsConst<Value>,
+        static_cast<core::meta::Conditional<core::meta::IsConstType<Value>,
                                             char const*, char*>>(ptr_iter.ptr) -
         ptr_iter.stride;
 
@@ -86,7 +86,7 @@ PtrIter<Value> operator--(PtrIter<Value>& ptr_iter, int) {
 
 template <typename Value>
 PtrIter<Value> operator+(PtrIter<Value> const& ptr_iter, ptrdiff_t step) {
-    return { static_cast<core::meta::Conditional<core::meta::IsConst<Value>,
+    return { static_cast<core::meta::Conditional<core::meta::IsConstType<Value>,
                                                  char const*, char*>>(
                  ptr_iter.ptr) +
                  ptr_iter.stride * step,
@@ -95,7 +95,7 @@ PtrIter<Value> operator+(PtrIter<Value> const& ptr_iter, ptrdiff_t step) {
 
 template <typename Value>
 PtrIter<Value> operator-(PtrIter<Value> const& ptr_iter, ptrdiff_t step) {
-    return { static_cast<core::meta::Conditional<core::meta::IsConst<Value>,
+    return { static_cast<core::meta::Conditional<core::meta::IsConstType<Value>,
                                                  char const*, char*>>(
                  ptr_iter.ptr) -
                  ptr_iter.stride * step,
@@ -105,7 +105,7 @@ PtrIter<Value> operator-(PtrIter<Value> const& ptr_iter, ptrdiff_t step) {
 template <typename Value>
 PtrIter<Value>& operator+=(PtrIter<Value> const& ptr_iter, ptrdiff_t step) {
     ptr_iter.ptr =
-        static_cast<core::meta::Conditional<core::meta::IsConst<Value>,
+        static_cast<core::meta::Conditional<core::meta::IsConstType<Value>,
                                             char const*, char*>>(ptr_iter.ptr) +
         ptr_iter.stride * step;
 
@@ -115,7 +115,7 @@ PtrIter<Value>& operator+=(PtrIter<Value> const& ptr_iter, ptrdiff_t step) {
 template <typename Value>
 PtrIter<Value>& operator-=(PtrIter<Value> const& ptr_iter, ptrdiff_t step) {
     ptr_iter.ptr =
-        static_cast<core::meta::Conditional<core::meta::IsConst<Value>,
+        static_cast<core::meta::Conditional<core::meta::IsConstType<Value>,
                                             char const*, char*>>(ptr_iter.ptr) -
         ptr_iter.stride * step;
 
@@ -129,10 +129,10 @@ ptrdiff_t operator-(PtrIter<ValueA> const& ptr_iter_a,
                                             ptr_iter_b.stride);
 
     ptrdiff_t diff{
-        static_cast<core::meta::Conditional<core::meta::IsConst<ValueB>,
+        static_cast<core::meta::Conditional<core::meta::IsConstType<ValueB>,
                                             char const*, char*>>(
             ptr_iter_b.ptr) -
-        static_cast<core::meta::Conditional<core::meta::IsConst<ValueA>,
+        static_cast<core::meta::Conditional<core::meta::IsConstType<ValueA>,
                                             char const*, char*>>(ptr_iter_a.ptr)
     };
 

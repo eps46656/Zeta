@@ -11,8 +11,8 @@
 namespace zeta::core {
 
 template <bin_tree::IsNode Node>
-constexpr bool bin_tree::IsConst() {
-    constexpr bool ret{ Node::IsConst(Tag{}, meta::TypeWrapper<Node>{}) };
+constexpr bool bin_tree::IsConstType() {
+    constexpr bool ret{ Node::IsConstType(Tag{}, meta::TypeWrapper<Node>{}) };
 
     return ret;
 }
@@ -41,21 +41,21 @@ constexpr Node* bin_tree::GetR(Node* n) {
 
 template <bin_tree::IsNode Node>
 constexpr void bin_tree::SetP(Node* n, Node* m) {
-    static_assert(!(IsConst<Node>)());
+    static_assert(!(IsConstType<Node>)());
 
     n->SetP(Tag{}, m);
 }
 
 template <bin_tree::IsNode Node>
 constexpr void bin_tree::SetL(Node* n, Node* m) {
-    static_assert(!(IsConst<Node>)());
+    static_assert(!(IsConstType<Node>)());
 
     n->SetL(Tag{}, m);
 }
 
 template <bin_tree::IsNode Node>
 constexpr void bin_tree::SetR(Node* n, Node* m) {
-    static_assert(!(IsConst<Node>)());
+    static_assert(!(IsConstType<Node>)());
 
     n->SetR(Tag{}, m);
 }
@@ -78,7 +78,7 @@ constexpr size_t bin_tree::GetAccSize(Node* n) {
 
 template <bin_tree::IsNode Node>
 constexpr void bin_tree::SetAccSize(Node* n, size_t acc_size) {
-    static_assert(!(IsConst<Node>)());
+    static_assert(!(IsConstType<Node>)());
     static_assert((HasAccSize<Node>)());
 
     n->SetAccSize(Tag{}, acc_size);
@@ -101,7 +101,7 @@ constexpr pair::Pair<Node*, size_t> bin_tree::GetMostR(Node* n) {
 
 template <bin_tree::IsNode Node>
 constexpr void bin_tree::AddDiffSize(Node* n, size_t diff_size) {
-    static_assert(!(IsConst<Node>)());
+    static_assert(!(IsConstType<Node>)());
 
     static_assert((HasAccSize<Node>)());
 
@@ -130,7 +130,7 @@ constexpr size_t bin_tree::GetSize(Node* n) {
 
 template <bin_tree::IsNode Node>
 constexpr void bin_tree::SetSize(Node* n, size_t size) {
-    static_assert(!(IsConst<Node>)());
+    static_assert(!(IsConstType<Node>)());
 
     static_assert((HasAccSize<Node>)());
 
@@ -375,7 +375,7 @@ constexpr void bin_tree::RotateR(Node* n) {
                                           : (GetAccSize)(nd) };          \
                                                                          \
         if (idx < nd_acc_size) {                                         \
-            n = nd;                                                      \
+            n          = nd;                                             \
             n_acc_size = nd_acc_size;                                    \
             continue;                                                    \
         }                                                                \
@@ -389,7 +389,7 @@ constexpr void bin_tree::RotateR(Node* n) {
                                                                          \
         if (idx < n_size) { break; }                                     \
                                                                          \
-        n = ne;                                                          \
+        n          = ne;                                                 \
         n_acc_size = ne_acc_size;                                        \
         idx -= n_size;                                                   \
     }                                                                    \
@@ -544,7 +544,7 @@ constexpr pair::Pair<size_t, size_t> bin_tree::GetLRAccSize(Node* n) {
             l_acc_size += k;
         }
 
-        n = np;
+        n          = np;
         n_acc_size = np_acc_size;
     }
 

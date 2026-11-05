@@ -287,8 +287,8 @@ constexpr datetime::MonthDay datetime::GetMonthDayFromYearDayOffset(
     }
 
     return {
-        .month = cur_month,
-        .day   = day_offset_in_year + 1U,
+        .month{ cur_month },
+        .day{ day_offset_in_year + 1U },
     };
 }
 
@@ -356,9 +356,9 @@ constexpr datetime::YearMonthDay datetime::GetYearMonthDayFromGlobalDayOffset(
                                                     epoch_day_offset)) };
 
     return {
-        .year  = global_year_base + 400 * epoch + year,
-        .month = md.month,
-        .day   = md.day,
+        .year{ global_year_base + 400 * epoch + year },
+        .month{ md.month },
+        .day{ md.day },
     };
 }
 
@@ -413,22 +413,22 @@ constexpr array::Array<array::Array<BaseIntegral, 2>,
                 (GetGlobalSecOffsetFromYearMonthDay)(  //
                     TimeStandardTag::GMT{},
                     {
-                        .year  = detail::utc_leap_sec_ymd_table_[i].year,
-                        .month = detail::utc_leap_sec_ymd_table_[i].month,
-                        .day   = detail::utc_leap_sec_ymd_table_[i].day,
-                        .hour  = 23,
-                        .min   = 59,
-                        .sec   = 59,
+                        .year{ detail::utc_leap_sec_ymd_table_[i].year },
+                        .month{ detail::utc_leap_sec_ymd_table_[i].month },
+                        .day{ detail::utc_leap_sec_ymd_table_[i].day },
+                        .hour{ 23 },
+                        .min{ 59 },
+                        .sec{ 59 },
                     }),
                 (GetGlobalSecOffsetFromYearMonthDay)(  //
                     TimeStandardTag::UTC{},
                     {
-                        .year  = detail::utc_leap_sec_ymd_table_[i].year,
-                        .month = detail::utc_leap_sec_ymd_table_[i].month,
-                        .day   = detail::utc_leap_sec_ymd_table_[i].day,
-                        .hour  = 23,
-                        .min   = 59,
-                        .sec   = 60,
+                        .year{ detail::utc_leap_sec_ymd_table_[i].year },
+                        .month{ detail::utc_leap_sec_ymd_table_[i].month },
+                        .day{ detail::utc_leap_sec_ymd_table_[i].day },
+                        .hour{ 23 },
+                        .min{ 59 },
+                        .sec{ 60 },
                     }),
             };
         }
@@ -465,12 +465,12 @@ datetime::GetYearMonthDayHourMinSecFromGlobalSecOffset(
             global_day_offset) };
 
         return {
-            .year  = ymd.year,
-            .month = ymd.month,
-            .day   = ymd.day,
-            .hour  = static_cast<unsigned>(sec_offset_in_day / (60 * 60)),
-            .min   = static_cast<unsigned>((sec_offset_in_day / 60) % 60),
-            .sec   = static_cast<unsigned>(sec_offset_in_day % 60),
+            .year{ ymd.year },
+            .month{ ymd.month },
+            .day{ ymd.day },
+            .hour{ static_cast<unsigned>(sec_offset_in_day / (60 * 60)) },
+            .min{ static_cast<unsigned>((sec_offset_in_day / 60) % 60) },
+            .sec{ static_cast<unsigned>(sec_offset_in_day % 60) },
         };
     }
 
@@ -506,12 +506,12 @@ datetime::GetYearMonthDayHourMinSecFromGlobalSecOffset(
             };
 
             return {
-                .year  = op_ymd.year,
-                .month = op_ymd.month,
-                .day   = op_ymd.day,
-                .hour  = 23,
-                .min   = 59,
-                .sec   = 60,
+                .year{ op_ymd.year },
+                .month{ op_ymd.month },
+                .day{ op_ymd.day },
+                .hour{ 23 },
+                .min{ 59 },
+                .sec{ 60 },
             };
         }
 

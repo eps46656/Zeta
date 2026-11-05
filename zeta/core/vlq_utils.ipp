@@ -10,8 +10,8 @@ namespace zeta::core {
 
 namespace vlq_utils::detail {
 
-template <integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
-          seq_endpoint::provider::IsProvider InnerProvider>
+template <integral::IsUnsignedIntegralType UnitIntegral, size_t UnitWidth,
+          seq_endpoint::provider::IsProvider<UnitIntegral> InnerProvider>
 struct Provider_ {
     static_assert(2 <= UnitWidth);
     static_assert(UnitWidth <= integral::WidthOf<UnitIntegral>);
@@ -79,8 +79,8 @@ struct Provider_ {
     }
 };
 
-template <integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
-          seq_endpoint::acceptor::IsAcceptor InnerAcceptor>
+template <integral::IsUnsignedIntegralType UnitIntegral, size_t UnitWidth,
+          seq_endpoint::acceptor::IsAcceptor<UnitIntegral> InnerAcceptor>
 struct Acceptor_ {
     static_assert(2 <= UnitWidth);
     static_assert(UnitWidth <= integral::WidthOf<UnitIntegral>);
@@ -140,13 +140,13 @@ struct Acceptor_ {
 
 }  // namespace vlq_utils::detail
 
-template <integral::IsIntegral Integral, size_t UnitWidth>
+template <integral::IsIntegralType Integral, size_t UnitWidth>
     requires requires { requires 2 <= UnitWidth; }
 constexpr size_t vlq_utils::EstimateEncodedUnitCnt(
     Integral value, meta::ValueWrapper<size_t, UnitWidth>) {
     size_t need_bit_cnt;
 
-    if constexpr (integral::IsSignedIntegral<Integral>) {
+    if constexpr (integral::IsSignedIntegralType<Integral>) {
         need_bit_cnt = value < 0
                            ? (value == integral::RangeMinOf<Integral>
                                   ? integral::WidthOf<Integral>
@@ -165,22 +165,22 @@ constexpr size_t vlq_utils::EstimateEncodedUnitCnt(
     return integral_math::CeilDiv(need_bit_cnt, UnitWidth - 1);
 }
 
-template <seq_endpoint::acceptor::IsAcceptor Acceptor,
-          integral_endec::IsEndiannessLike EndiannessLike,
-          integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
-          integral::IsIntegral SrcIntegral>
+template <integral_endec::IsEndiannessLike EndiannessLike,
+          integral::IsUnsignedIntegralType UnitIntegral, size_t UnitWidth,
+          integral::IsIntegralType SrcIntegral,
+          seq_endpoint::acceptor::IsAcceptor<UnitIntegral> Acceptor>
     requires requires {
         requires 2 <= UnitWidth;
         requires UnitWidth <= integral::WidthOf<UnitIntegral>;
     }
 constexpr void vlq_utils::Encode(
-    Acceptor&& acceptor, EndiannessLike endianness,
-    meta::TypeWrapper<UnitIntegral> unit_integral,
-    meta::ValueWrapper<size_t, UnitWidth> unit_width, SrcIntegral src_value) {
+    EndiannessLike endianness, meta::TypeWrapper<UnitIntegral> unit_integral,
+    meta::ValueWrapper<size_t, UnitWidth> unit_width, SrcIntegral src_value,
+    Acceptor&& acceptor) {
     detail::Acceptor_<UnitIntegral, UnitWidth, Acceptor> vlq_acceptor{
-        .inner_acceptor = acceptor,
-        .buffer = {},
-        .buffer_has_value = false,
+        .inner_acceptor{ acceptor },
+        .buffer{},
+        .buffer_has_value{ false },
     };
 
     integral_endec::EncodeResult encode_result{ integral_endec::Encode(
@@ -199,22 +199,22 @@ constexpr void vlq_utils::Encode(
     ZETA_Core_DebugUtils_Diag_PromiseAssert(!encode_result.value_out_of_range);
 }
 
-template <seq_endpoint::provider::IsProvider Provider,
-          integral_endec::IsEndiannessLike EndiannessLike,
-          integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
-          integral::IsIntegral DstIntegral>
+template <integral_endec::IsEndiannessLike EndiannessLike,
+          integral::IsUnsignedIntegralType UnitIntegral, size_t UnitWidth,
+          integral::IsIntegralType DstIntegral,
+          seq_endpoint::provider::IsProvider<UnitIntegral> Provider>
     requires requires {
         requires 2 <= UnitWidth;
         requires UnitWidth <= integral::WidthOf<UnitIntegral>;
     }
 constexpr vlq_utils::DecodeResult<DstIntegral> vlq_utils::Decode(
-    Provider&& provider, EndiannessLike endianness,
-    meta::TypeWrapper<UnitIntegral> unit_integral,
-    meta::ValueWrapper<size_t, UnitWidth>, meta::TypeWrapper<DstIntegral>) {
+    EndiannessLike endianness, meta::TypeWrapper<UnitIntegral> unit_integral,
+    meta::ValueWrapper<size_t, UnitWidth>, meta::TypeWrapper<DstIntegral>,
+    Provider&& provider) {
     detail::Provider_<UnitIntegral, UnitWidth, Provider> vlq_provider{
-        .inner_provider = provider,
-        .digit_out_of_range = false,
-        .is_end = false,
+        .inner_provider{ provider },
+        .digit_out_of_range{ false },
+        .is_end{ false },
     };
 
     auto ret{ integral_endec::Decode(
@@ -224,10 +224,10 @@ constexpr vlq_utils::DecodeResult<DstIntegral> vlq_utils::Decode(
         meta::TypeWrapper<DstIntegral>{}) };
 
     return {
-        .digit_out_of_range =
-            vlq_provider.digit_out_of_range || ret.digit_out_of_range,
-        .value_out_of_range = ret.value_out_of_range,
-        .value = ret.value,
+        .digit_out_of_range{ vlq_provider.digit_out_of_range ||
+                             ret.digit_out_of_range },
+        .value_out_of_range{ ret.value_out_of_range },
+        .value{ ret.value },
     };
 }
 

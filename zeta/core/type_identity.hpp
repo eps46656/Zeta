@@ -81,6 +81,7 @@ constexpr sha256::Digest GetTypeHashCode_() {
 template <typename T>
 constexpr auto type_hash_code{ detail::GetTypeHashCode_<T>() };
 
-using TypeHashCode = meta::RemoveCVRef<decltype(type_hash_code<void>)>;
+using TypeHashCode =
+    meta::RemoveConstVolatileReference<decltype(type_hash_code<void>)>;
 
 }  // namespace zeta::core::type_identity

@@ -89,8 +89,9 @@ Elem* Find(AssocCntr* ac, Key const& key) {
 
     Sanitize(ac);
 
-    if constexpr (core::meta::IsSame<core::meta::RemoveCVRef<Key>,
-                                     core::meta::RemoveCVRef<Elem> >) {
+    if constexpr (core::meta::IsSame<
+                      core::meta::RemoveConstVolatileReference<Key>,
+                      core::meta::RemoveConstVolatileReference<Elem> >) {
         //
     }
 
@@ -100,8 +101,9 @@ Elem* Find(AssocCntr* ac, Key const& key) {
 
     if (elem_find_with_key == nullptr) { return nullptr; }
 
-    if constexpr (core::meta::IsSame<core::meta::RemoveCVRef<Key>,
-                                     core::meta::RemoveCVRef<Elem> >) {
+    if constexpr (core::meta::IsSame<
+                      core::meta::RemoveConstVolatileReference<Key>,
+                      core::meta::RemoveConstVolatileReference<Elem> >) {
         ZETA_Core_DebugUtils_Diag_PromiseAssert(core::comparison::BasicCompare(
             core::comparison::OpTags::Equal{}, key, *elem_find_with_key));
     }

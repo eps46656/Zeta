@@ -72,10 +72,10 @@ object_state_notation::Config::ToHeader(this Config const& self) {
     if (!self.Check()) { return { false, {} }; }
 
     Header header{
-        .magic{ 'O', 'S', 'N', '\0' },
+        .magic            = { 'O', 'S', 'N', '\0' },
         .version          = self.version,
         .region_attr_size = self.region_attr_size,
-        .reserved{ 0 },
+        .reserved         = { 0 },
     };
 
     return { true, header };
@@ -314,7 +314,7 @@ object_state_notation::Encoder<AcceptorLike>::SendNodeTag(
     ZETA_Core_DebugUtils_ArgAssert(0 < self.depth);
     ZETA_Core_DebugUtils_ArgAssert(self.depth < max_depth);
 
-    auto& acceptor{ meta::GetInstRef(self.acceptor_like) };
+    auto& acceptor{ meta::GetInstRefFromLike(self.acceptor_like) };
 
     if (!src_node_tag.Check() ||
         src_node_tag.node_type == NodeType::Terminator) {
@@ -365,7 +365,7 @@ object_state_notation::Encoder<AcceptorLike>::SendStringChar(
         self.state == EncoderState::ReceivingNameString ||
         self.state == EncoderState::ReceivingObjTypeString);
 
-    auto& acceptor{ meta::GetInstRef(self.acceptor_like) };
+    auto& acceptor{ meta::GetInstRefFromLike(self.acceptor_like) };
 
     utf8::Encoder utf8_encoder;
 
@@ -390,7 +390,7 @@ object_state_notation::Encoder<AcceptorLike>::SendStringChar(
 }
 
 template <typename AcceptorLike>
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr utils::TryResult<
     pair::Pair<integral_endec::EncodeResult, integral_endec::EncodeResult>,
     object_state_notation::EncoderReason>
@@ -428,7 +428,7 @@ object_state_notation::Encoder<AcceptorLike>::SendIntegralDescriptor(
     ZETA_Core_DebugUtils_ArgAssert(self.state ==
                                    EncoderState::ReceivingIntegralDescriptor);
 
-    auto& acceptor{ meta::GetInstRef(self.acceptor_like) };
+    auto& acceptor{ meta::GetInstRefFromLike(self.acceptor_like) };
 
     auto [is_valid, integral_descriptor_encoded_value]{
         integral_descriptor.ToEncodedValue()
@@ -498,7 +498,7 @@ object_state_notation::Encoder<AcceptorLike>::SendListElemCnt(
 }
 
 template <typename AcceptorLike>
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr utils::TryResult<meta::Monostate, meta::Monostate>
 object_state_notation::Encoder<AcceptorLike>::SendIntegral(
     this Encoder& self, Integral src_integral) {
@@ -507,7 +507,7 @@ object_state_notation::Encoder<AcceptorLike>::SendIntegral(
         self.state == EncoderState::ReceivingIntegralOrFinish);
 
     if (self.integral_descriptor_buffer.is_signed !=
-        integral::IsSignedIntegral<Integral>) {
+        integral::IsSignedIntegralType<Integral>) {
         return utils::TryResultReasonTag{};
     }
 
@@ -756,7 +756,7 @@ object_state_notation::Decoder<ProviderLike>::ReceiveNodeTag(
 
     ZETA_Core_DebugUtils_ArgAssert(0 < self.res_elem_cnts[self.depth - 1]);
 
-    auto& provider{ meta::GetInstRef(self.provider_like) };
+    auto& provider{ meta::GetInstRefFromLike(self.provider_like) };
 
     self.node_tag = ({
         integral_endec::DecodeResult<unsigned char>
@@ -813,7 +813,7 @@ object_state_notation::Decoder<ProviderLike>::ReceiveStringChar(
         self.state == DecoderState::SendingObjTypeString ||
         self.state == DecoderState::SendingNameString);
 
-    auto& provider{ meta::GetInstRef(self.provider_like) };
+    auto& provider{ meta::GetInstRefFromLike(self.provider_like) };
 
     utf8::Decoder utf8_decoder;
 
@@ -838,7 +838,7 @@ object_state_notation::Decoder<ProviderLike>::ReceiveStringChar(
 }
 
 template <typename ProviderLike>
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr utils::TryResult<pair::Pair<integral_endec::DecodeResult<Integral>,
                                       integral_endec::DecodeResult<Integral>>,
                            object_state_notation::DecoderReason>
@@ -847,7 +847,7 @@ object_state_notation::Decoder<ProviderLike>::ReceiveRegionAttr(
     ZETA_Core_DebugUtils_ArgAssert(self.state ==
                                    DecoderState::SendingRegionAttr);
 
-    auto& provider{ meta::GetInstRef(self.provider_like) };
+    auto& provider{ meta::GetInstRefFromLike(self.provider_like) };
 
     integral_endec::DecodeResult<Integral> region_beg_result{
         detail::NormalDecodeIntegral_(
@@ -876,7 +876,7 @@ object_state_notation::Decoder<ProviderLike>::ReceiveIntegralDescriptor(
     ZETA_Core_DebugUtils_ArgAssert(self.state ==
                                    DecoderState::SendingIntegralDescriptor);
 
-    auto& provider{ meta::GetInstRef(self.provider_like) };
+    auto& provider{ meta::GetInstRefFromLike(self.provider_like) };
 
     size_t integral_descriptor_encoded_value{ ({
         vlq_utils::DecodeResult<size_t> tmp{ detail::LEB128DecodeIntegral_(
@@ -918,7 +918,7 @@ object_state_notation::Decoder<ProviderLike>::ReceiveListElemCnt(
     ZETA_Core_DebugUtils_ArgAssert(0 < self.depth);
     ZETA_Core_DebugUtils_ArgAssert(self.depth <= max_depth);
 
-    auto& provider{ meta::GetInstRef(self.provider_like) };
+    auto& provider{ meta::GetInstRefFromLike(self.provider_like) };
 
     size_t list_elem_cnt_encoded_value{ ({
         vlq_utils::DecodeResult<size_t> tmp{ detail::LEB128DecodeIntegral_(
@@ -958,7 +958,7 @@ object_state_notation::Decoder<ProviderLike>::ReceiveListElemCnt(
 }
 
 template <typename ProviderLike>
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr utils::TryResult<integral_endec::DecodeResult<Integral>,
                            object_state_notation::DecoderReason>
 object_state_notation::Decoder<ProviderLike>::ReceiveIntegral(
@@ -970,10 +970,10 @@ object_state_notation::Decoder<ProviderLike>::ReceiveIntegral(
 
     ZETA_Core_DebugUtils_ArgAssert(0 < self.res_elem_cnts[self.depth - 1]);
 
-    auto& provider{ meta::GetInstRef(self.provider_like) };
+    auto& provider{ meta::GetInstRefFromLike(self.provider_like) };
 
     if (self.integral_descriptor.is_signed !=
-        integral::IsSignedIntegral<Integral>) {
+        integral::IsSignedIntegralType<Integral>) {
         return { utils::TryResultReasonTag{},
                  DecoderReason::IntegralSignednesssMismatch };
     }

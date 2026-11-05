@@ -42,7 +42,7 @@ ZETA_Core_ClangdPreambleBarrier;
 #define MLPT_CNTR                \
     multi_level_ptr_table::Cntr< \
         ActiveMap,               \
-        decltype(meta::GetInstPtr(meta::Declval<TableNodeAllocatorLike&>()))>
+        decltype(meta::GetInstPtrFromLike(meta::Declval<TableNodeAllocatorLike&>()))>
 
 #pragma push_macro("BuildCurMLPTTable")
 #define BuildCurMLPTTable                                             \
@@ -52,7 +52,7 @@ ZETA_Core_ClangdPreambleBarrier;
         .branch_nums = branch_nums.elems,                             \
         .elem_cnt = ght.cur_table_node_cnt,                           \
         .root = ght.cur_table_root,                                   \
-        .nav_node_alctr = meta::GetInstPtr(                           \
+        .nav_node_alctr = meta::GetInstPtrFromLike(                           \
             const_cast<Cntr<CntrTplArgList>&>(ght).table_node_alctr), \
     };                                                                \
     static_assert(true)
@@ -67,7 +67,7 @@ ZETA_Core_ClangdPreambleBarrier;
         .branch_nums = branch_nums.elems,                               \
         .elem_cnt = ght.nxt_table_node_cnt,                             \
         .root = ght.nxt_table_root,                                     \
-        .nav_node_alctr = meta::GetInstPtr(                             \
+        .nav_node_alctr = meta::GetInstPtrFromLike( \
             const_cast<Cntr<CntrTplArgList>&>(ght).table_node_alctr),   \
     };                                                                  \
     static_assert(true)
@@ -291,11 +291,11 @@ void InsertToTable_(unsigned long long salt, MultiLevelPtrTable& table,
             branch_idxes);
 
         table.Insert(lin_seq_endpoint::provider::Provider{
-            .data{ branch_idxes + (table.level - 1) },
-            .elem_size{ sizeof(multi_level_ptr_table::BranchNum) },
-            .elem_stride{ -static_cast<ptrdiff_t>(
-                sizeof(multi_level_ptr_table::BranchNum)) },
-            .elem_cnt{ table.level },
+            .data        = branch_idxes + (table.level - 1),
+            .elem_size   = sizeof(multi_level_ptr_table::BranchNum),
+            .elem_stride = -static_cast<ptrdiff_t>(
+                sizeof(multi_level_ptr_table::BranchNum)),
+            .elem_cnt = table.level,
         });
     }) };
 
@@ -422,7 +422,7 @@ void TryRunPending_(Cntr<CntrTplArgList> const& self_,
         if (cur_bucket_size != nxt_bucket_size) {
             self.nxt_bucket_size = nxt_bucket_size;
             self.nxt_salt        = random::GetRandomInt<unsigned long long>(
-                meta::GetInstRef(self.salt_random_engine));
+                meta::GetInstRefFromLike(self.salt_random_engine));
         }
 
         return;
@@ -449,8 +449,8 @@ void TryRunPending_(Cntr<CntrTplArgList> const& self_,
         }
 
         (InsertToTable_)(self.nxt_salt, nxt_table, self.nxt_bucket_size,
-                         trans_n, meta::GetInstRef(self.hasher_like),
-                         meta::GetInstRef(self.cmptr_like), trans_n);
+                         trans_n, meta::GetInstRefFromLike(self.hasher_like),
+                         meta::GetInstRefFromLike(self.cmptr_like), trans_n);
     }
 
     if (0 < cur_table.elem_cnt) {
@@ -465,7 +465,7 @@ void TryRunPending_(Cntr<CntrTplArgList> const& self_,
 
     if (nxt_table.elem_cnt == 0) {
         self.cur_salt = random::GetRandomInt<unsigned long long>(
-            meta::GetInstRef(self.salt_random_engine));
+            meta::GetInstRefFromLike(self.salt_random_engine));
         self.cur_table_node_cnt = 0;
         self.cur_bucket_size    = min_bucket_size;
         self.cur_table_root     = nullptr;
@@ -526,7 +526,7 @@ constexpr generic_hash_table::Cntr<CntrTplArgList>::Cntr(
     this->rehashing_config = rehashing_config;
 
     this->cur_salt = random::GetRandomInt<unsigned long long>(
-        meta::GetInstRef(this->salt_random_engine_like));
+        meta::GetInstRefFromLike(this->salt_random_engine_like));
 
     this->cur_table_root = nullptr;
     this->nxt_table_root = nullptr;
@@ -563,23 +563,28 @@ constexpr bool generic_hash_table::Cntr<CntrTplArgList>::Contain(
     size_t cur_bucket_size{ self.cur_bucket_size };
     size_t nxt_bucket_size{ self.nxt_bucket_size };
 
-    auto& table_node_alctr{ meta::GetInstRef(self.table_node_alctr_like) };
+    auto& table_node_alctr{ meta::GetInstRefFromLike(
+        self.table_node_alctr_like) };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> cur_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(cur_bucket_size, branch_num)),
-        .elem_cnt       = self.cur_table_node_cnt,
-        .root           = self.cur_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        cur_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(cur_bucket_size, branch_num)),
+            .elem_cnt       = self.cur_table_node_cnt,
+            .root           = self.cur_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> nxt_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(nxt_bucket_size, branch_num)),
-        .elem_cnt       = self.nxt_table_node_cnt,
-        .root           = self.nxt_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        nxt_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(nxt_bucket_size, branch_num)),
+            .elem_cnt       = self.nxt_table_node_cnt,
+            .root           = self.nxt_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
     TreeNode const* root{ bin_tree::GetMostP(&n->tn).first };
 
@@ -642,23 +647,28 @@ generic_hash_table::Cntr<CntrTplArgList>::Find(
 
     if (cur_bucket_size == 0) { return nullptr; }
 
-    auto& table_node_alctr{ meta::GetInstRef(self.table_node_alctr_like) };
+    auto& table_node_alctr{ meta::GetInstRefFromLike(
+        self.table_node_alctr_like) };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> cur_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(cur_bucket_size, branch_num)),
-        .elem_cnt       = self.cur_table_node_cnt,
-        .root           = self.cur_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        cur_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(cur_bucket_size, branch_num)),
+            .elem_cnt       = self.cur_table_node_cnt,
+            .root           = self.cur_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> nxt_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(nxt_bucket_size, branch_num)),
-        .elem_cnt       = self.nxt_table_node_cnt,
-        .root           = self.nxt_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        nxt_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(nxt_bucket_size, branch_num)),
+            .elem_cnt       = self.nxt_table_node_cnt,
+            .root           = self.nxt_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
     if (0 < nxt_bucket_size) {
         Node* ret{ detail::FindInTable_(self.nxt_salt, nxt_table,
@@ -686,23 +696,28 @@ constexpr void generic_hash_table::Cntr<CntrTplArgList>::Insert(
     size_t cur_bucket_size{ self.cur_bucket_size };
     size_t nxt_bucket_size{ self.nxt_bucket_size };
 
-    auto& table_node_alctr{ meta::GetInstRef(self.table_node_alctr_like) };
+    auto& table_node_alctr{ meta::GetInstRefFromLike(
+        self.table_node_alctr_like) };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> cur_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(cur_bucket_size, branch_num)),
-        .elem_cnt       = self.cur_table_node_cnt,
-        .root           = self.cur_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        cur_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(cur_bucket_size, branch_num)),
+            .elem_cnt       = self.cur_table_node_cnt,
+            .root           = self.cur_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> nxt_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(nxt_bucket_size, branch_num)),
-        .elem_cnt       = self.nxt_table_node_cnt,
-        .root           = self.nxt_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        nxt_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(nxt_bucket_size, branch_num)),
+            .elem_cnt       = self.nxt_table_node_cnt,
+            .root           = self.nxt_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
     if (0 < nxt_bucket_size) {
         detail::InsertToTable_(self.nxt_salt, nxt_table, nxt_bucket_size, key,
@@ -727,25 +742,30 @@ constexpr void generic_hash_table::Cntr<CntrTplArgList>::Extract(
     size_t cur_bucket_size{ self.cur_bucket_size };
     size_t nxt_bucket_size{ self.nxt_bucket_size };
 
-    auto const& hasher{ meta::GetInstRef(self.hasher_like) };
+    auto const& hasher{ meta::GetInstRefFromLike(self.hasher_like) };
 
-    auto& table_node_alctr{ meta::GetInstRef(self.table_node_alctr_like) };
+    auto& table_node_alctr{ meta::GetInstRefFromLike(
+        self.table_node_alctr_like) };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> cur_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(cur_bucket_size, branch_num)),
-        .elem_cnt       = self.cur_table_node_cnt,
-        .root           = self.cur_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        cur_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(cur_bucket_size, branch_num)),
+            .elem_cnt       = self.cur_table_node_cnt,
+            .root           = self.cur_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> nxt_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(nxt_bucket_size, branch_num)),
-        .elem_cnt       = self.nxt_table_node_cnt,
-        .root           = self.nxt_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        nxt_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(nxt_bucket_size, branch_num)),
+            .elem_cnt       = self.nxt_table_node_cnt,
+            .root           = self.nxt_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
     TreeNode* n_root{ bin_tree::GetMostP(&n->tn).first };
 
@@ -771,23 +791,28 @@ generic_hash_table::Cntr<CntrTplArgList>::ExtractAny(this Cntr& self) {
     size_t cur_bucket_size{ self.cur_bucket_size };
     size_t nxt_bucket_size{ self.nxt_bucket_size };
 
-    auto& table_node_alctr{ meta::GetInstRef(self.table_node_alctr_like) };
+    auto& table_node_alctr{ meta::GetInstRefFromLike(
+        self.table_node_alctr_like) };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> cur_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(cur_bucket_size, branch_num)),
-        .elem_cnt       = self.cur_table_node_cnt,
-        .root           = self.cur_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        cur_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(cur_bucket_size, branch_num)),
+            .elem_cnt       = self.cur_table_node_cnt,
+            .root           = self.cur_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> nxt_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(nxt_bucket_size, branch_num)),
-        .elem_cnt       = self.nxt_table_node_cnt,
-        .root           = self.nxt_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        nxt_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(nxt_bucket_size, branch_num)),
+            .elem_cnt       = self.nxt_table_node_cnt,
+            .root           = self.nxt_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
     size_t idxes[max_level];
 
@@ -816,30 +841,35 @@ constexpr void generic_hash_table::Cntr<CntrTplArgList>::ExtractAll(
     size_t cur_bucket_size{ self.cur_bucket_size };
     size_t nxt_bucket_size{ self.nxt_bucket_size };
 
-    auto& table_node_alctr{ meta::GetInstRef(self.table_node_alctr_like) };
+    auto& table_node_alctr{ meta::GetInstRefFromLike(
+        self.table_node_alctr_like) };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> cur_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(cur_bucket_size, branch_num)),
-        .elem_cnt       = self.cur_table_node_cnt,
-        .root           = self.cur_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        cur_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(cur_bucket_size, branch_num)),
+            .elem_cnt       = self.cur_table_node_cnt,
+            .root           = self.cur_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> nxt_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(nxt_bucket_size, branch_num)),
-        .elem_cnt       = self.nxt_table_node_cnt,
-        .root           = self.nxt_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        nxt_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(nxt_bucket_size, branch_num)),
+            .elem_cnt       = self.nxt_table_node_cnt,
+            .root           = self.nxt_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
     cur_table.Deconstruct();
 
     if (0 < nxt_bucket_size) { nxt_table.Deconstruct(); }
 
     self.cur_salt = random::GetRandomInt<unsigned long long>(
-        meta::GetInstRef(self.salt_random_engine_like));
+        meta::GetInstRefFromLike(self.salt_random_engine_like));
 
     self.cur_table_root = nullptr;
     self.nxt_table_root = nullptr;
@@ -862,23 +892,28 @@ constexpr bool generic_hash_table::Cntr<CntrTplArgList>::RunPending(
 
     if (nxt_bucket_size == 0) { return false; }
 
-    auto& table_node_alctr{ meta::GetInstRef(self.table_node_alctr_like) };
+    auto& table_node_alctr{ meta::GetInstRefFromLike(
+        self.table_node_alctr_like) };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> cur_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(cur_bucket_size, branch_num)),
-        .elem_cnt       = self.cur_table_node_cnt,
-        .root           = self.cur_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        cur_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(cur_bucket_size, branch_num)),
+            .elem_cnt       = self.cur_table_node_cnt,
+            .root           = self.cur_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> nxt_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(nxt_bucket_size, branch_num)),
-        .elem_cnt       = self.nxt_table_node_cnt,
-        .root           = self.nxt_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        nxt_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(nxt_bucket_size, branch_num)),
+            .elem_cnt       = self.nxt_table_node_cnt,
+            .root           = self.nxt_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
     detail::TryRunPending_(self, cur_table, nxt_table,
                            comparison_utils::BasicMax(4ULL, quota));
@@ -950,23 +985,28 @@ constexpr auto generic_hash_table::Cntr<CntrTplArgList>::GetEffFactor(
     size_t cur_bucket_size{ self.cur_bucket_size };
     size_t nxt_bucket_size{ self.nxt_bucket_size };
 
-    auto& table_node_alctr{ meta::GetInstRef(self.table_node_alctr_like) };
+    auto& table_node_alctr{ meta::GetInstRefFromLike(
+        self.table_node_alctr_like) };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> cur_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(cur_bucket_size, branch_num)),
-        .elem_cnt       = self.cur_table_node_cnt,
-        .root           = self.cur_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        cur_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(cur_bucket_size, branch_num)),
+            .elem_cnt       = self.cur_table_node_cnt,
+            .root           = self.cur_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> nxt_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(nxt_bucket_size, branch_num)),
-        .elem_cnt       = self.nxt_table_node_cnt,
-        .root           = self.nxt_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        nxt_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(nxt_bucket_size, branch_num)),
+            .elem_cnt       = self.nxt_table_node_cnt,
+            .root           = self.nxt_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
     unsigned long long n_cnt{ 0 };
     unsigned long long depth_sum{ 0 };
@@ -1023,7 +1063,8 @@ constexpr SanitizeTreeRet_
     auto* n{ ZETA_Core_MemberToStruct(Node, tn, tn) };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
-        (GetBucketIdx_)(hash::Hash(meta::GetInstRef(self.hasher_like), n, salt),
+        (GetBucketIdx_)(hash::Hash(meta::GetInstRefFromLike(self.hasher_like),
+                                   n, salt),
                         bucket_size) == bucket_idx);
 
     node_recorder.Add(n, sizeof(Node));
@@ -1045,7 +1086,8 @@ constexpr SanitizeTreeRet_
 
     if (tnl != nullptr) {
         ZETA_Core_DebugUtils_Diag_PromiseAssert(comparison::Compare(
-            meta::GetInstRef(self.cmptr_like), comparison::OpTags::LessEqual{},
+            meta::GetInstRefFromLike(self.cmptr_like),
+            comparison::OpTags::LessEqual{},
             ZETA_Core_MemberToStruct(Node, tn, l_ret.most_r_tn), n));
 
         ret.most_l_tn = l_ret.most_l_tn;
@@ -1053,8 +1095,9 @@ constexpr SanitizeTreeRet_
 
     if (tnr != nullptr) {
         ZETA_Core_DebugUtils_Diag_PromiseAssert(comparison::Compare(
-            meta::GetInstRef(self.cmptr_like), comparison::OpTags::LessEqual{},
-            n, ZETA_Core_MemberToStruct(Node, tn, r_ret.most_l_tn)));
+            meta::GetInstRefFromLike(self.cmptr_like),
+            comparison::OpTags::LessEqual{}, n,
+            ZETA_Core_MemberToStruct(Node, tn, r_ret.most_l_tn)));
 
         ret.most_r_tn = r_ret.most_r_tn;
     }
@@ -1074,23 +1117,28 @@ constexpr void generic_hash_table::Cntr<CntrTplArgList>::SanityCheck(
     size_t cur_bucket_size{ self.cur_bucket_size };
     size_t nxt_bucket_size{ self.nxt_bucket_size };
 
-    auto& table_node_alctr{ meta::GetInstRef(self.table_node_alctr_like) };
+    auto& table_node_alctr{ meta::GetInstRefFromLike(
+        self.table_node_alctr_like) };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> cur_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(cur_bucket_size, branch_num)),
-        .elem_cnt       = self.cur_table_node_cnt,
-        .root           = self.cur_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        cur_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(cur_bucket_size, branch_num)),
+            .elem_cnt       = self.cur_table_node_cnt,
+            .root           = self.cur_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
-    detail::MLPTHelper_<meta::RemoveRef<decltype(table_node_alctr)>> nxt_table{
-        .level = static_cast<unsigned>(
-            integral_math::CeilLog(nxt_bucket_size, branch_num)),
-        .elem_cnt       = self.nxt_table_node_cnt,
-        .root           = self.nxt_table_root,
-        .nav_node_alctr = table_node_alctr,
-    };
+    detail::MLPTHelper_<
+        meta::RemoveReferenceFromType<decltype(table_node_alctr)>>
+        nxt_table{
+            .level = static_cast<unsigned>(
+                integral_math::CeilLog(nxt_bucket_size, branch_num)),
+            .elem_cnt       = self.nxt_table_node_cnt,
+            .root           = self.nxt_table_root,
+            .nav_node_alctr = table_node_alctr,
+        };
 
     cur_table->SanityCheck(table_node_recorder);
 

@@ -6,7 +6,7 @@ template <typename Engine>
 struct EngineTraits;  // IWYU pragma: export
 
 template <typename Engine>
-constexpr bool IsConst();
+constexpr bool IsConstType();
 
 template <typename Engine>
 constexpr size_t GetBitCnt();

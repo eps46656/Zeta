@@ -10,7 +10,7 @@ struct FormatConfig {
     struct Newline {
         enum struct Type : unsigned char {
             None = 0,
-            LF = 1,
+            LF   = 1,
             CRLF = 2,
         };
 
@@ -27,9 +27,9 @@ struct FormatConfig {
 
     struct Indent {
         enum struct Type : unsigned char {
-            None = 0,
+            None  = 0,
             Space = 1,
-            Tab = 2,
+            Tab   = 2,
         };
 
         Type type;
@@ -80,12 +80,12 @@ enum struct EncInnerState : unsigned char {
 
     ReceivingStringCharOrFinish = 40,
 
-    ReceivingArrayElemOrFinishLead = 50,
+    ReceivingArrayElemOrFinishLead  = 50,
     ReceivingArrayElemOrFinishTrail = 51,
 
-    ReceivingObjectKeyOrFinishLead = 60,
+    ReceivingObjectKeyOrFinishLead  = 60,
     ReceivingObjectKeyOrFinishTrail = 61,
-    ReceivingObjectValue = 62,
+    ReceivingObjectValue            = 62,
 
     Finished = 127,
 
@@ -130,12 +130,13 @@ enum struct EncState : unsigned char {
 };
 
 enum struct EncReason : unsigned char {
-    UnexpectedChar = 1,
-    DepthOverflow = 4,
+    UnexpectedChar             = 1,
+    DepthOverflow              = 4,
     UnexpectedValueAsObjectKey = 5,
 };
 
-template <typename CodepointAcceptorLike>
+template <seq_endpoint::acceptor::IsAcceptorLike<unicode::unichar_t>
+              CodepointAcceptorLike>
 struct Encoder {
     static constexpr size_t max_depth{ 64 };
 
@@ -255,20 +256,20 @@ enum struct DecInnerState : unsigned char {
 
     SendingNumericFinish = 39,
 
-    SendingStringStart = 40,
-    SendingStringChar = 41,
+    SendingStringStart  = 40,
+    SendingStringChar   = 41,
     SendingStringFinish = 42,
 
-    SendingArrayStart = 50,
-    SendingArrayElemLead = 51,
+    SendingArrayStart     = 50,
+    SendingArrayElemLead  = 51,
     SendingArrayElemTrail = 52,
-    SendingArrayFinish = 53,
+    SendingArrayFinish    = 53,
 
-    SendingObjectStart = 60,
-    SendingObjectKeyLead = 61,
+    SendingObjectStart    = 60,
+    SendingObjectKeyLead  = 61,
     SendingObjectKeyTrail = 62,
-    SendingObjectValue = 63,
-    SendingObjectFinish = 64,
+    SendingObjectValue    = 63,
+    SendingObjectFinish   = 64,
 
     Finished = 127,
 
@@ -330,20 +331,21 @@ enum struct DecState : unsigned char {
 };
 
 enum struct DecReason : unsigned char {
-    UnexpectedEnd = 0,
+    UnexpectedEnd  = 0,
     UnexpectedChar = 1,
-    NoValue = 2,
-    SequenceEnd = 3,
-    DepthOverflow = 4,
+    NoValue        = 2,
+    SequenceEnd    = 3,
+    DepthOverflow  = 4,
 };
 
 enum BufferState : unsigned char {
-    Empty = 0,
-    HasCodepointFetched = 1,
+    Empty                 = 0,
+    HasCodepointFetched   = 1,
     HasCodepointUnfetched = 2,
 };
 
-template <typename CodepointProviderLike>
+template <seq_endpoint::provider::IsProviderLike<unicode::unichar_t>
+              CodepointProviderLike>
 struct Decoder {
     static constexpr size_t max_depth{ 64 };
 

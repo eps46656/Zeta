@@ -17,7 +17,7 @@ constexpr unsigned rbtree::GetColor(Node* n) {
 
 template <rbtree::IsNode Node>
 constexpr void rbtree::SetColor(Node* n, unsigned color) {
-    static_assert(!bin_tree::IsConst<Node>());
+    static_assert(!bin_tree::IsConstType<Node>());
 
     n->SetColor(Tag{}, color);
 }
@@ -209,7 +209,7 @@ namespace rbtree::detail {
         (SetColor)(nsd, black);                                               \
         bin_tree::Rotate##E(ns);                                              \
         nse = ns;                                                             \
-        ns = nsd;                                                             \
+        ns  = nsd;                                                            \
         nsd = (bin_tree::Get##D)(nsd);                                        \
     }                                                                         \
                                                                               \

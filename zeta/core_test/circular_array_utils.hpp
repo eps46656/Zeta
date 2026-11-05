@@ -9,7 +9,7 @@
 
 namespace zeta::core_test::circular_array_utils {
 
-template <core::meta::IsObj Elem>
+template <core::meta::IsObjectType Elem>
 using CircularArray = core::circular_array::Cntr<Elem>;
 
 template <typename Elem>
@@ -19,13 +19,13 @@ constexpr core::poly_seq_cntr::Cntr<Elem> Create(size_t stride,
     ZETA_Core_DebugUtils_Diag_PromiseAssert(stride % alignof(Elem) == 0);
 
     auto* ca{ static_cast<CircularArray<Elem>*>(new CircularArray<Elem>{
-        .data        = static_cast<Elem*>(std::malloc(stride * slot_cnt)),
-        .elem_stride = stride,
-        .elem_cnt    = 0,
-        .slot_cnt    = slot_cnt,
-        .rot         = 0,
+        .data{ static_cast<Elem*>(std::malloc(stride * slot_cnt)) },
+        .elem_stride{ stride },
+        .elem_cnt{ 0 },
+        .slot_cnt{ slot_cnt },
+        .rot{ 0 },
 #if ZETA_Core_DebugEnable
-        .stamp = core::debug_utils::revision::GetStamp(),
+        .stamp{ core::debug_utils::revision::GetStamp() },
 #endif
     }) };
 

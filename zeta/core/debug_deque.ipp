@@ -18,13 +18,13 @@ namespace zeta::core {
 
 namespace debug_deque::detail {
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr void CheckCntr_  // NOLINT(misc-use-internal-linkage)
     (Cntr<Elem> const& self) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(self.deque != nullptr);
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr void CheckCursor_  // NOLINT(misc-use-internal-linkage)
     (Cntr<Elem> const& self, Cursor const* cursor) {
     (CheckCntr_)(self);
@@ -37,7 +37,7 @@ constexpr void CheckCursor_  // NOLINT(misc-use-internal-linkage)
 
 }  // namespace debug_deque::detail
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr debug_deque::Cntr<Elem>::Cntr()
     : deque{ new std::deque<Elem*>{} }
 #if ZETA_Core_DebugEnable
@@ -47,59 +47,59 @@ constexpr debug_deque::Cntr<Elem>::Cntr()
 {
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr debug_deque::Cntr<Elem>::~Cntr() {
     delete this->deque;
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 template <meta::IsAnySame<debug_deque::Cntr<Elem>&, debug_deque::Cntr<Elem>&&>
               TargetCntr>
 constexpr seq_cntr::capability::Flag
 debug_deque::Cntr<Elem>::GetStaticEnabledCapabilityFlag(
     seq_cntr::Tag, meta::TypeWrapper<TargetCntr>) {
     return seq_cntr::capability::FlagBuilder{
-        .GetElemCnt    = true,
-        .GetMaxElemCnt = true,
+        .GetElemCnt{ true },
+        .GetMaxElemCnt{ true },
 
-        .GetLBCursor = true,
-        .GetRBCursor = true,
+        .GetLBCursor{ true },
+        .GetRBCursor{ true },
 
-        .PeekL = true,
-        .PeekR = true,
+        .PeekL{ true },
+        .PeekR{ true },
 
-        .Refer   = true,
-        .Derefer = true,
+        .Refer{ true },
+        .Derefer{ true },
 
-        .Read      = true,
-        .Write     = true,
-        .ReadWrite = true,
+        .Read{ true },
+        .Write{ true },
+        .ReadWrite{ true },
 
-        .PushL  = true,
-        .PushR  = true,
-        .Insert = true,
+        .PushL{ true },
+        .PushR{ true },
+        .Insert{ true },
 
-        .PopL     = true,
-        .PopR     = true,
-        .Erase    = true,
-        .EraseAll = true,
+        .PopL{ true },
+        .PopR{ true },
+        .Erase{ true },
+        .EraseAll{ true },
 
-        .CopyCursor = true,
+        .CopyCursor{ true },
 
-        .AreEqualCursor = true,
-        .CompareCursor  = true,
-        .GetCursorDist  = true,
-        .GetCursorIdx   = true,
+        .AreEqualCursor{ true },
+        .CompareCursor{ true },
+        .GetCursorDist{ true },
+        .GetCursorIdx{ true },
 
-        .CursorStepL = true,
-        .CursorStepR = true,
+        .CursorStepL{ true },
+        .CursorStepR{ true },
 
-        .CursorAdvanceL = true,
-        .CursorAdvanceR = true,
+        .CursorAdvanceL{ true },
+        .CursorAdvanceR{ true },
     }();
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 template <meta::IsAnySame<debug_deque::Cntr<Elem> const&,
                           debug_deque::Cntr<Elem> const&&>
               TargetCntr>
@@ -108,47 +108,41 @@ debug_deque::Cntr<Elem>::GetStaticEnabledCapabilityFlag(
     seq_cntr::Tag, meta::TypeWrapper<TargetCntr>) {
     return (GetStaticEnabledCapabilityFlag)(seq_cntr::Tag{},
                                             meta::TypeWrapper<Cntr&>{}) &
-           seq_cntr::capability::const_capability_flag;
+           seq_cntr::capability::const_cap_flag;
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 template <meta::IsAnySame<debug_deque::Cntr<Elem>&, debug_deque::Cntr<Elem>&&>
               TargetCntr>
 constexpr seq_cntr::capability::Flag
 debug_deque::Cntr<Elem>::GetStaticDisabledCapabilityFlag(
     seq_cntr::Tag, meta::TypeWrapper<TargetCntr>) {
-    return seq_cntr::capability::empty_capability_flag;
+    return seq_cntr::capability::empty_cap_flag;
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 template <meta::IsAnySame<debug_deque::Cntr<Elem> const&,
                           debug_deque::Cntr<Elem> const&&>
               TargetCntr>
 constexpr seq_cntr::capability::Flag
 debug_deque::Cntr<Elem>::GetStaticDisabledCapabilityFlag(
     seq_cntr::Tag, meta::TypeWrapper<TargetCntr>) {
-    return seq_cntr::capability::non_const_capability_flag;
+    return seq_cntr::capability::non_const_cap_flag;
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr seq_cntr::capability::Flag
 debug_deque::Cntr<Elem>::GetDynamicEnabledCapabilityFlag(seq_cntr::Tag) {
-    return seq_cntr::capability::empty_capability_flag;
+    return seq_cntr::capability::empty_cap_flag;
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr seq_cntr::capability::Flag
 debug_deque::Cntr<Elem>::GetDynamicDisabledCapabilityFlag(seq_cntr::Tag) {
-    return seq_cntr::capability::empty_capability_flag;
+    return seq_cntr::capability::empty_cap_flag;
 }
 
-template <meta::IsNonConstObj Elem>
-constexpr void* debug_deque::Cntr<Elem>::GetReferedInstPtr(
-    this Cntr const& self, seq_cntr::Tag) {
-    return const_cast<void*>(static_cast<void const*>(&self));
-}
-
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 template <
     meta::IsAnySame<debug_deque::Cntr<Elem>&, debug_deque::Cntr<Elem> const&,
                     debug_deque::Cntr<Elem>&&, debug_deque::Cntr<Elem> const&&>
@@ -158,7 +152,7 @@ constexpr meta::TypeWrapper<Elem> debug_deque::Cntr<Elem>::GetElemType(
     return {};
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 template <
     meta::IsAnySame<debug_deque::Cntr<Elem>&, debug_deque::Cntr<Elem> const&,
                     debug_deque::Cntr<Elem>&&, debug_deque::Cntr<Elem> const&&>
@@ -169,7 +163,13 @@ debug_deque::Cntr<Elem>::GetCursorType(seq_cntr::Tag,
     return {};
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
+constexpr void* debug_deque::Cntr<Elem>::GetReferedInstPtr(
+    this Cntr const& self, seq_cntr::Tag) {
+    return const_cast<void*>(static_cast<void const*>(&self));
+}
+
+template <meta::IsNonConstObjectType Elem>
 constexpr size_t debug_deque::Cntr<Elem>::GetElemCnt(this Cntr const& self,
                                                      seq_cntr::Tag) {
     detail::CheckCntr_(self);
@@ -177,7 +177,7 @@ constexpr size_t debug_deque::Cntr<Elem>::GetElemCnt(this Cntr const& self,
     return self.deque->size();
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr size_t debug_deque::Cntr<Elem>::GetMaxElemCnt(this Cntr const& self,
                                                         seq_cntr::Tag) {
     detail::CheckCntr_(self);
@@ -185,7 +185,7 @@ constexpr size_t debug_deque::Cntr<Elem>::GetMaxElemCnt(this Cntr const& self,
     return self.deque->max_size();
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr void debug_deque::Cntr<Elem>::GetLBCursor(this Cntr const& self,
                                                     seq_cntr::Tag,
                                                     Cursor* dst_cursor) {
@@ -200,15 +200,15 @@ constexpr void debug_deque::Cntr<Elem>::GetLBCursor(this Cntr const& self,
 #endif
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr void debug_deque::Cntr<Elem>::GetRBCursor(this Cntr const& self,
                                                     seq_cntr::Tag,
                                                     Cursor* dst_cursor) {
     detail::CheckCntr_(self);
 
-    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_cursor != nullptr);
-
     auto* deque{ self.deque };
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_cursor != nullptr);
 
     dst_cursor->idx = deque->size();
 
@@ -217,15 +217,20 @@ constexpr void debug_deque::Cntr<Elem>::GetRBCursor(this Cntr const& self,
 #endif
 }
 
-template <meta::IsNonConstObj Elem>
-template <lifecycle::IsDstStorageView DstStorageView>
+template <meta::IsNonConstObjectType Elem>
 constexpr void debug_deque::Cntr<Elem>::PeekL(
-    this auto&& self, seq_cntr::Tag, bool lazy_copy_elem,
-    lifecycle::DynamicStorageView<Elem>* dst_elem_view, Cursor* dst_cursor,
-    DstStorageView dst_elem) {
+    this auto&& self, seq_cntr::Tag, Cursor* dst_cursor,
+    resolving::Packet<Elem, Elem>* resolving_packet) {
     detail::CheckCntr_(self);
 
     auto* deque{ self.deque };
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_cursor != nullptr ||
+                                            resolving_packet != nullptr);
+
+    if (resolving_packet != nullptr) {
+        resolving_packet->AssertResultIsNotResolved();
+    }
 
     if (dst_cursor != nullptr) {
         dst_cursor->idx = 0;
@@ -235,26 +240,33 @@ constexpr void debug_deque::Cntr<Elem>::PeekL(
 #endif
     }
 
-    Elem* elem{ deque->empty() ? nullptr : deque->back() };
+    if (resolving_packet == nullptr) { return; }
 
-    lifecycle::ForwardStorageView<decltype(self), Elem> elem_view{ elem };
+    Elem* elem{ deque->empty() ? nullptr : deque->front() };
 
-    if (dst_elem_view != nullptr) { *dst_elem_view = elem_view; }
-
-    if (!lazy_copy_elem && dst_elem.ptr != nullptr) {
-        lifecycle::StorageTransfer(dst_elem, elem_view);
+    if (elem == nullptr) {
+        resolving_packet->state.resolved = true;
+    } else {
+        resolving_packet->ResolveFromView(
+            lifecycle::ForwardStorageView<decltype(self), Elem>{ elem },
+            meta::AutoValueWrapper<true>{}, meta::AutoValueWrapper<true>{});
     }
 }
 
-template <meta::IsNonConstObj Elem>
-template <lifecycle::IsDstStorageView DstStorageView>
+template <meta::IsNonConstObjectType Elem>
 constexpr void debug_deque::Cntr<Elem>::PeekR(
-    this auto&& self, seq_cntr::Tag, bool lazy_copy_elem,
-    lifecycle::DynamicStorageView<Elem>* dst_elem_view, Cursor* dst_cursor,
-    DstStorageView dst_elem) {
+    this auto&& self, seq_cntr::Tag, Cursor* dst_cursor,
+    resolving::Packet<Elem, Elem>* resolving_packet) {
     detail::CheckCntr_(self);
 
     auto* deque{ self.deque };
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_cursor != nullptr ||
+                                            resolving_packet != nullptr);
+
+    if (resolving_packet != nullptr) {
+        resolving_packet->AssertResultIsNotResolved();
+    }
 
     if (dst_cursor != nullptr) {
         dst_cursor->idx = deque->size() - 1;
@@ -264,29 +276,36 @@ constexpr void debug_deque::Cntr<Elem>::PeekR(
 #endif
     }
 
+    if (resolving_packet == nullptr) { return; }
+
     Elem* elem{ deque->empty() ? nullptr : deque->back() };
 
-    lifecycle::ForwardStorageView<decltype(self), Elem> elem_view{ elem };
-
-    if (dst_elem_view != nullptr) { *dst_elem_view = elem_view; }
-
-    if (!lazy_copy_elem && dst_elem.ptr != nullptr) {
-        lifecycle::StorageTransfer(dst_elem, elem_view);
+    if (elem == nullptr) {
+        resolving_packet->state.resolved = true;
+    } else {
+        resolving_packet->ResolveFromView(
+            lifecycle::ForwardStorageView<decltype(self), Elem>{ elem },
+            meta::AutoValueWrapper<true>{}, meta::AutoValueWrapper<true>{});
     }
 }
 
-template <meta::IsNonConstObj Elem>
-template <lifecycle::IsDstStorageView DstStorageView>
+template <meta::IsNonConstObjectType Elem>
 constexpr void debug_deque::Cntr<Elem>::Refer(
-    this auto&& self, seq_cntr::Tag, size_t idx, bool lazy_copy_elem,
-    lifecycle::DynamicStorageView<Elem>* dst_elem_view, Cursor* dst_cursor,
-    DstStorageView dst_elem) {
+    this auto&& self, seq_cntr::Tag, size_t idx, Cursor* dst_cursor,
+    resolving::Packet<Elem, Elem>* resolving_packet) {
     detail::CheckCntr_(self);
 
     auto* deque{ self.deque };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
         seq_cntr::op_check::CanRefer(idx, 1, deque->size()));
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_cursor != nullptr ||
+                                            resolving_packet != nullptr);
+
+    if (resolving_packet != nullptr) {
+        resolving_packet->AssertResultIsNotResolved();
+    }
 
     if (dst_cursor != nullptr) {
         dst_cursor->idx = idx;
@@ -296,25 +315,25 @@ constexpr void debug_deque::Cntr<Elem>::Refer(
 #endif
     }
 
+    if (resolving_packet == nullptr) { return; }
+
     Elem* elem{ seq_cntr::op_check::CanDerefer(idx, 1, deque->size())
                     ? (*deque)[idx]
                     : nullptr };
 
-    lifecycle::ForwardStorageView<decltype(self), Elem> elem_view{ elem };
-
-    if (dst_elem_view != nullptr) { *dst_elem_view = elem_view; }
-
-    if (!lazy_copy_elem && dst_elem.ptr != nullptr) {
-        lifecycle::StorageTransfer(dst_elem, elem_view);
+    if (elem == nullptr) {
+        resolving_packet->state.resolved = true;
+    } else {
+        resolving_packet->ResolveFromView(
+            lifecycle::ForwardStorageView<decltype(self), Elem>{ elem },
+            meta::AutoValueWrapper<true>{}, meta::AutoValueWrapper<true>{});
     }
 }
 
-template <meta::IsNonConstObj Elem>
-template <lifecycle::IsDstStorageView DstStorageView>
+template <meta::IsNonConstObjectType Elem>
 constexpr void debug_deque::Cntr<Elem>::Derefer(
     this auto&& self, seq_cntr::Tag, Cursor const* pos_cursor,
-    bool lazy_copy_elem, lifecycle::DynamicStorageView<Elem>* dst_elem_view,
-    DstStorageView dst_elem) {
+    resolving::Packet<Elem, Elem>* resolving_packet) {
     detail::CheckCursor_(self, pos_cursor);
 
     auto* deque{ self.deque };
@@ -324,41 +343,58 @@ constexpr void debug_deque::Cntr<Elem>::Derefer(
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
         seq_cntr::op_check::CanRefer(idx, 1, deque->size()));
 
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(resolving_packet != nullptr);
+
+    resolving_packet->AssertResultIsNotResolved();
+
     Elem* elem{ (*deque)[idx] };
 
-    lifecycle::ForwardStorageView<decltype(self), Elem> elem_view{ elem };
-
-    if (dst_elem_view != nullptr) { *dst_elem_view = elem_view; }
-
-    if (!lazy_copy_elem && dst_elem.ptr != nullptr) {
-        lifecycle::StorageTransfer(dst_elem, elem_view);
+    if (elem == nullptr) {
+        resolving_packet->state.resolved = true;
+    } else {
+        resolving_packet->ResolveFromView(
+            lifecycle::ForwardStorageView<decltype(self), Elem>{ elem },
+            meta::AutoValueWrapper<true>{}, meta::AutoValueWrapper<true>{});
     }
 }
 
 namespace debug_deque::detail {
 
-enum struct ReadWriteOpType_ : unsigned char {
+enum struct ReadWriteOp_ : unsigned char {
     Read,
     Write,
     ReadWrite,
 };
 
-template <lifecycle::StorageSemantics cntr_semantics, meta::IsNonConstObj Elem,
-          ReadWriteOpType_ op_type,
-          seq_endpoint::IsEndpoint<Elem> Endpoint>
-constexpr void ReadWriteOp_  // NOLINT(misc-use-internal-linkage)
+template <lifecycle::StorageSemantics cntr_semantics,
+          meta::IsNonConstObjectType Elem, ReadWriteOp_ op,
+          typename Endpoint>
+constexpr void ReadWrite_  // NOLINT(misc-use-internal-linkage)
     (lifecycle::StorageView<cntr_semantics, Cntr<Elem>> self_view,
-     meta::ValueWrapper<ReadWriteOpType_, op_type>, Cursor const* pos_cursor,
-     size_t cnt, Endpoint&& endpoint, Cursor* dst_cursor) {
-    static_assert(cntr_semantics == lifecycle::StorageSemantics::LeftObj ||
-                  cntr_semantics == lifecycle::StorageSemantics::ConstLeftObj ||
-                  cntr_semantics == lifecycle::StorageSemantics::RightObj ||
-                  cntr_semantics == lifecycle::StorageSemantics::ConstRightObj);
+     meta::ValueWrapper<ReadWriteOp_, op>, Cursor const* pos_cursor, size_t cnt,
+     Endpoint&& endpoint, Cursor* dst_cursor)
+    requires requires {
+        requires(cntr_semantics == lifecycle::StorageSemantics::LeftObj ||
+                 cntr_semantics == lifecycle::StorageSemantics::ConstLeftObj ||
+                 cntr_semantics == lifecycle::StorageSemantics::RightObj ||
+                 cntr_semantics == lifecycle::StorageSemantics::ConstRightObj);
 
-    static_assert(op_type == ReadWriteOpType_::Read ||
-                  op_type == ReadWriteOpType_::Write ||
-                  op_type == ReadWriteOpType_::ReadWrite);
+        requires(op == ReadWriteOp_::Read || op == ReadWriteOp_::Write ||
+                 op == ReadWriteOp_::ReadWrite);
 
+        requires meta::Implies(
+            op == ReadWriteOp_::Read,
+            seq_endpoint::acceptor::IsAcceptorLike<Endpoint, Elem>);
+
+        requires meta::Implies(
+            op == ReadWriteOp_::Write,
+            seq_endpoint::provider::IsProviderLike<Endpoint, Elem>);
+
+        requires meta::Implies(
+            op == ReadWriteOp_::ReadWrite,
+            seq_endpoint::acceptor::IsAcceptorLike<Endpoint, Elem>);
+    }
+{
     ZETA_Core_DebugUtils_Diag_PromiseAssert(self_view.ptr != nullptr);
 
     auto& self{ *self_view.ptr };
@@ -373,24 +409,22 @@ constexpr void ReadWriteOp_  // NOLINT(misc-use-internal-linkage)
         seq_cntr::op_check::CanDerefer(beg, cnt, deque->size()));
 
     for (size_t idx{ beg }, end{ beg + cnt }; idx < end; ++idx) {
-        Elem* elem{ (*deque)[idx] };
+        lifecycle::StorageView<cntr_semantics, Elem> elem_view{ (*deque)[idx] };
 
-        if constexpr (op_type == ReadWriteOpType_::Read ||
-                      op_type == ReadWriteOpType_::ReadWrite) {
-            seq_endpoint::acceptor::Transfer(
-                endpoint, lifecycle::StorageView<cntr_semantics, Elem>{ elem },
-                sizeof(Elem), 1);
-        } else if constexpr (op_type == ReadWriteOpType_::Write) {
-            seq_endpoint::provider::Transfer(
-                endpoint, lifecycle::StorageView<cntr_semantics, Elem>{ elem },
-                sizeof(Elem), 1);
+        if constexpr (op == ReadWriteOp_::Read ||
+                      op == ReadWriteOp_::ReadWrite) {
+            seq_endpoint::acceptor::Transfer(endpoint, elem_view, sizeof(Elem),
+                                             1);
+        } else if constexpr (op == ReadWriteOp_::Write) {
+            seq_endpoint::provider::Transfer(endpoint, elem_view, sizeof(Elem),
+                                             1);
         } else {
             static_assert(false);
         }
     }
 
-    if constexpr ((op_type == ReadWriteOpType_::Write ||
-                   op_type == ReadWriteOpType_::ReadWrite) &&
+    if constexpr ((op == ReadWriteOp_::Write ||
+                   op == ReadWriteOp_::ReadWrite) &&
                   (cntr_semantics == lifecycle::StorageSemantics::LeftObj ||
                    cntr_semantics == lifecycle::StorageSemantics::RightObj)) {
 #if ZETA_Core_DebugEnable
@@ -410,54 +444,55 @@ constexpr void ReadWriteOp_  // NOLINT(misc-use-internal-linkage)
 
 }  // namespace debug_deque::detail
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
 constexpr void debug_deque::Cntr<Elem>::Read(this auto&& self, seq_cntr::Tag,
                                              Cursor const* pos_cursor,
                                              size_t cnt, Acceptor&& acceptor,
                                              Cursor* dst_cursor) {
-    detail::ReadWriteOp_(
+    detail::ReadWrite_(
         lifecycle::MakeStorageView(meta::Forward<decltype(self)>(self)),
-        meta::AutoValueWrapper<detail::ReadWriteOpType_::Read>{}, pos_cursor,
+        meta::AutoValueWrapper<detail::ReadWriteOp_::Read>{}, pos_cursor, cnt,
+        acceptor, dst_cursor);
+}
+
+template <meta::IsNonConstObjectType Elem>
+template <seq_endpoint::provider::IsProvider<Elem> Provider>
+constexpr void debug_deque::Cntr<Elem>::Write(
+    this meta::IsNonConstWithoutReference auto&& self, seq_cntr::Tag,
+    Cursor const* pos_cursor, size_t cnt, Provider&& provider,
+    Cursor* dst_cursor) {
+    detail::ReadWrite_(
+        lifecycle::MakeStorageView(meta::Forward<decltype(self)>(self)),
+        meta::AutoValueWrapper<detail::ReadWriteOp_::Write>{}, pos_cursor, cnt,
+        provider, dst_cursor);
+}
+
+template <meta::IsNonConstObjectType Elem>
+template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
+constexpr void debug_deque::Cntr<Elem>::ReadWrite(
+    this meta::IsNonConstWithoutReference auto&& self, seq_cntr::Tag,
+    Cursor const* pos_cursor, size_t cnt, Acceptor&& acceptor,
+    Cursor* dst_cursor) {
+    detail::ReadWrite_(
+        lifecycle::MakeStorageView(meta::Forward<decltype(self)>(self)),
+        meta::AutoValueWrapper<detail::ReadWriteOp_::ReadWrite>{}, pos_cursor,
         cnt, acceptor, dst_cursor);
 }
 
-template <meta::IsNonConstObj Elem>
-template <seq_endpoint::provider::IsProvider<Elem> Provider>
-constexpr void debug_deque::Cntr<Elem>::Write(
-    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag,
-    Cursor const* pos_cursor, size_t cnt, Provider&& provider,
-    Cursor* dst_cursor) {
-    detail::ReadWriteOp_(
-        lifecycle::MakeStorageView(meta::Forward<decltype(self)>(self)),
-        meta::AutoValueWrapper<detail::ReadWriteOpType_::Write>{}, pos_cursor,
-        cnt, provider, dst_cursor);
-}
-
-template <meta::IsNonConstObj Elem>
-template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
-constexpr void debug_deque::Cntr<Elem>::ReadWrite(
-    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag,
-    Cursor const* pos_cursor, size_t cnt, Acceptor&& acceptor,
-    Cursor* dst_cursor) {
-    detail::ReadWriteOp_(
-        lifecycle::MakeStorageView(meta::Forward<decltype(self)>(self)),
-        meta::AutoValueWrapper<detail::ReadWriteOpType_::ReadWrite>{},
-        pos_cursor, cnt, acceptor, dst_cursor);
-}
-
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 template <seq_endpoint::provider::IsProvider<Elem> Provider>
 constexpr void debug_deque::Cntr<Elem>::PushL(
-    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag, size_t cnt,
-    Provider&& provider, Cursor* dst_beg_cursor, Cursor* dst_end_cursor) {
+    this meta::IsNonConstWithoutReference auto&& self, seq_cntr::Tag,
+    size_t cnt, Provider&& provider, Cursor* dst_beg_cursor,
+    Cursor* dst_end_cursor) {
     detail::CheckCntr_(self);
+
+    auto* deque{ self.deque };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_beg_cursor == nullptr ||
                                             dst_end_cursor == nullptr ||
                                             dst_beg_cursor != dst_end_cursor);
-
-    auto* deque{ self.deque };
 
     deque->insert(deque->begin(), cnt, nullptr);
 
@@ -488,18 +523,19 @@ constexpr void debug_deque::Cntr<Elem>::PushL(
     }
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 template <seq_endpoint::provider::IsProvider<Elem> Provider>
 constexpr void debug_deque::Cntr<Elem>::PushR(
-    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag, size_t cnt,
-    Provider&& provider, Cursor* dst_beg_cursor, Cursor* dst_end_cursor) {
+    this meta::IsNonConstWithoutReference auto&& self, seq_cntr::Tag,
+    size_t cnt, Provider&& provider, Cursor* dst_beg_cursor,
+    Cursor* dst_end_cursor) {
     detail::CheckCntr_(self);
+
+    auto* deque{ self.deque };
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(dst_beg_cursor == nullptr ||
                                             dst_end_cursor == nullptr ||
                                             dst_beg_cursor != dst_end_cursor);
-
-    auto* deque{ self.deque };
 
     size_t old_elem_cnt{ deque->size() };
 
@@ -532,10 +568,10 @@ constexpr void debug_deque::Cntr<Elem>::PushR(
     }
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 template <seq_endpoint::provider::IsProvider<Elem> Provider>
 constexpr void debug_deque::Cntr<Elem>::Insert(
-    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag,
+    this meta::IsNonConstWithoutReference auto&& self, seq_cntr::Tag,
     Cursor* pos_cursor, size_t cnt, Provider&& provider, Cursor* dst_cursor) {
     detail::CheckCursor_(self, pos_cursor);
 
@@ -575,11 +611,11 @@ constexpr void debug_deque::Cntr<Elem>::Insert(
     }
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
 constexpr void debug_deque::Cntr<Elem>::PopL(
-    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag, size_t cnt,
-    Acceptor&& acceptor, Cursor* dst_cursor) {
+    this meta::IsNonConstWithoutReference auto&& self, seq_cntr::Tag,
+    size_t cnt, Acceptor&& acceptor, Cursor* dst_cursor) {
     detail::CheckCntr_(self);
 
     auto* deque{ self.deque };
@@ -612,11 +648,11 @@ constexpr void debug_deque::Cntr<Elem>::PopL(
     }
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
 constexpr void debug_deque::Cntr<Elem>::PopR(
-    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag, size_t cnt,
-    Acceptor&& acceptor, Cursor* dst_cursor) {
+    this meta::IsNonConstWithoutReference auto&& self, seq_cntr::Tag,
+    size_t cnt, Acceptor&& acceptor, Cursor* dst_cursor) {
     detail::CheckCntr_(self);
 
     auto* deque{ self.deque };
@@ -649,10 +685,10 @@ constexpr void debug_deque::Cntr<Elem>::PopR(
     }
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
 constexpr void debug_deque::Cntr<Elem>::Erase(
-    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag,
+    this meta::IsNonConstWithoutReference auto&& self, seq_cntr::Tag,
     Cursor* pos_cursor, size_t cnt, Acceptor&& acceptor) {
     detail::CheckCursor_(self, pos_cursor);
 
@@ -687,10 +723,10 @@ constexpr void debug_deque::Cntr<Elem>::Erase(
 #endif
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
 constexpr void debug_deque::Cntr<Elem>::EraseAll(
-    this meta::IsNonConstWithoutRef auto&& self, seq_cntr::Tag,
+    this meta::IsNonConstWithoutReference auto&& self, seq_cntr::Tag,
     Acceptor&& acceptor) {
     detail::CheckCntr_(self);
 
@@ -711,7 +747,7 @@ constexpr void debug_deque::Cntr<Elem>::EraseAll(
     deque->clear();
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr void debug_deque::Cntr<Elem>::CopyCursor(this Cntr const& self,
                                                    seq_cntr::Tag,
                                                    Cursor const* src_cursor,
@@ -725,7 +761,7 @@ constexpr void debug_deque::Cntr<Elem>::CopyCursor(this Cntr const& self,
 #endif
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr bool debug_deque::Cntr<Elem>::AreEqualCursor(this Cntr const& self,
                                                        seq_cntr::Tag,
                                                        Cursor const* cursor_a,
@@ -734,7 +770,7 @@ constexpr bool debug_deque::Cntr<Elem>::AreEqualCursor(this Cntr const& self,
            self.GetCursorIdx(seq_cntr::Tag{}, cursor_b);
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr comparison::Ordering debug_deque::Cntr<Elem>::CompareCursor(
     this Cntr const& self, seq_cntr::Tag, Cursor const* cursor_a,
     Cursor const* cursor_b) {
@@ -744,7 +780,7 @@ constexpr comparison::Ordering debug_deque::Cntr<Elem>::CompareCursor(
         self.GetCursorIdx(seq_cntr::Tag{}, cursor_b) + 1);
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr size_t debug_deque::Cntr<Elem>::GetCursorDist(
     this Cntr const& self, seq_cntr::Tag, Cursor const* cursor_a,
     Cursor const* cursor_b) {
@@ -752,7 +788,7 @@ constexpr size_t debug_deque::Cntr<Elem>::GetCursorDist(
            self.GetCursorIdx(seq_cntr::Tag{}, cursor_a);
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr size_t debug_deque::Cntr<Elem>::GetCursorIdx(this Cntr const& self,
                                                        seq_cntr::Tag,
                                                        Cursor const* cursor) {
@@ -761,21 +797,21 @@ constexpr size_t debug_deque::Cntr<Elem>::GetCursorIdx(this Cntr const& self,
     return cursor->idx;
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr void debug_deque::Cntr<Elem>::CursorStepL(this Cntr const& self,
                                                     seq_cntr::Tag,
                                                     Cursor* cursor) {
     self.CursorAdvanceL(seq_cntr::Tag{}, cursor, 1);
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr void debug_deque::Cntr<Elem>::CursorStepR(this Cntr const& self,
                                                     seq_cntr::Tag,
                                                     Cursor* cursor) {
     self.CursorAdvanceR(seq_cntr::Tag{}, cursor, 1);
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr void debug_deque::Cntr<Elem>::CursorAdvanceL(this Cntr const& self,
                                                        seq_cntr::Tag,
                                                        Cursor* cursor,
@@ -789,7 +825,7 @@ constexpr void debug_deque::Cntr<Elem>::CursorAdvanceL(this Cntr const& self,
     cursor->idx -= step;
 }
 
-template <meta::IsNonConstObj Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr void debug_deque::Cntr<Elem>::CursorAdvanceR(this Cntr const& self,
                                                        seq_cntr::Tag,
                                                        Cursor* cursor,

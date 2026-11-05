@@ -14,76 +14,86 @@
 
 namespace zeta::core_test::multi_level_circular_array_utils {
 
-using PolySeqCntr = core::poly_seq_cntr::Cntr;
+template <core::meta::IsNonConstObjectType Elem>
+using PolySeqCntr = core::poly_seq_cntr::Cntr<Elem>;
 
-namespace MultiLevelCircularArrayNS = core::multi_level_circular_array;
+constexpr core::multi_level_circular_array::LayoutConfig<
+    unsigned _BitInt(128),  // ActiveMap
+    3,                      // seg_elem_slot_cnt
+    4, 4, 5, 6, 7, 8        // branch_nums
+    >
+    default_layout_config;
 
-using MultiLevelCircularArray = MultiLevelCircularArrayNS::Cntr<
-    core::meta::ValueWrapper<core::multi_level_ptr_table::BranchNum, 4>,
-    core::poly_allocator::Allocator, core::poly_allocator::Allocator>;
+using Config =
+    core::meta::RemoveConstVolatileReference<decltype(default_layout_config)>;
 
+static_assert(core::multi_level_circular_array::detail::IsLayoutConfig_<
+              core::meta::RemoveConstVolatileReference<
+                  decltype(default_layout_config)>>::value);
+
+template <core::meta::IsNonConstObjectType Elem>
+using MultiLevelCircularArray =
+    core::multi_level_circular_array::Cntr<Elem, default_layout_config,
+                                           core::poly_allocator::Allocator,
+                                           core::poly_allocator::Allocator>;
+
+template <core::meta::IsNonConstObjectType Elem>
 struct Pack {
     std_allocator::Allocator node_alctr;
     std_allocator::Allocator seg_alctr;
 
-    MultiLevelCircularArray mlca;
+    MultiLevelCircularArray<Elem> mlca;
 
-    constexpr Pack(size_t elem_size, size_t elem_stride, size_t seg_slot_cnt)
-        : mlca{ elem_size, elem_stride, seg_slot_cnt, this->node_alctr,
-                this->seg_alctr } {}
+    constexpr Pack() : mlca{ this->node_alctr, this->seg_alctr } {}
 };
 
-template <typename Elem>
-PolySeqCntr Create(size_t elem_stride, size_t seg_slot_cnt);
+template <core::meta::IsNonConstObjectType Elem>
+constexpr core::poly_seq_cntr::Cntr<Elem> Create();
 
-void Destroy(void* mlca);
-
-void Sanitize(void const* mlca);
-
-template <typename Elem>
-PolySeqCntr Create(size_t elem_size, size_t elem_stride, size_t seg_slot_cnt) {
-    Pack* pack{ new Pack{ elem_size, elem_stride, seg_slot_cnt } };
-
-    auto* mlca{ &pack->mlca };
-
-    seq_cntr_utils::AddSanitizeFunc(mlca, Sanitize);
-
-    seq_cntr_utils::AddDestroyFunc(mlca, Destroy);
-
-    return *mlca;
-}
-
-inline void Destroy(void* mlca_) {
-    MultiLevelCircularArray* mlca{ static_cast<MultiLevelCircularArray*>(
-        mlca_) };
-
-    if (mlca == nullptr) { return; }
-
-    Pack* pack{ ZETA_Core_MemberToStruct(Pack, mlca, mlca) };
-
-    pack->mlca.Deinit();
-
-    delete pack;
-}
-
-inline void Sanitize(void const* mlca_) {
-    MultiLevelCircularArray const* mlca{
-        static_cast<MultiLevelCircularArray const*>(mlca_)
+template <core::meta::IsNonConstObjectType Elem>
+constexpr void Destroy(void* mlca_) {
+    MultiLevelCircularArray<Elem>* mlca{
+        static_cast<MultiLevelCircularArray<Elem>*>(mlca_)
     };
 
     if (mlca == nullptr) { return; }
 
-    Pack* pack{ ZETA_Core_MemberToStruct(Pack, mlca, mlca) };
+    Pack<Elem>* pack{ ZETA_Core_MemberToStruct(Pack<Elem>, mlca, mlca) };
 
-    core::mem_recorder::MemRecorder node;
-    core::mem_recorder::MemRecorder seg;
+    delete pack;
+}
 
-    mlca->Sanitize(&node, &seg);
+template <core::meta::IsNonConstObjectType Elem>
+constexpr void Sanitize(void const* mlca_) {
+    MultiLevelCircularArray<Elem> const* mlca{
+        static_cast<MultiLevelCircularArray<Elem> const*>(mlca_)
+    };
 
-    core::mem_recorder::MemRecorder::MatchRecords(pack->node_alctr.mem_recorder,
-                                                  node);
-    core::mem_recorder::MemRecorder::MatchRecords(pack->seg_alctr.mem_recorder,
-                                                  seg);
+    if (mlca == nullptr) { return; }
+
+    Pack<Elem>* pack{ ZETA_Core_MemberToStruct(Pack<Elem>, mlca, mlca) };
+
+    core::debug_utils::mem_recording::MemRecorder node_mr;
+    core::debug_utils::mem_recording::MemRecorder data_seg_mr;
+
+    mlca->SanityCheck(node_mr, data_seg_mr);
+
+    node_mr.InChargeOf(pack->node_alctr.mem_recorder);
+
+    data_seg_mr.InChargeOf(pack->seg_alctr.mem_recorder);
+}
+
+template <core::meta::IsNonConstObjectType Elem>
+constexpr core::poly_seq_cntr::Cntr<Elem> Create() {
+    Pack<Elem>* pack{ new Pack<Elem>{} };
+
+    auto* mlca{ &pack->mlca };
+
+    seq_cntr_utils::AddSanitizeFunc(mlca, Sanitize<Elem>);
+
+    seq_cntr_utils::AddDestroyFunc(mlca, Destroy<Elem>);
+
+    return *mlca;
 }
 
 }  // namespace zeta::core_test::multi_level_circular_array_utils

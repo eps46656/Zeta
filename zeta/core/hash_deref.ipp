@@ -38,8 +38,8 @@ hash_deref::Hasher<TargetHasherLike, TargetValue>::Hash(
         return hash::Hash(
             hash_deref.target_hasher,
             *static_cast<TargetValue*>(
-                static_cast<meta::Conditional<meta::IsConst<Value>, void const*,
-                                              void*>>(value)),
+                static_cast<meta::Conditional<meta::IsConstType<Value>,
+                                              void const*, void*>>(value)),
             salt);
     }
 }

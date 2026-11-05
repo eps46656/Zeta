@@ -9,44 +9,57 @@ struct Tag {};
 
 template <typename Node>
 concept IsNode = requires(Node* n, Tag tag, size_t acc_size) {
-    requires meta::IsSame<meta::RemoveCVRef<decltype(n->GetP(tag))>, Node*>;
+    requires meta::IsSame<
+        meta::RemoveConstVolatileReference<decltype(n->GetP(tag))>, Node*>;
 
-    requires meta::IsSame<meta::RemoveCVRef<decltype(n->GetL(tag))>, Node*>;
+    requires meta::IsSame<
+        meta::RemoveConstVolatileReference<decltype(n->GetL(tag))>, Node*>;
 
-    requires meta::IsSame<meta::RemoveCVRef<decltype(n->GetR(tag))>, Node*>;
+    requires meta::IsSame<
+        meta::RemoveConstVolatileReference<decltype(n->GetR(tag))>, Node*>;
 
-    requires meta::IsSame<meta::RemoveCVRef<decltype(Node::IsConst(
-                              tag, meta::TypeWrapper<Node>{}))>,
-                          bool>;
+    requires meta::IsSame<
+        meta::RemoveConstVolatileReference<decltype(Node::IsConstType(
+            tag, meta::TypeWrapper<Node>{}))>,
+        bool>;
 
-    requires meta::IsSame<meta::RemoveCVRef<decltype(Node::HasAccSize(
-                              tag, meta::TypeWrapper<Node>{}))>,
-                          bool>;
+    requires meta::IsSame<
+        meta::RemoveConstVolatileReference<decltype(Node::HasAccSize(
+            tag, meta::TypeWrapper<Node>{}))>,
+        bool>;
 
-    requires Node::IsConst(tag, meta::TypeWrapper<Node>{}) ||
-                 requires { n->SetP(tag, n); };
+    requires meta::Implies(
+        !Node::IsConstType(tag, meta::TypeWrapper<Node>{}),
+        requires { n->SetP(tag, n); });
 
-    requires Node::IsConst(tag, meta::TypeWrapper<Node>{}) ||
-                 requires { n->SetL(tag, n); };
+    requires meta::Implies(
+        !Node::IsConstType(tag, meta::TypeWrapper<Node>{}),
+        requires { n->SetL(tag, n); });
 
-    requires Node::IsConst(tag, meta::TypeWrapper<Node>{}) ||
-                 requires { n->SetR(tag, n); };
+    requires meta::Implies(
+        !Node::IsConstType(tag, meta::TypeWrapper<Node>{}),
+        requires { n->SetR(tag, n); });
 
-    requires !Node::HasAccSize(tag, meta::TypeWrapper<Node>{}) ||
-                 meta::IsSame<meta::RemoveCVRef<decltype(Node::GetNullAccSize(
-                                  tag, meta::TypeWrapper<Node>{}))>,
-                              size_t>;
+    requires meta::Implies(
+        Node::HasAccSize(tag, meta::TypeWrapper<Node>{}),
+        meta::IsSame<
+            meta::RemoveConstVolatileReference<decltype(Node::GetNullAccSize(
+                tag, meta::TypeWrapper<Node>{}))>,
+            size_t>);
 
-    requires !Node::HasAccSize(tag, meta::TypeWrapper<Node>{}) ||
-                 meta::IsSame<meta::RemoveCVRef<decltype(n->GetAccSize(tag))>,
-                              size_t>;
+    requires meta::Implies(
+        Node::HasAccSize(tag, meta::TypeWrapper<Node>{}),
+        meta::IsSame<
+            meta::RemoveConstVolatileReference<decltype(n->GetAccSize(tag))>,
+            size_t>);
 
-    requires !Node::HasAccSize(tag, meta::TypeWrapper<Node>{}) ||
-                 requires { n->SetAccSize(tag, acc_size); };
+    requires meta::Implies(
+        Node::HasAccSize(tag, meta::TypeWrapper<Node>{}),
+        requires { n->SetAccSize(tag, acc_size); });
 };
 
 template <IsNode Node>
-constexpr bool IsConst();
+constexpr bool IsConstType();
 
 template <IsNode Node>
 constexpr bool HasAccSize();

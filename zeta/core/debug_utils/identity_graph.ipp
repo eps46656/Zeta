@@ -25,9 +25,9 @@ constexpr Node_* GenNode_(std::string const& name) {
 
     auto p{ id_to_node_.insert({ nxt_gen_id_,
                                  {
-                                     .id = nxt_gen_id_,
-                                     .name = name,
-                                     .name_to_adj = {},
+                                     .id{ nxt_gen_id_ },
+                                     .name{ name },
+                                     .name_to_adj{},
                                  } }) };
 
     ++nxt_gen_id_;

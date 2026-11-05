@@ -65,7 +65,7 @@ namespace zeta::core {
 
 template <NodeTplParamList()>
 struct llist::NodeTraits<basic_llist_node::Node<NodeTplArgList> const> {
-    static constexpr bool IsConst();
+    static constexpr bool IsConstType();
 
     static basic_llist_node::Node<NodeTplArgList> const* GetL(
         basic_llist_node::Node<NodeTplArgList> const* n);
@@ -78,7 +78,7 @@ template <typename Link, bool l_color_en, bool r_color_en>
 struct llist::NodeTraits<basic_llist_node::Node<Link, l_color_en, r_color_en> >
     : public llist::NodeTraits<
           basic_llist_node::Node<Link, l_color_en, r_color_en> const> {
-    static constexpr bool IsConst();
+    static constexpr bool IsConstType();
 
     static basic_llist_node::Node<NodeTplArgList>* GetL(
         basic_llist_node::Node<NodeTplArgList>* n);

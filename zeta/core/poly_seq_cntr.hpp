@@ -6,7 +6,7 @@
 
 namespace zeta::core::poly_seq_cntr {
 
-template <meta::IsObj Elem>
+template <meta::IsObjectType Elem>
 struct Cntr {
     type_identity::TypeHashCode elem_type_hash_code;
     type_identity::TypeHashCode cursor_type_hash_code;
@@ -28,12 +28,12 @@ struct Cntr {
 
     constexpr Cntr(Cntr&&) = default;
 
-    template <seq_cntr::IsSeqCntrWithRRef TargetCntr>
+    template <seq_cntr::IsSeqCntrWithRightReference TargetCntr>
     constexpr Cntr(TargetCntr&& target_cntr);
 
     constexpr Cntr& operator=(Cntr const&) = default;
 
-    template <seq_cntr::IsSeqCntrWithRRef TargetCntr>
+    template <seq_cntr::IsSeqCntrWithRightReference TargetCntr>
     constexpr void Set(this Cntr& self, TargetCntr&& target_cntr)
         requires meta::IsSame<
             Elem, meta::GetTypeWrapperType<decltype(seq_cntr::GetElemType(
@@ -53,13 +53,7 @@ struct Cntr {
         seq_cntr::Tag, meta::TypeWrapper<TargetCntr>);
 
     constexpr seq_cntr::capability::Flag GetDynamicEnabledCapabilityFlag(
-        this Cntr& self, seq_cntr::Tag);
-
-    constexpr seq_cntr::capability::Flag GetDynamicEnabledCapabilityFlag(
         this Cntr const& self, seq_cntr::Tag);
-
-    constexpr seq_cntr::capability::Flag GetDynamicDisabledCapabilityFlag(
-        this Cntr& self, seq_cntr::Tag);
 
     constexpr seq_cntr::capability::Flag GetDynamicDisabledCapabilityFlag(
         this Cntr const& self, seq_cntr::Tag);
@@ -90,82 +84,75 @@ struct Cntr {
     constexpr void GetRBCursor(this Cntr const& self, seq_cntr::Tag,
                                seq_cntr::CursorLimit* dst_cursor);
 
-    template <lifecycle::IsDstStorageView DstStorageView>
-    constexpr void PeekL(this Cntr const& self, seq_cntr::Tag,
-                         bool lazy_copy_elem,
-                         lifecycle::DynamicStorageView<Elem>* dst_elem_view,
-                         seq_cntr::CursorLimit* dst_cursor,
-                         DstStorageView dst_elem);
+    constexpr void PeekL(
+        this Cntr const& self, seq_cntr::Tag, seq_cntr::CursorLimit* dst_cursor,
+        resolving::Packet<meta::RemoveConst<Elem>, meta::RemoveConst<Elem>>*
+            resolving_packet);
 
-    template <lifecycle::IsDstStorageView DstStorageView>
-    constexpr void PeekR(this Cntr const& self, seq_cntr::Tag,
-                         bool lazy_copy_elem,
-                         lifecycle::DynamicStorageView<Elem>* dst_elem_view,
-                         seq_cntr::CursorLimit* dst_cursor,
-                         DstStorageView dst_elem);
+    constexpr void PeekR(
+        this Cntr const& self, seq_cntr::Tag, seq_cntr::CursorLimit* dst_cursor,
+        resolving::Packet<meta::RemoveConst<Elem>, meta::RemoveConst<Elem>>*
+            resolving_packet);
 
-    template <lifecycle::IsDstStorageView DstStorageView>
-    constexpr void Refer(this Cntr const& self, seq_cntr::Tag, size_t idx,
-                         bool lazy_copy_elem,
-                         lifecycle::DynamicStorageView<Elem>* dst_elem_view,
-                         seq_cntr::CursorLimit* dst_cursor,
-                         DstStorageView dst_elem);
+    constexpr void Refer(
+        this Cntr const& self, seq_cntr::Tag, size_t idx,
+        seq_cntr::CursorLimit* dst_cursor,
+        resolving::Packet<meta::RemoveConst<Elem>, meta::RemoveConst<Elem>>*
+            resolving_packet);
 
-    template <lifecycle::IsDstStorageView DstStorageView>
-    constexpr void Derefer(this Cntr const& self, seq_cntr::Tag,
-                           seq_cntr::CursorLimit* pos_cursor,
-                           bool lazy_copy_elem,
-                           lifecycle::DynamicStorageView<Elem>* dst_elem_view,
-                           DstStorageView dst_elem);
+    constexpr void Derefer(
+        this Cntr const& self, seq_cntr::Tag, seq_cntr::CursorLimit* pos_cursor,
+        resolving::Packet<meta::RemoveConst<Elem>, meta::RemoveConst<Elem>>*
+            resolving_packet);
 
-    template <typename Acceptor>
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
     constexpr void Read(this Cntr const& self, seq_cntr::Tag,
                         seq_cntr::CursorLimit* pos_cursor, size_t cnt,
                         Acceptor&& acceptor, seq_cntr::CursorLimit* dst_cursor);
 
-    template <typename Provider>
-    constexpr void Write(this Cntr& self, seq_cntr::Tag,
+    template <seq_endpoint::provider::IsProvider<Elem> Provider>
+    constexpr void Write(this Cntr const& self, seq_cntr::Tag,
                          seq_cntr::CursorLimit* pos_cursor, size_t cnt,
                          Provider&& writer, seq_cntr::CursorLimit* dst_cursor);
 
-    template <typename Acceptor>
-    constexpr void ReadWrite(this Cntr& self, seq_cntr::Tag,
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
+    constexpr void ReadWrite(this Cntr const& self, seq_cntr::Tag,
                              seq_cntr::CursorLimit* pos_cursor, size_t cnt,
                              Acceptor&& acceptor,
                              seq_cntr::CursorLimit* dst_cursor);
 
-    template <typename Provider>
-    constexpr void PushL(this Cntr& self, seq_cntr::Tag, size_t cnt,
+    template <seq_endpoint::provider::IsProvider<Elem> Provider>
+    constexpr void PushL(this Cntr const& self, seq_cntr::Tag, size_t cnt,
                          Provider&& writer,
                          seq_cntr::CursorLimit* dst_beg_cursor,
                          seq_cntr::CursorLimit* dst_end_cursor);
 
-    template <typename Provider>
-    constexpr void PushR(this Cntr& self, seq_cntr::Tag, size_t cnt,
+    template <seq_endpoint::provider::IsProvider<Elem> Provider>
+    constexpr void PushR(this Cntr const& self, seq_cntr::Tag, size_t cnt,
                          Provider&& writer,
                          seq_cntr::CursorLimit* dst_beg_cursor,
                          seq_cntr::CursorLimit* dst_end_cursor);
 
-    template <typename Provider>
-    constexpr void Insert(this Cntr& self, seq_cntr::Tag,
+    template <seq_endpoint::provider::IsProvider<Elem> Provider>
+    constexpr void Insert(this Cntr const& self, seq_cntr::Tag,
                           seq_cntr::CursorLimit* pos_cursor, size_t cnt,
                           Provider&& writer, seq_cntr::CursorLimit* dst_cursor);
 
-    template <typename Acceptor>
-    constexpr void PopL(this Cntr& self, seq_cntr::Tag, size_t cnt,
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
+    constexpr void PopL(this Cntr const& self, seq_cntr::Tag, size_t cnt,
                         Acceptor&& acceptor, seq_cntr::CursorLimit* dst_cursor);
 
-    template <typename Acceptor>
-    constexpr void PopR(this Cntr& self, seq_cntr::Tag, size_t cnt,
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
+    constexpr void PopR(this Cntr const& self, seq_cntr::Tag, size_t cnt,
                         Acceptor&& acceptor, seq_cntr::CursorLimit* dst_cursor);
 
-    template <typename Acceptor>
-    constexpr void Erase(this Cntr& self, seq_cntr::Tag,
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
+    constexpr void Erase(this Cntr const& self, seq_cntr::Tag,
                          seq_cntr::CursorLimit* pos_cursor, size_t cnt,
                          Acceptor&& acceptor);
 
-    template <typename Acceptor>
-    constexpr void EraseAll(this Cntr& self, seq_cntr::Tag,
+    template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
+    constexpr void EraseAll(this Cntr const& self, seq_cntr::Tag,
                             Acceptor&& acceptor);
 
     constexpr void CopyCursor(this Cntr const& self, seq_cntr::Tag,

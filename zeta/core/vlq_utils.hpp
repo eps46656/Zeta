@@ -7,43 +7,42 @@
 
 namespace zeta::core::vlq_utils {
 
-template <integral::IsIntegral Integral, size_t UnitWidth>
+template <integral::IsIntegralType Integral, size_t UnitWidth>
     requires requires { requires 2 <= UnitWidth; }
 constexpr size_t EstimateEncodedUnitCnt(
     Integral value, meta::ValueWrapper<size_t, UnitWidth> unit_width);
 
-template <seq_endpoint::acceptor::IsAcceptor Acceptor,
-          integral_endec::IsEndiannessLike EndiannessLike,
-          integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
-          integral::IsIntegral SrcIntegral>
+template <integral_endec::IsEndiannessLike EndiannessLike,
+          integral::IsUnsignedIntegralType UnitIntegral, size_t UnitWidth,
+          integral::IsIntegralType SrcIntegral,
+          seq_endpoint::acceptor::IsAcceptor<UnitIntegral> Acceptor>
     requires requires {
         requires 2 <= UnitWidth;
         requires UnitWidth <= integral::WidthOf<UnitIntegral>;
     }
-constexpr void Encode(Acceptor&& acceptor, EndiannessLike endianness,
+constexpr void Encode(EndiannessLike endianness,
                       meta::TypeWrapper<UnitIntegral> unit_integral,
                       meta::ValueWrapper<size_t, UnitWidth> unit_width,
-                      SrcIntegral src_value);
+                      SrcIntegral src_value, Acceptor&& acceptor);
 
-template <integral::IsIntegral Integra>
+template <integral::IsIntegralType Integra>
 struct DecodeResult {
     bool digit_out_of_range : 1;
     bool value_out_of_range : 1;
     Integra value;
 };
 
-template <seq_endpoint::provider::IsProvider Provider,
-          integral_endec::IsEndiannessLike EndiannessLike,
-          integral::IsUnsignedIntegral UnitIntegral, size_t UnitWidth,
-          integral::IsIntegral DstIntegral>
+template <integral_endec::IsEndiannessLike EndiannessLike,
+          integral::IsUnsignedIntegralType UnitIntegral, size_t UnitWidth,
+          integral::IsIntegralType DstIntegral,
+          seq_endpoint::provider::IsProvider<UnitIntegral> Provider>
     requires requires {
         requires 2 <= UnitWidth;
         requires UnitWidth <= integral::WidthOf<UnitIntegral>;
     }
 constexpr DecodeResult<DstIntegral> Decode(
-    Provider&& provider, EndiannessLike endianness,
-    meta::TypeWrapper<UnitIntegral> unit_integral,
+    EndiannessLike endianness, meta::TypeWrapper<UnitIntegral> unit_integral,
     meta::ValueWrapper<size_t, UnitWidth> unit_width,
-    meta::TypeWrapper<DstIntegral> dst_integral);
+    meta::TypeWrapper<DstIntegral> dst_integral, Provider&& provider);
 
 }  // namespace zeta::core::vlq_utils

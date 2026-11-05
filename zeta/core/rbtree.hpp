@@ -18,10 +18,12 @@ template <typename Node>
 concept IsNode = requires(Node* n, Tag tag, unsigned color) {
     requires bin_tree::IsNode<Node>;
 
-    requires meta::IsSame<meta::RemoveCVRef<decltype(n->GetColor(tag))>,
-                          unsigned>;
+    requires meta::IsSame<
+        meta::RemoveConstVolatileReference<decltype(n->GetColor(tag))>,
+        unsigned>;
 
-    requires bin_tree::IsConst<Node>() || requires { n->SetColor(tag, color); };
+    requires meta::Implies(
+        !bin_tree::IsConstType<Node>(), requires { n->SetColor(tag, color); });
 };
 
 template <IsNode Node>

@@ -112,7 +112,7 @@ struct integral_bit::IntegralTraits<signed _BitInt(N)> {
 
 template <typename Integral>
 constexpr unsigned long long integral_bit::BasicPopCount(Integral num) {
-    static_assert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegralType<Integral>);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= num);
 
@@ -127,7 +127,7 @@ constexpr unsigned long long integral_bit::PopCount(Integral num) {
 
 template <typename Integral>
 constexpr unsigned long long integral_bit::BasicCLZ(Integral num) {
-    static_assert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegralType<Integral>);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < num);
 
@@ -142,7 +142,7 @@ constexpr unsigned long long integral_bit::CLZ(Integral num) {
 
 template <typename Integral>
 constexpr unsigned long long integral_bit::BasicCTZ(Integral num) {
-    static_assert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegralType<Integral>);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < num);
 
@@ -158,7 +158,7 @@ constexpr unsigned long long integral_bit::CTZ(Integral num) {
 template <typename Integral>
 constexpr unsigned long long integral_bit::FindPrevBit(Integral num_,
                                                        unsigned long long pos) {
-    static_assert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegralType<Integral>);
 
     constexpr unsigned long long w{ integral::WidthOf<Integral> };
 
@@ -181,7 +181,7 @@ constexpr unsigned long long integral_bit::FindPrevBit(Integral num_,
 template <typename Integral>
 constexpr unsigned long long integral_bit::FindNextBit(Integral num_,
                                                        unsigned long long pos) {
-    static_assert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegralType<Integral>);
 
     constexpr unsigned long long w{ integral::WidthOf<Integral> };
 

@@ -27,8 +27,7 @@
         zeta::core::debug_utils::diag::diag_logger.Push({                      \
             .time_pos_log{ ZETA_Core_DebugUtils_Logging_MakeCurTimePosLog() }, \
             .log_contents{                                                     \
-                ZETA_Core_DebugUtils_Logging_MakeMsgLog(var, __VA_ARGS__),     \
-            },                                                                 \
+                ZETA_Core_DebugUtils_Logging_MakeMsgLog(var, __VA_ARGS__) },   \
         });                                                                    \
     }                                                                          \
     static_assert(true)
@@ -46,8 +45,7 @@
         zeta::core::debug_utils::diag::diag_logger.Push({                      \
             .time_pos_log{ ZETA_Core_DebugUtils_Logging_MakeCurTimePosLog() }, \
             .log_contents{                                                     \
-                ZETA_Core_DebugUtils_Logging_MakeVarLog(var, __VA_ARGS__),     \
-            },                                                                 \
+                ZETA_Core_DebugUtils_Logging_MakeVarLog(var, __VA_ARGS__) },   \
         });                                                                    \
     }                                                                          \
     static_assert(true)

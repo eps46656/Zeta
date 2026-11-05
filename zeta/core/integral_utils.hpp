@@ -44,9 +44,9 @@ auto SelectIntegralCands_(auto... cands) {
 
             if (cur_is_void < best_is_void ||
                 (cur_is_void == best_is_void && cur_width < best_width)) {
-                best_i = i;
+                best_i       = i;
                 best_is_void = cur_is_void;
-                best_width = cur_width;
+                best_width   = cur_width;
             }
         }
 
@@ -232,22 +232,23 @@ template <size_t N>
 using SignedFastIntegral =
     meta::GetTypeWrapperType<decltype(detail::SignedFastIntegral_<N>())>;
 
-template <integral::IsIntegral DstIntegral, integral::IsIntegral SrcIntegral>
+template <integral::IsIntegralType DstIntegral,
+          integral::IsIntegralType SrcIntegral>
 constexpr DstIntegral LossyDetectingCast(SrcIntegral const& a, bool& no_lossy);
 
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr Integral LossyDetectingAdd(Integral const& a, Integral const& b,
                                      bool& no_lossy);
 
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr Integral LossyDetectingSub(Integral const& a, Integral const& b,
                                      bool& no_lossy);
 
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr Integral LossyDetectingMul(Integral const& a, Integral const& b,
                                      bool& no_lossy);
 
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 struct LossyDetectingIntegral {
     Integral value;
     bool no_lossy;
@@ -258,35 +259,35 @@ struct LossyDetectingIntegral {
 
     constexpr LossyDetectingIntegral(Integral const& value, bool no_lossy);
 
-    template <integral::IsIntegral OtherIntegral>
+    template <integral::IsIntegralType OtherIntegral>
     constexpr LossyDetectingIntegral(
         LossyDetectingIntegral<OtherIntegral> const& other);
 };
 
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr LossyDetectingIntegral<Integral> operator+(
     LossyDetectingIntegral<Integral> const& a);
 
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr LossyDetectingIntegral<Integral> operator-(
     LossyDetectingIntegral<Integral> const& a);
 
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr LossyDetectingIntegral<Integral> operator+(
     LossyDetectingIntegral<Integral> const& a,
     LossyDetectingIntegral<Integral> const& b);
 
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr LossyDetectingIntegral<Integral> operator-(
     LossyDetectingIntegral<Integral> const& a,
     LossyDetectingIntegral<Integral> const& b);
 
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr LossyDetectingIntegral<Integral> operator*(
     LossyDetectingIntegral<Integral> const& a,
     LossyDetectingIntegral<Integral> const& b);
 
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr LossyDetectingIntegral<Integral> operator/(
     LossyDetectingIntegral<Integral> const& a,
     LossyDetectingIntegral<Integral> const& b);

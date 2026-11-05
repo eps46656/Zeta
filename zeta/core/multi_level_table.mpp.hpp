@@ -70,7 +70,7 @@ using BranchNum = unsigned short;
 constexpr BranchNum branch_num_min{ 2 };
 constexpr BranchNum branch_num_max{ integral::RangeMaxOf<BranchNum> / 2 };
 
-template <integral::IsUnsignedIntegral ActiveMap_>
+template <integral::IsUnsignedIntegralType ActiveMap_>
 struct NavNode {
     using ActiveMap = ActiveMap_;
 
@@ -88,12 +88,12 @@ struct NavNode {
 
 #if DataNodeEn
 
-template <integral::IsUnsignedIntegral ActiveMap_, meta::IsObj Data_>
+template <integral::IsUnsignedIntegralType ActiveMap_, meta::IsObjectType Data_>
 struct DataNode {
     using ActiveMap = ActiveMap_;
     using Data      = Data_;
 
-    static_assert(integral::IsUnsignedIntegral<ActiveMap>);
+    static_assert(integral::IsUnsignedIntegralType<ActiveMap>);
 
     ZETA_Core_DebugStructPadding;
 
@@ -109,9 +109,9 @@ struct DataNode {
 
 #endif
 
-template <integral::IsUnsignedIntegral ActiveMap_,
+template <integral::IsUnsignedIntegralType ActiveMap_,
 #if DataNodeEn
-          meta::IsObj Data_,
+          meta::IsObjectType Data_,
 #endif
           allocator::IsAllocatorLike NavNodeAllocatorLike_
 #if DataNodeEn
@@ -181,63 +181,98 @@ struct Cntr {
 
     constexpr ~Cntr();
 
-    constexpr void Destruct(this Cntr& self);
+    constexpr void Disown(this meta::IsNonConstWithoutReference auto&& self);
 
-    constexpr void Disown(this Cntr& self);
+    constexpr size_t GetElemCnt(this Cntr const& self);
 
-    constexpr size_t GetElemCnt(this Cntr& self);
-
-    constexpr size_t GetMaxElemCnt(this Cntr& self);
+    constexpr size_t GetMaxElemCnt(this Cntr const& self);
 
     template <
         seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvier>
-    constexpr auto Access(this auto& self,
+    constexpr auto Access(this auto&& self,
                           SrcBranchIdxesProvier&& src_branch_idxes_provider)
-        -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>*;
+        -> meta::ConditionalAddConst<
+            meta::IsConstTypeWithoutReference<decltype(self)>, void>*;
 
     template <
         seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
-    constexpr auto FindFirst(this auto& self,
+    constexpr auto FindFirst(this auto&& self,
                              DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>*;
+        -> meta::ConditionalAddConst<
+            meta::IsConstTypeWithoutReference<decltype(self)>, void>*;
 
     template <
         seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
-    constexpr auto FindLast(this auto& self,
+    constexpr auto FindLast(this auto&& self,
                             DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>*;
+        -> meta::ConditionalAddConst<
+            meta::IsConstTypeWithoutReference<decltype(self)>,
+#if DataNodeEn
+            Elem
+#else
+            void
+#endif
+            >*;
 
     template <
         seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider,
         seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
     constexpr auto FindPrevIncl(
-        this auto& self, SrcBranchIdxesProvider&& src_branch_idxes_provider,
+        this auto&& self, SrcBranchIdxesProvider&& src_branch_idxes_provider,
         DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>*;
+        -> meta::ConditionalAddConst<
+            meta::IsConstTypeWithoutReference<decltype(self)>,
+#if DataNodeEn
+            Elem
+#else
+            void
+#endif
+            >*;
 
     template <
         seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider,
         seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
     constexpr auto FindPrevExcl(
-        this auto& self, SrcBranchIdxesProvider&& src_branch_idxes_provider,
+        this auto&& self, SrcBranchIdxesProvider&& src_branch_idxes_provider,
         DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>*;
+        -> meta::ConditionalAddConst<
+            meta::IsConstTypeWithoutReference<decltype(self)>,
+#if DataNodeEn
+            Elem
+#else
+            void
+#endif
+            >*;
 
     template <
         seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider,
         seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
     constexpr auto FindNextIncl(
-        this auto& self, SrcBranchIdxesProvider&& src_branch_idxes_provider,
+        this auto&& self, SrcBranchIdxesProvider&& src_branch_idxes_provider,
         DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>*;
+        -> meta::ConditionalAddConst<
+            meta::IsConstTypeWithoutReference<decltype(self)>,
+#if DataNodeEn
+            Elem
+#else
+            void
+#endif
+            >*;
 
     template <
         seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider,
         seq_endpoint::acceptor::IsAcceptor<BranchNum> DstBranchIdxesAcceptor>
     constexpr auto FindNextExcl(
-        this auto& self, SrcBranchIdxesProvider&& src_branch_idxes_provider,
+        this auto&& self, SrcBranchIdxesProvider&& src_branch_idxes_provider,
         DstBranchIdxesAcceptor&& dst_branch_idxes_acceptor)
-        -> meta::MakeConstIf<void, meta::IsConst<decltype(self)>>*;
+        -> meta::ConditionalAddConst<
+            meta::IsConstTypeWithoutReference<decltype(self)>,
+#if DataNodeEn
+            Elem
+#else
+            void
+#endif
+            >*;
 
     template <
         seq_endpoint::provider::IsProvider<BranchNum> SrcBranchIdxesProvider
@@ -247,7 +282,8 @@ struct Cntr {
 #endif
         >
     constexpr pair::Pair<void*, bool> Insert(
-        this Cntr& self, SrcBranchIdxesProvider&& src_branch_idxes_provider
+        this meta::IsNonConstWithoutReference auto&& self,
+        SrcBranchIdxesProvider&& src_branch_idxes_provider
 #if DataNodeEn
         ,
         DataProvider&& data_provider
@@ -261,7 +297,7 @@ struct Cntr {
         seq_endpoint::acceptor::IsAcceptor<Data> DataAcceptor
 #endif
         >
-    constexpr bool Erase(this Cntr& self,
+    constexpr bool Erase(this meta::IsNonConstWithoutReference auto&& self,
                          SrcBranchIdxesProvider&& src_branch_idxes_provider
 #if DataNodeEn
                          ,
@@ -272,7 +308,7 @@ struct Cntr {
 #if DataNodeEn
     template <seq_endpoint::acceptor::IsAcceptor<BranchNum> DataAcceptor>
 #endif
-    constexpr void EraseAll(this Cntr& self
+    constexpr void EraseAll(this meta::IsNonConstWithoutReference auto&& self
 #if DataNodeEn
                             ,
                             DataAcceptor&& data_acceptor
@@ -281,7 +317,7 @@ struct Cntr {
 
 #if ZETA_Core_DebugEnable
     constexpr void SanityCheck(
-        this Cntr& self,
+        this Cntr const& self,
         debug_utils::mem_recording::MemRecorder& nav_node_recorder
 #if DataNodeEn
         ,

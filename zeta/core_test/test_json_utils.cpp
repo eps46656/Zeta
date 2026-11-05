@@ -74,12 +74,12 @@ constexpr bool operator!=(NumericInfo const& lhs, NumericInfo const& rhs) {
 
 struct JsonNode {
     enum struct TypeEnum : unsigned char {
-        Null = 0,
+        Null    = 0,
         Boolean = 1,
         Numeric = 2,
-        String = 3,
-        Array = 4,
-        Object = 5,
+        String  = 3,
+        Array   = 4,
+        Object  = 5,
     };
 
     TypeEnum type;
@@ -113,6 +113,8 @@ struct JsonNode {
         case TypeEnum::Object:
             new (&this->object_value) decltype(this->object_value);
             break;
+
+        default: ZETA_Core_DebugUtils_Diag_Unreachable(); break;
         }
     }
 
@@ -149,6 +151,8 @@ struct JsonNode {
 
             break;
         }
+
+        default: ZETA_Core_DebugUtils_Diag_Unreachable(); break;
         }
     }
 };
@@ -247,6 +251,8 @@ constexpr bool operator==(JsonNode const& lhs, JsonNode const& rhs) {
 
         return true;
     }
+
+    default: ZETA_Core_DebugUtils_Diag_Unreachable(); break;
     }
 }
 
@@ -255,18 +261,19 @@ constexpr bool operator!=(JsonNode const& lhs, JsonNode const& rhs) {
 }
 
 constexpr std::string GenRanomDigits(bool allow_leading_zero) {
-    size_t len{ zeta::core_test::GenUniformRandomInt<size_t, size_t>(1, 48) };
+    size_t len{ zeta::core_test::random::GenUniformRandomInt<size_t, size_t>(
+        1, 48) };
 
     std::string ret;
     ret.resize(len);
 
-    ret[0] =
-        static_cast<char>('0' + zeta::core_test::GenUniformRandomInt<int, int>(
-                                    allow_leading_zero ? 0 : 1, 9));
+    ret[0] = static_cast<char>(
+        '0' + zeta::core_test::random::GenUniformRandomInt<int, int>(
+                  allow_leading_zero ? 0 : 1, 9));
 
     for (size_t i{ 1 }; i < len; ++i) {
         ret[i] = static_cast<char>(
-            '0' + zeta::core_test::GenUniformRandomInt<int, int>(0, 9));
+            '0' + zeta::core_test::random::GenUniformRandomInt<int, int>(0, 9));
     }
 
     return ret;
@@ -278,10 +285,10 @@ constexpr NumericInfo GenRandomNumericInfo() {
     numeric_info.is_ok = true;
 
     numeric_info.sign =
-        zeta::core_test::GenUniformRandomInt<int, int>(0, 1) == 1;
+        zeta::core_test::random::GenUniformRandomInt<int, int>(0, 1) == 1;
 
     numeric_info.has_frac =
-        zeta::core_test::GenUniformRandomInt<int, int>(0, 1) == 1;
+        zeta::core_test::random::GenUniformRandomInt<int, int>(0, 1) == 1;
 
     numeric_info.int_part_digits = GenRanomDigits(false);
 
@@ -289,16 +296,17 @@ constexpr NumericInfo GenRandomNumericInfo() {
         numeric_info.frac_part_digits = GenRanomDigits(true);
     }
 
-    switch (zeta::core_test::GenUniformRandomInt<int, int>(0, 2)) {
+    switch (zeta::core_test::random::GenUniformRandomInt<int, int>(0, 2)) {
     case 0: numeric_info.e = zeta::core::unicode::null_codepoint; break;
     case 1: numeric_info.e = zeta::core::ascii::CharCodeTable::e; break;
     case 2: numeric_info.e = zeta::core::ascii::CharCodeTable::E; break;
+    default: ZETA_Core_DebugUtils_Diag_Unreachable(); break;
     }
 
     if (numeric_info.e == zeta::core::unicode::null_codepoint) {
         numeric_info.exp_part_sign = zeta::core::unicode::null_codepoint;
     } else {
-        switch (zeta::core_test::GenUniformRandomInt<int, int>(0, 2)) {
+        switch (zeta::core_test::random::GenUniformRandomInt<int, int>(0, 2)) {
         case 0:
             numeric_info.exp_part_sign = zeta::core::unicode::null_codepoint;
             break;
@@ -309,6 +317,7 @@ constexpr NumericInfo GenRandomNumericInfo() {
             numeric_info.exp_part_sign =
                 zeta::core::ascii::CharCodeTable::minus;
             break;
+        default: ZETA_Core_DebugUtils_Diag_Unreachable(); break;
         }
 
         numeric_info.exp_part_digits = GenRanomDigits(true);
@@ -339,7 +348,7 @@ constexpr JsonNode* GenRandomBooleanJsonNode() {
     JsonNode* json_node{ new JsonNode{ JsonNode::TypeEnum::Boolean } };
 
     json_node->boolean_value =
-        zeta::core_test::GenUniformRandomInt<int, int>(0, 1) == 1;
+        zeta::core_test::random::GenUniformRandomInt<int, int>(0, 1) == 1;
 
     return json_node;
 }
@@ -358,12 +367,15 @@ constexpr JsonNode* GenRandomNumericJsonNode() {
 
 constexpr zeta::core::unicode::unichar_t GenRandomUnicodeChar() {
     while (true) {
-        int level{ zeta::core_test::GenUniformRandomInt<int, int>(1, 4) };
+        int level{ zeta::core_test::random::GenUniformRandomInt<int, int>(1,
+                                                                          4) };
 
-        zeta::core::unicode::unichar_t cp{ zeta::core_test::GenUniformRandomInt<
-            zeta::core::unicode::unichar_t, zeta::core::unicode::unichar_t>(
-            zeta::core::utf8::range_mins[level],
-            zeta::core::utf8::range_maxs[level]) };
+        zeta::core::unicode::unichar_t cp{
+            zeta::core_test::random::GenUniformRandomInt<
+                zeta::core::unicode::unichar_t, zeta::core::unicode::unichar_t>(
+                zeta::core::utf8::range_mins[level],
+                zeta::core::utf8::range_maxs[level])
+        };
 
         if (cp < zeta::core::unicode::surrogate_range_min ||
             zeta::core::unicode::surrogate_range_max < cp) {
@@ -375,7 +387,8 @@ constexpr zeta::core::unicode::unichar_t GenRandomUnicodeChar() {
 constexpr JsonNode* GenRandomStringJsonNode() {
     JsonNode* json_node{ new JsonNode{ JsonNode::TypeEnum::String } };
 
-    size_t len{ zeta::core_test::GenUniformRandomInt<size_t, size_t>(1, 32) };
+    size_t len{ zeta::core_test::random::GenUniformRandomInt<size_t, size_t>(
+        1, 32) };
 
     json_node->string_value.resize(len);
 
@@ -391,11 +404,11 @@ constexpr JsonNode* GenRandomArrayJsonNode(size_t energy) {
 
     JsonNode* json_node{ new JsonNode{ JsonNode::TypeEnum::Array } };
 
-    size_t len{ zeta::core_test::GenUniformRandomInt<size_t, size_t>(
+    size_t len{ zeta::core_test::random::GenUniformRandomInt<size_t, size_t>(
         1, std::min<size_t>(8, energy)) };
 
-    std::deque<size_t> partition{ zeta::core_test::GenRandomPartition(energy,
-                                                                      len) };
+    std::vector<size_t> partition{ zeta::core_test::random::GenRandomPartition(
+        energy, len) };
 
     json_node->array_value.resize(len);
 
@@ -411,16 +424,16 @@ constexpr JsonNode* GenRandomObjectJsonNode(size_t energy) {
 
     JsonNode* json_node{ new JsonNode{ JsonNode::TypeEnum::Object } };
 
-    size_t len{ zeta::core_test::GenUniformRandomInt<size_t, size_t>(
+    size_t len{ zeta::core_test::random::GenUniformRandomInt<size_t, size_t>(
         1, std::min<size_t>(8, energy)) };
 
-    std::deque<size_t> partition{ zeta::core_test::GenRandomPartition(energy,
-                                                                      len) };
+    std::vector<size_t> partition{ zeta::core_test::random::GenRandomPartition(
+        energy, len) };
 
     json_node->object_value.resize(len);
 
     for (size_t i{ 0 }; i < len; ++i) {
-        json_node->object_value[i].first = (GenRandomStringJsonNode)();
+        json_node->object_value[i].first  = (GenRandomStringJsonNode)();
         json_node->object_value[i].second = (GenRandomJsonNode)(partition[i]);
     }
 
@@ -430,8 +443,8 @@ constexpr JsonNode* GenRandomObjectJsonNode(size_t energy) {
 constexpr JsonNode* GenRandomJsonNode(size_t energy) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < energy);
 
-    switch (zeta::core_test::GenUniformRandomInt<int, int>(energy == 1 ? 0 : 4,
-                                                           5)) {
+    switch (zeta::core_test::random::GenUniformRandomInt<int, int>(
+        energy == 1 ? 0 : 4, 5)) {
     case 0: return GenRandomNullJsonNode();
     case 1: return GenRandomBooleanJsonNode();
     case 2: return GenRandomNumericJsonNode();
@@ -661,11 +674,15 @@ std::stringstream json_log_ss;
 std::string json_log_indent_str{ "    " };
 std::string json_log_acc_indent_str;
 
-template <zeta::core::seq_endpoint::provider::IsProvider CodepointProvider>
+template <zeta::core::seq_endpoint::provider::IsProvider<
+    zeta::core::unicode::unichar_t>
+              CodepointProvider>
 constexpr JsonNode* ReceiveValue(
     zeta::core::json_utils::Decoder<CodepointProvider>& decoder);
 
-template <zeta::core::seq_endpoint::provider::IsProvider CodepointProvider>
+template <zeta::core::seq_endpoint::provider::IsProvider<
+    zeta::core::unicode::unichar_t>
+              CodepointProvider>
 constexpr JsonNode* ReceiveNull(
     zeta::core::json_utils::Decoder<CodepointProvider>& decoder) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < decoder.depth);
@@ -682,7 +699,9 @@ constexpr JsonNode* ReceiveNull(
     return json_node;
 }
 
-template <zeta::core::seq_endpoint::provider::IsProvider CodepointProvider>
+template <zeta::core::seq_endpoint::provider::IsProvider<
+    zeta::core::unicode::unichar_t>
+              CodepointProvider>
 constexpr JsonNode* ReceiveBoolean(
     zeta::core::json_utils::Decoder<CodepointProvider>& decoder) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < decoder.depth);
@@ -703,7 +722,9 @@ constexpr JsonNode* ReceiveBoolean(
     return json_node;
 }
 
-template <zeta::core::seq_endpoint::provider::IsProvider CodepointProvider>
+template <zeta::core::seq_endpoint::provider::IsProvider<
+    zeta::core::unicode::unichar_t>
+              CodepointProvider>
 constexpr JsonNode* ReceiveNumeric(
     zeta::core::json_utils::Decoder<CodepointProvider>& decoder) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < decoder.depth);
@@ -713,13 +734,13 @@ constexpr JsonNode* ReceiveNumeric(
         zeta::core::json_utils::DecState::SendingNumericSign);
 
     JsonNode* json_node{ new JsonNode{ JsonNode::TypeEnum::Numeric } };
-    json_node->numeric_info.has_frac = false;
-    json_node->numeric_info.e = zeta::core::unicode::null_codepoint;
+    json_node->numeric_info.has_frac      = false;
+    json_node->numeric_info.e             = zeta::core::unicode::null_codepoint;
     json_node->numeric_info.exp_part_sign = zeta::core::unicode::null_codepoint;
 
     while (true) {
         ZETA_Core_DebugUtils_Diag_LogVar(
-            zeta::core::meta::ToUnderlying(decoder.GetState()));
+            zeta::core::meta::EnumToUnderlying(decoder.GetState()));
 
         switch (decoder.GetState()) {
         case zeta::core::json_utils::DecState::SendingNumericSign: {
@@ -803,12 +824,28 @@ constexpr JsonNode* ReceiveNumeric(
             return json_node;
         }
 
+        case zeta::core::json_utils::DecState::SendingNull:
+        case zeta::core::json_utils::DecState::SendingBoolean:
+        case zeta::core::json_utils::DecState::SendingStringStart:
+        case zeta::core::json_utils::DecState::SendingStringChar:
+        case zeta::core::json_utils::DecState::SendingStringFinish:
+        case zeta::core::json_utils::DecState::SendingArrayStart:
+        case zeta::core::json_utils::DecState::SendingArrayElem:
+        case zeta::core::json_utils::DecState::SendingArrayFinish:
+        case zeta::core::json_utils::DecState::SendingObjectStart:
+        case zeta::core::json_utils::DecState::SendingObjectKey:
+        case zeta::core::json_utils::DecState::SendingObjectValue:
+        case zeta::core::json_utils::DecState::SendingObjectFinish:
+        case zeta::core::json_utils::DecState::Finished:
+        case zeta::core::json_utils::DecState::Corrupted:
         default: ZETA_Core_DebugUtils_Diag_Unreachable();
         }
     }
 }
 
-template <zeta::core::seq_endpoint::provider::IsProvider CodepointProvider>
+template <zeta::core::seq_endpoint::provider::IsProvider<
+    zeta::core::unicode::unichar_t>
+              CodepointProvider>
 constexpr JsonNode* ReceiveString(
     zeta::core::json_utils::Decoder<CodepointProvider>& decoder) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < decoder.depth);
@@ -823,7 +860,7 @@ constexpr JsonNode* ReceiveString(
 
     while (true) {
         ZETA_Core_DebugUtils_Diag_LogVar(
-            zeta::core::meta::ToUnderlying(decoder.GetState()));
+            zeta::core::meta::EnumToUnderlying(decoder.GetState()));
 
         switch (decoder.GetState()) {
         case zeta::core::json_utils::DecState::SendingStringChar: {
@@ -849,12 +886,33 @@ constexpr JsonNode* ReceiveString(
 
             return json_node;
 
+        case zeta::core::json_utils::DecState::SendingNull:
+        case zeta::core::json_utils::DecState::SendingBoolean:
+        case zeta::core::json_utils::DecState::SendingNumericSign:
+        case zeta::core::json_utils::DecState::SendingNumericIntPartDigit:
+        case zeta::core::json_utils::DecState::SendingNumericFracPartDigit:
+        case zeta::core::json_utils::DecState::SendingNumericExpPartE:
+        case zeta::core::json_utils::DecState::SendingNumericExpPartSign:
+        case zeta::core::json_utils::DecState::SendingNumericExpPartDigit:
+        case zeta::core::json_utils::DecState::SendingNumericFinish:
+        case zeta::core::json_utils::DecState::SendingStringStart:
+        case zeta::core::json_utils::DecState::SendingArrayStart:
+        case zeta::core::json_utils::DecState::SendingArrayElem:
+        case zeta::core::json_utils::DecState::SendingArrayFinish:
+        case zeta::core::json_utils::DecState::SendingObjectStart:
+        case zeta::core::json_utils::DecState::SendingObjectKey:
+        case zeta::core::json_utils::DecState::SendingObjectValue:
+        case zeta::core::json_utils::DecState::SendingObjectFinish:
+        case zeta::core::json_utils::DecState::Finished:
+        case zeta::core::json_utils::DecState::Corrupted:
         default: ZETA_Core_DebugUtils_Diag_Unreachable();
         }
     }
 }
 
-template <zeta::core::seq_endpoint::provider::IsProvider CodepointProvider>
+template <zeta::core::seq_endpoint::provider::IsProvider<
+    zeta::core::unicode::unichar_t>
+              CodepointProvider>
 constexpr JsonNode* ReceiveArray(
     zeta::core::json_utils::Decoder<CodepointProvider>& decoder) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < decoder.depth);
@@ -872,7 +930,7 @@ constexpr JsonNode* ReceiveArray(
 
     while (true) {
         ZETA_Core_DebugUtils_Diag_LogVar(
-            zeta::core::meta::ToUnderlying(decoder.GetState()));
+            zeta::core::meta::EnumToUnderlying(decoder.GetState()));
 
         switch (decoder.GetState()) {
         case zeta::core::json_utils::DecState::SendingArrayElem: {
@@ -902,12 +960,33 @@ constexpr JsonNode* ReceiveArray(
             return json_node;
         }
 
+        case zeta::core::json_utils::DecState::SendingNull:
+        case zeta::core::json_utils::DecState::SendingBoolean:
+        case zeta::core::json_utils::DecState::SendingNumericSign:
+        case zeta::core::json_utils::DecState::SendingNumericIntPartDigit:
+        case zeta::core::json_utils::DecState::SendingNumericFracPartDigit:
+        case zeta::core::json_utils::DecState::SendingNumericExpPartE:
+        case zeta::core::json_utils::DecState::SendingNumericExpPartSign:
+        case zeta::core::json_utils::DecState::SendingNumericExpPartDigit:
+        case zeta::core::json_utils::DecState::SendingNumericFinish:
+        case zeta::core::json_utils::DecState::SendingStringStart:
+        case zeta::core::json_utils::DecState::SendingStringChar:
+        case zeta::core::json_utils::DecState::SendingStringFinish:
+        case zeta::core::json_utils::DecState::SendingArrayStart:
+        case zeta::core::json_utils::DecState::SendingObjectStart:
+        case zeta::core::json_utils::DecState::SendingObjectKey:
+        case zeta::core::json_utils::DecState::SendingObjectValue:
+        case zeta::core::json_utils::DecState::SendingObjectFinish:
+        case zeta::core::json_utils::DecState::Finished:
+        case zeta::core::json_utils::DecState::Corrupted:
         default: ZETA_Core_DebugUtils_Diag_Unreachable();
         }
     }
 }
 
-template <zeta::core::seq_endpoint::provider::IsProvider CodepointProvider>
+template <zeta::core::seq_endpoint::provider::IsProvider<
+    zeta::core::unicode::unichar_t>
+              CodepointProvider>
 constexpr JsonNode* ReceiveObject(
     zeta::core::json_utils::Decoder<CodepointProvider>& decoder) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < decoder.depth);
@@ -925,7 +1004,7 @@ constexpr JsonNode* ReceiveObject(
 
     while (true) {
         ZETA_Core_DebugUtils_Diag_LogVar(
-            zeta::core::meta::ToUnderlying(decoder.GetState()));
+            zeta::core::meta::EnumToUnderlying(decoder.GetState()));
 
         switch (decoder.GetState()) {
         case zeta::core::json_utils::DecState::SendingObjectKey: {
@@ -944,7 +1023,7 @@ constexpr JsonNode* ReceiveObject(
             json_log_ss << "\n" << json_log_acc_indent_str;
 
             ZETA_Core_DebugUtils_Diag_LogVar(
-                zeta::core::meta::ToUnderlying(decoder.GetState()));
+                zeta::core::meta::EnumToUnderlying(decoder.GetState()));
 
             json_node->object_value.push_back(std::pair<JsonNode*, JsonNode*>{
                 ReceiveValue(decoder), nullptr });
@@ -982,18 +1061,38 @@ constexpr JsonNode* ReceiveObject(
             return json_node;
         }
 
+        case zeta::core::json_utils::DecState::SendingNull:
+        case zeta::core::json_utils::DecState::SendingBoolean:
+        case zeta::core::json_utils::DecState::SendingNumericSign:
+        case zeta::core::json_utils::DecState::SendingNumericIntPartDigit:
+        case zeta::core::json_utils::DecState::SendingNumericFracPartDigit:
+        case zeta::core::json_utils::DecState::SendingNumericExpPartE:
+        case zeta::core::json_utils::DecState::SendingNumericExpPartSign:
+        case zeta::core::json_utils::DecState::SendingNumericExpPartDigit:
+        case zeta::core::json_utils::DecState::SendingNumericFinish:
+        case zeta::core::json_utils::DecState::SendingStringStart:
+        case zeta::core::json_utils::DecState::SendingStringChar:
+        case zeta::core::json_utils::DecState::SendingStringFinish:
+        case zeta::core::json_utils::DecState::SendingArrayStart:
+        case zeta::core::json_utils::DecState::SendingArrayElem:
+        case zeta::core::json_utils::DecState::SendingArrayFinish:
+        case zeta::core::json_utils::DecState::SendingObjectStart:
+        case zeta::core::json_utils::DecState::Finished:
+        case zeta::core::json_utils::DecState::Corrupted:
         default: ZETA_Core_DebugUtils_Diag_Unreachable();
         }
     }
 }
 
-template <zeta::core::seq_endpoint::provider::IsProvider CodepointProvider>
+template <zeta::core::seq_endpoint::provider::IsProvider<
+    zeta::core::unicode::unichar_t>
+              CodepointProvider>
 constexpr JsonNode* ReceiveValue(
     zeta::core::json_utils::Decoder<CodepointProvider>& decoder) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < decoder.depth);
 
     ZETA_Core_DebugUtils_Diag_LogVar(
-        zeta::core::meta::ToUnderlying(decoder.GetState()));
+        zeta::core::meta::EnumToUnderlying(decoder.GetState()));
 
     JsonNode* json_node;
 
@@ -1024,6 +1123,20 @@ constexpr JsonNode* ReceiveValue(
 
     case zeta::core::json_utils::DecState::Finished: return nullptr;
 
+    case zeta::core::json_utils::DecState::SendingNumericIntPartDigit:
+    case zeta::core::json_utils::DecState::SendingNumericFracPartDigit:
+    case zeta::core::json_utils::DecState::SendingNumericExpPartE:
+    case zeta::core::json_utils::DecState::SendingNumericExpPartSign:
+    case zeta::core::json_utils::DecState::SendingNumericExpPartDigit:
+    case zeta::core::json_utils::DecState::SendingNumericFinish:
+    case zeta::core::json_utils::DecState::SendingStringChar:
+    case zeta::core::json_utils::DecState::SendingStringFinish:
+    case zeta::core::json_utils::DecState::SendingArrayElem:
+    case zeta::core::json_utils::DecState::SendingArrayFinish:
+    case zeta::core::json_utils::DecState::SendingObjectKey:
+    case zeta::core::json_utils::DecState::SendingObjectValue:
+    case zeta::core::json_utils::DecState::SendingObjectFinish:
+    case zeta::core::json_utils::DecState::Corrupted:
     default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 
@@ -1041,12 +1154,16 @@ constexpr JsonNode* ReceiveValue(
 
 namespace encode_json_node_to_json_text {
 
-template <zeta::core::seq_endpoint::acceptor::IsAcceptor CodepointAcceptor>
+template <zeta::core::seq_endpoint::acceptor::IsAcceptor<
+    zeta::core::unicode::unichar_t>
+              CodepointAcceptor>
 constexpr void SendValue(
     zeta::core::json_utils::Encoder<CodepointAcceptor>& serializer,
     JsonNode* json_node);
 
-template <zeta::core::seq_endpoint::acceptor::IsAcceptor CodepointAcceptor>
+template <zeta::core::seq_endpoint::acceptor::IsAcceptor<
+    zeta::core::unicode::unichar_t>
+              CodepointAcceptor>
 constexpr void SendNull(
     zeta::core::json_utils::Encoder<CodepointAcceptor>& serializer,
     JsonNode* json_node) {
@@ -1058,7 +1175,9 @@ constexpr void SendNull(
     serializer.SendNull().CheckHasValue();
 }
 
-template <zeta::core::seq_endpoint::acceptor::IsAcceptor CodepointAcceptor>
+template <zeta::core::seq_endpoint::acceptor::IsAcceptor<
+    zeta::core::unicode::unichar_t>
+              CodepointAcceptor>
 constexpr void SendBoolean(
     zeta::core::json_utils::Encoder<CodepointAcceptor>& serializer,
     JsonNode* json_node) {
@@ -1070,7 +1189,9 @@ constexpr void SendBoolean(
     serializer.SendBoolean(json_node->boolean_value).CheckHasValue();
 }
 
-template <zeta::core::seq_endpoint::acceptor::IsAcceptor CodepointAcceptor>
+template <zeta::core::seq_endpoint::acceptor::IsAcceptor<
+    zeta::core::unicode::unichar_t>
+              CodepointAcceptor>
 constexpr void SendNeumeric(
     zeta::core::json_utils::Encoder<CodepointAcceptor>& serializer,
     JsonNode* json_node) {
@@ -1139,7 +1260,9 @@ constexpr void SendNeumeric(
     serializer.SendFinish().CheckHasValue();
 }
 
-template <zeta::core::seq_endpoint::acceptor::IsAcceptor CodepointAcceptor>
+template <zeta::core::seq_endpoint::acceptor::IsAcceptor<
+    zeta::core::unicode::unichar_t>
+              CodepointAcceptor>
 constexpr void SendString(
     zeta::core::json_utils::Encoder<CodepointAcceptor>& serializer,
     JsonNode* json_node) {
@@ -1161,7 +1284,9 @@ constexpr void SendString(
     serializer.SendFinish().CheckHasValue();
 }
 
-template <zeta::core::seq_endpoint::acceptor::IsAcceptor CodepointAcceptor>
+template <zeta::core::seq_endpoint::acceptor::IsAcceptor<
+    zeta::core::unicode::unichar_t>
+              CodepointAcceptor>
 constexpr void SendArray(
     zeta::core::json_utils::Encoder<CodepointAcceptor>& serializer,
     JsonNode* json_node) {
@@ -1183,7 +1308,9 @@ constexpr void SendArray(
     serializer.SendFinish().CheckHasValue();
 }
 
-template <zeta::core::seq_endpoint::acceptor::IsAcceptor CodepointAcceptor>
+template <zeta::core::seq_endpoint::acceptor::IsAcceptor<
+    zeta::core::unicode::unichar_t>
+              CodepointAcceptor>
 constexpr void SendObject(
     zeta::core::json_utils::Encoder<CodepointAcceptor>& serializer,
     JsonNode* json_node) {
@@ -1210,7 +1337,9 @@ constexpr void SendObject(
     ZETA_Core_DebugUtils_Diag_LogCurPos();
 }
 
-template <zeta::core::seq_endpoint::acceptor::IsAcceptor CodepointAcceptor>
+template <zeta::core::seq_endpoint::acceptor::IsAcceptor<
+    zeta::core::unicode::unichar_t>
+              CodepointAcceptor>
 constexpr void SendValue(
     zeta::core::json_utils::Encoder<CodepointAcceptor>& serializer,
     JsonNode* json_node) {
@@ -1228,13 +1357,15 @@ constexpr void SendValue(
     case JsonNode::TypeEnum::String: (SendString)(serializer, json_node); break;
     case JsonNode::TypeEnum::Array: (SendArray)(serializer, json_node); break;
     case JsonNode::TypeEnum::Object: (SendObject)(serializer, json_node); break;
+    default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 }
 
 }  // namespace encode_json_node_to_json_text
 
 constexpr std::vector<zeta::core::unicode::unichar_t> GenRandomLogicalString() {
-    size_t len{ zeta::core_test::GenUniformRandomInt<size_t, size_t>(0, 128) };
+    size_t len{ zeta::core_test::random::GenUniformRandomInt<size_t, size_t>(
+        0, 128) };
 
     ZETA_Core_DebugUtils_Diag_LogVar(len);
 
@@ -1251,27 +1382,29 @@ constexpr std::vector<zeta::core::unicode::unichar_t> GenRandomLogicalString() {
     */
 
     for (size_t i{ 0 }; i < len; ++i) {
-        switch (zeta::core_test::GenUniformRandomInt<int, int>(0, 3)) {
+        switch (zeta::core_test::random::GenUniformRandomInt<int, int>(0, 3)) {
         case 0:
-            ret[i] = zeta::core_test::GenUniformRandomInt<
+            ret[i] = zeta::core_test::random::GenUniformRandomInt<
                 zeta::core::unicode::unichar_t, zeta::core::unicode::unichar_t>(
                 0, 0x1F);
             break;
         case 1:
-            ret[i] = zeta::core_test::GenUniformRandomInt<
+            ret[i] = zeta::core_test::random::GenUniformRandomInt<
                 zeta::core::unicode::unichar_t, zeta::core::unicode::unichar_t>(
                 0x20, 0x7F);
             break;
         case 2:
-            ret[i] = zeta::core_test::GenUniformRandomInt<
+            ret[i] = zeta::core_test::random::GenUniformRandomInt<
                 zeta::core::unicode::unichar_t, zeta::core::unicode::unichar_t>(
                 0x80, 0xD7FF);
             break;
         case 3:
-            ret[i] = zeta::core_test::GenUniformRandomInt<
+            ret[i] = zeta::core_test::random::GenUniformRandomInt<
                 zeta::core::unicode::unichar_t, zeta::core::unicode::unichar_t>(
                 0xE000, 0x10FFFF);
             break;
+
+        default: ZETA_Core_DebugUtils_Diag_Unreachable();
         }
     }
 
@@ -1395,44 +1528,50 @@ struct DequeSeqEndpoint {
         return false;
     }
 
+    template <zeta::core::lifecycle::IsDstStorageView DstStorageView>
     constexpr size_t Transfer(this DequeSeqEndpoint<T>& self,
                               zeta::core::seq_endpoint::provider::Tag,
-                              void* dst, size_t elem_size,
-                              ptrdiff_t elem_stride, size_t elem_cnt) {
-        size_t transfer_elem_size{ std::min(elem_size, sizeof(T)) };
+                              DstStorageView dst, ptrdiff_t elem_stride,
+                              size_t elem_cnt) {
         size_t transfer_elem_cnt{ std::min(self.deque.size(), elem_cnt) };
 
         for (size_t i{ 0 }; i < transfer_elem_cnt; ++i) {
-            std::memcpy(dst, static_cast<void*>(&self.deque.front()),
-                        transfer_elem_size);
+            zeta::core::lifecycle::StorageTransfer(
+                dst,
+                zeta::core::lifecycle::LeftObjView<T>{ &self.deque.front() });
 
             self.deque.pop_front();
-            dst = static_cast<char*>(dst) + elem_stride;
+
+            dst.ptr = zeta::core::utils::PtrInc(dst.ptr, elem_stride);
         }
 
         return transfer_elem_cnt;
     }
 
+    template <zeta::core::lifecycle::IsSrcStorageView SrcStorageView>
     constexpr size_t Transfer(this DequeSeqEndpoint<T>& self,
                               zeta::core::seq_endpoint::acceptor::Tag,
-                              void const* src, size_t elem_size,
-                              ptrdiff_t elem_stride, size_t elem_cnt) {
-        size_t transfer_elem_size{ std::min(elem_size, sizeof(T)) };
+                              SrcStorageView src, ptrdiff_t elem_stride,
+                              size_t elem_cnt) {
         size_t transfer_elem_cnt{ elem_cnt };
 
         for (size_t i{ 0 }; i < transfer_elem_cnt; ++i) {
             self.deque.emplace_back();
 
-            std::memcpy(&self.deque.back(), src, transfer_elem_size);
+            zeta::core::lifecycle::StorageTransfer(
+                zeta::core::lifecycle::LeftObjView<T>{ &self.deque.back() },
+                src);
 
-            src = static_cast<char const*>(src) + elem_stride;
+            src.ptr = zeta::core::utils::PtrInc(src.ptr, elem_stride);
         }
 
         return transfer_elem_cnt;
     }
 };
 
-template <zeta::core::seq_endpoint::provider::IsProvider CharProvider>
+template <zeta::core::seq_endpoint::provider::IsProvider<
+    zeta::core::unicode::unichar_t>
+              CharProvider>
 struct CharToUnicharProvider {
     CharProvider provider;
 
@@ -1455,37 +1594,23 @@ struct CharToUnicharProvider {
         }
     }
 
+    template <zeta::core::lifecycle::IsDstStorageView DstStorageView>
     constexpr size_t Transfer(zeta::core::seq_endpoint::provider::Tag,
-                              void* dst, size_t elem_size,
-                              ptrdiff_t elem_stride, size_t elem_cnt) {
-        if (false) {
-            size_t transfer_elem_cnt{ 0 };
-
-            for (size_t i{ 0 };
-                 i < elem_cnt &&
-                 !this->IsEnd(zeta::core::seq_endpoint::provider::Tag{});
-                 ++i, ++transfer_elem_cnt) {
-                zeta::core::unicode::unichar_t cp;
-
-                zeta::core::seq_endpoint::provider::Transfer(
-                    this->provider, &cp, sizeof(zeta::core::unicode::unichar_t),
-                    sizeof(zeta::core::unicode::unichar_t), 1);
-
-                std::memcpy(dst, &cp,
-                            std::min(elem_size,
-                                     sizeof(zeta::core::unicode::unichar_t)));
-
-                dst = static_cast<char*>(dst) + elem_stride;
-            }
-
-            return transfer_elem_cnt;
+                              DstStorageView dst, ptrdiff_t elem_stride,
+                              size_t elem_cnt) {
+        if constexpr (false) {
+            return zeta::core::seq_endpoint::provider::Transfer(
+                this->provider, dst, sizeof(zeta::core::unicode::unichar_t),
+                elem_cnt);
         } else {
-            zeta::core::lin_seq_endpoint::acceptor::Acceptor a{
-                .data = dst,
-                .elem_size = elem_size,
-                .elem_stride = elem_stride,
-                .elem_cnt = elem_cnt,
-            };
+            zeta::core::lin_seq_endpoint::acceptor::Acceptor<
+                zeta::core::lifecycle::LeftObjView<
+                    zeta::core::unicode::unichar_t>>
+                a{
+                    .data        = dst,
+                    .elem_stride = elem_stride,
+                    .elem_cnt    = elem_cnt,
+                };
 
             this->utf8_decoder.DecodeAndPull(this->provider, a);
 
@@ -1494,7 +1619,9 @@ struct CharToUnicharProvider {
     }
 };
 
-template <zeta::core::seq_endpoint::acceptor::IsAcceptor CharAcceptor>
+template <zeta::core::seq_endpoint::acceptor::IsAcceptor<
+    zeta::core::unicode::unichar_t>
+              CharAcceptor>
 struct UnicharToCharAcceptor {
     CharAcceptor acceptor;
 
@@ -1509,15 +1636,18 @@ struct UnicharToCharAcceptor {
         return zeta::core::seq_endpoint::acceptor::IsEnd(this->acceptor);
     }
 
+    template <zeta::core::lifecycle::IsSrcStorageView SrcStorageView>
     constexpr size_t Transfer(zeta::core::seq_endpoint::acceptor::Tag,
-                              void const* src, size_t elem_size,
-                              ptrdiff_t elem_stride, size_t elem_cnt) {
-        zeta::core::lin_seq_endpoint::provider::Provider p{
-            .data = src,
-            .elem_size = elem_size,
-            .elem_stride = elem_stride,
-            .elem_cnt = elem_cnt,
-        };
+                              SrcStorageView src, ptrdiff_t elem_stride,
+                              size_t elem_cnt) {
+        zeta::core::lin_seq_endpoint::provider::Provider<
+            zeta::core::lifecycle::ConstLeftObjView<
+                zeta::core::unicode::unichar_t>>
+            p{
+                .data{ src },
+                .elem_stride = elem_stride,
+                .elem_cnt    = elem_cnt,
+            };
 
         this->utf8_encoder.EncodeAndPull(p, this->acceptor);
 
@@ -1742,7 +1872,7 @@ parsed_logical_string);
 */
 
 constexpr void main4() {
-    char sample_json_str[]{ R"({
+    unsigned char sample_json_str[]{ R"({
         "null": null,
         "boolean.true": true,
         "numeric.1": 123,
@@ -1750,24 +1880,27 @@ constexpr void main4() {
         "string.1": "Hello, world!",
     })" };
 
-    CharToUnicharProvider<DequeSeqEndpoint<char>> char_to_unichar_provider{
-        .provider{ .deque{ sample_json_str,
-                           sample_json_str + sizeof(sample_json_str) - 1 } },
-        .utf8_decoder{},
-    };
+    CharToUnicharProvider<DequeSeqEndpoint<unsigned char>>
+        char_to_unichar_provider{
+            .provider{
+                .deque{ sample_json_str,
+                        sample_json_str + sizeof(sample_json_str) - 1 } },
+            .utf8_decoder{},
+        };
 
     zeta::core::json_utils::Decoder<
-        CharToUnicharProvider<DequeSeqEndpoint<char>>&>
+        CharToUnicharProvider<DequeSeqEndpoint<unsigned char>>&>
         decoder{ char_to_unichar_provider };
 
     JsonNode* root_node{ decode_json_text_to_json_node::ReceiveValue(decoder) };
 
     // zeta::core::debug_utils::ClearDebugStrStream();
 
-    UnicharToCharAcceptor<DequeSeqEndpoint<char>> unichar_to_char_acceptor{
-        .acceptor{},
-        .utf8_encoder{},
-    };
+    UnicharToCharAcceptor<DequeSeqEndpoint<unsigned char>>
+        unichar_to_char_acceptor{
+            .acceptor{},
+            .utf8_encoder{},
+        };
 
     zeta::core::json_utils::Encoder<decltype(unichar_to_char_acceptor)>
         serializer{
@@ -1780,10 +1913,10 @@ constexpr void main4() {
 
                 .space{
                     .before_colon = false,
-                    .after_colon = true,
+                    .after_colon  = true,
 
                     .before_comma = false,
-                    .after_comma = true,
+                    .after_comma  = true,
                 },
 
                 .indent{
@@ -1794,14 +1927,16 @@ constexpr void main4() {
 
                 .string{
                     .prefer_unicode_escape = true,
-                    .prefer_uppercase_hex = false,
+                    .prefer_uppercase_hex  = false,
                 },
             }
         };
 
     encode_json_node_to_json_text::SendValue(serializer, root_node);
 
-    for (char ch : unichar_to_char_acceptor.acceptor.deque) { std::cout << ch; }
+    for (unsigned char ch : unichar_to_char_acceptor.acceptor.deque) {
+        std::cout << ch;
+    }
 
     std::cout << "\n";
 
@@ -1823,7 +1958,7 @@ constexpr void main5() {
     ZETA_Core_DebugUtils_Logging_ImmLogVar(fixed_seed);
     ZETA_Core_DebugUtils_Logging_ImmLogVar(seed);
 
-    zeta::core_test::SetRandomSeed(seed);
+    zeta::core_test::random::SetRandomSeed(seed);
 
     constexpr zeta::core::json_utils::FormatConfig fmt_config{
         .newline{
@@ -1832,20 +1967,20 @@ constexpr void main5() {
 
         .space{
             .before_colon = false,
-            .after_colon = true,
+            .after_colon  = true,
 
             .before_comma = false,
-            .after_comma = true,
+            .after_comma  = true,
         },
 
         .indent{
             .type = zeta::core::json_utils::FormatConfig::Indent::Type::Space,
-            .cnt = 4,
+            .cnt  = 4,
         },
 
         .string{
             .prefer_unicode_escape = false,
-            .prefer_uppercase_hex = true,
+            .prefer_uppercase_hex  = true,
         },
     };
 
@@ -1855,15 +1990,16 @@ constexpr void main5() {
 
     ZETA_Core_DebugUtils_Logging_ImmLogCurPos();
 
-    DequeSeqEndpoint<char> deque_elem_stream;
+    DequeSeqEndpoint<unsigned char> deque_elem_stream;
 
-    UnicharToCharAcceptor<DequeSeqEndpoint<char>&> unichar_to_char_acceptor_1{
-        .acceptor{ deque_elem_stream },
-        .utf8_encoder{},
-    };
+    UnicharToCharAcceptor<DequeSeqEndpoint<unsigned char>&>
+        unichar_to_char_acceptor_1{
+            .acceptor{ deque_elem_stream },
+            .utf8_encoder{},
+        };
 
     zeta::core::json_utils::Encoder<
-        UnicharToCharAcceptor<DequeSeqEndpoint<char>&>>
+        UnicharToCharAcceptor<DequeSeqEndpoint<unsigned char>&>>
         encoder_1{ unichar_to_char_acceptor_1, fmt_config };
 
     encode_json_node_to_json_text::SendValue(encoder_1, root_node_1);
@@ -1874,22 +2010,23 @@ constexpr void main5() {
         std::ofstream fs{ std::string{ ZetaDir "/json/test_json_1.json" },
                           std::ios::binary };
 
-        for (char ch : deque_elem_stream.deque) { fs << ch; }
+        for (unsigned char ch : deque_elem_stream.deque) { fs << ch; }
 
         fs.close();
     }
 
-    CharToUnicharProvider<DequeSeqEndpoint<char>&> char_to_unichar_provider{
-        .provider{ deque_elem_stream },
-        .utf8_decoder{},
-    };
+    CharToUnicharProvider<DequeSeqEndpoint<unsigned char>&>
+        char_to_unichar_provider{
+            .provider{ deque_elem_stream },
+            .utf8_decoder{},
+        };
 
     ZETA_Core_DebugUtils_Diag_LogCurPos();
 
     ZETA_Core_DebugUtils_Diag_LogCurPos();
 
     zeta::core::json_utils::Decoder<
-        CharToUnicharProvider<DequeSeqEndpoint<char>&>>
+        CharToUnicharProvider<DequeSeqEndpoint<unsigned char>&>>
         decode_1{ char_to_unichar_provider };
 
     ZETA_Core_DebugUtils_Diag_LogCurPos();

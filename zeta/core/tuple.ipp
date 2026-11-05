@@ -22,9 +22,8 @@ template <size_t... Idxes, typename... Elems>
 template <size_t... ArgIdxes, typename... Args>
 constexpr Tuple_<static_seq::StaticSeq<size_t, Idxes...>, Elems...>::Tuple_(
     static_seq::StaticSeq<size_t, ArgIdxes...>, Args&&... args)
-    : meta::RemoveRef<decltype(AccessElemWrapper_<ArgIdxes>(*this))>{
-          meta::Forward<Args>(args)
-      }... {}
+    : meta::RemoveReferenceFromType<decltype(AccessElemWrapper_<ArgIdxes>(
+          *this))>{ meta::Forward<Args>(args) }... {}
 
 template <size_t... Idxes, typename... Elems>
 template <size_t Idx>
@@ -34,7 +33,7 @@ Tuple_<static_seq::StaticSeq<size_t, Idxes...>, Elems...>::ForwardAccess(
     auto& elem_wrapper{ (AccessElemWrapper_<Idx>)(self) };
 
     return meta::Forward<
-        typename meta::RemoveRef<decltype(elem_wrapper)>::Elem>(
+        typename meta::RemoveReferenceFromType<decltype(elem_wrapper)>::Elem>(
         elem_wrapper.elem);
 }
 
@@ -42,7 +41,7 @@ template <size_t... Idxes, typename... Elems>
 template <size_t Idx>
 constexpr decltype(auto) Tuple_<static_seq::StaticSeq<size_t, Idxes...>,
                                 Elems...>::Access(this auto&& self) {
-    if constexpr (meta::IsRRef<decltype(self)>) {
+    if constexpr (meta::IsRightReferenceType<decltype(self)>) {
         return (AccessElemWrapper_<Idx>)(self).elem;
     } else {
         return meta::Move((AccessElemWrapper_<Idx>)(self).elem);

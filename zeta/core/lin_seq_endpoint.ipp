@@ -1,12 +1,13 @@
 #pragma once
 
 #include <zeta/core/comparison_utils.ipp>
+#include <zeta/core/lifecycle.ipp>
 #include <zeta/core/lin_seq_endpoint.hpp>
 #include <zeta/core/utils.ipp>
 
 namespace zeta::core {
 
-template <lifecycle::IsStorageView ElemView>
+template <lifecycle::IsDstStorageView ElemView>
 constexpr meta::TypeWrapper<
     typename lin_seq_endpoint::acceptor::Acceptor<ElemView>::Elem>
 lin_seq_endpoint::acceptor::Acceptor<ElemView>::GetElemType(
@@ -14,13 +15,13 @@ lin_seq_endpoint::acceptor::Acceptor<ElemView>::GetElemType(
     return {};
 }
 
-template <lifecycle::IsStorageView ElemView>
+template <lifecycle::IsDstStorageView ElemView>
 constexpr bool lin_seq_endpoint::acceptor::Acceptor<ElemView>::IsEnd(
     this Acceptor const& self, seq_endpoint::acceptor::Tag) {
     return self.elem_cnt == 0;
 }
 
-template <lifecycle::IsStorageView ElemView>
+template <lifecycle::IsDstStorageView ElemView>
 template <lifecycle::IsSrcStorageView SrcStorageView>
 constexpr size_t lin_seq_endpoint::acceptor::Acceptor<ElemView>::Transfer(
     this Acceptor& self, seq_endpoint::acceptor::Tag, SrcStorageView src,

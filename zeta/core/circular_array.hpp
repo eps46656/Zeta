@@ -4,6 +4,7 @@
 #include <zeta/core/define.hpp>
 #include <zeta/core/lifecycle.hpp>
 #include <zeta/core/meta.hpp>
+#include <zeta/core/resolving.hpp>
 #include <zeta/core/seq_cntr.hpp>
 #include <zeta/core/seq_endpoint.hpp>
 
@@ -39,7 +40,7 @@ struct Cursor {
     constexpr bool operator!=(Cursor const&) const = default;
 };
 
-template <meta::IsObj Elem>
+template <meta::IsObjectType Elem>
 struct Cntr;
 
 namespace detail {
@@ -49,7 +50,7 @@ struct IsCntrImpl_ {
     static constexpr bool value{ false };
 };
 
-template <meta::IsObj Elem>
+template <meta::IsObjectType Elem>
 struct IsCntrImpl_<Cntr<Elem>> {
     static constexpr bool value{ true };
 };
@@ -59,7 +60,7 @@ struct IsCntrImpl_<Cntr<Elem>> {
 template <typename T>
 concept IsCntr = detail::IsCntrImpl_<T>::value;
 
-template <meta::IsObj Elem>
+template <meta::IsObjectType Elem>
 constexpr Elem* ReferElem(Elem* data, size_t elem_stride, size_t elem_capacity,
                           size_t slot_offset, size_t idx);
 
@@ -73,11 +74,11 @@ template <typename DstCntr, typename SrcCntr>
 constexpr void SegTransfer(DstCntr&& dst_cntr, SrcCntr&& src_cntr,
                            size_t dst_beg, size_t src_beg, size_t cnt)
     requires requires {
-        requires IsCntr<meta::RemoveCVRef<DstCntr>>;
-        requires IsCntr<meta::RemoveCVRef<SrcCntr>>;
+        requires IsCntr<meta::RemoveConstVolatileReference<DstCntr>>;
+        requires IsCntr<meta::RemoveConstVolatileReference<SrcCntr>>;
     };
 
-template <meta::IsObj Elem_>
+template <meta::IsObjectType Elem_>
 struct Cntr {
     using Elem = Elem_;
 
@@ -113,8 +114,6 @@ struct Cntr {
     static constexpr seq_cntr::capability::Flag
         GetDynamicDisabledCapabilityFlag(seq_cntr::Tag);
 
-    constexpr void* GetReferedInstPtr(this Cntr const& self, seq_cntr::Tag);
-
     template <
         meta::IsAnySame<Cntr&, Cntr const&, Cntr&&, Cntr const&&> TargetCntr>
     static constexpr meta::TypeWrapper<Elem> GetElemType(
@@ -124,6 +123,8 @@ struct Cntr {
         meta::IsAnySame<Cntr&, Cntr const&, Cntr&&, Cntr const&&> TargetCntr>
     static constexpr meta::TypeWrapper<Cursor> GetCursorType(
         seq_cntr::Tag, meta::TypeWrapper<TargetCntr>);
+
+    constexpr void* GetReferedInstPtr(this Cntr const& self, seq_cntr::Tag);
 
     constexpr size_t GetElemStride(this Cntr const& self, seq_cntr::Tag);
 
@@ -139,27 +140,25 @@ struct Cntr {
     constexpr void GetRBCursor(this Cntr const& self, seq_cntr::Tag,
                                Cursor* dst_cursor);
 
-    template <lifecycle::IsDstStorageView DstStorageView>
-    constexpr void PeekL(this auto&& self, seq_cntr::Tag, bool lazy_copy_elem,
-                         lifecycle::DynamicStorageView<Elem>* dst_elem_view,
-                         Cursor* dst_cursor, DstStorageView dst_elem);
+    constexpr void PeekL(
+        this auto&& self, seq_cntr::Tag, Cursor* dst_cursor,
+        resolving::Packet<meta::RemoveConst<Elem>, meta::RemoveConst<Elem>>*
+            resolving_packet);
 
-    template <lifecycle::IsDstStorageView DstStorageView>
-    constexpr void PeekR(this auto&& self, seq_cntr::Tag, bool lazy_copy_elem,
-                         lifecycle::DynamicStorageView<Elem>* dst_elem_view,
-                         Cursor* dst_cursor, DstStorageView dst_elem);
+    constexpr void PeekR(
+        this auto&& self, seq_cntr::Tag, Cursor* dst_cursor,
+        resolving::Packet<meta::RemoveConst<Elem>, meta::RemoveConst<Elem>>*
+            resolving_packet);
 
-    template <lifecycle::IsDstStorageView DstStorageView>
-    constexpr void Refer(this auto&& self, seq_cntr::Tag, size_t idx,
-                         bool lazy_copy_elem,
-                         lifecycle::DynamicStorageView<Elem>* dst_elem_view,
-                         Cursor* dst_cursor, DstStorageView dst_elem);
+    constexpr void Refer(
+        this auto&& self, seq_cntr::Tag, size_t idx, Cursor* dst_cursor,
+        resolving::Packet<meta::RemoveConst<Elem>, meta::RemoveConst<Elem>>*
+            resolving_packet);
 
-    template <lifecycle::IsDstStorageView DstStorageView>
-    constexpr void Derefer(this auto&& self, seq_cntr::Tag,
-                           Cursor const* pos_cursor, bool lazy_copy_elem,
-                           lifecycle::DynamicStorageView<Elem>* dst_elem_view,
-                           DstStorageView dst_elem);
+    constexpr void Derefer(
+        this auto&& self, seq_cntr::Tag, Cursor const* pos_cursor,
+        resolving::Packet<meta::RemoveConst<Elem>, meta::RemoveConst<Elem>>*
+            resolving_packet);
 
     template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
     constexpr void Read(this auto&& self, seq_cntr::Tag,
@@ -167,12 +166,12 @@ struct Cntr {
                         Acceptor&& acceptor, Cursor* dst_cursor);
 
     template <seq_endpoint::provider::IsProvider<Elem> Provider>
-    constexpr void Write(this meta::IsNonConstWithoutRef auto&& self,
+    constexpr void Write(this meta::IsNonConstWithoutReference auto&& self,
                          seq_cntr::Tag, Cursor const* pos_cursor, size_t cnt,
                          Provider&& provider, Cursor* dst_cursor);
 
     template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
-    constexpr void ReadWrite(this meta::IsNonConstWithoutRef auto&& self,
+    constexpr void ReadWrite(this meta::IsNonConstWithoutReference auto&& self,
                              seq_cntr::Tag, Cursor const* pos_cursor,
                              size_t cnt, Acceptor&& acceptor,
                              Cursor* dst_cursor);
@@ -182,54 +181,55 @@ struct Cntr {
                            Acceptor&& acceptor);
 
     template <seq_endpoint::provider::IsProvider<Elem> Provider>
-    constexpr void IdxWrite(this meta::IsNonConstWithoutRef auto&& self,
+    constexpr void IdxWrite(this meta::IsNonConstWithoutReference auto&& self,
                             size_t idx, size_t cnt, Provider&& acceptor);
 
     template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
-    constexpr void IdxReadWrite(this meta::IsNonConstWithoutRef auto&& self,
-                                size_t idx, size_t cnt, Acceptor&& acceptor);
+    constexpr void IdxReadWrite(
+        this meta::IsNonConstWithoutReference auto&& self, size_t idx,
+        size_t cnt, Acceptor&& acceptor);
 
     template <seq_endpoint::provider::IsProvider<Elem> Provider>
-    constexpr void PushL(this meta::IsNonConstWithoutRef auto&& self,
+    constexpr void PushL(this meta::IsNonConstWithoutReference auto&& self,
                          seq_cntr::Tag, size_t cnt, Provider&& provider,
                          Cursor* dst_beg_cursor, Cursor* dst_end_cursor);
 
     template <seq_endpoint::provider::IsProvider<Elem> Provider>
-    constexpr void PushR(this meta::IsNonConstWithoutRef auto&& self,
+    constexpr void PushR(this meta::IsNonConstWithoutReference auto&& self,
                          seq_cntr::Tag, size_t cnt, Provider&& provider,
                          Cursor* dst_beg_cursor, Cursor* dst_end_cursor);
 
     template <seq_endpoint::provider::IsProvider<Elem> Provider>
-    constexpr void Insert(this meta::IsNonConstWithoutRef auto&& self,
+    constexpr void Insert(this meta::IsNonConstWithoutReference auto&& self,
                           seq_cntr::Tag, Cursor* pos_cursor, size_t cnt,
                           Provider&& provider, Cursor* dst_cursor);
 
     template <seq_endpoint::provider::IsProvider<Elem> Provider>
-    constexpr void IdxInsert(this meta::IsNonConstWithoutRef auto&& self,
+    constexpr void IdxInsert(this meta::IsNonConstWithoutReference auto&& self,
                              size_t idx, size_t cnt, Provider&& provider);
 
     template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
-    constexpr void PopL(this meta::IsNonConstWithoutRef auto&& self,
+    constexpr void PopL(this meta::IsNonConstWithoutReference auto&& self,
                         seq_cntr::Tag, size_t cnt, Acceptor&& acceptor,
                         Cursor* dst_cursor);
 
     template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
-    constexpr void PopR(this meta::IsNonConstWithoutRef auto&& self,
+    constexpr void PopR(this meta::IsNonConstWithoutReference auto&& self,
                         seq_cntr::Tag, size_t cnt, Acceptor&& acceptor,
                         Cursor* dst_cursor);
 
     template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
-    constexpr void Erase(this meta::IsNonConstWithoutRef auto&& self,
+    constexpr void Erase(this meta::IsNonConstWithoutReference auto&& self,
                          seq_cntr::Tag, Cursor* pos_cursor, size_t cnt,
                          Acceptor&& acceptor);
 
     template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
-    constexpr void IdxErase(this meta::IsNonConstWithoutRef auto&& self,
+    constexpr void IdxErase(this meta::IsNonConstWithoutReference auto&& self,
                             size_t idx, size_t cnt, Acceptor&& acceptor,
                             Cursor* dst_cursor);
 
     template <seq_endpoint::acceptor::IsAcceptor<Elem> Acceptor>
-    constexpr void EraseAll(this meta::IsNonConstWithoutRef auto&& self,
+    constexpr void EraseAll(this meta::IsNonConstWithoutReference auto&& self,
                             seq_cntr::Tag, Acceptor&& acceptor);
 
     constexpr void CopyCursor(this Cntr const& self, seq_cntr::Tag,

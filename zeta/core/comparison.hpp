@@ -15,24 +15,22 @@ struct Bits {
     static constexpr Value greater{ 0b100 };
 };
 
-enum struct Op : unsigned char {
-    Order        = 0,
-    Equal        = Bits::equal,
-    NotEqual     = Bits::less | Bits::greater,
-    Less         = Bits::less,
-    LessEqual    = Bits::less | Bits::equal,
-    Greater      = Bits::greater,
-    GreaterEqual = Bits::greater | Bits::equal,
-};
-
 struct OpTags {
-    using Order        = meta::AutoValueWrapper<Op::Order>;
-    using Equal        = meta::AutoValueWrapper<Op::Equal>;
-    using NotEqual     = meta::AutoValueWrapper<Op::NotEqual>;
-    using Less         = meta::AutoValueWrapper<Op::Less>;
-    using LessEqual    = meta::AutoValueWrapper<Op::LessEqual>;
-    using Greater      = meta::AutoValueWrapper<Op::Greater>;
-    using GreaterEqual = meta::AutoValueWrapper<Op::GreaterEqual>;
+    using Order = meta::ValueWrapper<Bits::Value, 0>;
+
+    using Equal = meta::ValueWrapper<Bits::Value, Bits::equal>;
+
+    using NotEqual =
+        meta::ValueWrapper<Bits::Value, Bits::less | Bits::greater>;
+
+    using Less = meta::ValueWrapper<Bits::Value, Bits::less>;
+
+    using LessEqual = meta::ValueWrapper<Bits::Value, Bits::less | Bits::equal>;
+
+    using Greater = meta::ValueWrapper<Bits::Value, Bits::greater>;
+
+    using GreaterEqual =
+        meta::ValueWrapper<Bits::Value, Bits::greater | Bits::equal>;
 };
 
 template <typename T>
@@ -56,36 +54,54 @@ template <IsOpTag OpTag>
 constexpr auto DecayOrdering(OpTag, Ordering ordering);
 
 template <typename Comparator, typename A, typename B>
-concept CanCompare = requires(Comparator const& cmptr, Tag tag, A const& a,
-                              B const& b) {
-    requires meta::IsSame<
-        meta::RemoveCVRef<decltype(cmptr.Compare(tag, OpTags::Order{}, a, b))>,
-        Ordering>;
+concept CanCompare_ =
+    requires(Comparator const& cmptr, Tag tag, A const& a, B const& b) {
+        requires meta::IsNonConstObjectType<Comparator>;
 
-    requires meta::IsSame<
-        meta::RemoveCVRef<decltype(cmptr.Compare(tag, OpTags::Equal{}, a, b))>,
-        bool>;
+        requires meta::IsNonConstObjectType<A>;
 
-    requires meta::IsSame<meta::RemoveCVRef<decltype(cmptr.Compare(
-                              tag, OpTags::NotEqual{}, a, b))>,
-                          bool>;
+        requires meta::IsNonConstObjectType<B>;
 
-    requires meta::IsSame<
-        meta::RemoveCVRef<decltype(cmptr.Compare(tag, OpTags::Less{}, a, b))>,
-        bool>;
+        requires meta::IsSame<
+            meta::RemoveConstVolatileReference<decltype(cmptr.Compare(
+                tag, OpTags::Order{}, a, b))>,
+            Ordering>;
 
-    requires meta::IsSame<meta::RemoveCVRef<decltype(cmptr.Compare(
-                              tag, OpTags::LessEqual{}, a, b))>,
-                          bool>;
+        requires meta::IsSame<
+            meta::RemoveConstVolatileReference<decltype(cmptr.Compare(
+                tag, OpTags::Equal{}, a, b))>,
+            bool>;
 
-    requires meta::IsSame<meta::RemoveCVRef<decltype(cmptr.Compare(
-                              tag, OpTags::Greater{}, a, b))>,
-                          bool>;
+        requires meta::IsSame<
+            meta::RemoveConstVolatileReference<decltype(cmptr.Compare(
+                tag, OpTags::NotEqual{}, a, b))>,
+            bool>;
 
-    requires meta::IsSame<meta::RemoveCVRef<decltype(cmptr.Compare(
-                              tag, OpTags::GreaterEqual{}, a, b))>,
-                          bool>;
-};
+        requires meta::IsSame<
+            meta::RemoveConstVolatileReference<decltype(cmptr.Compare(
+                tag, OpTags::Less{}, a, b))>,
+            bool>;
+
+        requires meta::IsSame<
+            meta::RemoveConstVolatileReference<decltype(cmptr.Compare(
+                tag, OpTags::LessEqual{}, a, b))>,
+            bool>;
+
+        requires meta::IsSame<
+            meta::RemoveConstVolatileReference<decltype(cmptr.Compare(
+                tag, OpTags::Greater{}, a, b))>,
+            bool>;
+
+        requires meta::IsSame<
+            meta::RemoveConstVolatileReference<decltype(cmptr.Compare(
+                tag, OpTags::GreaterEqual{}, a, b))>,
+            bool>;
+    };
+
+template <typename Comparator, typename A, typename B>
+concept CanCompare = CanCompare_<meta::RemoveConstVolatileReference<Comparator>,
+                                 meta::RemoveConstVolatileReference<A>,
+                                 meta::RemoveConstVolatileReference<B>>;
 
 template <typename Comparator, IsOpTag OpTag, typename A, typename B>
 constexpr decltype(auto) Compare(Comparator const& cmptr, OpTag, A const& a,
@@ -124,9 +140,10 @@ template <typename A, typename B>
 struct BasicComparator;
 
 template <typename A, typename B>
-    requires(integral::IsIntegral<A> || meta::IsPointer<A> ||
-             meta::IsArray<A>) &&
-            (integral::IsIntegral<B> || meta::IsPointer<B> || meta::IsArray<B>)
+    requires(integral::IsIntegralType<A> || meta::IsPointerType<A> ||
+             meta::IsArrayType<A>) &&
+            (integral::IsIntegralType<B> || meta::IsPointerType<B> ||
+             meta::IsArrayType<B>)
 struct BasicComparator<A, B> : public NativeOperatorComparatorAdapter<A, B> {};
 
 template <typename CompareType, typename A, typename B>
@@ -134,12 +151,12 @@ constexpr auto BasicCompare(CompareType, A const& a, B const& y);
 
 template <typename A, typename B>
 struct EnableNativeOperatorByBasicComparison {
-    static constexpr bool enable_equal{ false };
-    static constexpr bool enable_not_equal{ false };
-    static constexpr bool enable_less{ false };
-    static constexpr bool enable_less_equal{ false };
-    static constexpr bool enable_greater{ false };
-    static constexpr bool enable_greater_equal{ false };
+    static constexpr bool equal_enable{ false };
+    static constexpr bool not_equal_enable{ false };
+    static constexpr bool less_enable{ false };
+    static constexpr bool less_equal_enable{ false };
+    static constexpr bool greater_enable{ false };
+    static constexpr bool greater_equal_enable{ false };
 };
 
 struct UniversalBasicComparator {
@@ -151,7 +168,7 @@ template <typename CompareType, typename A, typename B>
 constexpr auto TypeErasedBasicCompare(CompareType, void const* a,
                                       void const* b);
 
-template <IsOpTag Op, typename A, typename B>
+template <IsOpTag OpTag, typename A, typename B>
 struct CppStdBasicComparator {
     constexpr decltype(auto) operator()(A const& a, B const& b) const;
 };
@@ -161,35 +178,36 @@ struct CppStdBasicComparator {
 template <typename A, typename B>
 constexpr bool operator==(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
-        zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_equal;
+        zeta::core::meta::RemoveConstVolatileReference<A>,
+        zeta::core::meta::RemoveConstVolatileReference<B>>::equal_enable;
 
 template <typename A, typename B>
 constexpr bool operator!=(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
-        zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_not_equal;
+        zeta::core::meta::RemoveConstVolatileReference<A>,
+        zeta::core::meta::RemoveConstVolatileReference<B>>::not_equal_enable;
 
 template <typename A, typename B>
 constexpr bool operator<(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
-        zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_less;
+        zeta::core::meta::RemoveConstVolatileReference<A>,
+        zeta::core::meta::RemoveConstVolatileReference<B>>::less_enable;
 
 template <typename A, typename B>
 constexpr bool operator<=(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
-        zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_less_equal;
+        zeta::core::meta::RemoveConstVolatileReference<A>,
+        zeta::core::meta::RemoveConstVolatileReference<B>>::less_equal_enable;
 
 template <typename A, typename B>
 constexpr bool operator>(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
-        zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_greater;
+        zeta::core::meta::RemoveConstVolatileReference<A>,
+        zeta::core::meta::RemoveConstVolatileReference<B>>::greater_enable;
 
 template <typename A, typename B>
 constexpr bool operator>=(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
-        zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_greater_equal;
+        zeta::core::meta::RemoveConstVolatileReference<A>,
+        zeta::core::meta::RemoveConstVolatileReference<B>>::greater_equal_enable
+;

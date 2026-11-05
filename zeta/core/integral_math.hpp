@@ -5,11 +5,11 @@
 
 namespace zeta::core::integral_math {
 
-template <comparison::IsOpTag OpTag, integral::IsIntegral NumA,
-          integral::IsIntegral NumB>
+template <comparison::IsOpTag OpTag, integral::IsIntegralType NumA,
+          integral::IsIntegralType NumB>
 constexpr auto Compare(OpTag op, NumA a, NumB b);
 
-template <integral::IsIntegral Num>
+template <integral::IsIntegralType Num>
 constexpr Num Abs(Num x);
 
 template <typename Num>

@@ -7,8 +7,8 @@
 namespace zeta::core {
 
 template <typename LListNode>
-constexpr bool llist::IsConst() {
-    return NodeTraits<LListNode>::IsConst();
+constexpr bool llist::IsConstType() {
+    return NodeTraits<LListNode>::IsConstType();
 }
 
 template <typename LListNode>
@@ -23,13 +23,13 @@ constexpr LListNode* llist::GetR(LListNode* n) {
 
 template <typename LListNode>
 void llist::SetL(LListNode* n, LListNode* m) {
-    static_assert(!(IsConst<LListNode>)());
+    static_assert(!(IsConstType<LListNode>)());
     NodeTraits<LListNode>::SetL(n, m);
 }
 
 template <typename LListNode>
 void llist::SetR(LListNode* n, LListNode* m) {
-    static_assert(!(IsConst<LListNode>)());
+    static_assert(!(IsConstType<LListNode>)());
     NodeTraits<LListNode>::SetR(n, m);
 }
 
@@ -37,7 +37,7 @@ template <typename LListNode>
 void llist::CheckContract() {
     LListNode* lln{ nullptr };
 
-    constexpr bool is_const{ (IsConst<LListNode>)() };
+    constexpr bool is_const{ (IsConstType<LListNode>)() };
 
 #pragma push_macro("CheckMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -72,7 +72,7 @@ template <typename LListNode>
 void llist::InsertL(LListNode* n, LListNode* m) {
     (CheckContract<LListNode>)();
 
-    static_assert(!(IsConst<LListNode>)());
+    static_assert(!(IsConstType<LListNode>)());
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(m != nullptr);
@@ -94,7 +94,7 @@ template <typename LListNode>
 void llist::InsertR(LListNode* n, LListNode* m) {
     (CheckContract<LListNode>)();
 
-    static_assert(!(IsConst<LListNode>)());
+    static_assert(!(IsConstType<LListNode>)());
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(m != nullptr);
@@ -116,7 +116,7 @@ template <typename LListNode>
 void llist::Extract(LListNode* n) {
     (CheckContract<LListNode>)();
 
-    static_assert(!(IsConst<LListNode>)());
+    static_assert(!(IsConstType<LListNode>)());
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
 
@@ -134,7 +134,7 @@ template <typename LListNode>
 void llist::InsertSegL(LListNode* n, LListNode* m_beg, LListNode* m_end) {
     (CheckContract<LListNode>)();
 
-    static_assert(!(IsConst<LListNode>)());
+    static_assert(!(IsConstType<LListNode>)());
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(m_beg != nullptr);
@@ -160,7 +160,7 @@ template <typename LListNode>
 void llist::InsertSegR(LListNode* n, LListNode* m_beg, LListNode* m_end) {
     (CheckContract<LListNode>)();
 
-    static_assert(!(IsConst<LListNode>)());
+    static_assert(!(IsConstType<LListNode>)());
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(n != nullptr);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(m_beg != nullptr);
@@ -186,7 +186,7 @@ template <typename LListNode>
 void llist::ExtractSeg(LListNode* n_beg, LListNode* n_end) {
     (CheckContract<LListNode>)();
 
-    static_assert(!(IsConst<LListNode>)());
+    static_assert(!(IsConstType<LListNode>)());
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(n_beg != nullptr);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(n_end != nullptr);

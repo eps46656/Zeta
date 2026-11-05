@@ -12,7 +12,7 @@ struct VariableOctetCntTag {};
 
 enum struct Endianness : unsigned char {
     Little = 0,
-    Big = 1,
+    Big    = 1,
 };
 
 template <typename T>
@@ -20,13 +20,13 @@ concept IsEndiannessLike =
     meta::IsAnySame<T, Endianness, meta::AutoValueWrapper<Endianness::Little>,
                     meta::AutoValueWrapper<Endianness::Big>>;
 
-template <integral::IsUnsignedIntegral Integral>
+template <integral::IsUnsignedIntegralType Integral>
 struct CanonicalizeResult {
     bool out_of_range : 1;
     Integral value;
 };
 
-template <integral::IsUnsignedIntegral Integral>
+template <integral::IsUnsignedIntegralType Integral>
 constexpr CanonicalizeResult<Integral> CanonicalizeIntegral(Integral value,
                                                             Integral range_max);
 
@@ -34,9 +34,9 @@ struct EncodeResult {
     bool value_out_of_range : 1;
 };
 
-template <integral::IsUnsignedIntegral DigitIntegral,
+template <integral::IsUnsignedIntegralType DigitIntegral,
           IsEndiannessLike EndiannessLike, size_t DigitWidth,
-          typename DigitCntLike, integral::IsIntegral SrcIntegral,
+          typename DigitCntLike, integral::IsIntegralType SrcIntegral,
           seq_endpoint::acceptor::IsAcceptor<DigitIntegral> Acceptor>
     requires requires {
         requires 0 < DigitWidth;
@@ -51,7 +51,7 @@ constexpr EncodeResult Encode(
     meta::ValueWrapper<size_t, DigitWidth> digit_width,
     DigitCntLike digit_cnt_like, SrcIntegral src_value, Acceptor&& acceptor);
 
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 struct DecodeResult {
     bool pad_zero : 1;
     bool digit_out_of_range : 1;
@@ -61,8 +61,8 @@ struct DecodeResult {
 };
 
 template <IsEndiannessLike EndiannessLike,
-          integral::IsUnsignedIntegral DigitIntegral, size_t DigitWidth,
-          typename DigitCntLike, integral::IsIntegral DstIntegral,
+          integral::IsUnsignedIntegralType DigitIntegral, size_t DigitWidth,
+          typename DigitCntLike, integral::IsIntegralType DstIntegral,
           seq_endpoint::provider::IsProvider<DigitIntegral> Provider>
     requires requires {
         requires 0 < DigitWidth;

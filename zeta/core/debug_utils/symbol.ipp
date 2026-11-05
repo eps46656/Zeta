@@ -26,9 +26,9 @@ constexpr symbol::CodeSymbolInfo symbol::SymbolizeCode(void const* code_addr) {
 
     CodeSymbolInfo code_sym_info{
         .addr = code_addr,
-        .file{},
+        .file = {},
         .line = 0,
-        .func{},
+        .func = {},
     };
 
     char* buffer_end{ detail::symbolize_buffer +

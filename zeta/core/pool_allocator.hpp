@@ -15,7 +15,7 @@ enum struct ReuseStrategy : unsigned char {
 };
 
 enum struct ReleaseStrategy : unsigned char {
-    Never = 0,
+    Never  = 0,
     Oldest = 1,
     Latest = 2,
 };
@@ -23,15 +23,16 @@ enum struct ReleaseStrategy : unsigned char {
 template <typename ReuseStrategyTag_, typename ReleaseStrategyTag_,
           typename SrcAllocatorLike_>
 struct AllocatorBase {
-    using ReuseStrategyTag = ReuseStrategyTag_;
+    using ReuseStrategyTag   = ReuseStrategyTag_;
     using ReleaseStrategyTag = ReleaseStrategyTag_;
-    using SrcAllocatorLike = SrcAllocatorLike_;
+    using SrcAllocatorLike   = SrcAllocatorLike_;
 
     static_assert(meta::IsValueWrapperT<ReuseStrategyTag, ReuseStrategy>);
 
     static_assert(meta::IsValueWrapperT<ReleaseStrategyTag, ReleaseStrategy>);
 
-    static_assert(allocator::IsAllocator<meta::RemoveCVRef<SrcAllocatorLike>>);
+    static_assert(allocator::IsAllocator<
+                  meta::RemoveConstVolatileReference<SrcAllocatorLike>>);
 
     size_t cnt;
     size_t capacity;
@@ -44,13 +45,14 @@ template <typename ReuseStrategyTag_, typename SrcAllocatorLike_>
 struct AllocatorBase<ReuseStrategyTag_,
                      meta::AutoValueWrapper<ReleaseStrategy::Never>,
                      SrcAllocatorLike_> {
-    using ReuseStrategyTag = ReuseStrategyTag_;
+    using ReuseStrategyTag   = ReuseStrategyTag_;
     using ReleaseStrategyTag = meta::AutoValueWrapper<ReleaseStrategy::Never>;
-    using SrcAllocatorLike = SrcAllocatorLike_;
+    using SrcAllocatorLike   = SrcAllocatorLike_;
 
     static_assert(meta::IsValueWrapperT<ReuseStrategyTag, ReuseStrategy>);
 
-    static_assert(allocator::IsAllocator<meta::RemoveCVRef<SrcAllocatorLike>>);
+    static_assert(allocator::IsAllocator<
+                  meta::RemoveConstVolatileReference<SrcAllocatorLike>>);
 
     void* head;
     void* tail;
@@ -64,9 +66,9 @@ struct AllocatorBase<ReuseStrategyTag_,
 template <typename ReuseStrategyTag_>
 struct AllocatorBase<ReuseStrategyTag_,
                      meta::AutoValueWrapper<ReleaseStrategy::Never>, void> {
-    using ReuseStrategyTag = ReuseStrategyTag_;
+    using ReuseStrategyTag   = ReuseStrategyTag_;
     using ReleaseStrategyTag = meta::AutoValueWrapper<ReleaseStrategy::Never>;
-    using SrcAllocatorLike = void;
+    using SrcAllocatorLike   = void;
 
     static_assert(meta::IsValueWrapperT<ReuseStrategyTag, ReuseStrategy>);
 

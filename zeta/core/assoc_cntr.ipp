@@ -6,26 +6,43 @@
 
 namespace zeta::core {
 
+#pragma push_macro("TestCapability")
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define TestCapability(cap_flag, cap_name)                                     \
+    (((cap_flag) & (static_cast<capability::Flag>(1)                           \
+                    << meta::EnumToUnderlying(capability::Kind::cap_name))) != \
+     0)
+
+#pragma push_macro("Elem")
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define Elem(CntrType)                                                      \
+    zeta::core::meta::GetTypeWrapperType<                                   \
+        decltype(zeta::core::meta::RemoveConstVolatileReference<CntrType>:: \
+                     GetElemType(zeta::core::assoc_cntr::Tag{},             \
+                                 zeta::core::meta::TypeWrapper<CntrType>{}))>
+
+#pragma push_macro("Cursor")
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define Cursor(CntrType)                                                    \
+    zeta::core::meta::GetTypeWrapperType<                                   \
+        decltype(zeta::core::meta::RemoveConstVolatileReference<CntrType>:: \
+                     GetCursorType(                                         \
+                         zeta::core::assoc_cntr::Tag{},                     \
+                         zeta::core::meta::TypeWrapper<CntrType>{}))>
+
 constexpr bool assoc_cntr::capability::CheckFlags(
     Flag static_enabled_capability_flag, Flag static_disabled_capability_flag) {
-    Flag capability_flags[]{ static_enabled_capability_flag,
-                             static_disabled_capability_flag };
+    Flag cap_flags[]{ se_cap_flag, sd_cap_flag };
 
-    for (Flag capability_flag : capability_flags) {
-        if ((capability_flag & empty_capability_flag) !=
-            empty_capability_flag) {
-            return false;
-        }
+    for (Flag cap_flag : cap_flags) {
+        if ((cap_flag & empty_cap_flag) != empty_cap_flag) { return false; }
 
-        if ((capability_flag | full_capability_flag) != full_capability_flag) {
+        if ((cap_flag | full_capability_flag) != full_capability_flag) {
             return false;
         }
     }
 
-    if ((static_enabled_capability_flag & static_disabled_capability_flag) !=
-        empty_capability_flag) {
-        return false;
-    }
+    if ((se_cap_flag & sd_cap_flag) != empty_cap_flag) { return false; }
 
     return true;
 }
@@ -40,19 +57,17 @@ constexpr bool assoc_cntr::capability::CheckFlags(
                              dynamic_disabled_capability_flag };
 
     for (Flag capability_flag : capability_flags) {
-        if ((capability_flag & empty_capability_flag) !=
-            empty_capability_flag) {
+        if ((capability_flag & empty_cap_flag) != empty_cap_flag) {
             return false;
         }
-        if ((capability_flag | full_capability_flag) != full_capability_flag) {
+        if ((capability_flag | full_cap_flag) != full_cap_flag) {
             return false;
         }
     }
 
     for (int i{ 0 }; i < 4; ++i) {
         for (int j{ i + 1 }; j < 4; ++j) {
-            if ((capability_flags[i] & capability_flags[j]) !=
-                empty_capability_flag) {
+            if ((capability_flags[i] & capability_flags[j]) != empty_cap_flag) {
                 return false;
             }
         }
@@ -60,7 +75,7 @@ constexpr bool assoc_cntr::capability::CheckFlags(
 
     if ((static_enabled_capability_flag | static_disabled_capability_flag |
          dynamic_enabled_capability_flag | dynamic_disabled_capability_flag) !=
-        full_capability_flag) {
+        full_cap_flag) {
         return false;
     }
 
@@ -86,23 +101,27 @@ constexpr bool assoc_cntr::capability::CheckFlags(
             (GetDynamicEnabledCapabilityFlag)(cntr), cap_name));            \
     }                                                                       \
                                                                             \
-    return CntrTraits<meta::RemoveRef<Cntr>>::method_name(__VA_ARGS__);     \
+    return CntrTraits<meta::RemoveReferenceFromType<Cntr>>::method_name(    \
+        __VA_ARGS__);                                                       \
                                                                             \
     static_assert(true)
 
 template <typename Cntr>
 constexpr decltype(auto) assoc_cntr::GetReferedInstPtr(Cntr& cntr) {
-    return CntrTraits<meta::RemoveRef<Cntr>>::GetReferedInstPtr(cntr);
+    return CntrTraits<meta::RemoveReferenceFromType<Cntr>>::GetReferedInstPtr(
+        cntr);
 }
 
 template <typename Cntr>
 constexpr decltype(auto) assoc_cntr::GetStaticEnabledCapabilityFlag() {
     constexpr capability::Flag static_enabled_capability_flag{
-        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticEnabledCapabilityFlag()
+        CntrTraits<meta::RemoveReferenceFromType<Cntr>>::
+            GetStaticEnabledCapabilityFlag()
     };
 
     constexpr capability::Flag static_disabled_capability_flag{
-        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticDisabledCapabilityFlag()
+        CntrTraits<meta::RemoveReferenceFromType<Cntr>>::
+            GetStaticDisabledCapabilityFlag()
     };
 
     capability::CheckFlags(static_enabled_capability_flag,
@@ -114,11 +133,13 @@ constexpr decltype(auto) assoc_cntr::GetStaticEnabledCapabilityFlag() {
 template <typename Cntr>
 constexpr decltype(auto) assoc_cntr::GetStaticDisabledCapabilityFlag() {
     constexpr capability::Flag static_enabled_capability_flag{
-        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticEnabledCapabilityFlag()
+        CntrTraits<meta::RemoveReferenceFromType<Cntr>>::
+            GetStaticEnabledCapabilityFlag()
     };
 
     constexpr capability::Flag static_disabled_capability_flag{
-        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticDisabledCapabilityFlag()
+        CntrTraits<meta::RemoveReferenceFromType<Cntr>>::
+            GetStaticDisabledCapabilityFlag()
     };
 
     capability::CheckFlags(static_enabled_capability_flag,
@@ -131,23 +152,26 @@ template <typename Cntr>
 constexpr decltype(auto) assoc_cntr::GetDynamicEnabledCapabilityFlag(
     Cntr& cntr) {
     constexpr capability::Flag static_enabled_capability_flag{
-        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticEnabledCapabilityFlag()
+        CntrTraits<meta::RemoveReferenceFromType<Cntr>>::
+            GetStaticEnabledCapabilityFlag()
     };
 
     constexpr capability::Flag static_disabled_capability_flag{
-        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticDisabledCapabilityFlag()
+        CntrTraits<meta::RemoveReferenceFromType<Cntr>>::
+            GetStaticDisabledCapabilityFlag()
     };
 
     capability::CheckFlags(static_enabled_capability_flag,
                            static_disabled_capability_flag);
 
     capability::Flag dynamic_enabled_capability_flag{
-        CntrTraits<meta::RemoveRef<Cntr>>::GetDynamicEnabledCapabilityFlag(cntr)
+        CntrTraits<meta::RemoveReferenceFromType<Cntr>>::
+            GetDynamicEnabledCapabilityFlag(cntr)
     };
 
     capability::Flag dynamic_disabled_capability_flag{
-        CntrTraits<meta::RemoveRef<Cntr>>::GetDynamicDisabledCapabilityFlag(
-            cntr)
+        CntrTraits<meta::RemoveReferenceFromType<Cntr>>::
+            GetDynamicDisabledCapabilityFlag(cntr)
     };
 
     capability::CheckFlags(
@@ -161,23 +185,26 @@ template <typename Cntr>
 constexpr decltype(auto) assoc_cntr::GetDynamicDisabledCapabilityFlag(
     Cntr& cntr) {
     constexpr capability::Flag static_enabled_capability_flag{
-        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticEnabledCapabilityFlag()
+        CntrTraits<meta::RemoveReferenceFromType<Cntr>>::
+            GetStaticEnabledCapabilityFlag()
     };
 
     constexpr capability::Flag static_disabled_capability_flag{
-        CntrTraits<meta::RemoveRef<Cntr>>::GetStaticDisabledCapabilityFlag()
+        CntrTraits<meta::RemoveReferenceFromType<Cntr>>::
+            GetStaticDisabledCapabilityFlag()
     };
 
     capability::CheckFlags(static_enabled_capability_flag,
                            static_disabled_capability_flag);
 
     capability::Flag dynamic_enabled_capability_flag{
-        CntrTraits<meta::RemoveRef<Cntr>>::GetDynamicEnabledCapabilityFlag(cntr)
+        CntrTraits<meta::RemoveReferenceFromType<Cntr>>::
+            GetDynamicEnabledCapabilityFlag(cntr)
     };
 
     capability::Flag dynamic_disabled_capability_flag{
-        CntrTraits<meta::RemoveRef<Cntr>>::GetDynamicDisabledCapabilityFlag(
-            cntr)
+        CntrTraits<meta::RemoveReferenceFromType<Cntr>>::
+            GetDynamicDisabledCapabilityFlag(cntr)
     };
 
     capability::CheckFlags(
@@ -375,36 +402,38 @@ constexpr assoc_cntr::VTable assoc_cntr::BuildVTableBasic() {
     }()
 
     constexpr VTable table{
-        .get_elem_cnt = F(  //
+        .get_elem_cnt{ F(  //
             GetElemCnt,
-            [](void* cntr) { return (GetElemCnt)(*static_cast<Cntr*>(cntr)); }),
+            [](void* cntr) {
+                return (GetElemCnt)(*static_cast<Cntr*>(cntr));
+            }) },
 
-        .get_max_elem_cnt = F(  //
+        .get_max_elem_cnt{ F(  //
             GetMaxElemCnt,
             [](void* cntr) {
                 return (GetMaxElemCnt)(*static_cast<Cntr*>(cntr));
-            }),
+            }) },
 
-        .get_lb_cursor = F(  //
+        .get_lb_cursor{ F(  //
             GetLBCursor,
             [](void* cntr, void* dst_cursor) {
                 (GetLBCursor)(*static_cast<Cntr*>(cntr), dst_cursor);
-            }),
+            }) },
 
-        .get_rb_cursor = F(  //
+        .get_rb_cursor{ F(  //
             GetRBCursor,
             [](void* cntr, void* dst_cursor) {
                 (GetRBCursor)(*static_cast<Cntr*>(cntr), dst_cursor);
-            }),
+            }) },
 
-        .peek_l = F(  //
+        .peek_l{ F(  //
             PeekL,
             [](void* cntr, bool lazy_copy_elem,
                assoc_cntr::ElemPtrView* dst_elem_ptr_view, void* dst_cursor,
                void* dst_elem) {
                 return (PeekL)(*static_cast<Cntr*>(cntr), lazy_copy_elem,
                                dst_elem_ptr_view, dst_cursor, dst_elem);
-            }),
+            }) },
 
         .peek_r = F(  //
             PeekR,

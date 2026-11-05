@@ -44,8 +44,8 @@ constexpr assoc_cntr_ref::Cntr::Cntr(TargetCntr& target_cntr) {
 template <assoc_cntr::IsAssocCntr TargetCntr>
 constexpr void assoc_cntr_ref::Cntr::Init(this Cntr& cntr,
                                           TargetCntr& target_cntr) {
-    cntr.cursor_size = assoc_cntr::GetCursorSize(target_cntr);
-    cntr.elem_size = assoc_cntr::GetElemSize(target_cntr);
+    cntr.cursor_size  = assoc_cntr::GetCursorSize(target_cntr);
+    cntr.elem_size    = assoc_cntr::GetElemSize(target_cntr);
     cntr.max_elem_cnt = assoc_cntr::GetMaxElemCnt(target_cntr);
     cntr.dynamic_enabled_capability_flag =
         assoc_cntr::GetStaticEnabledCapabilityFlag<TargetCntr>() |
@@ -139,7 +139,7 @@ template <assoc_cntr::IsWriter provider>
 constexpr void* assoc_cntr_ref::Cntr::Insert(this Cntr& cntr, void const* elem,
                                              provider&& writer,
                                              void* dst_cursor) {
-    using RawWriter = meta::RemoveCVRef<provider>;
+    using RawWriter = meta::RemoveConstVolatileReference<provider>;
 
     if constexpr (meta::IsSame<RawWriter, assoc_cntr::EmptyWriter>) {
         CallMethod(Insert, insert.with_elem.empty, elem, writer, dst_cursor);
@@ -155,7 +155,7 @@ constexpr void* assoc_cntr_ref::Cntr::Insert(
     this Cntr& cntr, void const* key, KeyHasher const& key_hasher,
     KeyElemComparator const& key_elem_cmptr, provider&& writer,
     void* dst_cursor) {
-    using RawWriter = meta::RemoveCVRef<provider>;
+    using RawWriter = meta::RemoveConstVolatileReference<provider>;
 
     if constexpr (meta::IsSame<RawWriter, assoc_cntr::EmptyWriter>) {
         CallMethod(Insert, insert.with_key.empty, key, key_hasher,
@@ -169,7 +169,7 @@ constexpr void* assoc_cntr_ref::Cntr::Insert(
 template <assoc_cntr::IsReader acceptor>
 constexpr void assoc_cntr_ref::Cntr::PopL(this Cntr& cntr, size_t cnt,
                                           Acceptor&& reader) {
-    using RawReader = meta::RemoveCVRef<acceptor>;
+    using RawReader = meta::RemoveConstVolatileReference<acceptor>;
 
     if constexpr (meta::IsSame<RawReader, assoc_cntr::EmptyReader>) {
         CallMethod(PopL, pop_l.empty, cnt, reader);
@@ -183,7 +183,7 @@ constexpr void assoc_cntr_ref::Cntr::PopL(this Cntr& cntr, size_t cnt,
 template <assoc_cntr::IsReader acceptor>
 constexpr void assoc_cntr_ref::Cntr::PopR(this Cntr& cntr, size_t cnt,
                                           Acceptor&& reader) {
-    using RawReader = meta::RemoveCVRef<acceptor>;
+    using RawReader = meta::RemoveConstVolatileReference<acceptor>;
 
     if constexpr (meta::IsSame<RawReader, assoc_cntr::EmptyReader>) {
         CallMethod(PopR, pop_l.empty, cnt, reader);
@@ -197,7 +197,7 @@ constexpr void assoc_cntr_ref::Cntr::PopR(this Cntr& cntr, size_t cnt,
 template <assoc_cntr::IsReader acceptor>
 constexpr void assoc_cntr_ref::Cntr::Erase(this Cntr& cntr, void* pos_cursor,
                                            size_t cnt, Acceptor&& reader) {
-    using RawReader = meta::RemoveCVRef<acceptor>;
+    using RawReader = meta::RemoveConstVolatileReference<acceptor>;
 
     if constexpr (meta::IsSame<RawReader, assoc_cntr::EmptyReader>) {
         CallMethod(Erase, erase.empty, pos_cursor, cnt, reader);
@@ -325,12 +325,12 @@ constexpr void assoc_cntr_ref::Cntr::Check(this Cntr const& cntr) {
 
 constexpr assoc_cntr::capability::Flag
 assoc_cntr::CntrTraits<assoc_cntr_ref::Cntr>::GetStaticEnabledCapabilityFlag() {
-    return assoc_cntr::capability::empty_capability_flag;
+    return assoc_cntr::capability::empty_cap_flag;
 }
 
 constexpr assoc_cntr::capability::Flag assoc_cntr::CntrTraits<
     assoc_cntr_ref::Cntr>::GetStaticDisabledCapabilityFlag() {
-    return assoc_cntr::capability::empty_capability_flag;
+    return assoc_cntr::capability::empty_cap_flag;
 }
 
 constexpr assoc_cntr::capability::Flag
@@ -347,26 +347,26 @@ assoc_cntr::CntrTraits<assoc_cntr_ref::Cntr>::GetDynamicDisabledCapabilityFlag(
 
 constexpr assoc_cntr::capability::Flag assoc_cntr::CntrTraits<
     assoc_cntr_ref::Cntr const>::GetStaticEnabledCapabilityFlag() {
-    return assoc_cntr::capability::empty_capability_flag;
+    return assoc_cntr::capability::empty_cap_flag;
 }
 
 constexpr assoc_cntr::capability::Flag assoc_cntr::CntrTraits<
     assoc_cntr_ref::Cntr const>::GetStaticDisabledCapabilityFlag() {
-    return assoc_cntr::capability::non_const_capability_flag;
+    return assoc_cntr::capability::non_const_cap_flag;
 }
 
 constexpr assoc_cntr::capability::Flag assoc_cntr::
     CntrTraits<assoc_cntr_ref::Cntr const>::GetDynamicEnabledCapabilityFlag(
         assoc_cntr_ref::Cntr const& cntr) {
     return cntr.dynamic_enabled_capability_flag &
-           assoc_cntr::capability::const_capability_flag;
+           assoc_cntr::capability::const_cap_flag;
 }
 
 constexpr assoc_cntr::capability::Flag assoc_cntr::
     CntrTraits<assoc_cntr_ref::Cntr const>::GetDynamicDisabledCapabilityFlag(
         assoc_cntr_ref::Cntr const& cntr) {
     return cntr.dynamic_disabled_capability_flag |
-           assoc_cntr::capability::non_const_capability_flag;
+           assoc_cntr::capability::non_const_cap_flag;
 }
 
 #pragma pop_macro("TestCapability")

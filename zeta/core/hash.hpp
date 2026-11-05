@@ -10,18 +10,22 @@ struct Tag {};
 template <typename Hasher, typename Value>
 concept CanHash = requires(Hasher const& hasher, Tag tag, Value const& value,
                            unsigned long long salt) {
-    requires meta::IsSame<
-        meta::RemoveCVRef<decltype(hasher.Hash(tag, value, salt))>,
-        unsigned long long>;
+    requires meta::IsNonReferenceType<Hasher>;
+
+    requires meta::IsNonReferenceType<Value>;
+
+    requires meta::IsSame<meta::RemoveConstVolatileReference<
+                              decltype(hasher.Hash(tag, value, salt))>,
+                          unsigned long long>;
 };
 
-template <typename Hasher, typename Value>
-    requires CanHash<Hasher, Value>
+template <meta::IsNonReferenceType Hasher, meta::IsNonReferenceType Value>
 constexpr unsigned long long Hash(Hasher const& hasher, Value const& value,
-                                  unsigned long long salt);
+                                  unsigned long long salt)
+    requires CanHash<Hasher, Value>;
 
 struct EmptyHasher {
-    template <typename Value>
+    template <meta::IsNonReferenceType Value>
     static constexpr unsigned long long Hash(Tag, Value const&,
                                              unsigned long long);
 };
@@ -31,32 +35,32 @@ using ArchetypeHasher = EmptyHasher;
 template <typename Value>
 struct BasicHasher {};
 
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 struct BasicHasher<Integral> {
     static constexpr unsigned long long Hash(Tag, Integral integral,
                                              unsigned long long salt);
 };
 
-template <meta::IsPointer Pointer>
+template <meta::IsPointerType Pointer>
 struct BasicHasher<Pointer> {
     static constexpr unsigned long long Hash(Tag, void* const pointer,
                                              unsigned long long salt);
 };
 
-template <typename Value>
+template <meta::IsNonReferenceType Value>
 unsigned long long BasicHash(Value const& value, unsigned long long salt);
 
 struct UniversalBasicHasher {
-    template <typename Value>
+    template <meta::IsNonReferenceType Value>
     static constexpr unsigned long long Hash(Tag, Value const& value,
                                              unsigned long long salt);
 };
 
-template <typename Value>
+template <meta::IsNonReferenceType Value>
 unsigned long long TypeErasedBasicHash(void const* value,
                                        unsigned long long salt);
 
-template <typename Value>
+template <meta::IsNonReferenceType Value>
 struct CppStdBasicHash {
     size_t operator()(Value const& value) const;
 };

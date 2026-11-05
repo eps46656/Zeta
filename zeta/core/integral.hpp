@@ -53,62 +53,55 @@ template <typename Integral, typename = void>
 struct IntegralTraits : public detail::UnspecializedIntegralTraitsTag_ {};
 
 template <typename Integral>
-concept IsIntegral =
-    !meta::IsBaseOf<detail::UnspecializedIntegralTraitsTag_,
-                    IntegralTraits<meta::RemoveCVRef<Integral>>>;
+concept IsIntegralType = !meta::IsBaseOf<
+    detail::UnspecializedIntegralTraitsTag_,
+    IntegralTraits<meta::RemoveConstVolatileReference<Integral>>>;
 
 template <typename Integral>
-concept IsSignedIntegral =
+concept IsSignedIntegralType =
     requires { requires IntegralTraits<Integral>::is_signed; };
 
 template <typename Integral>
-concept IsUnsignedIntegral =
+concept IsUnsignedIntegralType =
     requires { requires !IntegralTraits<Integral>::is_signed; };
 
-template <typename Integral>
-constexpr size_t WidthOf{ []() {
-    static_assert(integral::IsIntegral<Integral>);
-    return IntegralTraits<Integral>::width;
-}() };
+template <integral::IsIntegralType Integral>
+constexpr size_t WidthOf{ []() { return IntegralTraits<Integral>::width; }() };
 
-template <typename Integral>
+template <integral::IsIntegralType Integral>
 using TryMakeUnsignedOf = meta::GetTypeWrapperType<decltype([]() {
-    static_assert(integral::IsIntegral<Integral>);
-
     using UnsignedIntegral = IntegralTraits<Integral>::UnsignedType;
 
     static_assert(meta::IsSame<UnsignedIntegral, meta::NeverMatchedTag> ||
-                  integral::IsIntegral<UnsignedIntegral>);
+                  integral::IsIntegralType<UnsignedIntegral>);
 
     return meta::TypeWrapper<UnsignedIntegral>{};
 }())>;
 
-template <typename Integral>
+template <integral::IsIntegralType Integral>
 using TryMakeSignedOf = meta::GetTypeWrapperType<decltype([]() {
-    static_assert(integral::IsIntegral<Integral>);
-
     using SignedIntegral = IntegralTraits<Integral>::SignedType;
 
     static_assert(meta::IsSame<SignedIntegral, meta::NeverMatchedTag> ||
-                  integral::IsIntegral<SignedIntegral>);
+                  integral::IsIntegralType<SignedIntegral>);
 
     return meta::TypeWrapper<SignedIntegral>{};
 }())>;
 
-template <typename Integral>
+template <integral::IsIntegralType Integral>
 using MakeUnsignedOf = meta::GetTypeWrapperType<decltype([]() {
     using UnsignedIntegral = TryMakeUnsignedOf<Integral>;
 
-    static_assert(integral::IsIntegral<UnsignedIntegral>);
+    static_assert(integral::IsIntegralType<UnsignedIntegral>);
 
     return meta::TypeWrapper<UnsignedIntegral>{};
 }())>;
 
-template <typename Integral>
+template <integral::IsIntegralType Integral>
 using MakeSignedOf = meta::GetTypeWrapperType<decltype([]() {
     using SignedIntegral = TryMakeSignedOf<Integral>;
 
-    static_assert(integral::IsIntegral<SignedIntegral>);
+    static_assert(integral::IsIntegralType<SignedIntegral>);
 
     return meta::TypeWrapper<SignedIntegral>{};
 }())>;
@@ -135,7 +128,7 @@ struct IntegralTraits<char> {
         static constexpr size_t width{ width_ };  \
                                                   \
         using UnsignedType = utype;               \
-        using SignedType = stype;                 \
+        using SignedType   = stype;               \
     };                                            \
                                                   \
     template <>                                   \
@@ -144,7 +137,7 @@ struct IntegralTraits<char> {
         static constexpr size_t width{ width_ };  \
                                                   \
         using UnsignedType = utype;               \
-        using SignedType = stype;                 \
+        using SignedType   = stype;               \
     };                                            \
                                                   \
     static_assert(true)
@@ -163,7 +156,7 @@ struct IntegralTraits<unsigned _BitInt(N)> {
     static constexpr size_t width{ N };
 
     using UnsignedType = unsigned _BitInt(N);
-    using SignedType = signed _BitInt(N);
+    using SignedType   = signed _BitInt(N);
 };
 
 template <size_t N>
@@ -172,12 +165,12 @@ struct IntegralTraits<signed _BitInt(N)> {
     static constexpr size_t width{ N };
 
     using UnsignedType = unsigned _BitInt(N);
-    using SignedType = signed _BitInt(N);
+    using SignedType   = signed _BitInt(N);
 };
 
 namespace detail {
 
-template <typename Integral>
+template <integral::IsIntegralType Integral>
 constexpr Integral Pow2Minus1_(size_t exp) {  // Returns 2^exp - 1.
     if (exp == 0) { return 0; }
 
@@ -185,7 +178,7 @@ constexpr Integral Pow2Minus1_(size_t exp) {  // Returns 2^exp - 1.
 
     x <<= exp - 1;  // x = 2^(exp - 1)
     --x;            // x = 2^(exp - 1) - 1
-    x *= 2;         // x = 2^exp - 2
+    x <<= 1;        // x = 2^exp - 2
     ++x;            // x = 2^exp - 1
 
     return x;
@@ -193,20 +186,20 @@ constexpr Integral Pow2Minus1_(size_t exp) {  // Returns 2^exp - 1.
 
 }  // namespace detail
 
-template <typename Integral>
+template <integral::IsIntegralType Integral>
 constexpr Integral RangeMinOf{ []() {
-    static_assert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegralType<Integral>);
 
-    return IsSignedIntegral<Integral>
+    return IsSignedIntegralType<Integral>
                ? -detail::Pow2Minus1_<Integral>(WidthOf<Integral> - 1)
                : static_cast<Integral>(0);
 }() };
 
-template <typename Integral>
+template <integral::IsIntegralType Integral>
 constexpr Integral RangeMaxOf{ []() {
-    static_assert(integral::IsIntegral<Integral>);
+    static_assert(integral::IsIntegralType<Integral>);
 
-    return IsSignedIntegral<Integral>
+    return IsSignedIntegralType<Integral>
                ? detail::Pow2Minus1_<Integral>(WidthOf<Integral> - 1)
                : detail::Pow2Minus1_<Integral>(WidthOf<Integral>);
 }() };

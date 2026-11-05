@@ -6,7 +6,7 @@ namespace zeta::core::poly_seq_endpoint {
 
 namespace acceptor {
 
-template <meta::IsObj Elem>
+template <meta::IsObjectType Elem>
 struct Acceptor {
     void* target_acceptor;
 
@@ -59,7 +59,7 @@ struct Acceptor {
 
 namespace provider {
 
-template <meta::IsObj Elem>
+template <meta::IsObjectType Elem>
 struct Provider {
     void* target_provider;
 

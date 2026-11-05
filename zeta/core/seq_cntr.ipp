@@ -12,6 +12,7 @@
 #include <zeta/core/lifecycle.ipp>
 #include <zeta/core/lin_seq_endpoint.ipp>
 #include <zeta/core/meta.hpp>
+#include <zeta/core/quad_cap_sys.ipp>
 #include <zeta/core/seq_cntr.hpp>
 #include <zeta/core/utils.ipp>
 
@@ -26,70 +27,20 @@ namespace zeta::core {
 
 #pragma push_macro("Elem")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define Elem(CntrType)                                                 \
-    zeta::core::meta::GetTypeWrapperType<                              \
-        decltype(zeta::core::meta::RemoveCVRef<CntrType>::GetElemType( \
-            zeta::core::seq_cntr::Tag{},                               \
-            zeta::core::meta::TypeWrapper<CntrType>{}))>
+#define Elem(CntrType)                                                      \
+    zeta::core::meta::GetTypeWrapperType<                                   \
+        decltype(zeta::core::meta::RemoveConstVolatileReference<CntrType>:: \
+                     GetElemType(zeta::core::seq_cntr::Tag{},               \
+                                 zeta::core::meta::TypeWrapper<CntrType>{}))>
 
 #pragma push_macro("Cursor")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define Cursor(CntrType)                                                 \
-    zeta::core::meta::GetTypeWrapperType<                                \
-        decltype(zeta::core::meta::RemoveCVRef<CntrType>::GetCursorType( \
-            zeta::core::seq_cntr::Tag{},                                 \
-            zeta::core::meta::TypeWrapper<CntrType>{}))>
-
-constexpr bool seq_cntr::capability::CheckFlags(Flag se_cap_flag,
-                                                Flag sd_cap_flag) {
-    Flag cap_flags[]{ se_cap_flag, sd_cap_flag };
-
-    for (Flag cap_flag : cap_flags) {
-        if ((cap_flag & empty_capability_flag) != empty_capability_flag) {
-            return false;
-        }
-
-        if ((cap_flag | full_capability_flag) != full_capability_flag) {
-            return false;
-        }
-    }
-
-    if ((se_cap_flag & sd_cap_flag) != empty_capability_flag) { return false; }
-
-    return true;
-}
-
-constexpr bool seq_cntr::capability::CheckFlags(Flag se_cap_flag,
-                                                Flag sd_cap_flag,
-                                                Flag de_cap_flag,
-                                                Flag dd_cap_flag) {
-    Flag cap_flags[]{ se_cap_flag, sd_cap_flag, de_cap_flag, dd_cap_flag };
-
-    for (Flag cap_flag : cap_flags) {
-        if ((cap_flag & empty_capability_flag) != empty_capability_flag) {
-            return false;
-        }
-
-        if ((cap_flag | full_capability_flag) != full_capability_flag) {
-            return false;
-        }
-    }
-
-    for (int i{ 0 }; i < 4; ++i) {
-        for (int j{ i + 1 }; j < 4; ++j) {
-            if ((cap_flags[i] & cap_flags[j]) != empty_capability_flag) {
-                return false;
-            }
-        }
-    }
-
-    if ((se_cap_flag | sd_cap_flag | de_cap_flag | dd_cap_flag) !=
-        full_capability_flag) {
-        return false;
-    }
-
-    return true;
-}
+#define Cursor(CntrType)                                                    \
+    zeta::core::meta::GetTypeWrapperType<                                   \
+        decltype(zeta::core::meta::RemoveConstVolatileReference<CntrType>:: \
+                     GetCursorType(                                         \
+                         zeta::core::seq_cntr::Tag{},                       \
+                         zeta::core::meta::TypeWrapper<CntrType>{}))>
 
 #pragma push_macro("CallMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -113,7 +64,7 @@ constexpr bool seq_cntr::capability::CheckFlags(Flag se_cap_flag,
                                                                                \
     static_assert(true)
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr void seq_cntr::CheckCapabilityFlags(Cntr&& cntr) {
     constexpr capability::Flag se_cap_flag{ (
         GetStaticEnabledCapabilityFlag)(meta::TypeWrapper<Cntr&&>{}) };
@@ -121,127 +72,122 @@ constexpr void seq_cntr::CheckCapabilityFlags(Cntr&& cntr) {
     constexpr capability::Flag sd_cap_flag{ (
         GetStaticDisabledCapabilityFlag)(meta::TypeWrapper<Cntr&&>{}) };
 
-    capability::CheckFlags(se_cap_flag, sd_cap_flag);
-
     capability::Flag de_cap_flag{ (
         GetDynamicEnabledCapabilityFlag)(meta::Forward<Cntr&&>(cntr)) };
 
     capability::Flag dd_cap_flag{ (
         GetDynamicDisabledCapabilityFlag)(meta::Forward<Cntr&&>(cntr)) };
 
-    capability::CheckFlags(se_cap_flag, sd_cap_flag, de_cap_flag, dd_cap_flag);
-}
+    static_assert(
+        quad_cap_sys::CheckFlags(capability::config, se_cap_flag, sd_cap_flag));
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
-constexpr void* seq_cntr::GetReferedInstPtr(Cntr&& cntr) {
-    return cntr.GetReferedInstPtr(Tag{});
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(
+        quad_cap_sys::CheckQuadFlags(capability::config, se_cap_flag,
+                                     sd_cap_flag, de_cap_flag, dd_cap_flag));
 }
 
 template <seq_cntr::IsSeqCntr Cntr>
 constexpr seq_cntr::capability::Flag seq_cntr::GetStaticEnabledCapabilityFlag(
     meta::TypeWrapper<Cntr>) {
-    return meta::RemoveRef<Cntr>::GetStaticEnabledCapabilityFlag(
+    return meta::RemoveReferenceFromType<Cntr>::GetStaticEnabledCapabilityFlag(
         Tag{}, meta::TypeWrapper<Cntr>{});
 }
 
 template <seq_cntr::IsSeqCntr Cntr>
 constexpr seq_cntr::capability::Flag seq_cntr::GetStaticDisabledCapabilityFlag(
     meta::TypeWrapper<Cntr>) {
-    return meta::RemoveRef<Cntr>::GetStaticDisabledCapabilityFlag(
+    return meta::RemoveReferenceFromType<Cntr>::GetStaticDisabledCapabilityFlag(
         Tag{}, meta::TypeWrapper<Cntr>{});
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr seq_cntr::capability::Flag seq_cntr::GetDynamicEnabledCapabilityFlag(
     Cntr&& cntr) {
     return cntr.GetDynamicEnabledCapabilityFlag(Tag{});
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr seq_cntr::capability::Flag seq_cntr::GetDynamicDisabledCapabilityFlag(
     Cntr&& cntr) {
     return cntr.GetDynamicDisabledCapabilityFlag(Tag{});
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr meta::TypeWrapper<Elem(Cntr)> seq_cntr::GetElemType(
     meta::TypeWrapper<Cntr>) {
-    return meta::RemoveCVRef<Cntr>::GetElemType(Tag{},
-                                                meta::TypeWrapper<Cntr>{});
+    return meta::RemoveConstVolatileReference<Cntr>::GetElemType(
+        Tag{}, meta::TypeWrapper<Cntr>{});
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr meta::TypeWrapper<Cursor(Cntr)> seq_cntr::GetCursorType(
     meta::TypeWrapper<Cntr>) {
-    return meta::RemoveCVRef<Cntr>::GetCursorType(Tag{},
-                                                  meta::TypeWrapper<Cntr>{});
+    return meta::RemoveConstVolatileReference<Cntr>::GetCursorType(
+        Tag{}, meta::TypeWrapper<Cntr>{});
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
+constexpr void* seq_cntr::GetReferedInstPtr(Cntr&& cntr) {
+    return cntr.GetReferedInstPtr(Tag{});
+}
+
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr size_t seq_cntr::GetElemCnt(Cntr&& cntr) {
     CallMethod(Cntr&&, GetElemCnt, GetElemCnt);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr size_t seq_cntr::GetMaxElemCnt(Cntr&& cntr) {
     CallMethod(Cntr&&, GetMaxElemCnt, GetMaxElemCnt);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr decltype(auto) seq_cntr::GetLBCursor(Cntr&& cntr,
                                                Cursor(Cntr&&) * dst_cursor) {
     CallMethod(Cntr&&, GetLBCursor, GetLBCursor, dst_cursor);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr decltype(auto) seq_cntr::GetRBCursor(Cntr&& cntr,
                                                Cursor(Cntr&&) * dst_cursor) {
     CallMethod(Cntr&&, GetRBCursor, GetRBCursor, dst_cursor);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr,
-          lifecycle::IsDstStorageView DstElemView>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr decltype(auto) seq_cntr::PeekL(
-    Cntr&& cntr, bool lazy_copy_elem,
-    lifecycle::DynamicStorageView<Elem(Cntr&&)>* dst_elem_view,
-    Cursor(Cntr&&) * dst_cursor, DstElemView dst_elem) {
-    CallMethod(Cntr&&, PeekL, PeekL, lazy_copy_elem, dst_elem_view, dst_cursor,
-               dst_elem);
+    Cntr&& cntr, Cursor(Cntr&&) * dst_cursor,
+    resolving::Packet<meta::RemoveConst<Elem(Cntr&&)>,
+                      meta::RemoveConst<Elem(Cntr&&)>>* resolving_packet) {
+    CallMethod(Cntr&&, PeekL, PeekL, dst_cursor, resolving_packet);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr,
-          lifecycle::IsDstStorageView DstElemView>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr decltype(auto) seq_cntr::PeekR(
-    Cntr&& cntr, bool lazy_copy_elem,
-    lifecycle::DynamicStorageView<Elem(Cntr&&)>* dst_elem_view,
-    Cursor(Cntr&&) * dst_cursor, DstElemView dst_elem) {
-    CallMethod(Cntr&&, PeekR, PeekR, lazy_copy_elem, dst_elem_view, dst_cursor,
-               dst_elem);
+    Cntr&& cntr, Cursor(Cntr&&) * dst_cursor,
+    resolving::Packet<meta::RemoveConst<Elem(Cntr&&)>,
+                      meta::RemoveConst<Elem(Cntr&&)>>* resolving_packet) {
+    CallMethod(Cntr&&, PeekR, PeekR, dst_cursor, resolving_packet);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr,
-          lifecycle::IsDstStorageView DstElemView>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr decltype(auto) seq_cntr::Refer(
-    Cntr&& cntr, size_t idx, bool lazy_copy_elem,
-    lifecycle::DynamicStorageView<Elem(Cntr&&)>* dst_elem_view,
-    Cursor(Cntr&&) * dst_cursor, DstElemView dst_elem) {
-    CallMethod(Cntr&&, Refer, Refer, idx, lazy_copy_elem, dst_elem_view,
-               dst_cursor, dst_elem);
+    Cntr&& cntr, size_t idx, Cursor(Cntr&&) * dst_cursor,
+    resolving::Packet<meta::RemoveConst<Elem(Cntr&&)>,
+                      meta::RemoveConst<Elem(Cntr&&)>>* resolving_packet) {
+    CallMethod(Cntr&&, Refer, Refer, idx, dst_cursor, resolving_packet);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr,
-          lifecycle::IsDstStorageView DstElemView>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr decltype(auto) seq_cntr::Derefer(
-    Cntr&& cntr, Cursor(Cntr&&) * pos_cursor, bool lazy_copy_elem,
-    lifecycle::DynamicStorageView<Elem(Cntr&&)>* dst_elem_view,
-    DstElemView dst_elem) {
+    Cntr&& cntr, Cursor(Cntr&&) * pos_cursor,
+    resolving::Packet<meta::RemoveConst<Elem(Cntr&&)>,
+                      meta::RemoveConst<Elem(Cntr&&)>>* resolving_packet) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(pos_cursor != nullptr);
 
-    CallMethod(Cntr&&, Derefer, Derefer, pos_cursor, lazy_copy_elem,
-               dst_elem_view, dst_elem);
+    CallMethod(Cntr&&, Derefer, Derefer, pos_cursor, resolving_packet);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr,
+template <seq_cntr::IsSeqCntrWithRightReference Cntr,
           seq_endpoint::acceptor::IsAcceptor<Elem(Cntr&&)> Acceptor>
 constexpr decltype(auto) seq_cntr::Read(
     Cntr&& cntr, Cursor(Cntr&&) * pos_cursor, size_t cnt,
@@ -252,7 +198,7 @@ constexpr decltype(auto) seq_cntr::Read(
     CallMethod(Cntr&&, Read, Read, pos_cursor, cnt, acceptor, dst_cursor);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr,
+template <seq_cntr::IsSeqCntrWithRightReference Cntr,
           seq_endpoint::provider::IsProvider<Elem(Cntr&&)> Provider>
 constexpr decltype(auto) seq_cntr::Write(
     Cntr&& cntr, Cursor(Cntr&&) * pos_cursor, size_t cnt,
@@ -263,7 +209,7 @@ constexpr decltype(auto) seq_cntr::Write(
     CallMethod(Cntr&&, Write, Write, pos_cursor, cnt, provider, dst_cursor);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr,
+template <seq_cntr::IsSeqCntrWithRightReference Cntr,
           seq_endpoint::acceptor::IsAcceptor<Elem(Cntr&&)> Acceptor>
 constexpr decltype(auto) seq_cntr::ReadWrite(
     Cntr&& cntr, Cursor(Cntr&&) * pos_cursor, size_t cnt,
@@ -275,7 +221,7 @@ constexpr decltype(auto) seq_cntr::ReadWrite(
                dst_cursor);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr,
+template <seq_cntr::IsSeqCntrWithRightReference Cntr,
           seq_endpoint::provider::IsProvider<Elem(Cntr&&)> Provider>
 constexpr decltype(auto) seq_cntr::PushL(
     Cntr&& cntr, size_t cnt,
@@ -289,7 +235,7 @@ constexpr decltype(auto) seq_cntr::PushL(
                dst_end_cursor);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr,
+template <seq_cntr::IsSeqCntrWithRightReference Cntr,
           seq_endpoint::provider::IsProvider<Elem(Cntr&&)> Provider>
 constexpr decltype(auto) seq_cntr::PushR(
     Cntr&& cntr, size_t cnt,
@@ -303,7 +249,7 @@ constexpr decltype(auto) seq_cntr::PushR(
                dst_end_cursor);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr,
+template <seq_cntr::IsSeqCntrWithRightReference Cntr,
           seq_endpoint::provider::IsProvider<Elem(Cntr&&)> Provider>
 constexpr decltype(auto) seq_cntr::Insert(
     Cntr&& cntr, Cursor(Cntr&&) * pos_cursor, size_t cnt,
@@ -314,7 +260,7 @@ constexpr decltype(auto) seq_cntr::Insert(
     CallMethod(Cntr&&, Insert, Insert, pos_cursor, cnt, provider, dst_cursor);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr,
+template <seq_cntr::IsSeqCntrWithRightReference Cntr,
           seq_endpoint::acceptor::IsAcceptor<Elem(Cntr&&)> Acceptor>
 constexpr decltype(auto) seq_cntr::PopL(
     Cntr&& cntr, size_t cnt,
@@ -323,7 +269,7 @@ constexpr decltype(auto) seq_cntr::PopL(
     CallMethod(Cntr&&, PopL, PopL, cnt, acceptor, dst_cursor);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr,
+template <seq_cntr::IsSeqCntrWithRightReference Cntr,
           seq_endpoint::acceptor::IsAcceptor<Elem(Cntr&&)> Acceptor>
 constexpr decltype(auto) seq_cntr::PopR(
     Cntr&& cntr, size_t cnt,
@@ -332,7 +278,7 @@ constexpr decltype(auto) seq_cntr::PopR(
     CallMethod(Cntr&&, PopR, PopR, cnt, acceptor, dst_cursor);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr,
+template <seq_cntr::IsSeqCntrWithRightReference Cntr,
           seq_endpoint::acceptor::IsAcceptor<Elem(Cntr&&)> Acceptor>
 constexpr decltype(auto) seq_cntr::Erase(
     Cntr&& cntr, Cursor(Cntr&&) * pos_cursor, size_t cnt,
@@ -343,13 +289,13 @@ constexpr decltype(auto) seq_cntr::Erase(
     CallMethod(Cntr&&, Erase, Erase, pos_cursor, cnt, acceptor);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr,
+template <seq_cntr::IsSeqCntrWithRightReference Cntr,
           seq_endpoint::acceptor::IsAcceptor<Elem(Cntr&&)> Acceptor>
 constexpr decltype(auto) seq_cntr::EraseAll(Cntr&& cntr, Acceptor&& acceptor) {
     CallMethod(Cntr&&, EraseAll, EraseAll, acceptor);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr decltype(auto) seq_cntr::CopyCursor(Cntr&& cntr,
                                               Cursor(Cntr&&) * src_cursor,
                                               Cursor(Cntr&&) * dst_cursor) {
@@ -359,7 +305,7 @@ constexpr decltype(auto) seq_cntr::CopyCursor(Cntr&& cntr,
     CallMethod(Cntr&&, CopyCursor, CopyCursor, src_cursor, dst_cursor);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr bool seq_cntr::AreEqualCursor(Cntr&& cntr, Cursor(Cntr&&) * cursor_a,
                                         Cursor(Cntr&&) * cursor_b) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(cursor_a != nullptr);
@@ -368,7 +314,7 @@ constexpr bool seq_cntr::AreEqualCursor(Cntr&& cntr, Cursor(Cntr&&) * cursor_a,
     CallMethod(Cntr&&, AreEqualCursor, AreEqualCursor, cursor_a, cursor_b);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr comparison::Ordering seq_cntr::CompareCursor(
     Cntr&& cntr, Cursor(Cntr&&) * cursor_a, Cursor(Cntr&&) * cursor_b) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(cursor_a != nullptr);
@@ -377,7 +323,7 @@ constexpr comparison::Ordering seq_cntr::CompareCursor(
     CallMethod(Cntr&&, CompareCursor, CompareCursor, cursor_a, cursor_b);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr size_t seq_cntr::GetCursorDist(Cntr&& cntr, Cursor(Cntr&&) * cursor_a,
                                          Cursor(Cntr&&) * cursor_b) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(cursor_a != nullptr);
@@ -386,14 +332,14 @@ constexpr size_t seq_cntr::GetCursorDist(Cntr&& cntr, Cursor(Cntr&&) * cursor_a,
     CallMethod(Cntr&&, GetCursorDist, GetCursorDist, cursor_a, cursor_b);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr size_t seq_cntr::GetCursorIdx(Cntr&& cntr, Cursor(Cntr&&) * cursor) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(cursor != nullptr);
 
     CallMethod(Cntr&&, GetCursorIdx, GetCursorIdx, cursor);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr decltype(auto) seq_cntr::CursorStepL(Cntr&& cntr,
                                                Cursor(Cntr&&) * cursor) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(cursor != nullptr);
@@ -401,7 +347,7 @@ constexpr decltype(auto) seq_cntr::CursorStepL(Cntr&& cntr,
     CallMethod(Cntr&&, CursorStepL, CursorStepL, cursor);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr decltype(auto) seq_cntr::CursorStepR(Cntr&& cntr,
                                                Cursor(Cntr&&) * cursor) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(cursor != nullptr);
@@ -409,7 +355,7 @@ constexpr decltype(auto) seq_cntr::CursorStepR(Cntr&& cntr,
     CallMethod(Cntr&&, CursorStepR, CursorStepR, cursor);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr decltype(auto) seq_cntr::CursorAdvanceL(Cntr&& cntr,
                                                   Cursor(Cntr&&) * cursor,
                                                   size_t step) {
@@ -418,7 +364,7 @@ constexpr decltype(auto) seq_cntr::CursorAdvanceL(Cntr&& cntr,
     CallMethod(Cntr&&, CursorAdvanceL, CursorAdvanceL, cursor, step);
 }
 
-template <seq_cntr::IsSeqCntrWithRRef Cntr>
+template <seq_cntr::IsSeqCntrWithRightReference Cntr>
 constexpr decltype(auto) seq_cntr::CursorAdvanceR(Cntr&& cntr,
                                                   Cursor(Cntr&&) * cursor,
                                                   size_t step) {
@@ -434,7 +380,9 @@ namespace seq_cntr::detail {
 template <seq_cntr::IsSeqCntr Cntr>
 constexpr VTable<Elem(Cntr)> BuildVTable_() {
 #pragma push_macro("CntrRef")
-#define CntrRef static_cast<Cntr&&>(*static_cast<meta::RemoveRef<Cntr>*>(cntr))
+#define CntrRef          \
+    static_cast<Cntr&&>( \
+        *static_cast<meta::RemoveReferenceFromType<Cntr>*>(cntr))
 
 #pragma push_macro("LoadRealCursor")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -585,171 +533,53 @@ constexpr VTable<Elem(Cntr)> BuildVTable_() {
             StoreRealCursor(dst_cursor, true);
         });
 
-    // -------------------------------------------------------------------------
-
-    table.peek_l.constructing_mem_to_obj = F(  //
-        PeekL, [](void* cntr, bool lazy_copy_elem,
-                  lifecycle::DynamicStorageView<Elem(Cntr)>* dst_elem_view,
-                  seq_cntr::CursorLimit* dst_cursor,
-                  lifecycle::ConstructingMemToObjView<Elem(Cntr)> dst_elem) {
+    table.peek_l = F(  //
+        PeekL,
+        [](void* cntr, seq_cntr::CursorLimit* dst_cursor,
+           resolving::Packet<meta::RemoveConst<Elem(Cntr)>,
+                             meta::RemoveConst<Elem(Cntr)>>* resolving_packet) {
             LoadRealCursor(dst_cursor, true);
 
-            (PeekL)(CntrRef, lazy_copy_elem, dst_elem_view, real_dst_cursor,
-                    dst_elem);
+            (PeekL)(CntrRef, real_dst_cursor, resolving_packet);
 
             StoreRealCursor(dst_cursor, true);
         });
 
-    table.peek_l.left_obj = F(  //
-        PeekL, [](void* cntr, bool lazy_copy_elem,
-                  lifecycle::DynamicStorageView<Elem(Cntr)>* dst_elem_view,
-                  seq_cntr::CursorLimit* dst_cursor,
-                  lifecycle::LeftObjView<Elem(Cntr)> dst_elem) {
+    table.peek_r = F(  //
+        PeekR,
+        [](void* cntr, seq_cntr::CursorLimit* dst_cursor,
+           resolving::Packet<meta::RemoveConst<Elem(Cntr)>,
+                             meta::RemoveConst<Elem(Cntr)>>* resolving_packet) {
             LoadRealCursor(dst_cursor, true);
 
-            (PeekL)(CntrRef, lazy_copy_elem, dst_elem_view, real_dst_cursor,
-                    dst_elem);
+            (PeekR)(CntrRef, real_dst_cursor, resolving_packet);
 
             StoreRealCursor(dst_cursor, true);
         });
 
-    table.peek_l.right_obj = F(  //
-        PeekL, [](void* cntr, bool lazy_copy_elem,
-                  lifecycle::DynamicStorageView<Elem(Cntr)>* dst_elem_view,
-                  seq_cntr::CursorLimit* dst_cursor,
-                  lifecycle::RightObjView<Elem(Cntr)> dst_elem) {
+    table.refer = F(  //
+        Refer,
+        [](void* cntr, size_t idx, seq_cntr::CursorLimit* dst_cursor,
+           resolving::Packet<meta::RemoveConst<Elem(Cntr)>,
+                             meta::RemoveConst<Elem(Cntr)>>* resolving_packet) {
             LoadRealCursor(dst_cursor, true);
 
-            (PeekL)(CntrRef, lazy_copy_elem, dst_elem_view, real_dst_cursor,
-                    dst_elem);
+            (Refer)(CntrRef, idx, real_dst_cursor, resolving_packet);
 
             StoreRealCursor(dst_cursor, true);
         });
 
-    // -------------------------------------------------------------------------
-
-    table.peek_r.constructing_mem_to_obj = F(  //
-        PeekR, [](void* cntr, bool lazy_copy_elem,
-                  lifecycle::DynamicStorageView<Elem(Cntr)>* dst_elem_view,
-                  seq_cntr::CursorLimit* dst_cursor,
-                  lifecycle::ConstructingMemToObjView<Elem(Cntr)> dst_elem) {
-            LoadRealCursor(dst_cursor, true);
-
-            (PeekR)(CntrRef, lazy_copy_elem, dst_elem_view, real_dst_cursor,
-                    dst_elem);
-
-            StoreRealCursor(dst_cursor, true);
-        });
-
-    table.peek_r.left_obj = F(  //
-        PeekR, [](void* cntr, bool lazy_copy_elem,
-                  lifecycle::DynamicStorageView<Elem(Cntr)>* dst_elem_view,
-                  seq_cntr::CursorLimit* dst_cursor,
-                  lifecycle::LeftObjView<Elem(Cntr)> dst_elem) {
-            LoadRealCursor(dst_cursor, true);
-
-            (PeekR)(CntrRef, lazy_copy_elem, dst_elem_view, real_dst_cursor,
-                    dst_elem);
-
-            StoreRealCursor(dst_cursor, true);
-        });
-
-    table.peek_r.right_obj = F(  //
-        PeekR, [](void* cntr, bool lazy_copy_elem,
-                  lifecycle::DynamicStorageView<Elem(Cntr)>* dst_elem_view,
-                  seq_cntr::CursorLimit* dst_cursor,
-                  lifecycle::RightObjView<Elem(Cntr)> dst_elem) {
-            LoadRealCursor(dst_cursor, true);
-
-            (PeekR)(CntrRef, lazy_copy_elem, dst_elem_view, real_dst_cursor,
-                    dst_elem);
-
-            StoreRealCursor(dst_cursor, true);
-        });
-
-    // -------------------------------------------------------------------------
-
-    table.refer.constructing_mem_to_obj = F(  //
-        Refer, [](void* cntr, size_t idx, bool lazy_copy_elem,
-                  lifecycle::DynamicStorageView<Elem(Cntr)>* dst_elem_view,
-                  seq_cntr::CursorLimit* dst_cursor,
-                  lifecycle::ConstructingMemToObjView<Elem(Cntr)> dst_elem) {
-            LoadRealCursor(dst_cursor, true);
-
-            (Refer)(CntrRef, idx, lazy_copy_elem, dst_elem_view,
-                    real_dst_cursor, dst_elem);
-
-            StoreRealCursor(dst_cursor, true);
-        });
-
-    table.refer.left_obj = F(  //
-        Refer, [](void* cntr, size_t idx, bool lazy_copy_elem,
-                  lifecycle::DynamicStorageView<Elem(Cntr)>* dst_elem_view,
-                  seq_cntr::CursorLimit* dst_cursor,
-                  lifecycle::LeftObjView<Elem(Cntr)> dst_elem) {
-            LoadRealCursor(dst_cursor, true);
-
-            (Refer)(CntrRef, idx, lazy_copy_elem, dst_elem_view,
-                    real_dst_cursor, dst_elem);
-
-            StoreRealCursor(dst_cursor, true);
-        });
-
-    table.refer.right_obj = F(  //
-        Refer, [](void* cntr, size_t idx, bool lazy_copy_elem,
-                  lifecycle::DynamicStorageView<Elem(Cntr)>* dst_elem_view,
-                  seq_cntr::CursorLimit* dst_cursor,
-                  lifecycle::RightObjView<Elem(Cntr)> dst_elem) {
-            LoadRealCursor(dst_cursor, true);
-
-            (Refer)(CntrRef, idx, lazy_copy_elem, dst_elem_view,
-                    real_dst_cursor, dst_elem);
-
-            StoreRealCursor(dst_cursor, true);
-        });
-
-    // -------------------------------------------------------------------------
-
-    table.derefer.constructing_mem_to_obj = F(  //
+    table.derefer = F(  //
         Derefer,
-        [](void* cntr, seq_cntr::CursorLimit* pos_cursor, bool lazy_copy_elem,
-           lifecycle::DynamicStorageView<Elem(Cntr)>* dst_elem_view,
-           lifecycle::ConstructingMemToObjView<Elem(Cntr)> dst_elem) {
+        [](void* cntr, seq_cntr::CursorLimit* pos_cursor,
+           resolving::Packet<meta::RemoveConst<Elem(Cntr)>,
+                             meta::RemoveConst<Elem(Cntr)>>* resolving_packet) {
             LoadRealCursor(pos_cursor, false);
 
-            (Derefer)(CntrRef, real_pos_cursor, lazy_copy_elem, dst_elem_view,
-                      dst_elem);
+            (Derefer)(CntrRef, real_pos_cursor, resolving_packet);
 
             StoreRealCursor(pos_cursor, false);
         });
-
-    table.derefer.left_obj = F(  //
-        Derefer,
-        [](void* cntr, seq_cntr::CursorLimit* pos_cursor, bool lazy_copy_elem,
-           lifecycle::DynamicStorageView<Elem(Cntr)>* dst_elem_view,
-           lifecycle::LeftObjView<Elem(Cntr)> dst_elem) {
-            LoadRealCursor(pos_cursor, false);
-
-            (Derefer)(CntrRef, real_pos_cursor, lazy_copy_elem, dst_elem_view,
-                      dst_elem);
-
-            StoreRealCursor(pos_cursor, false);
-        });
-
-    table.derefer.right_obj = F(  //
-        Derefer,
-        [](void* cntr, seq_cntr::CursorLimit* pos_cursor, bool lazy_copy_elem,
-           lifecycle::DynamicStorageView<Elem(Cntr)>* dst_elem_view,
-           lifecycle::RightObjView<Elem(Cntr)> dst_elem) {
-            LoadRealCursor(pos_cursor, false);
-
-            (Derefer)(CntrRef, real_pos_cursor, lazy_copy_elem, dst_elem_view,
-                      dst_elem);
-
-            StoreRealCursor(pos_cursor, false);
-        });
-
-    // -------------------------------------------------------------------------
 
     table.read.basic =
         F(Read, [](void* cntr, seq_cntr::CursorLimit* pos_cursor, size_t cnt,
@@ -1109,7 +939,7 @@ constexpr VTable<Elem(Cntr)> BuildVTable_() {
 }
 
 template <IsSeqCntr Cntr>
-inline constexpr seq_cntr::VTable<Elem(Cntr)> vtable_{ (BuildVTable_<Cntr>)() };
+inline constexpr VTable<Elem(Cntr)> vtable_{ (BuildVTable_<Cntr>)() };
 
 }  // namespace seq_cntr::detail
 

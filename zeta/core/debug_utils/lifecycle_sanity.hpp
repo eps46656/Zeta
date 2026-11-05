@@ -123,7 +123,9 @@ struct ObjHook {
     constexpr ObjHook& operator=(this ObjHook& self,
                                  ObjHook const& other_obj_hook) = delete;
 
-    constexpr void AssertIsValid(this ObjHook const& self);
+    constexpr void AssertIsConstructed(this ObjHook const& self);
+
+    constexpr void AssertIsNotConstructed(this ObjHook const& self);
 };
 
 namespace detail {
@@ -141,11 +143,11 @@ constexpr std::pair<void const*, size_t> GetFieldRegion_(meta::TypeWrapper<T>,
 #define ZETA_Core_DebugUtils_LifecycleSanity_ObjHook_StorageMember(       \
     member_name)                                                          \
     zeta::core::debug_utils::lifecycle_sanity::detail::GetStorageRegion_( \
-        &this->member_name, sizeof(member_name))
+        &this->member_name, sizeof(this->member_name))
 
 #define ZETA_Core_DebugUtils_LifecycleSanity_ObjHook_FieldMember(member_name) \
     zeta::core::debug_utils::lifecycle_sanity::detail::GetFieldRegion_(       \
         zeta::core::meta::TypeWrapper<decltype(this->member_name)>{},         \
-        &this->member_name, sizeof(member_name))
+        &this->member_name, sizeof(this->member_name))
 
 }  // namespace zeta::core::debug_utils::lifecycle_sanity

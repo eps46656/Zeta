@@ -11,18 +11,14 @@ namespace acceptor {
 template <seq_cntr::IsSeqCntr Cntr>
 struct Acceptor {
     using Elem = meta::GetTypeWrapperType<decltype(seq_cntr::GetElemType(
-        meta::TypeWrapper<meta::RemoveRef<Cntr>>{}))>;
+        meta::TypeWrapper<meta::RemoveReferenceFromType<Cntr>>{}))>;
 
     using Cursor = meta::GetTypeWrapperType<decltype(seq_cntr::GetCursorType(
-        meta::TypeWrapper<meta::RemoveRef<Cntr>>{}))>;
+        meta::TypeWrapper<meta::RemoveReferenceFromType<Cntr>>{}))>;
 
     Cntr&& cntr;
     Cursor cursor;
     size_t cnt;
-
-    constexpr Acceptor(Cntr&& cntr, Cursor const& cursor, size_t elem_cnt);
-
-    constexpr Acceptor(Acceptor const&) = default;
 
     constexpr bool IsEnd(this Acceptor const& self,
                          seq_endpoint::acceptor::Tag);
@@ -45,13 +41,9 @@ struct Provider {
     using Cursor = meta::GetTypeWrapperType<decltype(seq_cntr::GetCursorType(
         meta::TypeWrapper<Cntr>{}))>;
 
-    Cntr&& cntr;
+    Cntr cntr;
     Cursor cursor;
     size_t cnt;
-
-    constexpr Provider(Cntr&& cntr, Cursor const& cursor, size_t cnt);
-
-    constexpr Provider(Provider const&) = default;
 
     constexpr bool IsEnd(this Provider const& self,
                          seq_endpoint::provider::Tag);

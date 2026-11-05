@@ -86,10 +86,20 @@ struct VarPrinter;
 
 struct NullFormatTag {};
 
-struct BinFormatTag {};
-struct DecFormatTag {};
-struct HexFormatTag {};
-struct BinHexFormatTag {};
+namespace integral_format_tag {
+
+struct Bin {};
+struct Dec {};
+struct Hex {};
+struct BinHex {};
+
+}  // namespace integral_format_tag
+
+namespace floating_format_tag {
+
+struct Default {};
+
+}  // namespace floating_format_tag
 
 struct CircularLogger {
     std::deque<Log> logs;

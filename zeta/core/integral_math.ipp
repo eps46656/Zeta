@@ -10,11 +10,11 @@
 
 namespace zeta::core {
 
-template <comparison::IsOpTag OpTag, integral::IsIntegral NumA,
-          integral::IsIntegral NumB>
+template <comparison::IsOpTag OpTag, integral::IsIntegralType NumA,
+          integral::IsIntegralType NumB>
 constexpr auto integral_math::Compare(OpTag op, NumA a, NumB b) {
-    constexpr bool a_is_signed{ integral::IsSignedIntegral<NumA> };
-    constexpr bool b_is_signed{ integral::IsSignedIntegral<NumB> };
+    constexpr bool a_is_signed{ integral::IsSignedIntegralType<NumA> };
+    constexpr bool b_is_signed{ integral::IsSignedIntegralType<NumB> };
 
     if constexpr (a_is_signed == b_is_signed) {
         return comparison::BasicCompare(op, a, b);
@@ -29,7 +29,7 @@ constexpr auto integral_math::Compare(OpTag op, NumA a, NumB b) {
         if constexpr (meta::IsSame<OpTag, comparison::OpTags::Order>) {
             return comparison::Ordering::Less;
         } else {
-            return (meta::EnumToUnderlying(meta::GetValueWrapperValue<OpTag>) &
+            return (meta::GetValueWrapperValue<OpTag> &
                     comparison::Bits::less) != 0;
         }
     }
@@ -43,7 +43,7 @@ constexpr auto integral_math::Compare(OpTag op, NumA a, NumB b) {
         if constexpr (meta::IsSame<OpTag, comparison::OpTags::Order>) {
             return comparison::Ordering::Greater;
         } else {
-            return (meta::EnumToUnderlying(meta::GetValueWrapperValue<OpTag>) &
+            return (meta::GetValueWrapperValue<OpTag> &
                     comparison::Bits::greater) != 0;
         }
     }
@@ -51,9 +51,9 @@ constexpr auto integral_math::Compare(OpTag op, NumA a, NumB b) {
     ZETA_Core_DebugUtils_Diag_Unreachable();
 }
 
-template <integral::IsIntegral Num>
+template <integral::IsIntegralType Num>
 constexpr Num integral_math::Abs(Num x) {
-    if constexpr (integral::IsSignedIntegral<Num>) {
+    if constexpr (integral::IsSignedIntegralType<Num>) {
         return x < 0 ? -x : x;
     } else {
         return x;
@@ -62,7 +62,7 @@ constexpr Num integral_math::Abs(Num x) {
 
 template <typename Num>
 constexpr Num integral_math::CeilDiv(Num x, Num y) {
-    static_assert(integral::IsIntegral<Num>);
+    static_assert(integral::IsIntegralType<Num>);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < y);
 
@@ -71,7 +71,7 @@ constexpr Num integral_math::CeilDiv(Num x, Num y) {
 
 template <typename Num>
 constexpr Num integral_math::AlignDown(Num val, Num align) {
-    static_assert(integral::IsIntegral<Num>);
+    static_assert(integral::IsIntegralType<Num>);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < align);
 
@@ -80,7 +80,7 @@ constexpr Num integral_math::AlignDown(Num val, Num align) {
 
 template <typename Num>
 constexpr Num integral_math::AlignUp(Num val, Num align) {
-    static_assert(integral::IsIntegral<Num>);
+    static_assert(integral::IsIntegralType<Num>);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < align);
 
@@ -91,7 +91,7 @@ constexpr Num integral_math::AlignUp(Num val, Num align) {
 
 template <typename Num>
 constexpr bool integral_math::IsPowerOf2(Num num) {
-    static_assert(integral::IsIntegral<Num>);
+    static_assert(integral::IsIntegralType<Num>);
 
     return 0 < num && integral_bit::PopCount(num) == 1;
 }
@@ -125,14 +125,14 @@ constexpr Base integral_math::PowerOf2(Exp exp) {
 
 template <typename Base, typename Exp>
 constexpr Base integral_math::Power(Base base, Exp exp) {
-    static_assert(integral::IsIntegral<Exp>);
+    static_assert(integral::IsIntegralType<Exp>);
 
     if (exp == 0) {
         ZETA_Core_DebugUtils_Diag_PromiseAssert(base != 0);
         return 1;
     }
 
-    if constexpr (integral::IsIntegral<Base>) {
+    if constexpr (integral::IsIntegralType<Base>) {
         if ((IsPowerOf2)(base)) {
             return (PowerOf2<Base>)(static_cast<Exp>(FloorLog2(base)) * exp);
         }
@@ -154,7 +154,7 @@ constexpr Base integral_math::Power(Base base, Exp exp) {
 
 template <typename Num>
 constexpr unsigned long long integral_math::FloorLog2(Num num) {
-    static_assert(integral::IsIntegral<Num>);
+    static_assert(integral::IsIntegralType<Num>);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < num);
 
@@ -164,7 +164,7 @@ constexpr unsigned long long integral_math::FloorLog2(Num num) {
 
 template <typename Num>
 constexpr unsigned long long integral_math::CeilLog2(Num num) {
-    static_assert(integral::IsIntegral<Num>);
+    static_assert(integral::IsIntegralType<Num>);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < num);
 
@@ -178,8 +178,8 @@ namespace integral_math::detail {
 
 template <bool IsCeil, typename Num, typename Base>
 constexpr unsigned long long Log_(Num num_, Base base_) {
-    static_assert(integral::IsIntegral<Num>);
-    static_assert(integral::IsIntegral<Base>);
+    static_assert(integral::IsIntegralType<Num>);
+    static_assert(integral::IsIntegralType<Base>);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < num_);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(1 < base_);
@@ -281,7 +281,7 @@ constexpr unsigned long long integral_math::CeilLog(Num num, Base base) {
 
 template <typename Num>
 constexpr Num integral_math::FloorSqrt(Num num) {
-    static_assert(integral::IsIntegral<Num>);
+    static_assert(integral::IsIntegralType<Num>);
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= num);
 

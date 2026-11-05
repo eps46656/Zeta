@@ -1,6 +1,5 @@
 #include <vector>
 #include <zeta/core/bin_tree.ipp>
-#include <zeta/core/debug_utils.hpp>
 #include <zeta/core/debug_utils/diag.ipp>
 #include <zeta/core/define.hpp>
 #include <zeta/core/fixed_point.ipp>
@@ -8,40 +7,34 @@
 #include <zeta/core/ptr_utils.ipp>
 #include <zeta/core/rbtree.ipp>
 #include <zeta/core/utils.ipp>
-#include <zeta/core/value_wrapper.hpp>
-#include <zeta/core/value_wrapper.ipp>
 #include <zeta/core_test/random.hpp>
 
-using FP = zeta::core::fixed_point::FixedPoint<
-    zeta::core::value_wrapper::TrueType,
-    zeta::core::value_wrapper::StaticValueWrapper<size_t, 24>,
-    zeta::core::value_wrapper::StaticValueWrapper<size_t, 32>>;
+using FP = zeta::core::fixed_point::FixedPoint<true, 24, 32>;
 
-template <typename SignedTag, typename IntegralWidth, typename FractionWidth>
-double ToDouble(zeta::core::fixed_point::FixedPoint<SignedTag, IntegralWidth,
-                                                    FractionWidth> const& x) {
-    return static_cast<double>(x.value) /
-           std::pow(2.0, static_cast<unsigned long long>(FractionWidth::value));
+template <bool is_signed, size_t integral_width, size_t fraction_width>
+double ToDouble(zeta::core::fixed_point::FixedPoint<is_signed, integral_width,
+                                                    fraction_width> const& x) {
+    return static_cast<double>(x.value) / std::pow(2.0, fraction_width);
 }
 
 template <typename Num, typename Denom>
 zeta::core::pair::Pair<FP, double> Gen(Num num, Denom denom) {
-    return { FromFraction<FP::FractionWidth>(num, denom),
+    return { FromFraction<FP::fraction_width>(num, denom),
              static_cast<double>(num) / static_cast<double>(denom) };
 }
 
 inline zeta::core::pair::Pair<FP, double> Gen() {
     using Value = FP::Value;
 
-    Value value{ zeta::core_test::GetRandomInt<Value>(
+    Value value{ zeta::core_test::random::GenUniformRandomInt<Value>(
         zeta::core::integral::RangeMinOf<Value>,
         zeta::core::integral::RangeMaxOf<Value>) };
 
     FP fp{ FP::FromValue(value) };
 
     double d{ static_cast<double>(value) /
-              std::pow(2.0, static_cast<unsigned long long>(
-                                FP::FractionWidth::value)) };
+              std::pow(2.0,
+                       static_cast<unsigned long long>(FP::fraction_width)) };
 
     return { fp, d };
 }
@@ -52,9 +45,10 @@ inline void main1() {
     ZETA_Core_DebugUtils_Logging_ImmLogVar(seed);
 
     for (size_t i{ 0 }; i < 1024; ++i) {
-        size_t num{ zeta::core_test::GetRandomInt<size_t>(0,
-                                                          (1ULL << 24) - 1) };
-        size_t denom{ zeta::core_test::GetRandomInt<size_t>(1, 1024) };
+        size_t num{ zeta::core_test::random::GenUniformRandomInt<size_t>(
+            0, (1ULL << 24) - 1) };
+        size_t denom{ zeta::core_test::random::GenUniformRandomInt<size_t>(
+            1, 1024) };
 
         /*
         unsigned long long num{ ZETA_Core_ullong_max };
@@ -98,9 +92,8 @@ inline void main1() {
         ok
         */
 
-        auto x{ zeta::core::fixed_point::FromFraction<
-            zeta::core::value_wrapper::StaticValueWrapper<size_t, 32>>(num,
-                                                                       denom) };
+        auto x{ zeta::core::fixed_point::FromFraction(
+            zeta::core::meta::ValueWrapper<size_t, 32>{}, num, denom) };
 
         double ans{ ToDouble(x) };
 
@@ -132,12 +125,10 @@ inline void main2() {
         auto z_fp{ x_fp * y_fp };
         auto z_d{ x_d * y_d };
 
-        ZETA_Core_DebugUtils_Logging_ImmLogVar(
-            decltype(z_fp)::IntegralWidth::value);
-        ZETA_Core_DebugUtils_Logging_ImmLogVar(
-            decltype(z_fp)::FractionWidth::value);
+        ZETA_Core_DebugUtils_Logging_ImmLogVar(decltype(z_fp)::integral_width);
+        ZETA_Core_DebugUtils_Logging_ImmLogVar(decltype(z_fp)::fraction_width);
 
-        auto floor_x_fp{ zeta::core::fixed_point::Floor(x_fp) };
+        auto floor_x_fp{ x_fp.Floor() };
 
         ZETA_Core_DebugUtils_Logging_ImmLogVar(floor_x_fp);
 

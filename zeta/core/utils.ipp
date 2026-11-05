@@ -117,34 +117,38 @@ constexpr void* utils::MemRotate(void* data_, size_t l_size, size_t r_size) {
 template <typename T>
 constexpr T* utils::PtrInc(T* ptr, size_t shift) {
     return reinterpret_cast<T*>(
-        reinterpret_cast<meta::MakeConstIf<char, meta::IsConst<T>>*>(ptr) +
+        reinterpret_cast<
+            meta::ConditionalAddConst<meta::IsConstType<T>, char>*>(ptr) +
         shift);
 }
 
 template <typename T>
 constexpr T* utils::PtrInc(T* ptr, ptrdiff_t shift) {
     return reinterpret_cast<T*>(
-        reinterpret_cast<meta::MakeConstIf<char, meta::IsConst<T>>*>(ptr) +
+        reinterpret_cast<
+            meta::ConditionalAddConst<meta::IsConstType<T>, char>*>(ptr) +
         shift);
 }
 
 template <typename T>
 constexpr T* utils::PtrDec(T* ptr, size_t shift) {
     return reinterpret_cast<T*>(
-        reinterpret_cast<meta::MakeConstIf<char, meta::IsConst<T>>*>(ptr) -
+        reinterpret_cast<
+            meta::ConditionalAddConst<meta::IsConstType<T>, char>*>(ptr) -
         shift);
 }
 
 template <typename T>
 constexpr T* utils::PtrDec(T* ptr, ptrdiff_t shift) {
     return reinterpret_cast<T*>(
-        reinterpret_cast<meta::MakeConstIf<char, meta::IsConst<T>>*>(ptr) -
+        reinterpret_cast<
+            meta::ConditionalAddConst<meta::IsConstType<T>, char>*>(ptr) -
         shift);
 }
 
 namespace utils::detail {
 
-template <integral::IsIntegral StrideIntegral>
+template <integral::IsIntegralType StrideIntegral>
 constexpr void EquistrideLinSeqCopy_(void* dst_, void const* src_,
                                      size_t elem_size,
                                      StrideIntegral elem_stride, size_t cnt) {
@@ -167,7 +171,7 @@ constexpr void EquistrideLinSeqCopy_(void* dst_, void const* src_,
 
     StrideIntegral shift{ elem_stride * static_cast<StrideIntegral>(cnt - 1) };
 
-    if constexpr (integral::IsSignedIntegral<StrideIntegral>) {
+    if constexpr (integral::IsSignedIntegralType<StrideIntegral>) {
         if (elem_stride < 0) {
             dst += shift;
             src += shift;
@@ -205,7 +209,7 @@ constexpr void utils::EquistrideLinSeqCopy(void* dst_, void const* src_,
 
 namespace utils::detail {
 
-template <integral::IsIntegral StrideIntegral, typename DstElem,
+template <integral::IsIntegralType StrideIntegral, typename DstElem,
           typename SrcElem>
 constexpr void EquistrideLinSeqCopy_(void* dst_, void const* src_,
                                      meta::TypeWrapper<DstElem>,
@@ -233,7 +237,7 @@ constexpr void EquistrideLinSeqCopy_(void* dst_, void const* src_,
 
     StrideIntegral shift{ elem_stride * static_cast<StrideIntegral>(cnt - 1) };
 
-    if constexpr (integral::IsSignedIntegral<StrideIntegral>) {
+    if constexpr (integral::IsSignedIntegralType<StrideIntegral>) {
         if (elem_stride < 0) {
             dst += shift;
             src += shift;
@@ -272,7 +276,7 @@ constexpr void utils::EquistrideLinSeqCopy(void* dst, void const* src,
 
 namespace utils::detail {
 
-template <integral::IsIntegral StrideIntegral>
+template <integral::IsIntegralType StrideIntegral>
 constexpr void LinSeqCopy_(void* dst_, void const* src_, size_t elem_size,
                            StrideIntegral dst_elem_stride,
                            StrideIntegral src_elem_stride, size_t cnt) {
@@ -308,7 +312,7 @@ constexpr void LinSeqCopy_(void* dst_, void const* src_, size_t elem_size,
         return;
     }
 
-    if constexpr (integral::IsSignedIntegral<StrideIntegral>) {
+    if constexpr (integral::IsSignedIntegralType<StrideIntegral>) {
         StrideIntegral neg_elem_size{ static_cast<StrideIntegral>(elem_size) };
 
         if (neg_elem_size == dst_elem_stride &&
@@ -343,8 +347,8 @@ constexpr void utils::LinSeqCopy(void* dst, void const* src, size_t elem_size,
 
 template <lifecycle::IsDstStorageView DstStorageView,
           lifecycle::IsSrcStorageView SrcStorageView,
-          integral::IsIntegral DstElemStride,
-          integral::IsIntegral SrcElemStride>
+          integral::IsIntegralType DstElemStride,
+          integral::IsIntegralType SrcElemStride>
 constexpr void utils::DisjointLinSeqTransfer(DstStorageView dst,
                                              SrcStorageView src,
                                              DstElemStride dst_elem_stride,
@@ -383,7 +387,7 @@ constexpr void utils::DisjointLinSeqTransfer(DstStorageView dst,
 
 namespace utils::detail {
 
-template <integral::IsIntegral StrideIntegral>
+template <integral::IsIntegralType StrideIntegral>
 constexpr void EquistrideLinSeqMove_(void* dst_, void const* src_,
                                      size_t elem_size,
                                      StrideIntegral elem_stride, size_t cnt) {
@@ -624,7 +628,7 @@ constexpr void* utils::LinSeqRotate(void* data_, size_t width, size_t stride,
 template <typename UnsignedIntegral>
 constexpr UnsignedIntegral utils::SimpleUnsignedIntegralHash(
     UnsignedIntegral x, UnsignedIntegral salt) {
-    static_assert(integral::IsUnsignedIntegral<UnsignedIntegral>);
+    static_assert(integral::IsUnsignedIntegralType<UnsignedIntegral>);
 
     x ^= salt;
 

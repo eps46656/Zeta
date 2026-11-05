@@ -88,7 +88,8 @@ AssocCntrRef Create() {
     );
 
     if (false) {
-        using Cntr = zeta::core::meta::RemoveRef<decltype(pack->dht)>;
+        using Cntr =
+            zeta::core::meta::RemoveReferenceFromType<decltype(pack->dht)>;
 
         zeta::core::assoc_cntr::CntrTraits<Cntr>::Find(
             pack->dht, nullptr, zeta::core::hash::ArchetypeHasher{},

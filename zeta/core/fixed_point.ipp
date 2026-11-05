@@ -1,5 +1,3 @@
-
-
 #pragma once
 
 #include <zeta/core/comparison_utils.ipp>
@@ -31,25 +29,25 @@ fixed_point::FixedPoint<FixedPointTplArgList()>::FromValue(Value value) {
 }
 
 template <FixedPointTplParamList(, )>
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>
 fixed_point::FixedPoint<FixedPointTplArgList()>::FromIntegral(
     Integral integral) {
     return static_cast<FixedPoint<FixedPointTplArgList()>>(
-        FromIntegral(integral));
+        (FromIntegral)(integral));
 }
 
 template <FixedPointTplParamList(, )>
-template <integral::IsIntegral Num, integral::IsIntegral Denom>
+template <integral::IsIntegralType Num, integral::IsIntegralType Denom>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>
 fixed_point::FixedPoint<FixedPointTplArgList()>::FromFraction(Num num,
                                                               Denom denom) {
     return static_cast<FixedPoint<FixedPointTplArgList()>>(
-        FromFraction(meta::AutoValueWrapper<fraction_width>{}, num, denom));
+        (FromFraction)(meta::AutoValueWrapper<fraction_width>{}, num, denom));
 }
 
 template <FixedPointTplParamList(, )>
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>::FixedPoint(
     Integral const& integral) {
     *this = (FromIntegral)(integral);
@@ -63,7 +61,7 @@ constexpr fixed_point::FixedPoint<FixedPointTplArgList()>::FixedPoint(
 }
 
 template <FixedPointTplParamList(, )>
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr fixed_point::FixedPoint<FixedPointTplArgList()>&
 fixed_point::FixedPoint<FixedPointTplArgList()>::operator=(
     Integral const& integral) {
@@ -355,8 +353,8 @@ constexpr auto fixed_point::operator/(
                           a.value, b.value);
 }
 
-template <size_t fraction_width, integral::IsIntegral Num,
-          integral::IsIntegral Denom>
+template <size_t fraction_width, integral::IsIntegralType Num,
+          integral::IsIntegralType Denom>
 constexpr auto fixed_point::FromFraction(
     meta::ValueWrapper<size_t, fraction_width>, Num num, Denom denom) {
     /*
@@ -401,8 +399,8 @@ constexpr auto fixed_point::FromFraction(
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(denom != 0);
 
-    constexpr bool any_signed{ integral::IsSignedIntegral<Num> ||
-                               integral::IsSignedIntegral<Denom> };
+    constexpr bool any_signed{ integral::IsSignedIntegralType<Num> ||
+                               integral::IsSignedIntegralType<Denom> };
 
     constexpr bool r_is_signed{ any_signed };
 
@@ -417,8 +415,8 @@ constexpr auto fixed_point::FromFraction(
 
     constexpr Num num_0{ static_cast<Num>(0) };
 
-    bool num_is_neg{ integral::IsSignedIntegral<Num> && num < num_0 };
-    bool denom_is_neg{ integral::IsSignedIntegral<Denom> && denom < num_0 };
+    bool num_is_neg{ integral::IsSignedIntegralType<Num> && num < num_0 };
+    bool denom_is_neg{ integral::IsSignedIntegralType<Denom> && denom < num_0 };
     bool is_neg{ num_is_neg != denom_is_neg };
 
     OpIntegral a{ static_cast<OpIntegral>(num_is_neg ? -num : num)
@@ -441,7 +439,7 @@ constexpr auto fixed_point::FromFraction(
                                          : static_cast<RFixedPoint::Value>(q));
 }
 
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 constexpr auto fixed_point::FromIntegral(Integral integral) {
     return (FromFraction)(meta::ValueWrapper<size_t, 0>{}, integral,
                           static_cast<Integral>(1));

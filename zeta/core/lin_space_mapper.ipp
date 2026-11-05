@@ -48,7 +48,7 @@ void lin_space_mapper::Init(Mapper<MapperTplArgList>& mapper,
     lifecycle::Init(mapper.seg_alctr,
                     meta::Forward<SegAllocatorInitArg>(seg_alctr_init_arg));
 
-    allocator::CheckContract(meta::GetInstRef(mapper.seg_alctr));
+    allocator::CheckContract(meta::GetInstRefFromLike(mapper.seg_alctr));
 
     mapper.root = nullptr;
 }
@@ -71,7 +71,7 @@ void lin_space_mapper::Deinit(Mapper<MapperTplArgList>& mapper) {
         Node* nl{ bin_tree::GetL(&seg->n) };
         Node* nr{ bin_tree::GetR(&seg->n) };
 
-        detail::DeallocateSeg_(meta::GetInstRef(mapper.seg_alctr), seg);
+        detail::DeallocateSeg_(meta::GetInstRefFromLike(mapper.seg_alctr), seg);
 
         if (nl != nullptr) {
             ZETA_Core_DebugUtils_Diag_PromiseAssert(buffer_size <
@@ -124,7 +124,7 @@ void lin_space_mapper::SetSeg(Mapper<MapperTplArgList>& mapper,
                               unsigned long long size) {
     detail::CheckMapper_(mapper);
 
-    auto& seg_alctr{ meta::GetInstRef(mapper.seg_alctr) };
+    auto& seg_alctr{ meta::GetInstRefFromLike(mapper.seg_alctr) };
 
     if (size == 0) { return; }
 
@@ -135,7 +135,7 @@ void lin_space_mapper::SetSeg(Mapper<MapperTplArgList>& mapper,
 
         new_seg->src_beg = src_beg;
         new_seg->dst_beg = dst_beg;
-        new_seg->size = size;
+        new_seg->size    = size;
 
         mapper.root = new_seg;
 
@@ -196,7 +196,7 @@ void lin_space_mapper::SetSeg(Mapper<MapperTplArgList>& mapper,
             if (ge_seg_src_end <= src_end) {
                 ge_seg->src_beg = src_beg;
                 ge_seg->dst_beg = dst_beg;
-                ge_seg->size = size;
+                ge_seg->size    = size;
 
                 if (ge_seg_src_end == src_end) { return; }
 
@@ -211,7 +211,7 @@ void lin_space_mapper::SetSeg(Mapper<MapperTplArgList>& mapper,
             if (ge_seg->dst_beg - ge_seg_src_beg == dst_beg - src_beg) {
                 ge_seg->src_beg = src_beg;
                 ge_seg->dst_beg = dst_beg;
-                ge_seg->size = ge_seg_src_end - src_beg;
+                ge_seg->size    = ge_seg_src_end - src_beg;
 
                 return;
             }
@@ -227,7 +227,7 @@ void lin_space_mapper::SetSeg(Mapper<MapperTplArgList>& mapper,
 
         new_seg->src_beg = src_beg;
         new_seg->dst_beg = dst_beg;
-        new_seg->size = size;
+        new_seg->size    = size;
 
         mapper.root = detail::NToSeg_(rbtree::Insert(
             lt_seg == nullptr ? nullptr : &lt_seg->n,
@@ -294,7 +294,7 @@ void lin_space_mapper::ClearSeg(Mapper<MapperTplArgList>& mapper,
 
     if (mapper.root == nullptr) { return; }
 
-    auto& seg_alctr{ meta::GetInstRef(mapper.seg_alctr) };
+    auto& seg_alctr{ meta::GetInstRefFromLike(mapper.seg_alctr) };
 
     Seg* le_seg{ nullptr };
 
@@ -339,7 +339,7 @@ void lin_space_mapper::ClearSeg(Mapper<MapperTplArgList>& mapper,
 
                 new_seg->src_beg = src_end;
                 new_seg->dst_beg = le_seg->dst_beg + (src_end - le_seg_src_beg);
-                new_seg->size = le_seg_src_end - src_end;
+                new_seg->size    = le_seg_src_end - src_end;
 
                 mapper.root =
                     detail::NToSeg_(rbtree::InsertR(&le_seg->n, &new_seg->n));

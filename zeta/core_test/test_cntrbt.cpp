@@ -11,12 +11,8 @@
 #include <zeta/core_test/random.hpp>
 
 using BinTreeNode = zeta::core::basic_bin_tree_node::Node<
-    void*, zeta::core::meta::AutoValueWrapper<true>,
-    zeta::core::meta::AutoValueWrapper<true>,
-    zeta::core::meta::AutoValueWrapper<false>,
-    zeta::core::meta::AutoValueWrapper<true>,
-    zeta::core::meta::AutoValueWrapper<
-        zeta::core::basic_bin_tree_node::PrimaryColorTagEnum::P>>;
+    void*, true, true, false, true,
+    zeta::core::basic_bin_tree_node::PrimaryColor::P>;
 
 struct Node {
     BinTreeNode n;
@@ -118,7 +114,7 @@ struct zeta::core::rbtree::NodeTraits<BinTreeNode> {
 };
 */
 
-inline void CompareLR() {
+constexpr void CompareLR() {
     BinTreeNode* n{ zeta::core::bin_tree::GetMostL(root).first };
 
     auto iter{ vec.begin() };
@@ -143,7 +139,7 @@ inline void CompareLR() {
     }
 }
 
-inline void CompareRL() {
+constexpr void CompareRL() {
     BinTreeNode* n{ zeta::core::bin_tree::GetMostR(root).first };
     auto iter{ vec.rbegin() };
     auto end{ vec.rend() };
@@ -167,15 +163,18 @@ inline void CompareRL() {
     }
 }
 
-inline void Sanitize() {
-    zeta::core::rbtree::SanityCheck(nullptr, root);
+constexpr void Sanitize() {
+    zeta::core::debug_utils::mem_recording::MemRecorder mr;
+
+    zeta::core::rbtree::SanityCheck(mr, root);
+
     CompareLR();
     CompareRL();
 }
 
 size_t fallback_sign{ 0x479237197577 };
 
-inline void AccessL(size_t idx) {
+constexpr void AccessL(size_t idx) {
     auto [target_n_l,
           target_tail_idx_l]{ zeta::core::bin_tree::AccessL(root, idx) };
 
@@ -203,7 +202,7 @@ inline void AccessL(size_t idx) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(target_tail_idx_l == idx);
 }
 
-inline void AccessR(size_t idx) {
+constexpr void AccessR(size_t idx) {
     auto [target_n_r,
           target_tail_idx_r]{ zeta::core::bin_tree::AccessR(root, idx) };
 
@@ -231,7 +230,7 @@ inline void AccessR(size_t idx) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(target_tail_idx_r == idx);
 }
 
-inline void AccessLR(size_t idx) {
+constexpr void AccessLR(size_t idx) {
     auto [target_n_l,
           target_tail_idx_l]{ zeta::core::bin_tree::AccessL(root, idx) };
 
@@ -278,9 +277,7 @@ inline void Insert(size_t idx, size_t size) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 <= idx);
     ZETA_Core_DebugUtils_Diag_PromiseAssert(idx <= vec.size());
 
-    Node* new_node{ new Node };
-
-    new_node->n.Init(0);
+    Node* new_node{ new Node{ .n{ 0 } } };
 
     zeta::core::bin_tree::SetSize(&new_node->n, size);
 
@@ -303,7 +300,7 @@ inline void Insert(size_t idx, size_t size) {
     vec.insert(vec.begin() + static_cast<long long>(idx),
                {
                    .linked_node = new_node,
-                   .size = size,
+                   .size        = size,
                });
 }
 
@@ -326,11 +323,12 @@ inline void main1() {
     ZETA_Core_DebugUtils_Logging_ImmLogVar(seed);
 
     size_sum = 0;
-    root = nullptr;
+    root     = nullptr;
 
     for (int i{ 0 }; i < 1024; ++i) {
-        Insert(zeta::core_test::GenUniformRandomInt<size_t>(0, vec.size()),
-               zeta::core_test::GenUniformRandomInt<size_t>(0, 16));
+        Insert(
+            zeta::core_test::random::GenUniformRandomInt<size_t>(0, vec.size()),
+            zeta::core_test::random::GenUniformRandomInt<size_t>(0, 16));
 
         Sanitize();
     }
@@ -338,34 +336,36 @@ inline void main1() {
     for (int _{ 0 }; _ < 16; ++_) {
         ZETA_Core_DebugUtils_Logging_ImmLogVar(_);
 
-        for (int i{ 0 }, end{ zeta::core_test::GenUniformRandomInt<int>(
+        for (int i{ 0 }, end{ zeta::core_test::random::GenUniformRandomInt<int>(
                              1024, 1024 + 4096) };
              i < end; ++i) {
-            Insert(zeta::core_test::GenUniformRandomInt<size_t>(0, vec.size()),
-                   zeta::core_test::GenUniformRandomInt<size_t>(0, 16));
+            Insert(zeta::core_test::random::GenUniformRandomInt<size_t>(
+                       0, vec.size()),
+                   zeta::core_test::random::GenUniformRandomInt<size_t>(0, 16));
 
             Sanitize();
         }
 
         for (int i{ 0 },
-             end{ static_cast<int>(std::min(
-                 vec.size(), zeta::core_test::GenUniformRandomInt<size_t>(
-                                 1024, 1024 + 4096))) };
+             end{ static_cast<int>(
+                 std::min(vec.size(),
+                          zeta::core_test::random::GenUniformRandomInt<size_t>(
+                              1024, 1024 + 4096))) };
              i < end; ++i) {
-            Erase(zeta::core_test::GenUniformRandomInt<size_t>(0,
-                                                               vec.size() - 1) %
+            Erase(zeta::core_test::random::GenUniformRandomInt<size_t>(
+                      0, vec.size() - 1) %
                   vec.size());
             Sanitize();
         }
 
         for (int i{ 0 }, end{ static_cast<int>(vec.size()) * 2 }; i < end;
              ++i) {
-            AccessL(
-                zeta::core_test::GenUniformRandomInt<size_t>(0, size_sum * 2));
-            AccessR(
-                zeta::core_test::GenUniformRandomInt<size_t>(0, size_sum * 2));
-            AccessLR(
-                zeta::core_test::GenUniformRandomInt<size_t>(0, size_sum - 1));
+            AccessL(zeta::core_test::random::GenUniformRandomInt<size_t>(
+                0, size_sum * 2));
+            AccessR(zeta::core_test::random::GenUniformRandomInt<size_t>(
+                0, size_sum * 2));
+            AccessLR(zeta::core_test::random::GenUniformRandomInt<size_t>(
+                0, size_sum - 1));
         }
     }
 }

@@ -8,7 +8,7 @@ template <typename LListNode, typename = void>
 struct NodeTraits;  // IWYU pragma: export
 
 template <typename LListNode>
-constexpr bool IsConst();
+constexpr bool IsConstType();
 
 template <typename LListNode>
 constexpr LListNode* GetL(LListNode* n);

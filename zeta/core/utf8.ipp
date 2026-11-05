@@ -41,6 +41,9 @@ constexpr unsigned utf8::EvaluateLevelFromLeadingOctet(
 
     case 0b1111:
         if (leading_octet <= 0b1111'0111) { return 4; }
+        break;
+
+    default: break;
     }
 
     return static_cast<unsigned>(-1);
@@ -59,7 +62,7 @@ constexpr void CheckEncoder_(utf8::Encoder const& encoder) {
 constexpr utf8::Encoder::Encoder()
     : encoded_octet_cnt{ 0 }, has_pulled_codepoint{ false } {}
 
-template <seq_endpoint::provider::IsProvider Provider>
+template <seq_endpoint::provider::IsProvider<unicode::unichar_t> Provider>
 constexpr utf8::Encoder::ResultEnum utf8::Encoder::Encode(this Encoder& self,
                                                           Provider&& provider) {
     detail::CheckEncoder_(self);
@@ -69,9 +72,11 @@ constexpr utf8::Encoder::ResultEnum utf8::Encoder::Encode(this Encoder& self,
             return ResultEnum::ProviderExhausted;
         }
 
-        seq_endpoint::provider::Transfer(provider, &self.pulled_codepoint,
-                               sizeof(unicode::unichar_t),
-                               sizeof(unicode::unichar_t), 1);
+        seq_endpoint::provider::Transfer(
+            provider,
+            lifecycle::LeftObjView<unicode::unichar_t>{
+                &self.pulled_codepoint },
+            sizeof(unicode::unichar_t), 1);
 
         self.has_pulled_codepoint = true;
     }
@@ -110,25 +115,33 @@ constexpr utf8::Encoder::ResultEnum utf8::Encoder::Encode(this Encoder& self,
         ZETA_Core_DebugUtils_Diag_PromiseAssert(codepoint <= 0b0111'1111);
 
         cur_encoded_octet[0] = static_cast<unsigned char>(codepoint);
+
         break;
+
     case 2:
         ZETA_Core_DebugUtils_Diag_PromiseAssert(codepoint <= 0b0001'1111);
 
         cur_encoded_octet[0] =
             static_cast<unsigned char>(0b1100'0000 + codepoint);
+
         break;
+
     case 3:
         ZETA_Core_DebugUtils_Diag_PromiseAssert(codepoint <= 0b0000'1111);
 
         cur_encoded_octet[0] =
             static_cast<unsigned char>(0b1110'0000 + codepoint);
+
         break;
+
     case 4:
         ZETA_Core_DebugUtils_Diag_PromiseAssert(codepoint <= 0b0000'0111);
 
         cur_encoded_octet[0] =
             static_cast<unsigned char>(0b1111'0000 + codepoint);
+
         break;
+
     default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 
@@ -137,6 +150,7 @@ constexpr utf8::Encoder::ResultEnum utf8::Encoder::Encode(this Encoder& self,
     case 0b1001:
     case 0b1010:
     case 0b1011: ZETA_Core_DebugUtils_Diag_Unreachable();
+    default: break;
     }
 
     self.has_pulled_codepoint = false;
@@ -145,7 +159,7 @@ constexpr utf8::Encoder::ResultEnum utf8::Encoder::Encode(this Encoder& self,
     return ResultEnum::Success;
 }
 
-template <seq_endpoint::acceptor::IsAcceptor Acceptor>
+template <seq_endpoint::acceptor::IsAcceptor<unicode::unichar_t> Acceptor>
 constexpr size_t utf8::Encoder::Pull(this Encoder& self, Acceptor&& acceptor) {
     detail::CheckEncoder_(self);
 
@@ -154,8 +168,11 @@ constexpr size_t utf8::Encoder::Pull(this Encoder& self, Acceptor&& acceptor) {
     for (; pushed_octet_cnt < self.encoded_octet_cnt &&
            !seq_endpoint::acceptor::IsEnd(acceptor);
          ++pushed_octet_cnt) {
-        seq_endpoint::acceptor::Transfer(acceptor, self.encoded_octets + pushed_octet_cnt,
-                               1, 1, 1);
+        seq_endpoint::acceptor::Transfer(
+            acceptor,
+            lifecycle::LeftObjView<unsigned char>{ self.encoded_octets +
+                                                   pushed_octet_cnt },
+            1, 1);
     }
 
     if (0 < pushed_octet_cnt) {
@@ -169,7 +186,8 @@ constexpr size_t utf8::Encoder::Pull(this Encoder& self, Acceptor&& acceptor) {
     return pushed_octet_cnt;
 }
 
-template <seq_endpoint::provider::IsProvider Provider, seq_endpoint::acceptor::IsAcceptor Acceptor>
+template <seq_endpoint::provider::IsProvider<unicode::unichar_t> Provider,
+          seq_endpoint::acceptor::IsAcceptor<unicode::unichar_t> Acceptor>
 constexpr bool utf8::Encoder::EncodeAndPull(this Encoder& self,
                                             Provider&& provider,
                                             Acceptor&& acceptor) {
@@ -202,7 +220,7 @@ constexpr void CheckDecoder_(utf8::Decoder const& decoder) {
 constexpr utf8::Decoder::Decoder()
     : pulled_octet_cnt{ 0 }, has_decoded_codepoint{ false } {}
 
-template <seq_endpoint::provider::IsProvider Provider>
+template <seq_endpoint::provider::IsProvider<unicode::unichar_t> Provider>
 constexpr utf8::Decoder::ResultEnum utf8::Decoder::Decode(this Decoder& self,
                                                           Provider&& provider) {
     detail::CheckDecoder_(self);
@@ -221,7 +239,10 @@ constexpr utf8::Decoder::ResultEnum utf8::Decoder::Decode(this Decoder& self,
             }
 
             seq_endpoint::provider::Transfer(
-                provider, self.pulled_octets + self.pulled_octet_cnt, 1, 1, 1);
+                provider,
+                lifecycle::LeftObjView<unsigned char>{ self.pulled_octets +
+                                                       self.pulled_octet_cnt },
+                1, 1);
 
             ++self.pulled_octet_cnt;
         }
@@ -276,7 +297,7 @@ constexpr utf8::Decoder::ResultEnum utf8::Decoder::Decode(this Decoder& self,
     }
 
     self.has_decoded_codepoint = true;
-    self.decoded_codepoint = codepoint;
+    self.decoded_codepoint     = codepoint;
 
     utils::MemMove(self.pulled_octets, self.pulled_octets + pulled_octet_iter,
                    self.pulled_octet_cnt - pulled_octet_iter);
@@ -286,24 +307,28 @@ constexpr utf8::Decoder::ResultEnum utf8::Decoder::Decode(this Decoder& self,
     return ResultEnum::Success;
 }
 
-template <seq_endpoint::acceptor::IsAcceptor Acceptor>
+template <seq_endpoint::acceptor::IsAcceptor<unicode::unichar_t> Acceptor>
 constexpr bool utf8::Decoder::Pull(this Decoder& self, Acceptor&& acceptor) {
     detail::CheckDecoder_(self);
 
-    if (!self.has_decoded_codepoint || seq_endpoint::acceptor::IsEnd(acceptor)) {
+    if (!self.has_decoded_codepoint ||
+        seq_endpoint::acceptor::IsEnd(acceptor)) {
         return false;
     }
 
-    seq_endpoint::acceptor::Transfer(acceptor, &self.decoded_codepoint,
-                           sizeof(unicode::unichar_t),
-                           sizeof(unicode::unichar_t), 1);
+    seq_endpoint::acceptor::Transfer(
+        acceptor,
+        lifecycle::ConstLeftObjView<unicode::unichar_t>{
+            &self.decoded_codepoint },
+        sizeof(unicode::unichar_t), 1);
 
     self.has_decoded_codepoint = false;
 
     return true;
 }
 
-template <seq_endpoint::provider::IsProvider Provider, seq_endpoint::acceptor::IsAcceptor Acceptor>
+template <seq_endpoint::provider::IsProvider<unicode::unichar_t> Provider,
+          seq_endpoint::acceptor::IsAcceptor<unicode::unichar_t> Acceptor>
 constexpr bool utf8::Decoder::DecodeAndPull(this Decoder& self,
                                             Provider&& provider,
                                             Acceptor&& acceptor) {

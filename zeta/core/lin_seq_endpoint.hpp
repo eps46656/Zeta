@@ -6,7 +6,7 @@ namespace zeta::core::lin_seq_endpoint {
 
 namespace acceptor {
 
-template <lifecycle::IsStorageView ElemView>
+template <lifecycle::IsDstStorageView ElemView>
 struct Acceptor {
     using Elem = typename ElemView::Obj;
 

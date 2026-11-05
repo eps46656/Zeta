@@ -90,10 +90,7 @@ constexpr void ReadCircularArray(
 
     zeta::core::circular_array::Cursor cursor;
 
-    ca.Refer(
-        zeta::core::seq_cntr::Tag{}, beg, true, nullptr, &cursor,
-        zeta::core::lifecycle::LeftObjView<zeta::core::meta::RemoveConst<Elem>>{
-            nullptr });
+    ca.Refer(zeta::core::seq_cntr::Tag{}, beg, &cursor, nullptr);
 
     ca.Read(zeta::core::seq_cntr::Tag{}, &cursor, cnt, acceptor, nullptr);
 
@@ -230,6 +227,269 @@ constexpr void CommonInit(
         (ReadCircularArray)(l_ca, 0, l_elem_cnt, reader);
         (ReadCircularArray)(r_ca, 0, r_elem_cnt, reader);
     }
+}
+
+constexpr void TestSegShoveL() {
+    using SampleObject = zeta::core_test::sample_object::SampleObject;
+
+    size_t l_elem_stride{ (GetRandomStride<SampleObject>)() };
+    size_t r_elem_stride{ (GetRandomStride<SampleObject>)() };
+
+    size_t l_slot_cnt{ (GenRandomSlotCnt)() };
+    size_t r_slot_cnt{ (GenRandomSlotCnt)() };
+
+    size_t l_elem_cnt{ zeta::core_test::random::GenUniformRandomInt<size_t>(
+        0, l_slot_cnt) };
+
+    size_t r_elem_cnt{ zeta::core_test::random::GenUniformRandomInt<size_t>(
+        0, r_slot_cnt) };
+
+    size_t shove_cnt{ zeta::core_test::random::GenUniformRandomInt<size_t>(
+        0, std::min(r_elem_cnt, l_slot_cnt - l_elem_cnt)) };
+
+    size_t rl_cnt{ zeta::core_test::random::GenUniformRandomInt<size_t>(
+        0, r_elem_cnt) };
+
+    zeta::core::circular_array::Cntr<
+        zeta::core_test::sample_object::SampleObject>
+        l_ca{
+            .data = zeta::core::debug_utils::memory::Malloc<SampleObject>(
+                l_elem_stride * l_slot_cnt),
+            .elem_stride = l_elem_stride,
+            .elem_cnt    = 0,
+            .slot_cnt    = l_slot_cnt,
+            .rot         = 0,
+#if ZETA_Core_DebugEnable
+            .stamp = zeta::core::debug_utils::revision::GetStamp(),
+#endif
+        };
+
+    zeta::core::circular_array::Cntr<
+        zeta::core_test::sample_object::SampleObject>
+        r_ca{
+            .data = zeta::core::debug_utils::memory::Malloc<SampleObject>(
+                r_elem_stride * r_slot_cnt),
+            .elem_stride = r_elem_stride,
+            .elem_cnt    = 0,
+            .slot_cnt    = r_slot_cnt,
+            .rot         = 0,
+#if ZETA_Core_DebugEnable
+            .stamp = zeta::core::debug_utils::revision::GetStamp(),
+#endif
+        };
+
+    std::vector<SampleObject> l_elems;
+    std::vector<SampleObject> r_elems;
+
+    (CommonInit)(l_ca, r_ca, l_elems, r_elems, l_elem_cnt, r_elem_cnt);
+
+    {
+        size_t l_vec_hash{ RollHash(0, l_elems, 0, l_elem_cnt) };
+        size_t r_vec_hash{ RollHash(0, r_elems, 0, r_elem_cnt) };
+
+        size_t l_ca_hash{ RollHash(0, l_ca, 0, l_elem_cnt) };
+        size_t r_ca_hash{ RollHash(0, r_ca, 0, r_elem_cnt) };
+
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(l_vec_hash == l_ca_hash);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(r_vec_hash == r_ca_hash);
+    }
+
+    zeta::core::seg_utils::SegShoveL(l_ca,      // l_ca
+                                     r_ca,      // r_ca
+                                     shove_cnt  // shove_cnt
+    );
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(l_ca.elem_cnt ==
+                                            l_elem_cnt + shove_cnt);
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(r_ca.elem_cnt ==
+                                            r_elem_cnt - shove_cnt);
+
+    {
+        auto reader{ [](SampleObject const& elem) {
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(
+                elem.statistics.default_construct == 0);
+
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(
+                elem.statistics.copy_construct_lhs +
+                    elem.statistics.move_construct_lhs +
+                    elem.statistics.copy_assign_lhs +
+                    elem.statistics.move_assign_lhs <=
+                1);
+        } };
+
+        (ReadCircularArray)(l_ca, 0, l_ca.elem_cnt, reader);
+        (ReadCircularArray)(r_ca, 0, r_ca.elem_cnt, reader);
+    }
+
+    size_t expected_final_hash{ 0 };
+
+    expected_final_hash =
+        (RollHash)(expected_final_hash, l_elems, 0, l_elem_cnt);
+    expected_final_hash = (RollHash)(expected_final_hash, r_elems, 0, rl_cnt);
+    expected_final_hash =
+        (RollHash)(expected_final_hash, r_elems, rl_cnt, r_elem_cnt - rl_cnt);
+
+    size_t op_final_hash{ 0 };
+
+    op_final_hash = (RollHash)(op_final_hash, l_ca, 0, l_ca.elem_cnt);
+    op_final_hash = (RollHash)(op_final_hash, r_ca, 0, r_ca.elem_cnt);
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(expected_final_hash ==
+                                            op_final_hash);
+
+    {
+        std::vector<SampleObject> k;
+        (GenRandomSampleObj)(k, l_ca.elem_cnt + r_ca.elem_cnt);
+
+        size_t k_hash{ RollHash(0, k, 0, k.size()) };
+
+        if (0 < k.size()) {
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(
+                k_hash != expected_final_hash && k_hash != op_final_hash);
+        }
+    }
+
+    l_ca.EraseAll(zeta::core::seq_cntr::Tag{},
+                  zeta::core::seq_endpoint::acceptor::BasicAcceptor{});
+
+    r_ca.EraseAll(zeta::core::seq_cntr::Tag{},
+                  zeta::core::seq_endpoint::acceptor::BasicAcceptor{});
+
+    zeta::core::debug_utils::memory::Free(l_ca.data);
+    zeta::core::debug_utils::memory::Free(r_ca.data);
+}
+
+constexpr void TestSegShoveR() {
+    using SampleObject = zeta::core_test::sample_object::SampleObject;
+
+    size_t l_elem_stride{ (GetRandomStride<SampleObject>)() };
+    size_t r_elem_stride{ (GetRandomStride<SampleObject>)() };
+
+    size_t l_slot_cnt{ (GenRandomSlotCnt)() };
+    size_t r_slot_cnt{ (GenRandomSlotCnt)() };
+
+    size_t l_elem_cnt{ zeta::core_test::random::GenUniformRandomInt<size_t>(
+        0, l_slot_cnt) };
+
+    size_t r_elem_cnt{ zeta::core_test::random::GenUniformRandomInt<size_t>(
+        0, r_slot_cnt) };
+
+    size_t shove_cnt{ zeta::core_test::random::GenUniformRandomInt<size_t>(
+        0, std::min(l_elem_cnt, r_slot_cnt - r_elem_cnt)) };
+
+    size_t lr_cnt{ zeta::core_test::random::GenUniformRandomInt<size_t>(
+        0, l_elem_cnt) };
+
+    zeta::core::circular_array::Cntr<
+        zeta::core_test::sample_object::SampleObject>
+        l_ca{
+            .data = zeta::core::debug_utils::memory::Malloc<SampleObject>(
+                l_elem_stride * l_slot_cnt),
+            .elem_stride = l_elem_stride,
+            .elem_cnt    = 0,
+            .slot_cnt    = l_slot_cnt,
+            .rot         = 0,
+#if ZETA_Core_DebugEnable
+            .stamp = zeta::core::debug_utils::revision::GetStamp(),
+#endif
+        };
+
+    zeta::core::circular_array::Cntr<
+        zeta::core_test::sample_object::SampleObject>
+        r_ca{
+            .data = zeta::core::debug_utils::memory::Malloc<SampleObject>(
+                r_elem_stride * r_slot_cnt),
+            .elem_stride = r_elem_stride,
+            .elem_cnt    = 0,
+            .slot_cnt    = r_slot_cnt,
+            .rot         = 0,
+#if ZETA_Core_DebugEnable
+            .stamp = zeta::core::debug_utils::revision::GetStamp(),
+#endif
+        };
+
+    std::vector<SampleObject> l_elems;
+    std::vector<SampleObject> r_elems;
+
+    (CommonInit)(l_ca, r_ca, l_elems, r_elems, l_elem_cnt, r_elem_cnt);
+
+    {
+        size_t l_vec_hash{ RollHash(0, l_elems, 0, l_elem_cnt) };
+        size_t r_vec_hash{ RollHash(0, r_elems, 0, r_elem_cnt) };
+
+        size_t l_ca_hash{ RollHash(0, l_ca, 0, l_elem_cnt) };
+        size_t r_ca_hash{ RollHash(0, r_ca, 0, r_elem_cnt) };
+
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(l_vec_hash == l_ca_hash);
+        ZETA_Core_DebugUtils_Diag_PromiseAssert(r_vec_hash == r_ca_hash);
+    }
+
+    zeta::core::seg_utils::SegShoveR(l_ca,      // l_ca
+                                     r_ca,      // r_ca
+                                     shove_cnt  // shove_cnt
+    );
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(l_ca.elem_cnt ==
+                                            l_elem_cnt - shove_cnt);
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(r_ca.elem_cnt ==
+                                            r_elem_cnt + shove_cnt);
+
+    {
+        auto reader{ [](SampleObject const& elem) {
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(
+                elem.statistics.default_construct == 0);
+
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(
+                elem.statistics.copy_construct_lhs +
+                    elem.statistics.move_construct_lhs +
+                    elem.statistics.copy_assign_lhs +
+                    elem.statistics.move_assign_lhs <=
+                1);
+        } };
+
+        (ReadCircularArray)(l_ca, 0, l_ca.elem_cnt, reader);
+        (ReadCircularArray)(r_ca, 0, r_ca.elem_cnt, reader);
+    }
+
+    size_t expected_final_hash{ 0 };
+
+    expected_final_hash =
+        (RollHash)(expected_final_hash, l_elems, 0, l_elem_cnt - lr_cnt);
+    expected_final_hash =
+        (RollHash)(expected_final_hash, l_elems, l_elem_cnt - lr_cnt, lr_cnt);
+    expected_final_hash =
+        (RollHash)(expected_final_hash, r_elems, 0, r_elem_cnt);
+
+    size_t op_final_hash{ 0 };
+
+    op_final_hash = (RollHash)(op_final_hash, l_ca, 0, l_ca.elem_cnt);
+    op_final_hash = (RollHash)(op_final_hash, r_ca, 0, r_ca.elem_cnt);
+
+    ZETA_Core_DebugUtils_Diag_PromiseAssert(expected_final_hash ==
+                                            op_final_hash);
+
+    {
+        std::vector<SampleObject> k;
+        (GenRandomSampleObj)(k, l_ca.elem_cnt + r_ca.elem_cnt);
+
+        size_t k_hash{ RollHash(0, k, 0, k.size()) };
+
+        if (0 < k.size()) {
+            ZETA_Core_DebugUtils_Diag_PromiseAssert(
+                k_hash != expected_final_hash && k_hash != op_final_hash);
+        }
+    }
+
+    l_ca.EraseAll(zeta::core::seq_cntr::Tag{},
+                  zeta::core::seq_endpoint::acceptor::BasicAcceptor{});
+
+    r_ca.EraseAll(zeta::core::seq_cntr::Tag{},
+                  zeta::core::seq_endpoint::acceptor::BasicAcceptor{});
+
+    zeta::core::debug_utils::memory::Free(l_ca.data);
+    zeta::core::debug_utils::memory::Free(r_ca.data);
 }
 
 constexpr void TestSegInsertShoveL() {
@@ -823,6 +1083,8 @@ constexpr void main1() {
     for (size_t i{ 0 }; i < 1024 * 16; ++i) {
         ZETA_Core_DebugUtils_Logging_ImmLogVar(i);
 
+        (TestSegShoveL)();
+        (TestSegShoveR)();
         (TestSegInsertShoveL)();
         (TestSegInsertShoveR)();
         (TestSegEraseShoveL)();

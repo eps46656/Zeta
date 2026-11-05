@@ -8,15 +8,16 @@
 namespace zeta::core::seq_endpoint {
 
 template <typename Acceptor>
-constexpr decltype(auto) acceptor::IsEnd(Acceptor&& inst) {
-    return inst.IsEnd(Tag{});
+constexpr decltype(auto) acceptor::IsEnd(Acceptor&& acceptor) {
+    return acceptor.IsEnd(Tag{});
 }
 
 template <typename Acceptor, lifecycle::IsSrcStorageView SrcStorageView>
-constexpr decltype(auto) acceptor::Transfer(Acceptor&& inst, SrcStorageView src,
+constexpr decltype(auto) acceptor::Transfer(Acceptor&& acceptor,
+                                            SrcStorageView src,
                                             ptrdiff_t src_elem_stride,
                                             size_t cnt) {
-    return inst.Transfer(Tag{}, src, src_elem_stride, cnt);
+    return acceptor.Transfer(Tag{}, src, src_elem_stride, cnt);
 }
 
 constexpr bool acceptor::EmptyAcceptor::IsEnd(Tag) { return false; }
@@ -53,15 +54,16 @@ constexpr size_t acceptor::BasicAcceptor::Transfer(Tag, SrcStorageView src,
 // -----------------------------------------------------------------------------
 
 template <typename Provider>
-constexpr decltype(auto) provider::IsEnd(Provider&& inst) {
-    return inst.IsEnd(Tag{});
+constexpr decltype(auto) provider::IsEnd(Provider&& provider) {
+    return provider.IsEnd(Tag{});
 }
 
 template <typename Provider, lifecycle::IsDstStorageView DstStorageView>
-constexpr decltype(auto) provider::Transfer(Provider&& inst, DstStorageView dst,
+constexpr decltype(auto) provider::Transfer(Provider&& provider,
+                                            DstStorageView dst,
                                             ptrdiff_t dst_elem_stride,
                                             size_t cnt) {
-    return inst.Transfer(Tag{}, dst, dst_elem_stride, cnt);
+    return provider.Transfer(Tag{}, dst, dst_elem_stride, cnt);
 }
 
 constexpr bool provider::EmptyProvider::IsEnd(Tag) { return false; }

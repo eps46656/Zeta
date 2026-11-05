@@ -27,8 +27,8 @@ constexpr unsigned EvaluateLevelFromLeadingOctet(unsigned char leading_octet);
 
 struct EncodeResult {
     enum struct ResultType : unsigned char {
-        Success = 0,
-        CodepointOutOfRange = 1,
+        Success              = 0,
+        CodepointOutOfRange  = 1,
         CodepointIsSurrogate = 2,
     };
 
@@ -45,13 +45,13 @@ constexpr EncodeResult EncodeWithLevelHint(unicode::unichar_t codepoint,
 
 struct DecodeResult {
     enum struct ResultType : unsigned char {
-        Success = 0,
-        InsufficientOctet = 1,
-        OctetOutOfRange = 2,
-        LeadingOctetPatternMismatch = 3,
+        Success                      = 0,
+        InsufficientOctet            = 1,
+        OctetOutOfRange              = 2,
+        LeadingOctetPatternMismatch  = 3,
         TrailingOctetPatternMismatch = 4,
-        OverlongEncoding = 5,
-        CodepointIsSurrogate = 6,
+        OverlongEncoding             = 5,
+        CodepointIsSurrogate         = 6,
     };
 
     ResultType type;
@@ -62,11 +62,11 @@ struct DecodeResult {
 
 struct Encoder {
     enum struct ResultEnum : unsigned char {
-        Success = 0,
-        ProviderExhausted = 1,
+        Success                   = 0,
+        ProviderExhausted         = 1,
         InsufficientEncodedBuffer = 2,
-        CodepointOutOfRange = 3,
-        CodepointIsSurrogate = 4,
+        CodepointOutOfRange       = 3,
+        CodepointIsSurrogate      = 4,
     };
 
     unsigned char encoded_octet_cnt : 3;
@@ -77,28 +77,28 @@ struct Encoder {
 
     constexpr Encoder();
 
-    template <seq_endpoint::provider::IsProvider Provider>
+    template <seq_endpoint::provider::IsProvider<unicode::unichar_t> Provider>
     constexpr ResultEnum Encode(this Encoder& self, Provider&& provider);
 
-    template <seq_endpoint::acceptor::IsAcceptor Acceptor>
+    template <seq_endpoint::acceptor::IsAcceptor<unicode::unichar_t> Acceptor>
     constexpr size_t Pull(this Encoder& self, Acceptor&& acceptor);
 
-    template <seq_endpoint::provider::IsProvider Provider,
-              seq_endpoint::acceptor::IsAcceptor Acceptor>
+    template <seq_endpoint::provider::IsProvider<unicode::unichar_t> Provider,
+              seq_endpoint::acceptor::IsAcceptor<unicode::unichar_t> Acceptor>
     constexpr bool EncodeAndPull(this Encoder& self, Provider&& provider,
                                  Acceptor&& acceptor);
 };
 
 struct Decoder {
     enum struct ResultEnum : unsigned char {
-        Success = 0,
-        InsufficientOctet = 1,
-        HasDecodedCodepoint = 2,
-        OctetOutOfRange = 3,
-        LeadingOctetPatternMismatch = 4,
+        Success                      = 0,
+        InsufficientOctet            = 1,
+        HasDecodedCodepoint          = 2,
+        OctetOutOfRange              = 3,
+        LeadingOctetPatternMismatch  = 4,
         TrailingOctetPatternMismatch = 5,
-        OverlongEncoding = 6,
-        CodepointIsSurrogate = 7,
+        OverlongEncoding             = 6,
+        CodepointIsSurrogate         = 7,
     };
 
     unsigned char pulled_octet_cnt;
@@ -109,14 +109,14 @@ struct Decoder {
 
     constexpr Decoder();
 
-    template <seq_endpoint::provider::IsProvider Provider>
+    template <seq_endpoint::provider::IsProvider<unicode::unichar_t> Provider>
     constexpr ResultEnum Decode(this Decoder& self, Provider&& provider);
 
-    template <seq_endpoint::acceptor::IsAcceptor Acceptor>
+    template <seq_endpoint::acceptor::IsAcceptor<unicode::unichar_t> Acceptor>
     constexpr bool Pull(this Decoder& self, Acceptor&& acceptor);
 
-    template <seq_endpoint::provider::IsProvider Provider,
-              seq_endpoint::acceptor::IsAcceptor Acceptor>
+    template <seq_endpoint::provider::IsProvider<unicode::unichar_t> Provider,
+              seq_endpoint::acceptor::IsAcceptor<unicode::unichar_t> Acceptor>
     constexpr bool DecodeAndPull(this Decoder& self, Provider&& provider,
                                  Acceptor&& acceptor);
 };

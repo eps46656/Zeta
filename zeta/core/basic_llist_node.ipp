@@ -39,6 +39,8 @@ constexpr basic_llist_node::Node<NodeTplArgList>::Node()
     } else {
         this->r.SetPtr(alignof(Node), this, this);
     }
+
+    ZETA_Core_DebugUtils_Diag_LogCurPos();
 }
 
 template <NodeTplParamList>
@@ -107,13 +109,13 @@ constexpr void basic_llist_node::Node<NodeTplArgList>::SetRColor(
 
 template <NodeTplParamList>
 constexpr bool
-llist::NodeTraits<basic_llist_node::Node<NodeTplArgList>>::IsConst() {
+llist::NodeTraits<basic_llist_node::Node<NodeTplArgList>>::IsConstType() {
     return false;
 }
 
 template <NodeTplParamList>
 constexpr bool
-llist::NodeTraits<basic_llist_node::Node<NodeTplArgList> const>::IsConst() {
+llist::NodeTraits<basic_llist_node::Node<NodeTplArgList> const>::IsConstType() {
     return true;
 }
 

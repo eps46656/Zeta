@@ -27,7 +27,7 @@ namespace zeta::core::generic_hash_table {
 
 using ActiveMap = unsigned long long;
 
-constexpr auto max_level{ multi_level_ptr_table::max_level };
+constexpr auto max_level{ multi_level_ptr_table::level_max };
 
 constexpr multi_level_ptr_table::BranchNum branch_num{
     comparison_utils::BasicMin(integral::WidthOf<ActiveMap>,
@@ -42,9 +42,7 @@ constexpr array::Array<multi_level_ptr_table::BranchNum, max_level> branch_nums{
     }()
 };
 
-using UFP = fixed_point::FixedPoint<meta::AutoValueWrapper<false>,
-                                    meta::ValueWrapper<size_t, 16>,
-                                    meta::ValueWrapper<size_t, 16>>;
+using UFP = fixed_point::FixedPoint<false, 16, 16>;
 
 constexpr size_t min_bucket_size{ 37 };
 
@@ -101,10 +99,10 @@ move quota per op / (move quota per op - 1) < drift ratio
 
 */
 
-RehashingConfig constexpr default_rehashing_config{
-    .move_quota_per_op = 4,
-    .center_load_ratio = UFP::FromIntegral(8U),
-    .drift_ratio = UFP::FromIntegral(4U),
+constexpr RehashingConfig default_rehashing_config{
+    .move_quota_per_op{ 4 },
+    .center_load_ratio{ UFP::FromIntegral(8U) },
+    .drift_ratio{ UFP::FromIntegral(4U) },
 };
 
 struct Node {
@@ -127,9 +125,9 @@ struct Node {
 
 template <CntrTplParamList(_)>
 struct Cntr {
-    using HasherLike = HasherLike_;
-    using ComparatorLike = ComparatorLike_;
-    using SaltRandomEngineLike = SaltRandomEngineLike_;
+    using HasherLike             = HasherLike_;
+    using ComparatorLike         = ComparatorLike_;
+    using SaltRandomEngineLike   = SaltRandomEngineLike_;
     using TableNodeAllocatorLike = TableNodeAllocatorLike_;
 
     unsigned long long cur_salt;

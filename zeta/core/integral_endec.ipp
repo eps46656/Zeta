@@ -12,7 +12,7 @@
 
 namespace zeta::core {
 
-template <integral::IsUnsignedIntegral Integral>
+template <integral::IsUnsignedIntegralType Integral>
 constexpr integral_endec::CanonicalizeResult<Integral>
 integral_endec::CanonicalizeIntegral(Integral value, Integral range_max) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(0 < range_max);
@@ -22,7 +22,7 @@ integral_endec::CanonicalizeIntegral(Integral value, Integral range_max) {
     if (range_max < value) {
         value %= range_max + 1;
         out_of_range = true;
-    } else if constexpr (integral::IsSignedIntegral<Integral>) {
+    } else if constexpr (integral::IsSignedIntegralType<Integral>) {
         if (value < -range_max) {
             value %= range_max + 1;
 
@@ -39,14 +39,14 @@ integral_endec::CanonicalizeIntegral(Integral value, Integral range_max) {
     }
 
     return {
-        .out_of_range = out_of_range,
-        .value = value,
+        .out_of_range{ out_of_range },
+        .value{ value },
     };
 }
 
-template <integral::IsUnsignedIntegral DigitIntegral,
+template <integral::IsUnsignedIntegralType DigitIntegral,
           integral_endec::IsEndiannessLike EndiannessLike, size_t DigitWidth,
-          typename DigitCntLike, integral::IsIntegral SrcIntegral,
+          typename DigitCntLike, integral::IsIntegralType SrcIntegral,
           seq_endpoint::acceptor::IsAcceptor<DigitIntegral> Acceptor>
     requires requires {
         requires 0 < DigitWidth;
@@ -59,7 +59,7 @@ constexpr integral_endec::EncodeResult integral_endec::Encode(
     EndiannessLike endianness_like, meta::TypeWrapper<DigitIntegral>,
     meta::ValueWrapper<size_t, DigitWidth>, DigitCntLike digit_cnt_like,
     SrcIntegral src_value, Acceptor&& acceptor) {
-    constexpr bool is_signed{ integral::IsSignedIntegral<SrcIntegral> };
+    constexpr bool is_signed{ integral::IsSignedIntegralType<SrcIntegral> };
 
     using OpUnsignedIntegral = meta::GetTypeWrapperType<decltype([]() {
         if constexpr (integral::WidthOf<SrcIntegral> <=
@@ -218,13 +218,13 @@ constexpr integral_endec::EncodeResult integral_endec::Encode(
     }
 
     return {
-        .value_out_of_range = value_out_of_range,
+        .value_out_of_range{ value_out_of_range },
     };
 }
 
 template <integral_endec::IsEndiannessLike EndiannessLike,
-          integral::IsUnsignedIntegral DigitIntegral, size_t DigitWidth,
-          typename DigitCntLike, integral::IsIntegral DstIntegral,
+          integral::IsUnsignedIntegralType DigitIntegral, size_t DigitWidth,
+          typename DigitCntLike, integral::IsIntegralType DstIntegral,
           seq_endpoint::provider::IsProvider<DigitIntegral> Provider>
     requires requires {
         requires 0 < DigitWidth;
@@ -239,7 +239,7 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
     EndiannessLike endianness_like, meta::TypeWrapper<DigitIntegral>,
     meta::ValueWrapper<size_t, DigitWidth>, DigitCntLike digit_cnt_like,
     meta::TypeWrapper<DstIntegral>, Provider&& provider) {
-    constexpr bool is_signed{ integral::IsSignedIntegral<DstIntegral> };
+    constexpr bool is_signed{ integral::IsSignedIntegralType<DstIntegral> };
 
     using OpUnsignedIntegral = meta::GetTypeWrapperType<decltype([]() {
         if constexpr (integral::WidthOf<DstIntegral> <=
@@ -576,6 +576,8 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
 
         break;
     }
+
+    default: ZETA_Core_DebugUtils_Diag_Unreachable();
     }
 
     if constexpr (is_signed) {
@@ -583,10 +585,10 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
 
         if (eff_digit_cnt == 0) {
             return {
-                .pad_zero = pad_zero,
-                .digit_out_of_range = digit_out_of_range,
-                .value_out_of_range = value_out_of_range,
-                .value = 0,
+                .pad_zero{ pad_zero },
+                .digit_out_of_range{ digit_out_of_range },
+                .value_out_of_range{ value_out_of_range },
+                .value{ 0 },
             };
         }
 
@@ -637,10 +639,10 @@ constexpr integral_endec::DecodeResult<DstIntegral> integral_endec::Decode(
     }
 
     return {
-        .pad_zero = pad_zero,
-        .digit_out_of_range = digit_out_of_range,
-        .value_out_of_range = value_out_of_range,
-        .value = dst_value,
+        .pad_zero{ pad_zero },
+        .digit_out_of_range{ digit_out_of_range },
+        .value_out_of_range{ value_out_of_range },
+        .value{ dst_value },
     };
 }
 

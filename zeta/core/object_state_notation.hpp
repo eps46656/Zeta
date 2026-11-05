@@ -13,11 +13,11 @@
 namespace zeta::core::object_state_notation {
 
 enum struct NodeType : unsigned char {
-    Null = 0,
-    Integral = 1,
+    Null         = 0,
+    Integral     = 1,
     IntegralList = 2,
-    NodeList = 3,
-    Terminator = 4,
+    NodeList     = 3,
+    Terminator   = 4,
 };
 
 constexpr unsigned min_region_attr_size{ 4 };
@@ -109,18 +109,18 @@ template <seq_endpoint::provider::IsProvider Provider>
 constexpr bool DecodeHeaderFromOctets(Provider&& provider, Header& dst_header);
 
 enum struct EncoderState : unsigned char {
-    ReceivingNodeTag = 0,
-    ReceivingNodeTagOrFinish = 1,
-    ReceivingNameString = 2,
-    ReceivingObjTypeString = 3,
-    ReceivingRegionAttr = 4,
+    ReceivingNodeTag            = 0,
+    ReceivingNodeTagOrFinish    = 1,
+    ReceivingNameString         = 2,
+    ReceivingObjTypeString      = 3,
+    ReceivingRegionAttr         = 4,
     ReceivingIntegralDescriptor = 5,
-    ReceivingListElemCnt = 6,
-    ReceivingIntegral = 7,
-    ReceivingIntegralOrFinish = 8,
-    ReceivingFinish = 9,
-    Finished = 10,
-    Corrupted = 255,
+    ReceivingListElemCnt        = 6,
+    ReceivingIntegral           = 7,
+    ReceivingIntegralOrFinish   = 8,
+    ReceivingFinish             = 9,
+    Finished                    = 10,
+    Corrupted                   = 255,
 };
 
 enum struct EncoderReason : unsigned char {
@@ -170,7 +170,7 @@ struct Encoder {
     constexpr utils::TryResult<size_t, utf8::Encoder::ResultEnum>
     SendStringChar(this Encoder& self, unicode::unichar_t c);
 
-    template <integral::IsIntegral Integral>
+    template <integral::IsIntegralType Integral>
     constexpr utils::TryResult<
         pair::Pair<integral_endec::EncodeResult, integral_endec::EncodeResult>,
         EncoderReason>
@@ -184,7 +184,7 @@ struct Encoder {
     constexpr utils::TryResult<meta::Monostate, meta::Monostate>
     SendListElemCnt(this Encoder& self, size_t list_elem_cnt);
 
-    template <integral::IsIntegral Integral>
+    template <integral::IsIntegralType Integral>
     constexpr utils::TryResult<meta::Monostate, meta::Monostate> SendIntegral(
         this Encoder& self, Integral src_integral);
 
@@ -193,16 +193,16 @@ struct Encoder {
 };
 
 enum struct DecoderState : unsigned char {
-    SendingNodeTag = 0,
-    SendingNameString = 2,
-    SendingObjTypeString = 3,
-    SendingRegionAttr = 4,
+    SendingNodeTag            = 0,
+    SendingNameString         = 2,
+    SendingObjTypeString      = 3,
+    SendingRegionAttr         = 4,
     SendingIntegralDescriptor = 5,
-    SendingListElemCnt = 6,
-    SendingIntegral = 7,
-    SendingFinish = 8,
-    Finished = 11,
-    Corrupted = 255,
+    SendingListElemCnt        = 6,
+    SendingIntegral           = 7,
+    SendingFinish             = 8,
+    Finished                  = 11,
+    Corrupted                 = 255,
 };
 
 enum struct DecoderReason : unsigned char {
@@ -247,7 +247,7 @@ struct Decoder {
     constexpr utils::TryResult<unicode::unichar_t, DecoderReason>
     ReceiveStringChar(this Decoder& self);
 
-    template <integral::IsIntegral Integral>
+    template <integral::IsIntegralType Integral>
     constexpr utils::TryResult<
         pair::Pair<integral_endec::DecodeResult<Integral>,
                    integral_endec::DecodeResult<Integral>>,
@@ -260,7 +260,7 @@ struct Decoder {
     constexpr utils::TryResult<size_t, DecoderReason> ReceiveListElemCnt(
         this Decoder& self);
 
-    template <integral::IsIntegral Integral>
+    template <integral::IsIntegralType Integral>
     constexpr utils::TryResult<integral_endec::DecodeResult<Integral>,
                                DecoderReason>
     ReceiveIntegral(this Decoder& self, meta::TypeWrapper<Integral>);

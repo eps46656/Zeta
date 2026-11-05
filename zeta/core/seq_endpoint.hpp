@@ -15,37 +15,47 @@ namespace acceptor {
 using Tag = meta::AutoValueWrapper<Kind::Acceptor>;
 
 template <typename Acceptor, typename Elem>
-concept IsAcceptor = requires(Acceptor& inst, Tag tag, Elem* data,
-                              ptrdiff_t elem_stride, size_t cnt) {
-    requires meta::IsNonConstObj<Elem>;
+concept IsAcceptor_ =
+    requires(Acceptor& acceptor, Tag tag, ptrdiff_t elem_stride, size_t cnt) {
+        requires meta::IsNonConstObjectType<Acceptor>;
 
-    requires meta::IsSame<meta::RemoveCVRef<decltype(inst.IsEnd(tag))>, bool>;
+        requires meta::IsNonConstObjectType<Elem>;
+
+        requires meta::IsSame<
+            meta::RemoveConstVolatileReference<decltype(acceptor.IsEnd(tag))>,
+            bool>;
 
 #pragma push_macro("TransferCase")
 #define TransferCase(storage_semantics_name)                                \
     requires meta::IsSame<                                                  \
-        meta::RemoveCVRef<decltype(inst.Transfer(                           \
+        meta::RemoveConstVolatileReference<decltype(acceptor.Transfer(      \
             tag,                                                            \
             lifecycle::StorageView<                                         \
                 lifecycle::StorageSemantics::storage_semantics_name, Elem>{ \
-                data },                                                     \
+                nullptr },                                                  \
             elem_stride, cnt))>,                                            \
         size_t>
 
-    TransferCase(DestructingObjToMem);
-    TransferCase(LeftObj);
-    TransferCase(ConstLeftObj);
-    TransferCase(RightObj);
-    TransferCase(ConstRightObj);
+        TransferCase(DestructingObjToMem);
+        TransferCase(LeftObj);
+        TransferCase(ConstLeftObj);
+        TransferCase(RightObj);
+        TransferCase(ConstRightObj);
 
 #pragma pop_macro("TransferCase")
-};
+    };
+
+template <typename Acceptor, typename Elem>
+concept IsAcceptor = IsAcceptor_<meta::RemoveReferenceFromType<Acceptor>, Elem>;
+
+template <typename Acceptor, typename Elem>
+concept IsAcceptorLike = IsAcceptor<meta::RemovePointer<Acceptor>, Elem>;
 
 template <typename Acceptor>
-constexpr decltype(auto) IsEnd(Acceptor&& inst);
+constexpr decltype(auto) IsEnd(Acceptor&& acceptor);
 
 template <typename Acceptor, lifecycle::IsSrcStorageView SrcStorageView>
-constexpr decltype(auto) Transfer(Acceptor&& inst, SrcStorageView src,
+constexpr decltype(auto) Transfer(Acceptor&& acceptor, SrcStorageView src,
                                   ptrdiff_t src_elem_stride, size_t cnt);
 
 struct EmptyAcceptor {
@@ -66,7 +76,7 @@ struct BasicAcceptor {
 
 template <typename Acceptor>
 concept IsBasicAcceptor =
-    meta::IsSame<meta::RemoveCVRef<Acceptor>, BasicAcceptor>;
+    meta::IsSame<meta::RemoveConstVolatileReference<Acceptor>, BasicAcceptor>;
 
 using ArchetypeAcceptor = BasicAcceptor;
 
@@ -77,36 +87,45 @@ namespace provider {
 using Tag = meta::AutoValueWrapper<Kind::Provider>;
 
 template <typename Provider, typename Elem>
-concept IsProvider = requires(Provider& inst, Tag tag, Elem* data,
-                              Elem* const_data, ptrdiff_t elem_stride,
-                              size_t cnt) {
-    requires meta::IsObj<Elem>;
+concept IsProvider_ =
+    requires(Provider& provider, Tag tag, ptrdiff_t elem_stride, size_t cnt) {
+        requires meta::IsNonConstObjectType<Provider>;
 
-    requires meta::IsSame<meta::RemoveCVRef<decltype(inst.IsEnd(tag))>, bool>;
+        requires meta::IsObjectType<Elem>;
+
+        requires meta::IsSame<
+            meta::RemoveConstVolatileReference<decltype(provider.IsEnd(tag))>,
+            bool>;
 
 #pragma push_macro("TransferCase")
 #define TransferCase(storage_semantics_name)                                \
     requires meta::IsSame<                                                  \
-        meta::RemoveCVRef<decltype(inst.Transfer(                           \
+        meta::RemoveConstVolatileReference<decltype(provider.Transfer(      \
             tag,                                                            \
             lifecycle::StorageView<                                         \
                 lifecycle::StorageSemantics::storage_semantics_name, Elem>{ \
-                data },                                                     \
+                nullptr },                                                  \
             elem_stride, cnt))>,                                            \
         size_t>
 
-    TransferCase(ConstructingMemToObj);
-    TransferCase(LeftObj);
-    TransferCase(RightObj);
+        TransferCase(ConstructingMemToObj);
+        TransferCase(LeftObj);
+        TransferCase(RightObj);
 
 #pragma pop_macro("TransferCase")
-};
+    };
+
+template <typename Provider, typename Elem>
+concept IsProvider = IsProvider_<meta::RemoveReferenceFromType<Provider>, Elem>;
+
+template <typename Provider, typename Elem>
+concept IsProviderLike = IsProvider<meta::RemovePointer<Provider>, Elem>;
 
 template <typename Provider>
-constexpr decltype(auto) IsEnd(Provider&& inst);
+constexpr decltype(auto) IsEnd(Provider&& provider);
 
 template <typename Provider, lifecycle::IsDstStorageView DstStorageView>
-constexpr decltype(auto) Transfer(Provider&& inst, DstStorageView dst,
+constexpr decltype(auto) Transfer(Provider&& provider, DstStorageView dst,
                                   ptrdiff_t dst_elem_stride, size_t cnt);
 
 struct EmptyProvider {
@@ -126,14 +145,10 @@ struct BasicProvider {
 
 template <typename Provider>
 concept IsBasicProvider =
-    meta::IsSame<meta::RemoveCVRef<Provider>, BasicProvider>;
+    meta::IsSame<meta::RemoveConstVolatileReference<Provider>, BasicProvider>;
 
 using ArchetypeProvider = BasicProvider;
 
 }  // namespace provider
-
-template <typename SeqEndpoint, typename Elem>
-concept IsEndpoint = acceptor::IsAcceptor<SeqEndpoint, Elem> ||
-                     provider::IsProvider<SeqEndpoint, Elem>;
 
 }  // namespace zeta::core::seq_endpoint

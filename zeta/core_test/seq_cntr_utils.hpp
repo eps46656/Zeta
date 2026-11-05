@@ -90,6 +90,46 @@ constexpr void Destroy(core::poly_seq_cntr::Cntr<Elem>* sc) {
     Destroy(sc->target_cntr);
 }
 
+template <zeta::core::meta::IsNonConstObjectType Elem>
+struct RollHashAcceptor {
+    unsigned long long roll_hash{ 0 };
+
+    static constexpr bool IsEnd(zeta::core::seq_endpoint::acceptor::Tag) {
+        return false;
+    }
+
+    template <zeta::core::lifecycle::IsSrcStorageView SrcStorageView>
+    constexpr size_t Transfer(this RollHashAcceptor& self,
+                              zeta::core::seq_endpoint::acceptor::Tag,
+                              SrcStorageView src, ptrdiff_t elem_stride,
+                              size_t cnt) {
+        zeta::core::lin_seq_utils::Check(src.ptr, elem_stride, cnt);
+
+        if (cnt == 0) { return 0; }
+
+        for (size_t i{ 0 }; i < cnt; ++i) {
+            self.roll_hash =
+                zeta::core::hash::BasicHash(*src.ptr, self.roll_hash);
+
+            if constexpr (src.semantics ==
+                          zeta::core::lifecycle::StorageSemantics::
+                              DestructingObjToMem) {
+                if (0 < elem_stride) {
+                    zeta::core::lifecycle::InvokeDestructor(*src.ptr);
+                }
+            }
+
+            src.ptr = zeta::core::utils::PtrInc(src.ptr, elem_stride);
+        }
+
+        if (elem_stride == 0) {
+            zeta::core::lifecycle::InvokeDestructor(*src.ptr);
+        }
+
+        return cnt;
+    }
+};
+
 template <typename SeqCntr, core::lifecycle::IsDstStorageView DstStorageView>
 constexpr void Read_(SeqCntr* sc, size_t idx, size_t cnt, DstStorageView dst,
                      size_t dst_stride) {
@@ -99,11 +139,7 @@ constexpr void Read_(SeqCntr* sc, size_t idx, size_t cnt, DstStorageView dst,
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= size);
 
-    core::seq_cntr::Refer(
-        *sc, idx, true, nullptr, &pos_cursor,
-        core::lifecycle::LeftObjView<
-            core::meta::GetTypeWrapperType<decltype(core::seq_cntr::GetElemType(
-                core::meta::TypeWrapper<SeqCntr&>{}))>>{ nullptr });
+    core::seq_cntr::Refer(*sc, idx, &pos_cursor, nullptr);
 
     (Sanitize)(sc);
 
@@ -120,9 +156,9 @@ constexpr void Read_(SeqCntr* sc, size_t idx, size_t cnt, DstStorageView dst,
     };
 
     core::lin_seq_endpoint::acceptor::Acceptor<DstStorageView> mem_reader{
-        .data        = dst,
-        .elem_stride = static_cast<ptrdiff_t>(dst_stride),
-        .elem_cnt    = cnt,
+        .data{ dst },
+        .elem_stride{ static_cast<ptrdiff_t>(dst_stride) },
+        .elem_cnt{ cnt },
     };
 
     core::seq_cntr::Read(*sc, &pos_cursor, cnt, mem_reader, dst_cursor);
@@ -177,11 +213,7 @@ constexpr void Write_(SeqCntr* sc, size_t idx, size_t cnt, SrcStorageView src,
 
     ZETA_Core_DebugUtils_Diag_PromiseAssert(cnt <= elem_cnt);
 
-    core::seq_cntr::Refer(
-        *sc, idx, true, nullptr, &pos_cursor,
-        core::lifecycle::LeftObjView<
-            core::meta::GetTypeWrapperType<decltype(core::seq_cntr::GetElemType(
-                core::meta::TypeWrapper<SeqCntr&>{}))>>{ nullptr });
+    core::seq_cntr::Refer(*sc, idx, &pos_cursor, nullptr);
 
     (Sanitize)(sc);
 
@@ -200,9 +232,9 @@ constexpr void Write_(SeqCntr* sc, size_t idx, size_t cnt, SrcStorageView src,
     core::seq_cntr::Write(
         *sc, &pos_cursor, cnt,
         core::lin_seq_endpoint::provider::Provider<SrcStorageView>{
-            .data        = src,
-            .elem_stride = static_cast<ptrdiff_t>(src_stride),
-            .elem_cnt    = core::seq_cntr::max_max_elem_cnt,
+            .data{ src },
+            .elem_stride{ static_cast<ptrdiff_t>(src_stride) },
+            .elem_cnt{ core::seq_cntr::max_max_elem_cnt },
         },
         dst_cursor);
 
@@ -285,9 +317,9 @@ constexpr void PushL(SeqCntr* sc, size_t cnt, SrcStorageView src,
     core::seq_cntr::PushL(
         *sc, cnt,
         core::lin_seq_endpoint::provider::Provider<SrcStorageView>{
-            .data        = src,
-            .elem_stride = static_cast<ptrdiff_t>(src_stride),
-            .elem_cnt    = core::seq_cntr::max_max_elem_cnt,
+            .data{ src },
+            .elem_stride{ static_cast<ptrdiff_t>(src_stride) },
+            .elem_cnt{ core::seq_cntr::max_max_elem_cnt },
         },
         dst_beg_cursor, dst_end_cursor);
 
@@ -341,9 +373,9 @@ constexpr void PushR(SeqCntr* sc, size_t cnt, SrcStorageView src,
         core::seq_cntr::PushR(
             *sc, cnt,
             core::lin_seq_endpoint::provider::Provider<SrcStorageView>{
-                .data        = src,
-                .elem_stride = static_cast<ptrdiff_t>(src_stride),
-                .elem_cnt    = core::seq_cntr::max_max_elem_cnt,
+                .data{ src },
+                .elem_stride{ static_cast<ptrdiff_t>(src_stride) },
+                .elem_cnt{ core::seq_cntr::max_max_elem_cnt },
             },
             dst_beg_cursor, dst_end_cursor);
     }
@@ -371,7 +403,8 @@ constexpr void PushR(SeqCntr* sc, size_t cnt, SrcStorageView src,
     }
 }
 
-template <typename SeqCntr, core::lifecycle::IsDstStorageView DstStorageView>
+template <typename SeqCntr,
+          core::lifecycle::IsOptionalDstStorageView DstStorageView>
 constexpr void PopL(SeqCntr* sc, size_t cnt, DstStorageView dst,
                     size_t dst_elem_stride) {
     using Cursor =
@@ -397,9 +430,9 @@ constexpr void PopL(SeqCntr* sc, size_t cnt, DstStorageView dst,
         core::seq_cntr::PopL(
             *sc, cnt,
             core::lin_seq_endpoint::acceptor::Acceptor<DstStorageView>{
-                .data        = dst,
-                .elem_stride = static_cast<ptrdiff_t>(dst_elem_stride),
-                .elem_cnt    = core::seq_cntr::max_max_elem_cnt,
+                .data{ dst },
+                .elem_stride{ static_cast<ptrdiff_t>(dst_elem_stride) },
+                .elem_cnt{ core::seq_cntr::max_max_elem_cnt },
             },
             dst_cursor);
     }
@@ -412,7 +445,8 @@ constexpr void PopL(SeqCntr* sc, size_t cnt, DstStorageView dst,
     (Sanitize)(sc);
 }
 
-template <typename SeqCntr, core::lifecycle::IsDstStorageView DstStorageView>
+template <typename SeqCntr,
+          core::lifecycle::IsOptionalDstStorageView DstStorageView>
 constexpr void PopR(SeqCntr* sc, size_t cnt, DstStorageView dst,
                     size_t dst_elem_stride) {
     using Cursor =
@@ -430,7 +464,7 @@ constexpr void PopR(SeqCntr* sc, size_t cnt, DstStorageView dst,
 
     Cursor* dst_cursor{ test_dst_cursor ? &dst_cursor_storage : nullptr };
 
-    if (dst.ptr == nullptr) {
+    if constexpr (dst.IsNull()) {
         ZETA_Core_DebugUtils_Diag_LogCurPos();
         core::seq_cntr::PopR(*sc, cnt,
                              core::seq_endpoint::acceptor::BasicAcceptor{},
@@ -440,9 +474,9 @@ constexpr void PopR(SeqCntr* sc, size_t cnt, DstStorageView dst,
         core::seq_cntr::PopR(
             *sc, cnt,
             core::lin_seq_endpoint::acceptor::Acceptor<DstStorageView>{
-                .data        = dst,
-                .elem_stride = static_cast<ptrdiff_t>(dst_elem_stride),
-                .elem_cnt    = core::seq_cntr::max_max_elem_cnt,
+                .data{ dst },
+                .elem_stride{ static_cast<ptrdiff_t>(dst_elem_stride) },
+                .elem_cnt{ core::seq_cntr::max_max_elem_cnt },
             },
             dst_cursor);
     }
@@ -464,11 +498,7 @@ constexpr void Insert(SeqCntr* sc, size_t idx, size_t cnt, Provider&& writer) {
 
     core::seq_cntr::CursorLimit pos_cursor;
 
-    core::seq_cntr::Refer(
-        *sc, idx, true, nullptr, &pos_cursor,
-        core::lifecycle::LeftObjView<
-            core::meta::GetTypeWrapperType<decltype(core::seq_cntr::GetElemType(
-                core::meta::TypeWrapper<SeqCntr&>{}))>>{ nullptr });
+    core::seq_cntr::Refer(*sc, idx, &pos_cursor, nullptr);
 
     (Sanitize)(sc);
 
@@ -522,7 +552,8 @@ constexpr void Insert(SeqCntr* sc, size_t idx, size_t cnt, Provider&& writer) {
     }
 }
 
-template <typename SeqCntr, core::lifecycle::IsDstStorageView DstStorageView>
+template <typename SeqCntr,
+          core::lifecycle::IsOptionalDstStorageView DstStorageView>
 constexpr void Erase(SeqCntr* sc, size_t idx, size_t cnt, DstStorageView dst,
                      size_t dst_elem_stride) {
     if (sc == nullptr) { return; }
@@ -535,11 +566,7 @@ constexpr void Erase(SeqCntr* sc, size_t idx, size_t cnt, DstStorageView dst,
 
     core::seq_cntr::CursorLimit pos_cursor;
 
-    core::seq_cntr::Refer(
-        *sc, idx, true, nullptr, &pos_cursor,
-        core::lifecycle::LeftObjView<
-            core::meta::GetTypeWrapperType<decltype(core::seq_cntr::GetElemType(
-                core::meta::TypeWrapper<SeqCntr&>{}))>>{ nullptr });
+    core::seq_cntr::Refer(*sc, idx, &pos_cursor, nullptr);
 
     (Sanitize)(sc);
 
@@ -550,23 +577,25 @@ constexpr void Erase(SeqCntr* sc, size_t idx, size_t cnt, DstStorageView dst,
 
     size_t origin_cnt{ cnt };
 
-    core::lin_seq_endpoint::acceptor::Acceptor<DstStorageView> acceptor{
-        .data        = dst,
-        .elem_stride = static_cast<ptrdiff_t>(dst_elem_stride),
-        .elem_cnt    = origin_cnt,
-    };
-
     size_t cur_cnt{ std::min(elem_cnt - idx, cnt) };
 
     {
         size_t old_elem_cnt{ core::seq_cntr::GetElemCnt(*sc) };
 
-        if (dst.ptr == nullptr) {
+        if constexpr (dst.IsNull()) {
             core::seq_cntr::Erase(
                 *sc, &pos_cursor, cur_cnt,
                 core::seq_endpoint::acceptor::BasicAcceptor{});
         } else {
+            core::lin_seq_endpoint::acceptor::Acceptor<DstStorageView> acceptor{
+                .data{ dst },
+                .elem_stride{ static_cast<ptrdiff_t>(dst_elem_stride) },
+                .elem_cnt{ origin_cnt },
+            };
+
             core::seq_cntr::Erase(*sc, &pos_cursor, cur_cnt, acceptor);
+
+            dst.ptr = acceptor.data.ptr;
         }
 
         (Sanitize)(sc);
@@ -587,11 +616,7 @@ constexpr void Erase(SeqCntr* sc, size_t idx, size_t cnt, DstStorageView dst,
 
     (Sanitize)(sc);
 
-    core::seq_cntr::PeekL(
-        *sc, true, nullptr, &pos_cursor,
-        core::lifecycle::LeftObjView<
-            core::meta::GetTypeWrapperType<decltype(core::seq_cntr::GetElemType(
-                core::meta::TypeWrapper<SeqCntr&>{}))>>{ nullptr });
+    core::seq_cntr::PeekL(*sc, &pos_cursor, nullptr);
 
     (Sanitize)(sc);
 
@@ -603,12 +628,20 @@ constexpr void Erase(SeqCntr* sc, size_t idx, size_t cnt, DstStorageView dst,
 
         size_t old_elem_cnt{ core::seq_cntr::GetElemCnt(*sc) };
 
-        if (dst.ptr == nullptr) {
+        if constexpr (dst.IsNull()) {
             core::seq_cntr::Erase(
                 *sc, &pos_cursor, cur_cnt,
                 core::seq_endpoint::acceptor::BasicAcceptor{});
         } else {
+            core::lin_seq_endpoint::acceptor::Acceptor<DstStorageView> acceptor{
+                .data{ dst },
+                .elem_stride{ static_cast<ptrdiff_t>(dst_elem_stride) },
+                .elem_cnt{ origin_cnt },
+            };
+
             core::seq_cntr::Erase(*sc, &pos_cursor, cur_cnt, acceptor);
+
+            dst.ptr = acceptor.data.ptr;
         }
 
         (Sanitize)(sc);
@@ -654,16 +687,8 @@ void CheckCursor(SeqCntr* sc, size_t max_op_size) {
         size_t idx_b{ static_cast<size_t>(
             random::GenUniformRandomInt<long long>(-1, size)) };
 
-        core::seq_cntr::Refer(
-            *sc, idx_a, true, nullptr, &cursor_a,
-            core::lifecycle::LeftObjView<core::meta::GetTypeWrapperType<
-                decltype(core::seq_cntr::GetElemType(
-                    core::meta::TypeWrapper<SeqCntr&>{}))>>{ nullptr });
-        core::seq_cntr::Refer(
-            *sc, idx_b, true, nullptr, &cursor_b,
-            core::lifecycle::LeftObjView<core::meta::GetTypeWrapperType<
-                decltype(core::seq_cntr::GetElemType(
-                    core::meta::TypeWrapper<SeqCntr&>{}))>>{ nullptr });
+        core::seq_cntr::Refer(*sc, idx_a, &cursor_a, nullptr);
+        core::seq_cntr::Refer(*sc, idx_b, &cursor_b, nullptr);
 
         ZETA_Core_DebugUtils_Diag_PromiseAssert(
             core::seq_cntr::GetCursorIdx(*sc, &cursor_a) == idx_a);
@@ -683,11 +708,7 @@ void CheckCursor(SeqCntr* sc, size_t max_op_size) {
             core::seq_cntr::GetCursorDist(*sc, &cursor_a, &cursor_b) ==
             idx_b - idx_a);
 
-        core::seq_cntr::Refer(
-            *sc, idx_a, true, nullptr, &cursor_c,
-            core::lifecycle::LeftObjView<core::meta::GetTypeWrapperType<
-                decltype(core::seq_cntr::GetElemType(
-                    core::meta::TypeWrapper<SeqCntr&>{}))>>{ nullptr });
+        core::seq_cntr::Refer(*sc, idx_a, &cursor_c, nullptr);
 
         if (idx_a + 1 <= idx_b + 1) {
             core::seq_cntr::CursorAdvanceR(*sc, &cursor_c, idx_b - idx_a);
@@ -698,11 +719,7 @@ void CheckCursor(SeqCntr* sc, size_t max_op_size) {
         ZETA_Core_DebugUtils_Diag_PromiseAssert(
             core::seq_cntr::GetCursorIdx(*sc, &cursor_c) == idx_b);
 
-        core::seq_cntr::Refer(
-            *sc, idx_b, true, nullptr, &cursor_c,
-            core::lifecycle::LeftObjView<core::meta::GetTypeWrapperType<
-                decltype(core::seq_cntr::GetElemType(
-                    core::meta::TypeWrapper<SeqCntr&>{}))>>{ nullptr });
+        core::seq_cntr::Refer(*sc, idx_b, &cursor_c, nullptr);
 
         if (idx_a + 1 <= idx_b + 1) {
             core::seq_cntr::CursorAdvanceL(*sc, &cursor_c, idx_b - idx_a);
@@ -737,14 +754,20 @@ void MirrorRandomRead(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
 
     constexpr size_t elem_size{ sizeof(Elem) };
 
-    size_t elem_stride_a{ (GetRandomStride<Elem>)(elem_size) };
-    size_t elem_stride_b{ (GetRandomStride<Elem>)(elem_size) };
-
     size_t elem_cnt{ (MirrorGetElemCnt)(scs) };
 
     size_t idx{ random::GenUniformRandomInt<size_t>(0, elem_cnt) };
     size_t cnt{ random::GenUniformRandomInt<size_t>(
         0, std::min(max_op_size, elem_cnt)) };
+
+    size_t elem_stride_a{ (GetRandomStride<Elem>)(elem_size) };
+    size_t elem_stride_b{ (GetRandomStride<Elem>)(elem_size) };
+
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_cnt);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(idx);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(cnt);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_stride_a);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_stride_b);
 
     Elem* buffer_a{ cnt == 0 ? nullptr
                              : core::debug_utils::memory::Malloc<Elem>(
@@ -889,36 +912,42 @@ void MirrorRandomWrite(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
     size_t cnt{ random::GenUniformRandomInt<size_t>(
         0, std::min(max_op_size, elem_cnt)) };
 
-    size_t stride{ (GetRandomStride<Elem>)(elem_size) };
+    size_t elem_stride{ (GetRandomStride<Elem>)(elem_size) };
+
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_cnt);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(idx);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(cnt);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_stride);
 
     Elem* buffer_a{ cnt == 0 ? nullptr
                              : core::debug_utils::memory::Malloc<Elem>(
-                                   stride * (cnt - 1) + elem_size) };
+                                   elem_stride * (cnt - 1) + elem_size) };
     Elem* buffer_b{ cnt == 0 ? nullptr
                              : core::debug_utils::memory::Malloc<Elem>(
-                                   stride * (cnt - 1) + elem_size) };
+                                   elem_stride * (cnt - 1) + elem_size) };
 
     random::GenRandomLinSeq(core::lifecycle::StorageLifeState::Mem, buffer_a,
-                            stride, cnt);
+                            elem_stride, cnt);
 
     core::utils::DisjointLinSeqTransfer(
         core::lifecycle::ConstructingMemToObjView<Elem>{ buffer_b },
-        core::lifecycle::ConstLeftObjView<Elem>{ buffer_a }, stride, stride,
-        cnt);
+        core::lifecycle::ConstLeftObjView<Elem>{ buffer_a }, elem_stride,
+        elem_stride, cnt);
 
     for (auto& sc : scs) {
         (Write)(sc, idx, cnt,
-                core::lifecycle::ConstLeftObjView<Elem>{ buffer_a }, stride);
+                core::lifecycle::ConstLeftObjView<Elem>{ buffer_a },
+                elem_stride);
 
         ZETA_Core_DebugUtils_Diag_PromiseAssert(
             core::comparison_utils::BasicLinObjSeqLexCompare(
                 core::comparison::OpTags::Equal{}, buffer_a, buffer_b,
-                static_cast<ptrdiff_t>(stride), static_cast<ptrdiff_t>(stride),
-                cnt, cnt));
+                static_cast<ptrdiff_t>(elem_stride),
+                static_cast<ptrdiff_t>(elem_stride), cnt, cnt));
     }
 
-    core::lifecycle::InvokeLinSeqDestructor(buffer_a, stride, cnt);
-    core::lifecycle::InvokeLinSeqDestructor(buffer_b, stride, cnt);
+    core::lifecycle::InvokeLinSeqDestructor(buffer_a, elem_stride, cnt);
+    core::lifecycle::InvokeLinSeqDestructor(buffer_b, elem_stride, cnt);
 
     core::debug_utils::memory::Free(buffer_a);
     core::debug_utils::memory::Free(buffer_b);
@@ -932,38 +961,44 @@ void MirrorRandomPushL(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
 
     constexpr size_t elem_size{ sizeof(Elem) };
 
-    size_t stride{ (GetRandomStride<Elem>)(elem_size) };
+    size_t elem_cnt{ (MirrorGetElemCnt)(scs) };
+
+    size_t elem_stride{ (GetRandomStride<Elem>)(elem_size) };
 
     size_t cnt{ random::GenUniformRandomInt<size_t>(0, max_op_size) };
 
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_cnt);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(cnt);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_stride);
+
     Elem* buffer_a{ cnt == 0 ? nullptr
                              : core::debug_utils::memory::Malloc<Elem>(
-                                   stride * (cnt - 1) + elem_size) };
+                                   elem_stride * (cnt - 1) + elem_size) };
     Elem* buffer_b{ cnt == 0 ? nullptr
                              : core::debug_utils::memory::Malloc<Elem>(
-                                   stride * (cnt - 1) + elem_size) };
+                                   elem_stride * (cnt - 1) + elem_size) };
 
     random::GenRandomLinSeq(core::lifecycle::StorageLifeState::Mem, buffer_a,
-                            stride, cnt);
+                            elem_stride, cnt);
 
     core::utils::DisjointLinSeqTransfer(
         core::lifecycle::ConstructingMemToObjView<Elem>{ buffer_b },
-        core::lifecycle::ConstLeftObjView<Elem>{ buffer_a }, stride, stride,
-        cnt);
+        core::lifecycle::ConstLeftObjView<Elem>{ buffer_a }, elem_stride,
+        elem_stride, cnt);
 
     for (auto& sc : scs) {
         (PushL)(sc, cnt, core::lifecycle::ConstLeftObjView<Elem>{ buffer_a },
-                stride);
+                elem_stride);
 
         ZETA_Core_DebugUtils_Diag_PromiseAssert(
             core::comparison_utils::BasicLinObjSeqLexCompare(
                 core::comparison::OpTags::Equal{}, buffer_a, buffer_b,
-                static_cast<ptrdiff_t>(stride), static_cast<ptrdiff_t>(stride),
-                cnt, cnt));
+                static_cast<ptrdiff_t>(elem_stride),
+                static_cast<ptrdiff_t>(elem_stride), cnt, cnt));
     }
 
-    core::lifecycle::InvokeLinSeqDestructor(buffer_a, stride, cnt);
-    core::lifecycle::InvokeLinSeqDestructor(buffer_b, stride, cnt);
+    core::lifecycle::InvokeLinSeqDestructor(buffer_a, elem_stride, cnt);
+    core::lifecycle::InvokeLinSeqDestructor(buffer_b, elem_stride, cnt);
 
     core::debug_utils::memory::Free(buffer_a);
     core::debug_utils::memory::Free(buffer_b);
@@ -977,38 +1012,44 @@ void MirrorRandomPushR(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
 
     constexpr size_t elem_size{ sizeof(Elem) };
 
-    size_t stride{ (GetRandomStride<Elem>)(elem_size) };
+    size_t elem_cnt{ (MirrorGetElemCnt)(scs) };
 
     size_t cnt{ random::GenUniformRandomInt<size_t>(0, max_op_size) };
 
+    size_t elem_stride{ (GetRandomStride<Elem>)(elem_size) };
+
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_cnt);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(cnt);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_stride);
+
     Elem* buffer_a{ cnt == 0 ? nullptr
                              : core::debug_utils::memory::Malloc<Elem>(
-                                   stride * (cnt - 1) + elem_size) };
+                                   elem_stride * (cnt - 1) + elem_size) };
     Elem* buffer_b{ cnt == 0 ? nullptr
                              : core::debug_utils::memory::Malloc<Elem>(
-                                   stride * (cnt - 1) + elem_size) };
+                                   elem_stride * (cnt - 1) + elem_size) };
 
     random::GenRandomLinSeq(core::lifecycle::StorageLifeState::Mem, buffer_a,
-                            stride, cnt);
+                            elem_stride, cnt);
 
     core::utils::DisjointLinSeqTransfer(
         core::lifecycle::ConstructingMemToObjView<Elem>{ buffer_b },
-        core::lifecycle::ConstLeftObjView<Elem>{ buffer_a }, stride, stride,
-        cnt);
+        core::lifecycle::ConstLeftObjView<Elem>{ buffer_a }, elem_stride,
+        elem_stride, cnt);
 
     for (auto& sc : scs) {
         (PushR)(sc, cnt, core::lifecycle::ConstLeftObjView<Elem>{ buffer_a },
-                stride);
+                elem_stride);
 
         ZETA_Core_DebugUtils_Diag_PromiseAssert(
             core::comparison_utils::BasicLinObjSeqLexCompare(
                 core::comparison::OpTags::Equal{}, buffer_a, buffer_b,
-                static_cast<ptrdiff_t>(stride), static_cast<ptrdiff_t>(stride),
-                cnt, cnt));
+                static_cast<ptrdiff_t>(elem_stride),
+                static_cast<ptrdiff_t>(elem_stride), cnt, cnt));
     }
 
-    core::lifecycle::InvokeLinSeqDestructor(buffer_a, stride, cnt);
-    core::lifecycle::InvokeLinSeqDestructor(buffer_b, stride, cnt);
+    core::lifecycle::InvokeLinSeqDestructor(buffer_a, elem_stride, cnt);
+    core::lifecycle::InvokeLinSeqDestructor(buffer_b, elem_stride, cnt);
 
     core::debug_utils::memory::Free(buffer_a);
     core::debug_utils::memory::Free(buffer_b);
@@ -1031,6 +1072,12 @@ void MirrorRandomPopL(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
 
     size_t elem_stride_a{ (GetRandomStride<Elem>)(elem_size) };
     size_t elem_stride_b{ (GetRandomStride<Elem>)(elem_size) };
+
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_cnt);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(cnt);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(read);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_stride_a);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_stride_b);
 
     Elem* buffer_a{ !read || cnt == 0
                         ? nullptr
@@ -1119,15 +1166,21 @@ void MirrorRandomPopR(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
 
     constexpr size_t elem_size{ sizeof(Elem) };
 
-    size_t size{ (MirrorGetElemCnt)(scs) };
+    size_t elem_cnt{ (MirrorGetElemCnt)(scs) };
 
     size_t cnt{ random::GenUniformRandomInt<size_t>(
-        0, std::min(max_op_size, size)) };
+        0, std::min(max_op_size, elem_cnt)) };
 
     bool read{ random::GenUniformRandomInt<int>(0, 1) == 0 };
 
     size_t elem_stride_a{ (GetRandomStride<Elem>)(elem_size) };
     size_t elem_stride_b{ (GetRandomStride<Elem>)(elem_size) };
+
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_cnt);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(cnt);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(read);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_stride_a);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_stride_b);
 
     Elem* buffer_a{ !read || cnt == 0
                         ? nullptr
@@ -1164,19 +1217,37 @@ void MirrorRandomPopR(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
 
     for (size_t i{ 0 }; i < scs.size(); ++i) {
         switch (i == 0 ? buffer_life_state_a : buffer_life_state_b) {
-        case core::lifecycle::StorageLifeState::Mem:
-            (PopR)(scs[i], cnt,
-                   core::lifecycle::ConstructingMemToObjView<Elem>{
-                       i == 0 ? buffer_a : buffer_b },
-                   i == 0 ? elem_stride_a : elem_stride_b);
-            break;
+        case core::lifecycle::StorageLifeState::Mem: {
+            Elem* cur_buffer{ i == 0 ? buffer_a : buffer_b };
+            size_t cur_elem_stride{ i == 0 ? elem_stride_a : elem_stride_b };
 
-        case core::lifecycle::StorageLifeState::Obj:
-            (PopR)(scs[i], cnt,
-                   core::lifecycle::LeftObjView<Elem>{ i == 0 ? buffer_a
-                                                              : buffer_b },
-                   i == 0 ? elem_stride_a : elem_stride_b);
+            if (cur_buffer == nullptr) {
+                (PopR)(scs[i], cnt, core::lifecycle::NullView<Elem>{},
+                       cur_elem_stride);
+            } else {
+                (PopR)(scs[i], cnt,
+                       core::lifecycle::ConstructingMemToObjView<Elem>{
+                           cur_buffer },
+                       cur_elem_stride);
+            }
+
             break;
+        }
+
+        case core::lifecycle::StorageLifeState::Obj: {
+            Elem* cur_buffer{ i == 0 ? buffer_a : buffer_b };
+            size_t cur_elem_stride{ i == 0 ? elem_stride_a : elem_stride_b };
+
+            if (cur_buffer == nullptr) {
+                (PopR)(scs[i], cnt, core::lifecycle::NullView<Elem>{},
+                       cur_elem_stride);
+            } else {
+                (PopR)(scs[i], cnt,
+                       core::lifecycle::LeftObjView<Elem>{ cur_buffer },
+                       cur_elem_stride);
+            }
+            break;
+        }
 
         default: ZETA_Core_DebugUtils_Diag_Unreachable();
         }
@@ -1216,46 +1287,51 @@ void MirrorRandomInsert(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
 
     constexpr size_t elem_size{ sizeof(Elem) };
 
-    size_t stride{ (GetRandomStride<Elem>)(elem_size) };
+    size_t elem_cnt{ (MirrorGetElemCnt)(scs) };
 
-    size_t size{ (MirrorGetElemCnt)(scs) };
-
-    size_t idx{ random::GenUniformRandomInt<size_t>(0, size) };
+    size_t idx{ random::GenUniformRandomInt<size_t>(0, elem_cnt) };
     size_t cnt{ random::GenUniformRandomInt<size_t>(0, max_op_size) };
+
+    size_t elem_stride{ (GetRandomStride<Elem>)(elem_size) };
+
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_cnt);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(idx);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(cnt);
+    ZETA_Core_DebugUtils_Logging_ImmLogVar(elem_stride);
 
     Elem* buffer_a{ cnt == 0 ? nullptr
                              : core::debug_utils::memory::Malloc<Elem>(
-                                   stride * (cnt - 1) + elem_size) };
+                                   elem_stride * (cnt - 1) + elem_size) };
     Elem* buffer_b{ cnt == 0 ? nullptr
                              : core::debug_utils::memory::Malloc<Elem>(
-                                   stride * (cnt - 1) + elem_size) };
+                                   elem_stride * (cnt - 1) + elem_size) };
 
     random::GenRandomLinSeq(core::lifecycle::StorageLifeState::Mem, buffer_a,
-                            stride, cnt);
+                            elem_stride, cnt);
 
     core::utils::DisjointLinSeqTransfer(
         core::lifecycle::ConstructingMemToObjView<Elem>{ buffer_b },
-        core::lifecycle::ConstLeftObjView<Elem>{ buffer_a }, stride, stride,
-        cnt);
+        core::lifecycle::ConstLeftObjView<Elem>{ buffer_a }, elem_stride,
+        elem_stride, cnt);
 
     for (auto& sc : scs) {
         (Insert)(sc, idx, cnt,
                  core::lin_seq_endpoint::provider::Provider<
                      core::lifecycle::ConstLeftObjView<Elem>>{
                      .data{ buffer_b },
-                     .elem_stride = static_cast<ptrdiff_t>(stride),
-                     .elem_cnt    = core::seq_cntr::max_max_elem_cnt,
+                     .elem_stride{ static_cast<ptrdiff_t>(elem_stride) },
+                     .elem_cnt{ core::seq_cntr::max_max_elem_cnt },
                  });
 
         ZETA_Core_DebugUtils_Diag_PromiseAssert(
             core::comparison_utils::BasicLinObjSeqLexCompare(
                 core::comparison::OpTags::Equal{}, buffer_a, buffer_b,
-                static_cast<ptrdiff_t>(stride), static_cast<ptrdiff_t>(stride),
-                cnt, cnt));
+                static_cast<ptrdiff_t>(elem_stride),
+                static_cast<ptrdiff_t>(elem_stride), cnt, cnt));
     }
 
-    core::lifecycle::InvokeLinSeqDestructor(buffer_a, stride, cnt);
-    core::lifecycle::InvokeLinSeqDestructor(buffer_b, stride, cnt);
+    core::lifecycle::InvokeLinSeqDestructor(buffer_a, elem_stride, cnt);
+    core::lifecycle::InvokeLinSeqDestructor(buffer_b, elem_stride, cnt);
 
     core::debug_utils::memory::Free(buffer_a);
     core::debug_utils::memory::Free(buffer_b);
@@ -1314,22 +1390,36 @@ void MirrorRandomErase(std::vector<SeqCntr*> const& scs, size_t max_op_size) {
     }
 
     for (size_t i{ 0 }; i < scs.size(); ++i) {
-        switch (i == 0 ? buffer_life_state_a : buffer_life_state_b) {
-        case core::lifecycle::StorageLifeState::Mem:
-            (Erase)(scs[i], idx, cnt,
-                    core::lifecycle::ConstructingMemToObjView<Elem>{
-                        i == 0 ? buffer_a : buffer_b },
-                    i == 0 ? elem_stride_a : elem_stride_b);
-            break;
+        {
+            core::lifecycle::StorageLifeState cur_buffer_life_state{
+                i == 0 ? buffer_life_state_a : buffer_life_state_b
+            };
 
-        case core::lifecycle::StorageLifeState::Obj:
-            (Erase)(scs[i], idx, cnt,
-                    core::lifecycle::LeftObjView<Elem>{ i == 0 ? buffer_a
-                                                               : buffer_b },
-                    i == 0 ? elem_stride_a : elem_stride_b);
-            break;
+            Elem* cur_buffer{ i == 0 ? buffer_a : buffer_b };
 
-        default: ZETA_Core_DebugUtils_Diag_Unreachable();
+            size_t cur_elem_stride{ i == 0 ? elem_stride_a : elem_stride_b };
+
+            if (cur_buffer == nullptr) {
+                (Erase)(scs[i], idx, cnt, core::lifecycle::NullView<Elem>{},
+                        cur_elem_stride);
+            } else {
+                switch (cur_buffer_life_state) {
+                case core::lifecycle::StorageLifeState::Mem:
+                    (Erase)(scs[i], idx, cnt,
+                            core::lifecycle::ConstructingMemToObjView<Elem>{
+                                cur_buffer },
+                            cur_elem_stride);
+                    break;
+
+                case core::lifecycle::StorageLifeState::Obj:
+                    (Erase)(scs[i], idx, cnt,
+                            core::lifecycle::LeftObjView<Elem>{ cur_buffer },
+                            cur_elem_stride);
+                    break;
+
+                default: ZETA_Core_DebugUtils_Diag_Unreachable();
+                }
+            }
         }
 
         if (i == 0) {
@@ -1394,7 +1484,7 @@ void MirrorRandomInit(std::vector<SeqCntr*> const& scs, size_t elem_cnt) {
 
     for (auto& sc : scs) {
         (Erase)(sc, 0, core::seq_cntr::GetElemCnt(*sc),
-                core::lifecycle::LeftObjView<Elem>{ nullptr }, 0);
+                core::lifecycle::NullView<Elem>{}, 0);
 
         (PushR)(sc, elem_cnt,
                 core::lifecycle::ConstLeftObjView<Elem>{ buffer_b }, stride);
@@ -1436,10 +1526,8 @@ void MirrorCompare2_(SeqCntrA* sc_a, SeqCntrB* sc_b) {
     ElemA buffer_a;
     ElemB buffer_b;
 
-    core::seq_cntr::PeekL(*sc_a, true, nullptr, &cursor_a,
-                          core::lifecycle::LeftObjView<ElemA>{ nullptr });
-    core::seq_cntr::PeekL(*sc_b, true, nullptr, &cursor_b,
-                          core::lifecycle::LeftObjView<ElemB>{ nullptr });
+    core::seq_cntr::PeekL(*sc_a, &cursor_a, nullptr);
+    core::seq_cntr::PeekL(*sc_b, &cursor_b, nullptr);
 
     for (size_t i{ 0 }; i < elem_cnt; ++i) {
         ZETA_Core_DebugUtils_Diag_PromiseAssert(
@@ -1453,8 +1541,8 @@ void MirrorCompare2_(SeqCntrA* sc_a, SeqCntrB* sc_b) {
             core::lin_seq_endpoint::acceptor::Acceptor<
                 core::lifecycle::LeftObjView<ElemA>>{
                 .data{ &buffer_a },
-                .elem_stride = static_cast<ptrdiff_t>(elem_size_a),
-                .elem_cnt    = 1,
+                .elem_stride{ static_cast<ptrdiff_t>(elem_size_a) },
+                .elem_cnt{ 1 },
             },
             &cursor_a);
 
@@ -1463,8 +1551,8 @@ void MirrorCompare2_(SeqCntrA* sc_a, SeqCntrB* sc_b) {
             core::lin_seq_endpoint::acceptor::Acceptor<
                 core::lifecycle::LeftObjView<ElemB>>{
                 .data{ &buffer_b },
-                .elem_stride = static_cast<ptrdiff_t>(elem_size_b),
-                .elem_cnt    = 1,
+                .elem_stride{ static_cast<ptrdiff_t>(elem_size_b) },
+                .elem_cnt{ 1 },
             },
             &cursor_b);
 
@@ -1478,10 +1566,8 @@ void MirrorCompare2_(SeqCntrA* sc_a, SeqCntrB* sc_b) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(
         core::seq_cntr::GetCursorIdx(*sc_b, &cursor_b) == elem_cnt);
 
-    core::seq_cntr::PeekR(*sc_a, true, nullptr, &cursor_a,
-                          core::lifecycle::LeftObjView<ElemA>{ nullptr });
-    core::seq_cntr::PeekR(*sc_b, true, nullptr, &cursor_b,
-                          core::lifecycle::LeftObjView<ElemB>{ nullptr });
+    core::seq_cntr::PeekR(*sc_a, &cursor_a, nullptr);
+    core::seq_cntr::PeekR(*sc_b, &cursor_b, nullptr);
 
     for (size_t i{ elem_cnt }; 0 < i--;) {
         ZETA_Core_DebugUtils_Diag_PromiseAssert(
@@ -1495,8 +1581,8 @@ void MirrorCompare2_(SeqCntrA* sc_a, SeqCntrB* sc_b) {
             core::lin_seq_endpoint::acceptor::Acceptor<
                 core::lifecycle::LeftObjView<ElemA>>{
                 .data{ &buffer_a },
-                .elem_stride = static_cast<ptrdiff_t>(elem_size_a),
-                .elem_cnt    = 1,
+                .elem_stride{ static_cast<ptrdiff_t>(elem_size_a) },
+                .elem_cnt{ 1 },
             },
             nullptr);
 
@@ -1505,8 +1591,8 @@ void MirrorCompare2_(SeqCntrA* sc_a, SeqCntrB* sc_b) {
             core::lin_seq_endpoint::acceptor::Acceptor<
                 core::lifecycle::LeftObjView<ElemB>>{
                 .data{ &buffer_b },
-                .elem_stride = static_cast<ptrdiff_t>(elem_size_b),
-                .elem_cnt    = 1,
+                .elem_stride{ static_cast<ptrdiff_t>(elem_size_b) },
+                .elem_cnt{ 1 },
             },
             nullptr);
 

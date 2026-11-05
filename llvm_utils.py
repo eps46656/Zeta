@@ -286,6 +286,8 @@ class LLVMToolchain:
             "-Wswitch-enum",
             "-Wswitch-default",
 
+            "-Wno-braced-scalar-init",
+
             f"-O{self.opt_type}",
 
             "-fconstexpr-depth=4096",
@@ -311,7 +313,7 @@ class LLVMToolchain:
                 # "-fsanitize=pointer-compare",
                 # "-fsanitize-coverage=func,trace-pc-entry-exit,trace-pc-guard",
                 # "-fsanitize-coverage=trace-pc-guard",
-                "-fsanitize-coverage=trace-pc-guard",
+                # "-fsanitize-coverage=trace-pc-guard",
                 # "-fsanitize-coverage=trace-pc-guard,trace-pc-entry-exit",
                 # "-fsanitize-coverage=bb,no-prune,trace-pc-guard",
                 # "-fsanitize=undefined",
@@ -434,7 +436,9 @@ class LLVMToolchain:
         capture_output: bool = False,
     ):
         list_cmd = utils.to_list_command(cmd)
+
         print_cmd(list_cmd)
+
         return subprocess.run(
             list_cmd,
             check=check,
@@ -457,7 +461,7 @@ class LLVMToolchain:
         lang: utils.Language,
     ) -> clang.cindex.TranslationUnit:
         return parse_ast(
-            src,
+            src.as_posix(),
             [
                 *self.compile_args[lang.base],
                 f"-fsyntax-only",
@@ -478,7 +482,7 @@ class LLVMToolchain:
             "--compile",
             *self.compile_args[lang.base],
             "--language", get_clang_lang(lang),
-            src,
+            src.as_posix(),
 
             check=False,
             capture_output=True,
@@ -494,8 +498,10 @@ class LLVMToolchain:
         src: utils.PathLike,
         lang: utils.Language,
     ) -> set[pathlib.Path]:
+        src = utils.to_resolved_path(src)
+
         return get_including_pairs(parse_ast(
-            src,
+            src.as_posix(),
             [
                 *self.compile_args[lang.base],
                 f"-fsyntax-only",
@@ -517,10 +523,10 @@ class LLVMToolchain:
         self.run_command_(
             self.executables["clang"],
             "--compile",
-            "--output", dst,
+            "--output", dst.as_posix(),
             *self.compile_args[lang.base],
             "--language", get_clang_lang(lang),
-            src,
+            src.as_posix(),
         )
 
     def compile_to_bc(
@@ -538,10 +544,10 @@ class LLVMToolchain:
             self.executables["clang"],
             "-emit-llvm",
             "--compile",
-            "--output", dst,
+            "--output", dst.as_posix(),
             *self.compile_args[lang.base],
             "--language", get_clang_lang(lang),
-            src,
+            src.as_posix(),
         )
 
     def link_irs(
@@ -556,8 +562,8 @@ class LLVMToolchain:
 
         self.run_command_(
             self.executables["llvm-link"],
-            "--output", dst,
-            *(src for src in srcs if src is not None),
+            "--output", dst.as_posix(),
+            *(src.as_posix() for src in srcs),
         )
 
     def compile_to_exe(
@@ -570,9 +576,9 @@ class LLVMToolchain:
 
         self.run_command_(
             self.executables["clang"],
-            "--output", dst,
+            "--output", utils.to_resolved_path(dst).as_posix(),
             self.to_exe_args,
-            *(src for src in srcs if src is not None),
+            *(utils.to_resolved_path(src).as_posix() for src in srcs),
         )
 
 

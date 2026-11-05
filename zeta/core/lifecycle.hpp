@@ -39,7 +39,8 @@ constexpr ConstructArgsTuple<> Pack() { return {}; }
 template <typename Arg0, typename... Args>
 constexpr decltype(auto) Pack(Arg0&& arg0, Args&&... args) {
     if constexpr (sizeof...(Args) == 0 &&
-                  IsConstructArgsTuple<meta::RemoveCVRef<Arg0>>) {
+                  IsConstructArgsTuple<
+                      meta::RemoveConstVolatileReference<Arg0>>) {
         return meta::Forward<Arg0>(arg0);
     } else {
         return ConstructArgsTuple<Arg0&&, Args&&...>{
@@ -65,7 +66,8 @@ template <typename Target, typename Arg0, typename... Args>
 constexpr decltype(auto) Unpack(meta::TypeWrapper<Target>, Arg0&& arg0,
                                 Args&&... args) {
     if constexpr (sizeof...(Args) == 0 &&
-                  IsConstructArgsTuple<meta::RemoveCVRef<Arg0>>) {
+                  IsConstructArgsTuple<
+                      meta::RemoveConstVolatileReference<Arg0>>) {
         return (
             UnpackConstructArgsTuple)(meta::TypeWrapper<Target>{},
                                       meta::Forward<Arg0>(arg0),
@@ -86,109 +88,62 @@ struct PreConstructorHook {
     constexpr PreConstructorHook(Callable&& callable);
 };
 
-template <typename Obj, typename... Args>
+template <meta::IsNonConstObjectType Obj, typename... Args>
 constexpr void InvokeConstructor(Obj* obj, Args&&... args);
 
-template <typename Elem, typename... Args>
+template <meta::IsNonConstObjectType Elem, typename... Args>
 constexpr void InvokeLinSeqConstructor(Elem* data, size_t elem_stride,
                                        size_t elem_cnt, Args&&... args);
 
-template <typename Obj>
+template <meta::IsNonConstObjectType Obj>
 constexpr void InvokeDestructor(Obj& obj);
 
-template <typename Elem>
+template <meta::IsNonConstObjectType Elem>
 constexpr void InvokeLinSeqDestructor(Elem* data, size_t elem_stride,
                                       size_t elem_cnt);
 
 enum struct StorageSemantics : unsigned char {
-    ConstructingMemToObj = 0,
-    DestructingObjToMem  = 1,
+    Null,
 
-    LeftObj       = 2,
-    ConstLeftObj  = 3,
-    RightObj      = 4,
-    ConstRightObj = 5,
+    ConstructingMemToObj,
+    DestructingObjToMem,
+
+    LeftObj,
+    ConstLeftObj,
+    RightObj,
+    ConstRightObj,
 };
 
 template <typename T>
-concept IsStorageSemantics = meta::IsSame<T, StorageSemantics>;
+concept IsStorageSemanticsType = meta::IsSame<T, StorageSemantics>;
 
-namespace detail {
+constexpr bool IsStorageSemantics(StorageSemantics semantics) {
+    return semantics == StorageSemantics::Null ||
+           semantics == StorageSemantics::ConstructingMemToObj ||
+           semantics == StorageSemantics::DestructingObjToMem ||
+           semantics == StorageSemantics::LeftObj ||
+           semantics == StorageSemantics::ConstLeftObj ||
+           semantics == StorageSemantics::RightObj ||
+           semantics == StorageSemantics::ConstRightObj;
+}
 
-template <typename T>
-struct ForwardStorageSemanticsImpl_ {
-    static_assert(false);
-};
+template <StorageSemantics semantics>
+concept IsConstStorageSemantics = semantics == StorageSemantics::ConstLeftObj ||
+                                  semantics == StorageSemantics::ConstRightObj;
 
-template <meta::IsNonConstObj T>
-struct ForwardStorageSemanticsImpl_<T> {
-    static constexpr StorageSemantics value{ StorageSemantics::RightObj };
-};
+constexpr bool IsDstStorageSemantics(StorageSemantics semantics) {
+    return semantics == StorageSemantics::ConstructingMemToObj ||
+           semantics == StorageSemantics::LeftObj ||
+           semantics == StorageSemantics::RightObj;
+}
 
-template <meta::IsNonConstObj T>
-struct ForwardStorageSemanticsImpl_<T&> {
-    static constexpr StorageSemantics value{ StorageSemantics::LeftObj };
-};
-
-template <meta::IsNonConstObj T>
-struct ForwardStorageSemanticsImpl_<T&&> {
-    static constexpr StorageSemantics value{ StorageSemantics::RightObj };
-};
-
-template <meta::IsNonConstObj T>
-struct ForwardStorageSemanticsImpl_<T const> {
-    static constexpr StorageSemantics value{ StorageSemantics::ConstRightObj };
-};
-
-template <meta::IsNonConstObj T>
-struct ForwardStorageSemanticsImpl_<T const&> {
-    static constexpr StorageSemantics value{ StorageSemantics::ConstLeftObj };
-};
-
-template <meta::IsNonConstObj T>
-struct ForwardStorageSemanticsImpl_<T const&&> {
-    static constexpr StorageSemantics value{ StorageSemantics::ConstRightObj };
-};
-
-}  // namespace detail
-
-template <typename T>
-constexpr StorageSemantics ForwardStorageSemantics{
-    detail::ForwardStorageSemanticsImpl_<T>::value
-};
-
-template <StorageSemantics Semantics>
-concept IsNonConstStorageSemantics =
-    Semantics == StorageSemantics::ConstructingMemToObj ||
-    Semantics == StorageSemantics::DestructingObjToMem ||
-    Semantics == StorageSemantics::LeftObj ||
-    Semantics == StorageSemantics::RightObj;
-
-template <StorageSemantics Semantics>
-concept IsConstStorageSemantics = Semantics == StorageSemantics::ConstLeftObj ||
-                                  Semantics == StorageSemantics::ConstRightObj;
-
-template <StorageSemantics Semantics>
-concept IsLeftStorageSemantics = Semantics == StorageSemantics::LeftObj ||
-                                 Semantics == StorageSemantics::ConstLeftObj;
-
-template <StorageSemantics Semantics>
-concept IsRightStorageSemantics = Semantics == StorageSemantics::RightObj ||
-                                  Semantics == StorageSemantics::ConstRightObj;
-
-template <StorageSemantics Semantics>
-concept IsDstStorageSemantics =
-    Semantics == StorageSemantics::ConstructingMemToObj ||
-    Semantics == StorageSemantics::LeftObj ||
-    Semantics == StorageSemantics::RightObj;
-
-template <StorageSemantics Semantics>
-concept IsSrcStorageSemantics =
-    Semantics == StorageSemantics::DestructingObjToMem ||
-    Semantics == StorageSemantics::LeftObj ||
-    Semantics == StorageSemantics::ConstLeftObj ||
-    Semantics == StorageSemantics::RightObj ||
-    Semantics == StorageSemantics::ConstRightObj;
+constexpr bool IsSrcStorageSemantics(StorageSemantics semantics) {
+    return semantics == StorageSemantics::DestructingObjToMem ||
+           semantics == StorageSemantics::LeftObj ||
+           semantics == StorageSemantics::ConstLeftObj ||
+           semantics == StorageSemantics::RightObj ||
+           semantics == StorageSemantics::ConstRightObj;
+}
 
 constexpr bool IsStorageSemanticsConvertible(StorageSemantics semantics_from,
                                              StorageSemantics semantics_to) {
@@ -263,27 +218,73 @@ constexpr StorageSemantics StorageSemanticsToRight{ []() {
     }
 } };
 
-template <meta::IsObj Obj>
+namespace detail {
+
+template <typename T>
+struct ForwardStorageSemanticsImpl_ {
+    static_assert(false);
+};
+
+template <meta::IsNonConstObjectType T>
+struct ForwardStorageSemanticsImpl_<T> {
+    static constexpr StorageSemantics value{ StorageSemantics::RightObj };
+};
+
+template <meta::IsNonConstObjectType T>
+struct ForwardStorageSemanticsImpl_<T&> {
+    static constexpr StorageSemantics value{ StorageSemantics::LeftObj };
+};
+
+template <meta::IsNonConstObjectType T>
+struct ForwardStorageSemanticsImpl_<T&&> {
+    static constexpr StorageSemantics value{ StorageSemantics::RightObj };
+};
+
+template <meta::IsNonConstObjectType T>
+struct ForwardStorageSemanticsImpl_<T const> {
+    static constexpr StorageSemantics value{ StorageSemantics::ConstRightObj };
+};
+
+template <meta::IsNonConstObjectType T>
+struct ForwardStorageSemanticsImpl_<T const&> {
+    static constexpr StorageSemantics value{ StorageSemantics::ConstLeftObj };
+};
+
+template <meta::IsNonConstObjectType T>
+struct ForwardStorageSemanticsImpl_<T const&&> {
+    static constexpr StorageSemantics value{ StorageSemantics::ConstRightObj };
+};
+
+}  // namespace detail
+
+template <typename T>
+constexpr StorageSemantics ForwardStorageSemantics{
+    detail::ForwardStorageSemanticsImpl_<T>::value
+};
+
+template <meta::IsNonConstObjectType Obj>
 struct DynamicStorageView;
 
-template <StorageSemantics Semantics_, meta::IsNonConstObj Obj_>
+template <StorageSemantics semantics_, meta::IsNonConstObjectType Obj_>
 struct StorageView {
-    static constexpr StorageSemantics semantics{ Semantics_ };
+    static constexpr StorageSemantics semantics{ semantics_ };
 
     using Obj = Obj_;
 
-    meta::MakeConstIf<Obj, IsConstStorageSemantics<semantics>>* ptr;
+    meta::ConditionalAddConst<IsConstStorageSemantics<semantics>, Obj>* ptr;
 
     constexpr StorageView(Obj* ptr);
 
-    template <meta::IsObj FromObj>
+    template <meta::IsObjectType FromObj>
     constexpr StorageView(FromObj* from_ptr);
 
-    template <StorageSemantics FromSemantics>
-    constexpr StorageView(StorageView<FromSemantics, Obj> const& from_view)
-        requires((IsStorageSemanticsConvertible)(FromSemantics, semantics));
+    template <StorageSemantics from_semantics>
+    constexpr StorageView(StorageView<from_semantics, Obj> const& from_view)
+        requires((IsStorageSemanticsConvertible)(from_semantics, semantics));
 
     constexpr StorageView(DynamicStorageView<Obj> const& from_view);
+
+    static constexpr bool IsNull();
 
     constexpr decltype(auto) GetRef(this StorageView const& self)
         requires(semantics == StorageSemantics::DestructingObjToMem ||
@@ -292,24 +293,61 @@ struct StorageView {
                  semantics == StorageSemantics::RightObj ||
                  semantics == StorageSemantics::ConstRightObj);
 
-    template <StorageSemantics ToSemantics>
-    constexpr StorageView<ToSemantics, Obj> ToStatic(
+    template <StorageSemantics to_semantics>
+    constexpr StorageView<to_semantics, Obj> ToStatic(
         this StorageView const& self)
-        requires((IsStorageSemanticsConvertible)(semantics, ToSemantics));
+        requires((IsStorageSemanticsConvertible)(semantics, to_semantics));
 
     constexpr DynamicStorageView<Obj> ToDynamic(this StorageView const& self);
 
-    template <StorageSemantics FromSemantics>
+    template <StorageSemantics from_semantics>
     constexpr StorageView& operator=(
         this StorageView const& self,
-        StorageView<FromSemantics, Obj> const& from_view)
-        requires((IsStorageSemanticsConvertible)(FromSemantics, semantics));
+        StorageView<from_semantics, Obj> const& from_view)
+        requires((IsStorageSemanticsConvertible)(from_semantics, semantics));
 
     constexpr StorageView& operator=(this StorageView const& self,
                                      DynamicStorageView<Obj> const& from_view);
+
+    friend constexpr bool operator==(StorageView const& lhs,
+                                     StorageView const& rhs) = default;
+
+    friend constexpr bool operator!=(StorageView const& lhs,
+                                     StorageView const& rhs) = default;
+
+    static constexpr void AssertIsValid();
 };
 
-template <meta::IsObj Obj_>
+template <meta::IsNonConstObjectType Obj_>
+struct StorageView<StorageSemantics::Null, Obj_> {
+    static constexpr StorageSemantics semantics{ StorageSemantics::Null };
+
+    using Obj = Obj_;
+
+    constexpr StorageView() = default;
+
+    constexpr StorageView(StorageView const& from_view) = default;
+
+    constexpr StorageView(DynamicStorageView<Obj> const& from_view);
+
+    static constexpr bool IsNull();
+
+    template <StorageSemantics to_semantics>
+    static constexpr StorageView<to_semantics, Obj> ToStatic()
+        requires(to_semantics == StorageSemantics::Null);
+
+    static constexpr DynamicStorageView<Obj> ToDynamic();
+
+    friend constexpr bool operator==(StorageView const& lhs,
+                                     StorageView const& rhs) = default;
+
+    friend constexpr bool operator!=(StorageView const& lhs,
+                                     StorageView const& rhs) = default;
+
+    constexpr void AssertIsValid(this StorageView const& self);
+};
+
+template <meta::IsNonConstObjectType Obj_>
 struct DynamicStorageView {
     using Obj = Obj_;
 
@@ -319,60 +357,69 @@ struct DynamicStorageView {
 
     constexpr DynamicStorageView(StorageSemantics semantics, Obj* from_ptr);
 
-    template <meta::IsObj FromObj>
+    template <meta::IsObjectType FromObj>
     constexpr DynamicStorageView(StorageSemantics semantics, FromObj* from_ptr);
 
-    template <StorageSemantics FromSemantics, meta::IsObj FromObj>
+    template <StorageSemantics from_semantics, meta::IsObjectType FromObj>
     constexpr DynamicStorageView(
-        StorageView<FromSemantics, FromObj> const& from_view);
+        StorageView<from_semantics, FromObj> const& from_view);
 
-    template <StorageSemantics Semantics>
-    constexpr StorageView<Semantics, Obj> ToStatic(
+    constexpr bool IsNull(this DynamicStorageView const& self);
+
+    template <StorageSemantics semantics>
+    constexpr StorageView<semantics, Obj> ToStatic(
         this DynamicStorageView const& self);
 
-    template <StorageSemantics FromSemantics, meta::IsObj FromObj>
+    template <StorageSemantics from_semantics,
+              meta::IsNonConstObjectType FromObj>
     constexpr DynamicStorageView& operator=(
         this DynamicStorageView& self,
-        StorageView<FromSemantics, Obj> const& from_view);
+        StorageView<from_semantics, FromObj> const& from_view);
 
-    template <meta::IsObj FromObj>
+    template <meta::IsNonConstObjectType FromObj>
     constexpr DynamicStorageView& operator=(
         this DynamicStorageView& self,
         DynamicStorageView<FromObj> const& from_view);
+
+    constexpr void AssertIsValid(this DynamicStorageView const& self);
 };
 
-template <meta::IsNonConstObj Obj>
+template <meta::IsNonConstObjectType Obj>
+using NullView = StorageView<StorageSemantics::Null, Obj>;
+
+template <meta::IsNonConstObjectType Obj>
 using ConstructingMemToObjView =
     StorageView<StorageSemantics::ConstructingMemToObj, Obj>;
 
-template <meta::IsNonConstObj Obj>
+template <meta::IsNonConstObjectType Obj>
 using DestructingObjToMemView =
     StorageView<StorageSemantics::DestructingObjToMem, Obj>;
 
-template <meta::IsNonConstObj Obj>
+template <meta::IsNonConstObjectType Obj>
 using LeftObjView = StorageView<StorageSemantics::LeftObj, Obj>;
 
-template <meta::IsNonConstObj Obj>
+template <meta::IsNonConstObjectType Obj>
 using ConstLeftObjView = StorageView<StorageSemantics::ConstLeftObj, Obj>;
 
-template <meta::IsNonConstObj Obj>
+template <meta::IsNonConstObjectType Obj>
 using RightObjView = StorageView<StorageSemantics::RightObj, Obj>;
 
-template <meta::IsNonConstObj Obj>
+template <meta::IsNonConstObjectType Obj>
 using ConstRightObjView = StorageView<StorageSemantics::ConstRightObj, Obj>;
 
-template <typename T, meta::IsNonConstObj Obj>
+template <typename T, meta::IsNonConstObjectType Obj>
 using ForwardStorageView = StorageView<ForwardStorageSemantics<T>, Obj>;
 
 namespace detail {
 
-template <typename T, meta::IsObj TargetObj>
+template <typename T, meta::IsObjectType TargetObj>
 struct IsStorageViewImpl_ {
     static constexpr bool value{ false };
 };
 
-template <StorageSemantics Semantics, meta::IsObj Obj, meta::IsObj TargetObj>
-struct IsStorageViewImpl_<StorageView<Semantics, Obj>, TargetObj> {
+template <StorageSemantics semantics, meta::IsObjectType Obj,
+          meta::IsObjectType TargetObj>
+struct IsStorageViewImpl_<StorageView<semantics, Obj>, TargetObj> {
     static constexpr bool value{ meta::IsMatched<Obj, TargetObj> };
 };
 
@@ -383,11 +430,21 @@ concept IsStorageView = detail::IsStorageViewImpl_<T, TargetObj>::value;
 
 template <typename T, typename TargetObj = meta::AlwaysMatchedTag>
 concept IsDstStorageView =
-    IsStorageView<T, TargetObj> && IsDstStorageSemantics<T::semantics>;
+    IsStorageView<T, TargetObj> && (IsDstStorageSemantics)(T::semantics);
+
+template <typename T, typename TargetObj = meta::AlwaysMatchedTag>
+concept IsOptionalDstStorageView =
+    IsStorageView<T, TargetObj> &&
+    (T::IsNull() || IsDstStorageView<T, TargetObj>);
 
 template <typename T, typename TargetObj = meta::AlwaysMatchedTag>
 concept IsSrcStorageView =
-    IsStorageView<T, TargetObj> && IsSrcStorageSemantics<T::semantics>;
+    IsStorageView<T, TargetObj> && (IsSrcStorageSemantics)(T::semantics);
+
+template <typename T, typename TargetObj = meta::AlwaysMatchedTag>
+concept IsOptionalSrcStorageView =
+    IsStorageView<T, TargetObj> &&
+    (T::IsNull() || IsSrcStorageView<T, TargetObj>);
 
 template <typename T>
 constexpr LeftObjView<T> MakeStorageView(T& obj);
@@ -401,26 +458,20 @@ constexpr RightObjView<T> MakeStorageView(T&& obj);
 template <typename T>
 constexpr ConstRightObjView<T> MakeStorageView(T const&& obj);
 
-#define ZETA_Core_Lifecycle_RelocConstructTag_Name \
-    zeta_core_lifecycle_reloc_construct_tag
-
-#define ZETA_Core_Lifecycle_RelocConstructTag_Declare \
-    using ZETA_Core_Lifecycle_RelocConstructTag_Name = void;
-
-#define ZETA_Core_Lifecycle_RelocAssignTag_Name \
-    zeta_core_lifecycle_reloc_assign_tag
-
-#define ZETA_Core_Lifecycle_RelocAssignTag_Declare \
-    using ZETA_Core_Lifecycle_RelocAssignTag_Name = void;
-
-template <meta::IsObj DstObj, typename SrcObj>
-constexpr void DefaultStorageRelocConstruct(DstObj* dst, SrcObj&& src);
-
-template <typename DstObj, typename SrcObj>
-constexpr void DefaultStorageRelocAssign(DstObj&& dst, SrcObj&& src);
-
 template <IsDstStorageView DstStorageView, IsSrcStorageView SrcStorageView>
 constexpr void StorageTransfer(DstStorageView dst, SrcStorageView src);
+
+template <IsDstStorageView DstStorageView, meta::IsNonConstObjectType SrcObj>
+constexpr void StorageTransfer(DstStorageView dst,
+                               DynamicStorageView<SrcObj> src);
+
+template <meta::IsNonConstObjectType DstObj, IsSrcStorageView SrcStorageView>
+constexpr void StorageTransfer(DynamicStorageView<DstObj> dst,
+                               SrcStorageView src);
+
+template <meta::IsNonConstObjectType DstObj, meta::IsNonConstObjectType SrcObj>
+constexpr void StorageTransfer(DynamicStorageView<DstObj> dst,
+                               DynamicStorageView<SrcObj> src);
 
 enum struct StorageLifeState : unsigned char {
     Mem = 0,

@@ -18,7 +18,7 @@ namespace MLPT = zeta::core::multi_level_ptr_table;
 namespace MLDT = zeta::core::multi_level_data_table;
 
 struct MultiLevelPtrTableMap {
-    MLPT::BranchNum branch_nums[MLPT::max_level];
+    MLPT::BranchNum branch_nums[MLPT::level_max];
 
     zeta::core_test::std_allocator::Allocator nav_node_alctr;
 
@@ -78,7 +78,7 @@ struct MultiLevelPtrTableMap {
     constexpr size_t GetCapacity() { return this->mlpt.GetMaxElemCnt(); }
 
     constexpr void** Access(size_t idx) {
-        MLPT::BranchNum idxes[MLPT::max_level];
+        MLPT::BranchNum idxes[MLPT::level_max];
 
         this->SetIdxes_(idx, idxes);
 
@@ -86,10 +86,10 @@ struct MultiLevelPtrTableMap {
             zeta::core::lin_seq_endpoint::provider::Provider<
                 zeta::core::lifecycle::StorageView<
                     zeta::core::lifecycle::StorageSemantics::ConstLeftObj,
-                    MLPT::BranchNum const>>{
+                    MLPT::BranchNum>>{
                 .data{ idxes + (this->mlpt.level - 1) },
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
-                .elem_cnt = MLPT::max_level,
+                .elem_cnt    = MLPT::level_max,
             }) };
 
         this->SanityCheck();
@@ -98,7 +98,7 @@ struct MultiLevelPtrTableMap {
     }
 
     constexpr void Insert(size_t idx, void* val) {
-        MLPT::BranchNum idxes[MLPT::max_level];
+        MLPT::BranchNum idxes[MLPT::level_max];
 
         this->SetIdxes_(idx, idxes);
 
@@ -111,7 +111,7 @@ struct MultiLevelPtrTableMap {
                          .data{ idxes + (this->mlpt.level - 1) },
                          .elem_stride =
                              -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
-                         .elem_cnt = MLPT::max_level,
+                         .elem_cnt = MLPT::level_max,
                      })
                      .first };
 
@@ -123,7 +123,7 @@ struct MultiLevelPtrTableMap {
     }
 
     constexpr void Erase(size_t idx) {
-        MLPT::BranchNum idxes[MLPT::max_level];
+        MLPT::BranchNum idxes[MLPT::level_max];
 
         this->SetIdxes_(idx, idxes);
 
@@ -133,14 +133,14 @@ struct MultiLevelPtrTableMap {
                              MLPT::BranchNum>>{
             .data{ idxes + (this->mlpt.level - 1) },
             .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
-            .elem_cnt = MLPT::max_level,
+            .elem_cnt    = MLPT::level_max,
         });
 
         this->SanityCheck();
     }
 
     constexpr size_t FindPrev(size_t idx) {
-        MLPT::BranchNum idxes[MLPT::max_level];
+        MLPT::BranchNum idxes[MLPT::level_max];
 
         this->SetIdxes_(idx, idxes);
 
@@ -148,10 +148,10 @@ struct MultiLevelPtrTableMap {
             zeta::core::lin_seq_endpoint::provider::Provider<
                 zeta::core::lifecycle::StorageView<
                     zeta::core::lifecycle::StorageSemantics::ConstLeftObj,
-                    MLPT::BranchNum const>>{
+                    MLPT::BranchNum>>{
                 .data{ idxes + (this->mlpt.level - 1) },
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
-                .elem_cnt = MLPT::max_level,
+                .elem_cnt    = MLPT::level_max,
             },
             zeta::core::lin_seq_endpoint::acceptor::Acceptor<
                 zeta::core::lifecycle::StorageView<
@@ -159,7 +159,7 @@ struct MultiLevelPtrTableMap {
                     MLPT::BranchNum>>{
                 .data{ idxes + (this->mlpt.level - 1) },
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
-                .elem_cnt = MLPT::max_level,
+                .elem_cnt    = MLPT::level_max,
             }) };
 
         this->SanityCheck();
@@ -168,17 +168,17 @@ struct MultiLevelPtrTableMap {
     }
 
     constexpr size_t FindNext(size_t idx) {
-        MLPT::BranchNum idxes[MLPT::max_level];
+        MLPT::BranchNum idxes[MLPT::level_max];
         SetIdxes_(idx, idxes);
 
         void* n{ this->mlpt.FindNextIncl(
             zeta::core::lin_seq_endpoint::provider::Provider<
                 zeta::core::lifecycle::StorageView<
                     zeta::core::lifecycle::StorageSemantics::ConstLeftObj,
-                    MLPT::BranchNum const>>{
+                    MLPT::BranchNum>>{
                 .data{ idxes + (this->mlpt.level - 1) },
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
-                .elem_cnt = MLPT::max_level,
+                .elem_cnt    = MLPT::level_max,
             },
             zeta::core::lin_seq_endpoint::acceptor::Acceptor<
                 zeta::core::lifecycle::StorageView<
@@ -186,7 +186,7 @@ struct MultiLevelPtrTableMap {
                     MLPT::BranchNum>>{
                 .data{ idxes + (this->mlpt.level - 1) },
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
-                .elem_cnt = MLPT::max_level,
+                .elem_cnt    = MLPT::level_max,
             }) };
 
         this->SanityCheck();
@@ -195,7 +195,7 @@ struct MultiLevelPtrTableMap {
     }
 
     constexpr std::vector<std::pair<size_t, void*>> Dump() {
-        MLPT::BranchNum idxes[MLPT::max_level];
+        MLPT::BranchNum idxes[MLPT::level_max];
         SetIdxes_(0, idxes);
 
         std::vector<std::pair<size_t, void*>> ret;
@@ -204,10 +204,10 @@ struct MultiLevelPtrTableMap {
             zeta::core::lin_seq_endpoint::provider::Provider<
                 zeta::core::lifecycle::StorageView<
                     zeta::core::lifecycle::StorageSemantics::ConstLeftObj,
-                    MLPT::BranchNum const>>{
+                    MLPT::BranchNum>>{
                 .data{ idxes + (this->mlpt.level - 1) },
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
-                .elem_cnt = MLPT::max_level,
+                .elem_cnt    = MLPT::level_max,
             },
             zeta::core::lin_seq_endpoint::acceptor::Acceptor<
                 zeta::core::lifecycle::StorageView<
@@ -215,7 +215,7 @@ struct MultiLevelPtrTableMap {
                     MLPT::BranchNum>>{
                 .data{ idxes + (this->mlpt.level - 1) },
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
-                .elem_cnt = MLPT::max_level,
+                .elem_cnt    = MLPT::level_max,
             }) };
 
         while (n != nullptr) {
@@ -233,11 +233,11 @@ struct MultiLevelPtrTableMap {
                 zeta::core::lin_seq_endpoint::provider::Provider<
                     zeta::core::lifecycle::StorageView<
                         zeta::core::lifecycle::StorageSemantics::ConstLeftObj,
-                        MLPT::BranchNum const>>{
+                        MLPT::BranchNum>>{
                     .data{ idxes + (this->mlpt.level - 1) },
                     .elem_stride =
                         -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
-                    .elem_cnt = MLPT::max_level,
+                    .elem_cnt = MLPT::level_max,
                 },
                 zeta::core::lin_seq_endpoint::acceptor::Acceptor<
                     zeta::core::lifecycle::StorageView<
@@ -246,7 +246,7 @@ struct MultiLevelPtrTableMap {
                     .data{ idxes + (this->mlpt.level - 1) },
                     .elem_stride =
                         -static_cast<ptrdiff_t>(sizeof(MLPT::BranchNum)),
-                    .elem_cnt = MLPT::max_level,
+                    .elem_cnt = MLPT::level_max,
                 });
         }
 
@@ -256,7 +256,7 @@ struct MultiLevelPtrTableMap {
 
 template <typename T>
 struct MultiLevelDataTableMap {
-    MLDT::BranchNum branch_nums[MLDT::max_level];
+    MLDT::BranchNum branch_nums[MLDT::level_max];
 
     zeta::core_test::std_allocator::Allocator nav_node_alctr;
     zeta::core_test::std_allocator::Allocator data_node_alctr;
@@ -324,7 +324,7 @@ struct MultiLevelDataTableMap {
     constexpr size_t GetCapacity() { return this->mldt.GetMaxElemCnt(); }
 
     constexpr T* Access(size_t idx) {
-        MLDT::BranchNum idxes[MLDT::max_level];
+        MLDT::BranchNum idxes[MLDT::level_max];
 
         this->SetIdxes_(idx, idxes);
 
@@ -332,10 +332,10 @@ struct MultiLevelDataTableMap {
             zeta::core::lin_seq_endpoint::provider::Provider<
                 zeta::core::lifecycle::StorageView<
                     zeta::core::lifecycle::StorageSemantics::ConstLeftObj,
-                    MLDT::BranchNum const>>{
+                    MLDT::BranchNum>>{
                 .data{ idxes + (this->mldt.level - 1) },
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
-                .elem_cnt = MLDT::max_level,
+                .elem_cnt    = MLDT::level_max,
             });
 
         this->SanityCheck();
@@ -344,7 +344,7 @@ struct MultiLevelDataTableMap {
     }
 
     constexpr void Insert(size_t idx, T const& val) {
-        MLDT::BranchNum idxes[MLDT::max_level];
+        MLDT::BranchNum idxes[MLDT::level_max];
 
         this->SetIdxes_(idx, idxes);
 
@@ -358,7 +358,7 @@ struct MultiLevelDataTableMap {
                              .data{ idxes + (this->mldt.level - 1) },
                              .elem_stride = -static_cast<ptrdiff_t>(
                                  sizeof(MLDT::BranchNum)),
-                             .elem_cnt = MLDT::max_level,
+                             .elem_cnt = MLDT::level_max,
                          },
                          zeta::core::seq_endpoint::provider::BasicProvider{})
                      .first };
@@ -371,16 +371,16 @@ struct MultiLevelDataTableMap {
     }
 
     constexpr void Erase(size_t idx) {
-        MLDT::BranchNum idxes[MLDT::max_level];
+        MLDT::BranchNum idxes[MLDT::level_max];
 
         this->SetIdxes_(idx, idxes);
 
         this->mldt.Erase(
             zeta::core::lin_seq_endpoint::provider::Provider<
-                zeta::core::lifecycle::ConstLeftObjView<MLDT::BranchNum const>>{
+                zeta::core::lifecycle::ConstLeftObjView<MLDT::BranchNum>>{
                 .data{ idxes + (this->mldt.level - 1) },
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
-                .elem_cnt = MLDT::max_level,
+                .elem_cnt    = MLDT::level_max,
             },
             zeta::core::seq_endpoint::acceptor::BasicAcceptor{});
 
@@ -388,7 +388,7 @@ struct MultiLevelDataTableMap {
     }
 
     constexpr size_t FindPrev(size_t idx) {
-        MLDT::BranchNum idxes[MLDT::max_level];
+        MLDT::BranchNum idxes[MLDT::level_max];
 
         this->SetIdxes_(idx, idxes);
 
@@ -396,10 +396,10 @@ struct MultiLevelDataTableMap {
             zeta::core::lin_seq_endpoint::provider::Provider<
                 zeta::core::lifecycle::StorageView<
                     zeta::core::lifecycle::StorageSemantics::ConstLeftObj,
-                    MLDT::BranchNum const>>{
+                    MLDT::BranchNum>>{
                 .data{ idxes + (this->mldt.level - 1) },
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
-                .elem_cnt = MLDT::max_level,
+                .elem_cnt    = MLDT::level_max,
             },
             zeta::core::lin_seq_endpoint::acceptor::Acceptor<
                 zeta::core::lifecycle::StorageView<
@@ -407,7 +407,7 @@ struct MultiLevelDataTableMap {
                     MLDT::BranchNum>>{
                 .data{ idxes + (this->mldt.level - 1) },
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
-                .elem_cnt = MLDT::max_level,
+                .elem_cnt    = MLDT::level_max,
             }) };
 
         this->SanityCheck();
@@ -416,17 +416,17 @@ struct MultiLevelDataTableMap {
     }
 
     constexpr size_t FindNext(size_t idx) {
-        MLDT::BranchNum idxes[MLDT::max_level];
+        MLDT::BranchNum idxes[MLDT::level_max];
         this->SetIdxes_(idx, idxes);
 
         void* n{ this->mldt.FindNextIncl(
             zeta::core::lin_seq_endpoint::provider::Provider<
                 zeta::core::lifecycle::StorageView<
                     zeta::core::lifecycle::StorageSemantics::ConstLeftObj,
-                    MLDT::BranchNum const>>{
+                    MLDT::BranchNum>>{
                 .data{ idxes + (this->mldt.level - 1) },
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
-                .elem_cnt = MLDT::max_level,
+                .elem_cnt    = MLDT::level_max,
             },
             zeta::core::lin_seq_endpoint::acceptor::Acceptor<
                 zeta::core::lifecycle::StorageView<
@@ -434,7 +434,7 @@ struct MultiLevelDataTableMap {
                     MLDT::BranchNum>>{
                 .data{ idxes + (this->mldt.level - 1) },
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
-                .elem_cnt = MLDT::max_level,
+                .elem_cnt    = MLDT::level_max,
             }) };
 
         this->SanityCheck();
@@ -443,7 +443,7 @@ struct MultiLevelDataTableMap {
     }
 
     constexpr std::vector<std::pair<size_t, T>> Dump() {
-        MLDT::BranchNum idxes[MLDT::max_level];
+        MLDT::BranchNum idxes[MLDT::level_max];
 
         this->SetIdxes_(0, idxes);
 
@@ -453,10 +453,10 @@ struct MultiLevelDataTableMap {
             zeta::core::lin_seq_endpoint::provider::Provider<
                 zeta::core::lifecycle::StorageView<
                     zeta::core::lifecycle::StorageSemantics::ConstLeftObj,
-                    MLDT::BranchNum const>>{
+                    MLDT::BranchNum>>{
                 .data{ idxes + (this->mldt.level - 1) },
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
-                .elem_cnt = MLDT::max_level,
+                .elem_cnt    = MLDT::level_max,
             },
             zeta::core::lin_seq_endpoint::acceptor::Acceptor<
                 zeta::core::lifecycle::StorageView<
@@ -464,7 +464,7 @@ struct MultiLevelDataTableMap {
                     MLDT::BranchNum>>{
                 .data{ idxes + (this->mldt.level - 1) },
                 .elem_stride = -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
-                .elem_cnt = MLDT::max_level,
+                .elem_cnt    = MLDT::level_max,
             }) };
 
         while (n != nullptr) {
@@ -480,11 +480,11 @@ struct MultiLevelDataTableMap {
                 zeta::core::lin_seq_endpoint::provider::Provider<
                     zeta::core::lifecycle::StorageView<
                         zeta::core::lifecycle::StorageSemantics::ConstLeftObj,
-                        MLDT::BranchNum const>>{
+                        MLDT::BranchNum>>{
                     .data{ idxes + (this->mldt.level - 1) },
                     .elem_stride =
                         -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
-                    .elem_cnt = MLDT::max_level,
+                    .elem_cnt = MLDT::level_max,
                 },
                 zeta::core::lin_seq_endpoint::acceptor::Acceptor<
                     zeta::core::lifecycle::StorageView<
@@ -493,7 +493,7 @@ struct MultiLevelDataTableMap {
                     .data{ idxes + (this->mldt.level - 1) },
                     .elem_stride =
                         -static_cast<ptrdiff_t>(sizeof(MLDT::BranchNum)),
-                    .elem_cnt = MLDT::max_level,
+                    .elem_cnt = MLDT::level_max,
                 });
         }
 

@@ -58,6 +58,20 @@ template <NodeTplParamList>
 constexpr basic_bin_tree_node::Node<NodeTplArgList>::Node()
     requires(!acc_size_en)
 {
+    this->Reset();
+}
+
+template <NodeTplParamList>
+constexpr basic_bin_tree_node::Node<NodeTplArgList>::Node(size_t acc_size)
+    requires acc_size_en
+{
+    this->Reset(acc_size);
+}
+
+template <NodeTplParamList>
+constexpr void basic_bin_tree_node::Node<NodeTplArgList>::Reset()
+    requires(!acc_size_en)
+{
     if constexpr (p_color_en) {
         this->p.SetPtrColor(alignof(Node), this, this, 0);
     } else {
@@ -78,7 +92,7 @@ constexpr basic_bin_tree_node::Node<NodeTplArgList>::Node()
 }
 
 template <NodeTplParamList>
-constexpr basic_bin_tree_node::Node<NodeTplArgList>::Node(size_t acc_size)
+constexpr void basic_bin_tree_node::Node<NodeTplArgList>::Reset(size_t acc_size)
     requires acc_size_en
 {
     if constexpr (p_color_en) {
@@ -103,13 +117,13 @@ constexpr basic_bin_tree_node::Node<NodeTplArgList>::Node(size_t acc_size)
 }
 
 template <NodeTplParamList>
-constexpr bool basic_bin_tree_node::Node<NodeTplArgList>::IsConst(
+constexpr bool basic_bin_tree_node::Node<NodeTplArgList>::IsConstType(
     bin_tree::Tag, meta::TypeWrapper<Node>) {
     return false;
 }
 
 template <NodeTplParamList>
-constexpr bool basic_bin_tree_node::Node<NodeTplArgList>::IsConst(
+constexpr bool basic_bin_tree_node::Node<NodeTplArgList>::IsConstType(
     bin_tree::Tag, meta::TypeWrapper<Node const>) {
     return true;
 }

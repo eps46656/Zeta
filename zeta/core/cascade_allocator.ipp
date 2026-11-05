@@ -132,9 +132,9 @@ allocator::PolyAllocator CascadeAllocator::GetAlloccatorRef(void* ca_) {
     ZETA_Core_DebugUtils_Diag_PromiseAssert(CheckAllocator(ca));
 
     return {
-        .inst   = ca,
-        .align  = static_cast<unsigned short>(ca->align),
-        .vtable = &allocator::AllocatorVTable::Make<CascadeAllocator>(),
+        .inst{ ca },
+        .align{ static_cast<unsigned short>(ca->align) },
+        .vtable{ &allocator::AllocatorVTable::Make<CascadeAllocator>() },
     };
 }
 

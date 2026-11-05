@@ -8,6 +8,8 @@
 #include <zeta/core/lin_seq_endpoint.hpp>
 #include <zeta/core/poly_comparison.hpp>
 #include <zeta/core/poly_seq_endpoint.hpp>
+#include <zeta/core/quad_cap_sys.hpp>
+#include <zeta/core/resolving.ipp>
 #include <zeta/core/seq_endpoint.hpp>
 #include <zeta/core/seq_endpoint.ipp>
 #include <zeta/core/utils.hpp>
@@ -22,9 +24,6 @@ namespace capability {
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define ZETA_Core_AssocCntr_CapabilityWithoutAlwaysNever_XMacro(func, sep)     \
-    func(GetCursorSize, 2, true) sep                                           \
-                                                                               \
-    func(GetElemSize, 3, true) sep                                             \
     func(GetElemCnt, 4, true) sep                                              \
     func(GetMaxElemCnt, 5, true) sep                                           \
                                                                                \
@@ -106,7 +105,7 @@ struct FlagBuilder {
     }
 };
 
-constexpr Flag empty_capability_flag{ FlagBuilder{
+constexpr Flag empty_cap_flag{ FlagBuilder{
 #pragma push_macro("F")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -117,7 +116,7 @@ constexpr Flag empty_capability_flag{ FlagBuilder{
 #pragma pop_macro("F")
 }() };
 
-constexpr Flag full_capability_flag{ FlagBuilder{
+constexpr Flag full_cap_flag{ FlagBuilder{
 #pragma push_macro("F")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -128,7 +127,7 @@ constexpr Flag full_capability_flag{ FlagBuilder{
 #pragma pop_macro("F")
 }() };
 
-constexpr Flag non_const_capability_flag{ FlagBuilder{
+constexpr Flag non_const_cap_flag{ FlagBuilder{
 #pragma push_macro("F")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -139,7 +138,7 @@ constexpr Flag non_const_capability_flag{ FlagBuilder{
 #pragma pop_macro("F")
 }() };
 
-constexpr Flag const_capability_flag{ FlagBuilder{
+constexpr Flag const_cap_flag{ FlagBuilder{
 #pragma push_macro("F")
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -150,35 +149,13 @@ constexpr Flag const_capability_flag{ FlagBuilder{
 #pragma pop_macro("F")
 }() };
 
-static_assert((non_const_capability_flag & const_capability_flag) ==
-              empty_capability_flag);
+static_assert((non_const_cap_flag & const_cap_flag) == empty_cap_flag);
 
-static_assert((non_const_capability_flag | const_capability_flag) ==
-              full_capability_flag);
+static_assert((non_const_cap_flag | const_cap_flag) == full_cap_flag);
 
-constexpr bool CheckFlags(capability::Flag static_enabled_capability_flag,
-                          capability::Flag static_disabled_capability_flag);
-
-constexpr bool CheckFlags(capability::Flag static_enabled_capability_flag,
-                          capability::Flag static_disabled_capability_flag,
-                          capability::Flag dynamic_enabled_capability_flag,
-                          capability::Flag dynamic_disabled_capability_flag);
+constexpr quad_cap_sys::Config<Flag, empty_cap_flag, full_cap_flag> config;
 
 }  // namespace capability
-
-struct ElemPtrView {
-    enum struct AliasabilityEnum : unsigned char {
-        Null = 0,
-        ReadOnly = 1,
-        ReadWrite = 2,
-    };
-
-    void* ptr;
-    AliasabilityEnum aliasability;
-
-    bool operator==(ElemPtrView const&) const = default;
-    bool operator!=(ElemPtrView const&) const = default;
-};
 
 struct CursorLimit {
     void* content[8];
@@ -188,350 +165,352 @@ struct Tag {};
 
 #pragma push_macro("Elem")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define Elem(CntrType)                                                 \
-    zeta::core::meta::GetTypeWrapperType<                              \
-        decltype(zeta::core::meta::RemoveCVRef<CntrType>::GetElemType( \
-            zeta::core::assoc_cntr::Tag{},                             \
-            zeta::core::meta::TypeWrapper<meta::RemoveRef<CntrType>>{}))>
+#define Elem(CntrType)                                                      \
+    zeta::core::meta::GetTypeWrapperType<                                   \
+        decltype(zeta::core::meta::RemoveConstVolatileReference<CntrType>:: \
+                     GetElemType(zeta::core::assoc_cntr::Tag{},             \
+                                 zeta::core::meta::TypeWrapper<CntrType>{}))>
 
 #pragma push_macro("Cursor")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define Cursor(CntrType)                                                 \
-    zeta::core::meta::GetTypeWrapperType<                                \
-        decltype(zeta::core::meta::RemoveCVRef<CntrType>::GetCursorType( \
-            zeta::core::assoc_cntr::Tag{},                               \
-            zeta::core::meta::TypeWrapper<meta::RemoveRef<CntrType>>{}))>
+#define Cursor(CntrType)                                                    \
+    zeta::core::meta::GetTypeWrapperType<                                   \
+        decltype(zeta::core::meta::RemoveConstVolatileReference<CntrType>:: \
+                     GetCursorType(                                         \
+                         zeta::core::assoc_cntr::Tag{},                     \
+                         zeta::core::meta::TypeWrapper<CntrType>{}))>
 
-#pragma push_macro("SatisfiesMethodMacro")
+#pragma push_macro("RequiresMethod")
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define SatisfiesMethodMacro(cap, method, ret, ...)                       \
-    requires(Cntr::GetStaticDisabledCapabilityFlag(                       \
-                 tag, meta::TypeWrapper<Cntr>{}) &                        \
-             (static_cast<capability::Flag>(1)                            \
-              << meta::EnumToUnderlying(capability::Kind::cap))) != 0 ||  \
-                    meta::IsMatched<meta::RemoveRef<decltype(cntr.method( \
-                                        tag, __VA_ARGS__))>,              \
-                                    decltype(ret)>
+#define RequiresMethod(cap, method, ret, ...)                                  \
+    requires {                                                                 \
+        requires(                                                              \
+            (meta::RemoveReferenceFromType<Cntr>::                             \
+                 GetStaticDisabledCapabilityFlag(tag,                          \
+                                                 meta::TypeWrapper<Cntr>{}) &  \
+             (static_cast<capability::Flag>(1)                                 \
+              << meta::EnumToUnderlying(capability::Kind::cap))) != 0 ||       \
+            meta::IsMatched<meta::RemoveReferenceFromType<                     \
+                                decltype(static_cast<meta::Conditional<        \
+                                             meta::IsRightReferenceType<Cntr>, \
+                                             Cntr&&, Cntr&>>(cntr)             \
+                                             .method(tag, __VA_ARGS__))>,      \
+                            decltype(ret)>);                                   \
+    }
 
 template <typename Cntr>
 concept IsAssocCntr = requires(
     Cntr& cntr, Tag tag, meta::TypeWrapper<Cntr> cntr_type_wrapper,
-    bool bool_val, void* void_ptr, void const* const_void_ptr, size_t size_val,
-    ElemPtrView* elem_ptr_view_ptr, hash::ArchetypeHasher key_hasher,
+    bool bool_val, size_t size_val, Elem(Cntr) const& elem_const_ref,
+    Cursor(Cntr) * cursor_ptr,
+    resolving::Packet<meta::RemoveConst<Elem(Cntr)>,
+                      meta::RemoveConst<Elem(Cntr)>>* resolving_packet_ptr,
+    hash::ArchetypeHasher key_hasher,
     comparison::ArchetypeComparator key_elem_cmptr,
-    seq_endpoint::acceptor::ArchetypeAcceptor reader,
-    seq_endpoint::provider::ArchetypeProvider writer,
-    comparison::Ordering ordering_val,
-    zeta::core::meta::GetTypeWrapperType<decltype(Cntr::GetCursorType(
-        tag, cntr_type_wrapper))>* cursor_ptr,
-    meta::AlwaysMatchedTag unused) {
-    requires requires {
-        requires meta::IsSame<
-            meta::RemoveRef<decltype(cntr.GetReferedInstPtr(tag))>, void*>;
+    seq_endpoint::acceptor::ArchetypeAcceptor acceptor,
+    seq_endpoint::provider::ArchetypeProvider provider,
+    comparison::Ordering ordering_val, meta::AlwaysMatchedTag unused) {
+    requires meta::IsSame<meta::RemoveReferenceFromType<
+                              decltype(meta::RemoveReferenceFromType<Cntr>::
+                                           GetStaticEnabledCapabilityFlag(
+                                               tag, cntr_type_wrapper))>,
+                          capability::Flag>;
 
-        requires meta::IsSame<
-            meta::RemoveRef<decltype(Cntr::GetStaticEnabledCapabilityFlag(
-                tag, cntr_type_wrapper))>,
-            capability::Flag>;
+    requires(meta::RemoveReferenceFromType<
+                 Cntr>::GetStaticEnabledCapabilityFlag(tag, cntr_type_wrapper) &
+             capability::empty_cap_flag) == capability::empty_cap_flag;
 
-        requires(Cntr::GetStaticEnabledCapabilityFlag(tag, cntr_type_wrapper) &
-                 capability::empty_capability_flag) ==
-                    capability::empty_capability_flag;
+    requires(meta::RemoveReferenceFromType<
+                 Cntr>::GetStaticEnabledCapabilityFlag(tag, cntr_type_wrapper) |
+             capability::full_cap_flag) == capability::full_cap_flag;
 
-        requires(Cntr::GetStaticEnabledCapabilityFlag(tag, cntr_type_wrapper) |
-                 capability::full_capability_flag) ==
-                    capability::full_capability_flag;
+    requires meta::IsSame<meta::RemoveReferenceFromType<
+                              decltype(meta::RemoveReferenceFromType<Cntr>::
+                                           GetStaticDisabledCapabilityFlag(
+                                               tag, cntr_type_wrapper))>,
+                          capability::Flag>;
 
-        requires meta::IsSame<
-            meta::RemoveRef<decltype(Cntr::GetStaticDisabledCapabilityFlag(
-                tag, cntr_type_wrapper))>,
-            capability::Flag>;
+    requires(Cntr::GetStaticDisabledCapabilityFlag(tag, cntr_type_wrapper) &
+             capability::empty_cap_flag) == capability::empty_cap_flag;
 
-        requires(Cntr::GetStaticDisabledCapabilityFlag(tag, cntr_type_wrapper) &
-                 capability::empty_capability_flag) ==
-                    capability::empty_capability_flag;
+    requires(Cntr::GetStaticDisabledCapabilityFlag(tag, cntr_type_wrapper) |
+             capability::full_cap_flag) == capability::full_cap_flag;
 
-        requires(Cntr::GetStaticDisabledCapabilityFlag(tag, cntr_type_wrapper) |
-                 capability::full_capability_flag) ==
-                    capability::full_capability_flag;
+    requires meta::IsSame<
+        meta::RemoveReferenceFromType<
+            decltype(cntr.GetDynamicEnabledCapabilityFlag(tag))>,
+        capability::Flag>;
 
-        requires meta::IsSame<
-            meta::RemoveRef<decltype(cntr.GetDynamicEnabledCapabilityFlag(
-                tag))>,
-            capability::Flag>;
+    requires meta::IsSame<
+        meta::RemoveReferenceFromType<
+            decltype(cntr.GetDynamicDisabledCapabilityFlag(tag))>,
+        capability::Flag>;
 
-        requires meta::IsSame<
-            meta::RemoveRef<decltype(cntr.GetDynamicDisabledCapabilityFlag(
-                tag))>,
-            capability::Flag>;
+    requires(meta::RemoveReferenceFromType<
+                 Cntr>::GetStaticEnabledCapabilityFlag(tag, cntr_type_wrapper) &
+             meta::RemoveReferenceFromType<
+                 Cntr>::GetStaticDisabledCapabilityFlag(tag,
+                                                        cntr_type_wrapper)) ==
+                capability::empty_cap_flag;
 
-        requires(Cntr::GetStaticEnabledCapabilityFlag(tag, cntr_type_wrapper) &
-                 Cntr::GetStaticDisabledCapabilityFlag(tag,
-                                                       cntr_type_wrapper)) ==
-                    capability::empty_capability_flag;
-    };
+    // -------------------------------------------------------------------------
 
-    SatisfiesMethodMacro(  //
-        GetCursorSize,     // capability
-        GetCursorSize,     // method
-                           //
-        size_val           // ret
+    requires meta::IsObjectType<meta::GetTypeWrapperType<
+        decltype(meta::RemoveReferenceFromType<Cntr>::GetElemType(
+            Tag{}, cntr_type_wrapper))>>;
+
+    requires meta::IsTypeWrapper<
+        decltype(meta::RemoveReferenceFromType<Cntr>::GetCursorType(
+            tag, cntr_type_wrapper))>;
+
+    // -------------------------------------------------------------------------
+
+    requires meta::IsSame<
+        meta::RemoveReferenceFromType<decltype(cntr.GetReferedInstPtr(tag))>,
+        void*>;
+
+    // -------------------------------------------------------------------------
+
+    requires RequiresMethod(  //
+        GetElemCnt,           // capability
+        GetElemCnt,           // method
+                              //
+        size_val              // ret
     );
 
-    SatisfiesMethodMacro(  //
-        GetElemSize,       // capability
-        GetElemSize,       // method
-                           //
-        size_val           // ret
+    requires RequiresMethod(  //
+        GetMaxElemCnt,        // capability
+        GetMaxElemCnt,        // method
+                              //
+        size_val              // ret
     );
 
-    SatisfiesMethodMacro(  //
-        GetElemCnt,        // capability
-        GetElemCnt,        // method
-                           //
-        size_val           // ret
+    // -------------------------------------------------------------------------
+
+    requires RequiresMethod(  //
+        GetLBCursor,          // capability
+        GetLBCursor,          // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr            // cursor
     );
 
-    SatisfiesMethodMacro(  //
-        GetMaxElemCnt,     // capability
-        GetMaxElemCnt,     // method
-                           //
-        size_val           // ret
+    requires RequiresMethod(  //
+        GetRBCursor,          // capability
+        GetRBCursor,          // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr            // cursor
     );
 
-    SatisfiesMethodMacro(  //
-        GetLBCursor,       // capability
-        GetLBCursor,       // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr         // cursor
+    // -------------------------------------------------------------------------
+
+    requires RequiresMethod(  //
+        PeekL,                // capability
+        PeekL,                // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr,           // dst_cursor, optional
+        resolving_packet_ptr  // dst_resolving_packet, optional
     );
 
-    SatisfiesMethodMacro(  //
-        GetRBCursor,       // capability
-        GetRBCursor,       // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr         // cursor
+    requires RequiresMethod(  //
+        PeekR,                // capability
+        PeekR,                // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr,           // dst_cursor, optional
+        resolving_packet_ptr  // dst_resolving_packet, optional
     );
 
-    SatisfiesMethodMacro(   //
-        PeekL,              // capability
-        PeekL,              // method
-                            //
-        unused,             // ret
-                            //
-        bool_val,           // lazy_copy_elem
-        elem_ptr_view_ptr,  // dst_elem_ptr_view
-        cursor_ptr,         // dst_cursor
-        void_ptr            // dst_elem
+    // -------------------------------------------------------------------------
+
+    requires RequiresMethod(  //
+        Derefer,              // capability
+        Derefer,              // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr,           // pos_cursor
+        resolving_packet_ptr  // dst_resolving_packet, optional
     );
 
-    SatisfiesMethodMacro(   //
-        PeekR,              // capability
-        PeekR,              // method
-                            //
-        unused,             // ret
-                            //
-        bool_val,           // lazy_copy_elem
-        elem_ptr_view_ptr,  // dst_elem_ptr_view
-        cursor_ptr,         // dst_cursor
-        void_ptr            // dst_elem
+    // -------------------------------------------------------------------------
+
+    requires RequiresMethod(  //
+        Find,                 // capability
+        Find,                 // method
+                              //
+        unused,               // ret
+                              //
+        elem_const_ref,       // elem
+        cursor_ptr,           // dst_cursor
+        resolving_packet_ptr  // resolving_packet
     );
 
-    SatisfiesMethodMacro(   //
-        Derefer,            // capability
-        Derefer,            // method
-                            //
-        unused,             // ret
-                            //
-        cursor_ptr,         // pos_cursor
-        bool_val,           // lazy_copy_elem
-        elem_ptr_view_ptr,  // dst_elem_ptr_view
-        void_ptr            // dst_elem
+    // -------------------------------------------------------------------------
+
+    requires RequiresMethod(  //
+        Insert,               // capability
+        Insert,               // method
+                              //
+        unused,               // ret
+                              //
+        elem_const_ref,       // elem
+        provider,             // provider
+        cursor_ptr            // dst_cursor
     );
 
-    SatisfiesMethodMacro(   //
-        Find,               // capability
-        Find,               // method
-                            //
-        unused,             // ret
-                            //
-        const_void_ptr,     // elem
-        bool_val,           // lazy_copy_elem
-        elem_ptr_view_ptr,  // dst_elem_ptr_view
-        cursor_ptr,         // dst_cursor
-        void_ptr            // dst_elem
+    RequiresMethod(      //
+        Insert,          // capability
+        Insert,          // method
+                         //
+        unused,          // ret
+                         //
+        const_void_ptr,  // key
+        key_hasher,      // key_hasher
+        key_elem_cmptr,  // key_elem_cmptr
+        writer,          // writer
+        void_ptr         // dst_cursor
     );
 
-    SatisfiesMethodMacro(   //
-        Find,               // capability
-        Find,               // method
-                            //
-        unused,             // ret
-                            //
-        const_void_ptr,     // key
-        key_hasher,         // key_hasher
-        key_elem_cmptr,     // key_elem_cmptr
-        bool_val,           // lazy_copy_elem
-        elem_ptr_view_ptr,  // dst_elem_ptr_view
-        void_ptr,           // dst_cursor
-        void_ptr            // dst_elem
+    // -------------------------------------------------------------------------
+
+    requires RequiresMethod(  //
+        PopL,                 // capability
+        PopL,                 // method
+                              //
+        unused,               // ret
+                              //
+        size_val,             // cnt
+        acceptor              // acceptor
     );
 
-    SatisfiesMethodMacro(  //
-        Insert,            // capability
-        Insert,            // method
-                           //
-        unused,            // ret
-                           //
-        const_void_ptr,    // elem
-        writer,            // writer
-        void_ptr           // dst_cursor
+    requires RequiresMethod(  //
+        PopR,                 // capability
+        PopR,                 // method
+                              //
+        unused,               // ret
+                              //
+        size_val,             // cnt
+        acceptor              // acceptor
     );
 
-    SatisfiesMethodMacro(  //
-        Insert,            // capability
-        Insert,            // method
-                           //
-        unused,            // ret
-                           //
-        const_void_ptr,    // key
-        key_hasher,        // key_hasher
-        key_elem_cmptr,    // key_elem_cmptr
-        writer,            // writer
-        void_ptr           // dst_cursor
+    requires RequiresMethod(  //
+        Erase,                // capability
+        Erase,                // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr,           // pos_cursor
+        size_val,             // cnt
+        acceptor              // acceptor
     );
 
-    SatisfiesMethodMacro(  //
-        PopL,              // capability
-        PopL,              // method
-                           //
-        unused,            // ret
-                           //
-        size_val,          // cnt
-        reader             // reader
+    requires RequiresMethod(  //
+        EraseAll,             // capability
+        EraseAll,             // method
+                              //
+        unused,               // ret
+                              //
+        acceptor              // acceptor
     );
 
-    SatisfiesMethodMacro(  //
-        PopR,              // capability
-        PopR,              // method
-                           //
-        unused,            // ret
-                           //
-        size_val,          // cnt
-        reader             // reader
+    // -------------------------------------------------------------------------
+
+    requires RequiresMethod(  //
+        CopyCursor,           // capability
+        CopyCursor,           // method
+                              //
+        unused,               // ret
+                              //
+        cursor_ptr,           // src_cursor
+        cursor_ptr            // dst_cursor
     );
 
-    SatisfiesMethodMacro(  //
-        Erase,             // capability
-        Erase,             // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr,        // pos_cursor
-        size_val,          // cnt
-        reader             // reader
+    requires RequiresMethod(  //
+        AreEqualCursor,       // capability
+        AreEqualCursor,       // method
+                              //
+        bool_val,             // ret
+                              //
+        cursor_ptr,           // cursor_a
+        cursor_ptr            // cursor_b
     );
 
-    SatisfiesMethodMacro(  //
-        EraseAll,          // capability
-        EraseAll,          // method
-                           //
-        unused             // ret
+    requires RequiresMethod(  //
+        CompareCursor,        // capability
+        CompareCursor,        // method
+                              //
+        ordering_val,         // ret
+                              //
+        cursor_ptr,           // cursor_a
+        cursor_ptr            // cursor_b
     );
 
-    SatisfiesMethodMacro(  //
-        CopyCursor,        // capability
-        CopyCursor,        // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr,        // src_cursor
-        cursor_ptr         // dst_cursor
+    requires RequiresMethod(  //
+        GetCursorDist,        // capability
+        GetCursorDist,        // method
+                              //
+        size_val,             // ret
+                              //
+        cursor_ptr,           // cursor_a
+        cursor_ptr            // cursor_b
     );
 
-    SatisfiesMethodMacro(  //
-        AreEqualCursor,    // capability
-        AreEqualCursor,    // method
-                           //
-        bool_val,          // ret
-                           //
-        cursor_ptr,        // cursor_a
-        cursor_ptr         // cursor_b
+    RequiresMethod(    //
+        GetCursorIdx,  // capability
+        GetCursorIdx,  // method
+                       //
+        size_val,      // ret
+                       //
+        cursor_ptr     // cursor
     );
 
-    SatisfiesMethodMacro(  //
-        CompareCursor,     // capability
-        CompareCursor,     // method
-                           //
-        ordering_val,      // ret
-                           //
-        cursor_ptr,        // cursor_a
-        cursor_ptr         // cursor_b
+    RequiresMethod(   //
+        CursorStepL,  // capability
+        CursorStepL,  // method
+                      //
+        unused,       // ret
+                      //
+        cursor_ptr    // cursor
     );
 
-    SatisfiesMethodMacro(  //
-        GetCursorDist,     // capability
-        GetCursorDist,     // method
-                           //
-        size_val,          // ret
-                           //
-        cursor_ptr,        // cursor_a
-        cursor_ptr         // cursor_b
+    RequiresMethod(   //
+        CursorStepR,  // capability
+        CursorStepR,  // method
+                      //
+        unused,       // ret
+                      //
+        void_ptr      // cursor
     );
 
-    SatisfiesMethodMacro(  //
-        GetCursorIdx,      // capability
-        GetCursorIdx,      // method
-                           //
-        size_val,          // ret
-                           //
-        cursor_ptr         // cursor
+    RequiresMethod(      //
+        CursorAdvanceL,  // capability
+        CursorAdvanceL,  // method
+                         //
+        unused,          // ret
+                         //
+        cursor_ptr,      // cursor
+        size_val         // step
     );
 
-    SatisfiesMethodMacro(  //
-        CursorStepL,       // capability
-        CursorStepL,       // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr         // cursor
-    );
-
-    SatisfiesMethodMacro(  //
-        CursorStepR,       // capability
-        CursorStepR,       // method
-                           //
-        unused,            // ret
-                           //
-        void_ptr           // cursor
-    );
-
-    SatisfiesMethodMacro(  //
-        CursorAdvanceL,    // capability
-        CursorAdvanceL,    // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr,        // cursor
-        size_val           // step
-    );
-
-    SatisfiesMethodMacro(  //
-        CursorAdvanceR,    // capability
-        CursorAdvanceR,    // method
-                           //
-        unused,            // ret
-                           //
-        cursor_ptr,        // cursor
-        size_val           // step
+    RequiresMethod(      //
+        CursorAdvanceR,  // capability
+        CursorAdvanceR,  // method
+                         //
+        unused,          // ret
+                         //
+        cursor_ptr,      // cursor
+        size_val         // step
     );
 };
 
-#pragma pop_macro("SatisfiesMethodMacro")
+#pragma pop_macro("RequiresMethod")
 
 template <typename Cntr>
 constexpr decltype(auto) GetReferedInstPtr(Cntr& cntr);
@@ -611,16 +590,16 @@ constexpr decltype(auto) Insert(Cntr& cntr, void const* key,
 
 template <typename Cntr,
           seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
-constexpr decltype(auto) PopL(Cntr& cntr, size_t cnt, Acceptor&& reader);
+constexpr decltype(auto) PopL(Cntr& cntr, size_t cnt, Acceptor&& acceptor);
 
 template <typename Cntr,
           seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
-constexpr decltype(auto) PopR(Cntr& cntr, size_t cnt, Acceptor&& reader);
+constexpr decltype(auto) PopR(Cntr& cntr, size_t cnt, Acceptor&& acceptor);
 
 template <typename Cntr,
           seq_endpoint::acceptor::IsAcceptor<Elem(Cntr)> Acceptor>
 constexpr decltype(auto) Erase(Cntr& cntr, void* pos_cursor, size_t cnt,
-                               Acceptor&& reader);
+                               Acceptor&& acceptor);
 
 template <typename Cntr>
 constexpr decltype(auto) EraseAll(Cntr& cntr);
@@ -717,23 +696,23 @@ struct VTable {
     } insert;
 
     struct {
-        void (*empty)(void* cntr, size_t cnt, EmptyReader reader);
-        void (*lin_seq)(void* cntr, size_t cnt, LinSeqReader& reader);
-        void (*fn)(void* cntr, size_t cnt, FnReader reader);
+        void (*empty)(void* cntr, size_t cnt, EmptyReader acceptor);
+        void (*lin_seq)(void* cntr, size_t cnt, LinSeqReader& acceptor);
+        void (*fn)(void* cntr, size_t cnt, FnReader acceptor);
     } pop_l;
 
     struct {
-        void (*empty)(void* cntr, size_t cnt, EmptyReader reader);
-        void (*lin_seq)(void* cntr, size_t cnt, LinSeqReader& reader);
-        void (*fn)(void* cntr, size_t cnt, FnReader reader);
+        void (*empty)(void* cntr, size_t cnt, EmptyReader acceptor);
+        void (*lin_seq)(void* cntr, size_t cnt, LinSeqReader& acceptor);
+        void (*fn)(void* cntr, size_t cnt, FnReader acceptor);
     } pop_r;
 
     struct {
         void (*empty)(void* cntr, void* pos_cursor, size_t cnt,
-                      EmptyReader reader);
+                      EmptyReader acceptor);
         void (*lin_seq)(void* cntr, void* pos_cursor, size_t cnt,
-                        LinSeqReader& reader);
-        void (*fn)(void* cntr, void* pos_cursor, size_t cnt, FnReader reader);
+                        LinSeqReader& acceptor);
+        void (*fn)(void* cntr, void* pos_cursor, size_t cnt, FnReader acceptor);
     } erase;
 
     void (*erase_all)(void* cntr);

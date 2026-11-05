@@ -14,74 +14,83 @@
 
 namespace zeta::core_test::seg_vector_utils {
 
-using PolySeqCntr = core::poly_seq_cntr::Cntr;
+template <core::meta::IsNonConstObjectType Elem>
+using PolySeqCntr = core::poly_seq_cntr::Cntr<Elem>;
 
-namespace SegVectorNS = core::seg_vector;
+template <core::meta::IsNonConstObjectType Elem>
+using SegVector = core::seg_vector::Cntr<Elem, core::poly_allocator::Allocator,
+                                         core::poly_allocator::Allocator>;
 
-using SegVector =
-    SegVectorNS::Cntr<zeta::core::debug_utils::recording_allocator::Allocator<
-                          zeta::core_test::std_allocator::Allocator>,
-                      zeta::core::debug_utils::recording_allocator::Allocator<
-                          zeta::core_test::std_allocator::Allocator>>;
+static_assert(core::seq_cntr::IsSeqCntr<SegVector<int>&>);
+static_assert(core::seq_cntr::IsSeqCntr<SegVector<int> const&>);
+static_assert(core::seq_cntr::IsSeqCntr<SegVector<int>&&>);
+static_assert(core::seq_cntr::IsSeqCntr<SegVector<int> const&&>);
 
+template <core::meta::IsNonConstObjectType Elem>
 struct Pack {
-    SegVector sv;
+    std_allocator::Allocator node_alctr;
+    std_allocator::Allocator seg_alctr;
 
-    constexpr Pack(std::string const& name, size_t elem_size,
-                   size_t elem_stride, size_t seg_capacity)
+    SegVector<Elem> sv;
+
+    constexpr Pack(size_t seg_elem_slot_cnt)
         : sv{
-              elem_size,     //
-              elem_stride,   //
-              seg_capacity,  //
-              ZETA_Core_Lifecycle_PackConstructArgs(
-                  std::make_shared<zeta::core_test::std_allocator::Allocator>(),
-                  zeta::core::debug_utils::memory::default_mem_recorder_server
-                      .MakeMemRecorderClient(name + "/sv.seg_alctr")),  //
-              ZETA_Core_Lifecycle_PackConstructArgs(
-                  std::make_shared<zeta::core_test::std_allocator::Allocator>(),
-                  zeta::core::debug_utils::memory::default_mem_recorder_server
-                      .MakeMemRecorderClient(name + "/sv.data_alctr")),  //
+              seg_elem_slot_cnt,
+              this->node_alctr,
+              this->seg_alctr,
           } {}
 };
 
-PolySeqCntr Create(size_t stride, size_t seg_capacity);
+template <core::meta::IsNonConstObjectType Elem>
+constexpr PolySeqCntr<Elem> Create(size_t stride, size_t seg_elem_slot_cnt);
 
+template <core::meta::IsNonConstObjectType Elem>
 constexpr void Destroy(void* sv);
 
+template <core::meta::IsNonConstObjectType Elem>
 constexpr void Sanitize(void const* sv);
 
-constexpr PolySeqCntr Create(std::string const& name, size_t elem_size,
-                             size_t elem_stride, size_t seg_capacity) {
-    Pack* pack{ new Pack{ name, elem_size, elem_stride, seg_capacity } };
+template <core::meta::IsNonConstObjectType Elem>
+constexpr PolySeqCntr<Elem> Create(size_t seg_elem_slot_cnt) {
+    Pack<Elem>* pack{ new Pack<Elem>{ seg_elem_slot_cnt } };
 
     auto* sv{ &pack->sv };
 
-    PolySeqCntr poly_seq_cntr{ *sv };
+    PolySeqCntr<Elem> poly_seq_cntr{ *sv };
 
-    seq_cntr_utils::AddSanitizeFunc(sv, Sanitize);
+    seq_cntr_utils::AddSanitizeFunc(sv, Sanitize<Elem>);
 
-    seq_cntr_utils::AddDestroyFunc(sv, Destroy);
+    seq_cntr_utils::AddDestroyFunc(sv, Destroy<Elem>);
 
     return poly_seq_cntr;
 }
 
+template <core::meta::IsNonConstObjectType Elem>
 constexpr void Destroy(void* sv_) {
-    SegVector* sv{ static_cast<SegVector*>(sv_) };
+    SegVector<Elem>* sv{ static_cast<SegVector<Elem>*>(sv_) };
 
     if (sv == nullptr) { return; }
 
-    Pack* pack{ ZETA_Core_MemberToStruct(Pack, sv, sv) };
+    Pack<Elem>* pack{ ZETA_Core_MemberToStruct(Pack<Elem>, sv, sv) };
 
     delete pack;
 }
 
+template <core::meta::IsNonConstObjectType Elem>
 constexpr void Sanitize(void const* sv_) {
-    SegVector const* sv{ static_cast<SegVector const*>(sv_) };
+    SegVector<Elem> const* sv{ static_cast<SegVector<Elem> const*>(sv_) };
 
     if (sv == nullptr) { return; }
 
-    zeta::core::debug_utils::sanity::SanityCheck(
-        sv, zeta::core::debug_utils::sanity::SanityCheckScope::Complete);
+    Pack<Elem>* pack{ ZETA_Core_MemberToStruct(Pack<Elem>, sv, sv) };
+
+    core::debug_utils::mem_recording::MemRecorder seg_mr;
+    core::debug_utils::mem_recording::MemRecorder data_mr;
+
+    sv->SanityCheck(seg_mr, data_mr);
+
+    seg_mr.InChargeOf(pack->node_alctr.mem_recorder);
+    data_mr.InChargeOf(pack->seg_alctr.mem_recorder);
 }
 
 }  // namespace zeta::core_test::seg_vector_utils

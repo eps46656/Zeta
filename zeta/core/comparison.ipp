@@ -12,7 +12,7 @@ constexpr auto comparison::DecayOrdering(OpTag, Ordering ordering) {
     if constexpr (meta::IsSame<OpTag, OpTags::Order>) {
         return ordering;
     } else {
-        return (meta::EnumToUnderlying(meta::GetValueWrapperValue<OpTag>) &
+        return (meta::GetValueWrapperValue<OpTag> &
                 meta::EnumToUnderlying(ordering)) != 0;
     }
 }
@@ -77,8 +77,7 @@ constexpr auto comparison::EmptyComparator::Compare(OpTag, A const&, B const&) {
     if constexpr (meta::IsSame<OpTag, OpTags::Order>) {
         return Ordering::Equal;
     } else {
-        return (meta::EnumToUnderlying(meta::GetValueWrapperValue<OpTag>) &
-                Bits::equal) != 0;
+        return (meta::GetValueWrapperValue<OpTag> & Bits::equal) != 0;
     }
 }
 
@@ -113,8 +112,8 @@ comparison::CppStdBasicComparator<Op, A, B>::operator()(A const& a,
 template <typename A, typename B>
 constexpr bool operator==(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
-        zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_equal
+        zeta::core::meta::RemoveConstVolatileReference<A>,
+        zeta::core::meta::RemoveConstVolatileReference<B>>::enable_equal
 {
     return zeta::core::comparison::BasicCompare(
         zeta::core::comparison::OpTags::Equal{}, a, b);
@@ -123,8 +122,8 @@ constexpr bool operator==(A const& a, B const& b)
 template <typename A, typename B>
 constexpr bool operator!=(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
-        zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_not_equal
+        zeta::core::meta::RemoveConstVolatileReference<A>,
+        zeta::core::meta::RemoveConstVolatileReference<B>>::enable_not_equal
 {
     return zeta::core::comparison::BasicCompare(
         zeta::core::comparison::OpTags::NotEqual{}, a, b);
@@ -133,8 +132,8 @@ constexpr bool operator!=(A const& a, B const& b)
 template <typename A, typename B>
 constexpr bool operator<(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
-        zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_less
+        zeta::core::meta::RemoveConstVolatileReference<A>,
+        zeta::core::meta::RemoveConstVolatileReference<B>>::enable_less
 {
     return zeta::core::comparison::BasicCompare(
         zeta::core::comparison::OpTags::Less{}, a, b);
@@ -143,8 +142,8 @@ constexpr bool operator<(A const& a, B const& b)
 template <typename A, typename B>
 constexpr bool operator<=(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
-        zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_less_equal
+        zeta::core::meta::RemoveConstVolatileReference<A>,
+        zeta::core::meta::RemoveConstVolatileReference<B>>::enable_less_equal
 {
     return zeta::core::comparison::BasicCompare(
         zeta::core::comparison::OpTags::LessEqual{}, a, b);
@@ -153,8 +152,8 @@ constexpr bool operator<=(A const& a, B const& b)
 template <typename A, typename B>
 constexpr bool operator>(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
-        zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_greater
+        zeta::core::meta::RemoveConstVolatileReference<A>,
+        zeta::core::meta::RemoveConstVolatileReference<B>>::enable_greater
 {
     return zeta::core::comparison::BasicCompare(
         zeta::core::comparison::OpTags::Greater{}, a, b);
@@ -163,8 +162,8 @@ constexpr bool operator>(A const& a, B const& b)
 template <typename A, typename B>
 constexpr bool operator>=(A const& a, B const& b)
     requires zeta::core::comparison::EnableNativeOperatorByBasicComparison<
-        zeta::core::meta::RemoveCVRef<A>,
-        zeta::core::meta::RemoveCVRef<B>>::enable_greater_equal
+        zeta::core::meta::RemoveConstVolatileReference<A>,
+        zeta::core::meta::RemoveConstVolatileReference<B>>::enable_greater_equal
 {
     return zeta::core::comparison::BasicCompare(
         zeta::core::comparison::OpTags::GreaterEqual{}, a, b);

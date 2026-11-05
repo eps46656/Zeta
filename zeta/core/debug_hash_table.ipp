@@ -95,8 +95,8 @@ debug_hash_table::Cntr<CntrTplArgList>::GetStaticEnabledCapabilityFlag(
     return assoc_cntr::capability::FlagBuilder{
         .GetCursorSize = true,
 
-        .GetElemSize = true,
-        .GetElemCnt = true,
+        .GetElemSize   = true,
+        .GetElemCnt    = true,
         .GetMaxElemCnt = true,
 
         .GetLBCursor = false,
@@ -111,17 +111,17 @@ debug_hash_table::Cntr<CntrTplArgList>::GetStaticEnabledCapabilityFlag(
 
         .Insert = true,
 
-        .PopL = true,
-        .PopR = true,
-        .Erase = true,
+        .PopL     = true,
+        .PopR     = true,
+        .Erase    = true,
         .EraseAll = true,
 
         .CopyCursor = true,
 
         .AreEqualCursor = true,
-        .CompareCursor = true,
-        .GetCursorDist = true,
-        .GetCursorIdx = true,
+        .CompareCursor  = true,
+        .GetCursorDist  = true,
+        .GetCursorIdx   = true,
 
         .CursorStepL = true,
         .CursorStepR = true,
@@ -137,35 +137,35 @@ debug_hash_table::Cntr<CntrTplArgList>::GetStaticEnabledCapabilityFlag(
     assoc_cntr::Tag, meta::TypeWrapper<Cntr const>) {
     return (GetStaticEnabledCapabilityFlag)(assoc_cntr::Tag{},
                                             meta::TypeWrapper<Cntr>{}) &
-           assoc_cntr::capability::const_capability_flag;
+           assoc_cntr::capability::const_cap_flag;
 }
 
 template <CntrTplParamList>
 constexpr assoc_cntr::capability::Flag
 debug_hash_table::Cntr<CntrTplArgList>::GetStaticDisabledCapabilityFlag(
     assoc_cntr::Tag, meta::TypeWrapper<Cntr>) {
-    return assoc_cntr::capability::empty_capability_flag;
+    return assoc_cntr::capability::empty_cap_flag;
 }
 
 template <CntrTplParamList>
 constexpr assoc_cntr::capability::Flag
 debug_hash_table::Cntr<CntrTplArgList>::GetStaticDisabledCapabilityFlag(
     assoc_cntr::Tag, meta::TypeWrapper<Cntr const>) {
-    return assoc_cntr::capability::non_const_capability_flag;
+    return assoc_cntr::capability::non_const_cap_flag;
 }
 
 template <CntrTplParamList>
 constexpr assoc_cntr::capability::Flag
 debug_hash_table::Cntr<CntrTplArgList>::GetDynamicEnabledCapabilityFlag(
     assoc_cntr::Tag) {
-    return assoc_cntr::capability::empty_capability_flag;
+    return assoc_cntr::capability::empty_cap_flag;
 }
 
 template <CntrTplParamList>
 constexpr assoc_cntr::capability::Flag
 debug_hash_table::Cntr<CntrTplArgList>::GetDynamicDisabledCapabilityFlag(
     assoc_cntr::Tag) {
-    return assoc_cntr::capability::empty_capability_flag;
+    return assoc_cntr::capability::empty_cap_flag;
 }
 
 template <CntrTplParamList>
@@ -245,7 +245,7 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::PeekL(
     if (dst_elem_ptr_view != nullptr) {
         dst_elem_ptr_view->ptr = elem;
 
-        if constexpr (meta::IsConst<decltype(self)>) {
+        if constexpr (meta::IsConstType<decltype(self)>) {
             dst_elem_ptr_view->aliasability =
                 elem == nullptr
                     ? assoc_cntr::ElemPtrView::AliasabilityEnum::Null
@@ -288,7 +288,7 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::PeekR(
     if (dst_elem_ptr_view != nullptr) {
         dst_elem_ptr_view->ptr = elem;
 
-        if constexpr (meta::IsConst<decltype(self)>) {
+        if constexpr (meta::IsConstType<decltype(self)>) {
             dst_elem_ptr_view->aliasability =
                 elem == nullptr
                     ? assoc_cntr::ElemPtrView::AliasabilityEnum::Null
@@ -323,7 +323,7 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::Derefer(
     if (dst_elem_ptr_view != nullptr) {
         dst_elem_ptr_view->ptr = elem;
 
-        if constexpr (meta::IsConst<decltype(self)>) {
+        if constexpr (meta::IsConstType<decltype(self)>) {
             dst_elem_ptr_view->aliasability =
                 elem == nullptr
                     ? assoc_cntr::ElemPtrView::AliasabilityEnum::Null
@@ -396,7 +396,7 @@ constexpr void debug_hash_table::Cntr<CntrTplArgList>::Find(
     if (dst_elem_ptr_view != nullptr) {
         dst_elem_ptr_view->ptr = elem;
 
-        if constexpr (meta::IsConst<decltype(self)>) {
+        if constexpr (meta::IsConstType<decltype(self)>) {
             dst_elem_ptr_view->aliasability =
                 elem == nullptr
                     ? assoc_cntr::ElemPtrView::AliasabilityEnum::Null

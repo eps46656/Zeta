@@ -27,6 +27,8 @@ struct AlwaysMatchedTag {};
 template <typename TA, typename TB>
 constexpr bool IsSame{ __is_same(TA, TB) };
 
+// -----------------------------------------------------------------------------
+
 namespace detail {
 
 template <typename TA, typename TB>
@@ -47,6 +49,8 @@ struct IsMatched_ {
 template <typename TA, typename TB>
 concept IsMatched = detail::IsMatched_<TA, TB>::value;
 
+// -----------------------------------------------------------------------------
+
 namespace detail {
 
 template <typename X, typename... Ts>
@@ -66,6 +70,8 @@ struct IsAnySame_<X, T0, Ts...> {
 
 template <typename X, typename... Ts>
 concept IsAnySame = detail::IsAnySame_<X, Ts...>::value;
+
+// -----------------------------------------------------------------------------
 
 namespace detail {
 
@@ -88,6 +94,33 @@ struct IsAnyMatched_<X, T0, Ts...> {
 template <typename X, typename... Ts>
 concept IsAnyMatched = detail::IsAnyMatched_<X, Ts...>::value;
 
+// -----------------------------------------------------------------------------
+
+namespace detail {
+
+template <typename T>
+struct RemoveReferenceFromType_ {
+    using Type = T;
+};
+
+template <typename T>
+struct RemoveReferenceFromType_<T&> {
+    using Type = T;
+};
+
+template <typename T>
+struct RemoveReferenceFromType_<T&&> {
+    using Type = T;
+};
+
+}  // namespace detail
+
+template <typename T>
+using RemoveReferenceFromType =
+    typename detail::RemoveReferenceFromType_<T>::Type;
+
+// -----------------------------------------------------------------------------
+
 namespace detail {
 
 template <typename T>
@@ -104,6 +137,8 @@ struct RemoveConst_<T const> {
 
 template <typename T>
 using RemoveConst = typename detail::RemoveConst_<T>::Type;
+
+// -----------------------------------------------------------------------------
 
 namespace detail {
 
@@ -122,44 +157,7 @@ struct RemoveVolatile_<volatile T> {
 template <typename T>
 using RemoveVolatile = typename detail::RemoveVolatile_<T>::Type;
 
-namespace detail {
-
-template <typename T>
-struct RemovePointer_ {
-    using Type = T;
-};
-
-template <typename T>
-struct RemovePointer_<T*> {
-    using Type = T;
-};
-
-}  // namespace detail
-
-template <typename T>
-using RemovePointer = typename detail::RemovePointer_<T>::Type;
-
-namespace detail {
-
-template <typename T>
-struct RemoveRef_ {
-    using Type = T;
-};
-
-template <typename T>
-struct RemoveRef_<T&> {
-    using Type = T;
-};
-
-template <typename T>
-struct RemoveRef_<T&&> {
-    using Type = T;
-};
-
-}  // namespace detail
-
-template <typename T>
-using RemoveRef = typename detail::RemoveRef_<T>::Type;
+// -----------------------------------------------------------------------------
 
 namespace detail {
 
@@ -183,6 +181,8 @@ struct RemoveArray_<T[N]> {
 template <typename T>
 using RemoveArray = typename detail::RemoveArray_<T>::Type;
 
+// -----------------------------------------------------------------------------
+
 namespace detail {
 
 template <typename T>
@@ -202,35 +202,128 @@ struct RemoveAllArrays_<T[N]> {
 
 }  // namespace detail
 
+// -----------------------------------------------------------------------------
+
 template <typename T>
 using RemoveAllArrays = typename detail::RemoveAllArrays_<T>::Type;
 
 template <typename T>
-using RemoveCV = RemoveConst<RemoveVolatile<T>>;
+using RemoveConstVolatile = RemoveConst<RemoveVolatile<T>>;
 
 template <typename T>
-using RemoveCRef = RemoveConst<RemoveRef<T>>;
+using RemoveConstReference = RemoveConst<RemoveReferenceFromType<T>>;
 
 template <typename T>
-using RemoveVRef = RemoveVolatile<RemoveRef<T>>;
+using RemoveVolatileReference = RemoveVolatile<RemoveReferenceFromType<T>>;
 
 template <typename T>
-using RemoveCVRef = RemoveCV<RemoveRef<T>>;
+using RemoveConstVolatileReference =
+    RemoveConstVolatile<RemoveReferenceFromType<T>>;
+
+// -----------------------------------------------------------------------------
+
+namespace detail {
 
 template <typename T>
-concept IsConst = __is_const(T);
+struct RemovePointer_ {
+    using Type = T;
+};
 
 template <typename T>
-concept IsNonConst = !IsConst<T>;
+struct RemovePointer_<T*> {
+    using Type = T;
+};
+
+}  // namespace detail
 
 template <typename T>
-concept IsConstWithoutRef = IsConst<RemoveRef<T>>;
+using RemovePointer = typename detail::RemovePointer_<T>::Type;
+
+// -----------------------------------------------------------------------------
 
 template <typename T>
-concept IsNonConstWithoutRef = IsNonConst<RemoveRef<T>>;
+concept IsVoidType = __is_void(T);
 
 template <typename T>
-concept IsVolatile = __is_volatile(T);
+concept IsFloatingPointType = __is_floating_point(T);
+
+template <typename T>
+concept IsArithmeticType = __is_arithmetic(T);
+
+template <typename T>
+concept IsPointerType = __is_pointer(T);
+
+template <typename T>
+concept IsPointerToMember = __is_member_pointer(T);
+
+template <typename T>
+concept IsNullPtrType = IsSame<T, decltype(nullptr)>;
+
+template <typename T>
+concept IsEnumType = __is_enum(T);
+
+template <typename T>
+concept IsScalarType = __is_scalar(T);
+
+template <typename T>
+concept IsClassType = __is_class(T);
+
+template <typename T>
+concept IsArrayType = __is_array(T);
+
+template <typename T>
+concept IsUnionType = __is_union(T);
+
+template <typename T>
+concept IsCompoundType = __is_compound(T);
+
+template <typename T>
+concept IsObjectType = __is_object(T);
+
+template <typename T>
+concept IsFunctionType = __is_function(T);
+
+template <typename T>
+concept IsEmptyType = __is_empty(T);
+
+template <typename T>
+concept IsLeftReferenceType = __is_lvalue_reference(T);
+
+template <typename T>
+concept IsRightReferenceType = __is_rvalue_reference(T);
+
+template <typename T>
+concept IsReferenceType = __is_reference(T);
+
+template <typename T>
+concept IsNonReferenceType = !IsReferenceType<T>;
+
+template <typename T>
+concept IsConstType = __is_const(T);
+
+template <typename T>
+concept IsNonConstType = !IsConstType<T>;
+
+template <typename T>
+concept IsConstTypeWithoutReference = IsConstType<RemoveReferenceFromType<T>>;
+
+template <typename T>
+concept IsNonConstWithoutReference = IsNonConstType<RemoveReferenceFromType<T>>;
+
+template <typename T>
+concept IsVolatileType = __is_volatile(T);
+
+template <typename T>
+concept IsNonVolatileType = !IsVolatileType<T>;
+
+template <typename T>
+concept IsNonConstNonReferenceType = IsNonConstType<T> && IsNonReferenceType<T>;
+
+template <typename T>
+concept IsNonConstObjectType = IsObjectType<T> && !IsConstType<T>;
+
+template <typename T>
+concept IsConstObjectType = IsObjectType<T> && IsConstType<T>;
 
 /*
 
@@ -258,66 +351,6 @@ type
 
 */
 
-template <typename T>
-concept IsVoid = __is_void(T);
-
-template <typename T>
-concept IsFloatingPoint = __is_floating_point(T);
-
-template <typename T>
-concept IsArithmetic = __is_arithmetic(T);
-
-template <typename T>
-concept IsPointer = __is_pointer(T);
-
-template <typename T>
-concept IsPointerToMember = __is_member_pointer(T);
-
-template <typename T>
-concept IsNullPointer = IsSame<T, decltype(nullptr)>;
-
-template <typename T>
-concept IsEnum = __is_enum(T);
-
-template <typename T>
-concept IsScalar = __is_scalar(T);
-
-template <typename T>
-concept IsClass = __is_class(T);
-
-template <typename T>
-concept IsArray = __is_array(T);
-
-template <typename T>
-concept IsUnion = __is_union(T);
-
-template <typename T>
-concept IsCompound = __is_compound(T);
-
-template <typename T>
-concept IsObj = __is_object(T);
-
-template <typename T>
-concept IsNonConstObj = IsObj<T> && !IsConst<T>;
-
-template <typename T>
-concept IsConstObj = IsObj<T> && IsConst<T>;
-
-template <typename T>
-concept IsLRef = __is_lvalue_reference(T);
-
-template <typename T>
-concept IsRRef = __is_rvalue_reference(T);
-
-template <typename T>
-concept IsRef = __is_reference(T);
-
-template <typename T>
-concept IsFunction = __is_function(T);
-
-template <typename T>
-concept IsEmpty = __is_empty(T);
-
 template <typename Base, typename Derived>
 concept IsBaseOf = __is_base_of(Base, Derived);
 
@@ -327,18 +360,12 @@ concept IsTriviallyConstructible = __is_trivially_constructible(T);
 template <typename T>
 concept IsTriviallyDestructible = __is_trivially_destructible(T);
 
-template <typename T>
-concept IsComplete = __is_complete_type(T);
+template <IsEnumType Enum>
+using GetEnumUnderlyingType = __underlying_type(Enum);
 
-template <typename... T>
-using VoidT = void;
-
-template <IsEnum Enum>
-using UnderlyingType = __underlying_type(Enum);
-
-template <IsEnum Enum>
-constexpr UnderlyingType<Enum> EnumToUnderlying(Enum e) {
-    return static_cast<UnderlyingType<Enum>>(e);
+template <IsEnumType Enum>
+constexpr GetEnumUnderlyingType<Enum> EnumToUnderlying(Enum e) {
+    return static_cast<GetEnumUnderlyingType<Enum>>(e);
 }
 
 namespace detail {
@@ -361,81 +388,68 @@ struct Conditional_<false, T1, T2> {
 template <bool Cond, typename T1, typename T2>
 using Conditional = typename detail::Conditional_<Cond, T1, T2>::Type;
 
-template <typename T, bool Cond>
-using MakeConstIf = Conditional<Cond, T const, T>;
+template <bool Cond, typename T>
+using ConditionalAddConst = Conditional<Cond, T const, T>;
 
-template <bool CondP, bool CondQ>
-concept Implies = !CondP || CondQ;
+template <bool Cond, typename T>
+using ConditionalAddVolatile = Conditional<Cond, T volatile, T>;
 
-namespace detail {
-
-template <bool Cond, typename _ = void>
-struct EnableIf_;
-
-template <>
-struct EnableIf_<true, void> {
-    using Type = void;
-};
-
-template <>
-struct EnableIf_<false, void> {};
-
-}  // namespace detail
-
-template <bool Cond, typename _ = void>
-using EnableIf = typename detail::EnableIf_<Cond, _>::Type;
+constexpr bool Implies(bool cond_p, bool cond_q) { return !cond_p || cond_q; }
 
 template <typename T>
-concept IsReferable = IsSame<T, RemoveRef<T>>;
+concept IsReferable = IsSame<T, RemoveReferenceFromType<T>>;
 
 template <typename FromT, typename ToT>
 concept IsConvertible = __is_convertible(FromT, ToT);
 
 template <typename T>
-constexpr RemoveRef<T>&& Move(
+constexpr RemoveReferenceFromType<T>&& Move(
     T&& t  // NOLINT(cppcoreguidelines-missing-std-forward)
 ) {
-    return static_cast<RemoveRef<T>&&>(t);
+    return static_cast<RemoveReferenceFromType<T>&&>(t);
 }
 
-template <typename Src, typename Dst>
-using CopyConst =
-    Conditional<IsConst<Src>, RemoveConst<Dst> const, RemoveConst<Dst>>;
+template <IsNonReferenceType Src, IsNonReferenceType Dst>
+using CopyConst = ConditionalAddConst<IsConstType<Src>, RemoveConst<Dst>>;
 
-template <typename Src, typename Dst>
-using CopyVolatile = Conditional<IsVolatile<Src>, RemoveVolatile<Dst> volatile,
-                                 RemoveVolatile<Dst>>;
+template <IsNonReferenceType Src, IsNonReferenceType Dst>
+using CopyVolatile =
+    ConditionalAddVolatile<IsVolatileType<Src>, RemoveVolatile<Dst>>;
 
-template <typename Src, typename Dst>
-using CopyCV = CopyConst<Src, CopyVolatile<Src, Dst>>;
+template <IsNonReferenceType Src, IsNonReferenceType Dst>
+using CopyConstVolatile = CopyConst<Src, CopyVolatile<Src, Dst>>;
 
 namespace detail {
 
 template <typename Src, typename Dst>
-struct CopyRefImpl_ {
+struct CopyReferenceImpl_ {
     using Type = Dst;
 };
 
 template <typename Src, typename Dst>
-struct CopyRefImpl_<Src&, Dst> {
+struct CopyReferenceImpl_<Src&, Dst> {
     using Type = Dst&;
 };
 
 template <typename Src, typename Dst>
-struct CopyRefImpl_<Src&&, Dst> {
+struct CopyReferenceImpl_<Src&&, Dst> {
     using Type = Dst&&;
 };
 
 }  // namespace detail
 
 template <typename Src, typename Dst>
-using CopyRef = typename detail::CopyRefImpl_<Src, RemoveRef<Dst>>::Type;
+using CopyReference =
+    typename detail::CopyReferenceImpl_<Src,
+                                        RemoveReferenceFromType<Dst>>::Type;
 
 template <typename Src, typename Dst>
-using CopyCVRef = CopyRef<Src, CopyCV<Src, Dst>>;
+using CopyConstVolatileReference =
+    CopyReference<Src, CopyConstVolatile<RemoveReferenceFromType<Src>,
+                                         RemoveReferenceFromType<Dst>>>;
 
 template <typename T>
-constexpr T&& Forward(RemoveRef<T>& t) {
+constexpr T&& Forward(RemoveReferenceFromType<T>& t) {
     return static_cast<T&&>(t);
 }
 
@@ -541,33 +555,40 @@ concept IsValueOrValueWrapper =
     meta::IsSame<T, TargetType> || IsValueWrapperT<T, TargetType>;
 
 template <auto Value>
-using AutoValueWrapper = ValueWrapper<RemoveCVRef<decltype(Value)>, Value>;
+using AutoValueWrapper =
+    ValueWrapper<RemoveConstVolatileReference<decltype(Value)>, Value>;
 
 template <typename T>
-constexpr T& GetInstRef(T* inst) {
+constexpr T& GetInstRefFromLike(T* inst) {
     return *inst;
 }
 
 template <typename T>
-constexpr T& GetInstRef(T& inst) {
+constexpr T& GetInstRefFromLike(T& inst) {
     return inst;
 }
 
 template <typename T>
-using GetInstType = RemoveRef<decltype(GetInstRef(Declval<T>()))>;
+constexpr T&& GetInstRefFromLike(T&& inst) {
+    return (Move)(inst);
+}
 
 template <typename T>
-constexpr T* GetInstPtr(T* inst) {
+constexpr T* GetInstPtrFromLike(T* inst) {
     return inst;
 }
 
 template <typename T>
-constexpr T* GetInstPtr(T& inst) {
+constexpr T* GetInstPtrFromLike(T& inst) {
     return &inst;
 }
 
 template <typename T>
-constexpr T* GetInstPtr(T&& inst) = delete;
+constexpr T* GetInstPtrFromLike(T&& inst) = delete;
+
+template <typename T>
+using GetInstTypeFromLike =
+    RemoveReferenceFromType<decltype((GetInstRefFromLike)((Declval<T&>)()))>;
 
 // This function is called to make a consteval expression fail to compile.
 // Do not add constexpr to this function.

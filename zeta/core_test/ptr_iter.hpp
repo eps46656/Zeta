@@ -9,13 +9,14 @@ namespace zeta::core_test {
 
 template <typename Value>
 struct PtrIter {
-    using difference_type = ptrdiff_t;
-    using value_type = Value;
-    using pointer_type = Value*;
-    using reference = Value&;
+    using difference_type   = ptrdiff_t;
+    using value_type        = Value;
+    using pointer_type      = Value*;
+    using reference         = Value&;
     using iterator_category = std::random_access_iterator_tag;
 
-    core::meta::Conditional<core::meta::IsConst<Value>, void const*, void*> ptr;
+    core::meta::Conditional<core::meta::IsConstType<Value>, void const*, void*>
+        ptr;
     ptrdiff_t stride;
 
     Value* operator->() const;

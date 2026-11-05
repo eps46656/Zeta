@@ -14,11 +14,11 @@
 
 ZETA_Core_ClangdPreambleBarrier;
 
-#define ZETA_Core_DebugUtils_Logging_MakeCurTimePosLog()             \
-    (zeta::core::debug_utils::logging::TimePosLog{                   \
-        .time = zeta::core::debug_utils::logging::detail::GetNow_(), \
-        .file = __FILE__,                                            \
-        .line = __LINE__,                                            \
+#define ZETA_Core_DebugUtils_Logging_MakeCurTimePosLog()              \
+    (zeta::core::debug_utils::logging::TimePosLog{                    \
+        .time{ zeta::core::debug_utils::logging::detail::GetNow_() }, \
+        .file{ __FILE__ },                                            \
+        .line{ __LINE__ },                                            \
     })
 
 #define ZETA_Core_DebugUtils_Logging_MakeMsgLog(msg) \
@@ -236,7 +236,7 @@ struct logging::VarPrinter<bool, logging::NullFormatTag> {
 
 namespace logging::detail {
 
-template <integral::IsIntegral Integral, size_t Numeral>
+template <integral::IsIntegralType Integral, size_t Numeral>
 constexpr size_t GetWidth_() {
     using UnsignedIntegral = integral::MakeUnsignedOf<Integral>;
 
@@ -275,7 +275,7 @@ constexpr std::string GetIntegralRuler_(size_t digit_cnt,
 
 namespace logging::detail {
 
-template <integral::IsUnsignedIntegral UnsignedIntegral>
+template <integral::IsUnsignedIntegralType UnsignedIntegral>
 constexpr std::string UnsignedIntegralToBinStr_(UnsignedIntegral value,
                                                 size_t group_digit_cnt,
                                                 size_t sep_width) {
@@ -306,7 +306,7 @@ constexpr std::string UnsignedIntegralToBinStr_(UnsignedIntegral value,
     return ret;
 }
 
-template <integral::IsUnsignedIntegral UnsignedIntegral>
+template <integral::IsUnsignedIntegralType UnsignedIntegral>
 constexpr std::string UnsignedIntegralToDecStr_(UnsignedIntegral value,
                                                 size_t group_digit_cnt,
                                                 size_t sep_width) {
@@ -337,7 +337,7 @@ constexpr std::string UnsignedIntegralToDecStr_(UnsignedIntegral value,
     return ret;
 }
 
-template <integral::IsUnsignedIntegral UnsignedIntegral>
+template <integral::IsUnsignedIntegralType UnsignedIntegral>
 constexpr std::string UnsignedIntegralToHexStr_(UnsignedIntegral value,
                                                 size_t group_digit_cnt,
                                                 size_t sep_width) {
@@ -373,10 +373,10 @@ constexpr std::string UnsignedIntegralToHexStr_(UnsignedIntegral value,
 
 }  // namespace logging::detail
 
-template <integral::IsIntegral Integral>
-struct logging::VarPrinter<Integral, logging::BinFormatTag> {
+template <integral::IsIntegralType Integral>
+struct logging::VarPrinter<Integral, logging::integral_format_tag::Bin> {
     static constexpr std::vector<std::string> ToStr(Integral const& val,
-                                                    BinFormatTag) {
+                                                    integral_format_tag::Bin) {
         constexpr size_t width{ detail::GetWidth_<Integral, 2>() };
 
         std::vector<std::string> ret;
@@ -411,10 +411,10 @@ struct logging::VarPrinter<Integral, logging::BinFormatTag> {
     }
 };
 
-template <integral::IsIntegral Integral>
-struct logging::VarPrinter<Integral, logging::DecFormatTag> {
+template <integral::IsIntegralType Integral>
+struct logging::VarPrinter<Integral, logging::integral_format_tag::Dec> {
     static constexpr std::vector<std::string> ToStr(Integral const& val,
-                                                    DecFormatTag) {
+                                                    integral_format_tag::Dec) {
         constexpr size_t width{ detail::GetWidth_<Integral, 10>() };
 
         std::vector<std::string> ret;
@@ -436,10 +436,10 @@ struct logging::VarPrinter<Integral, logging::DecFormatTag> {
     }
 };
 
-template <integral::IsIntegral Integral>
-struct logging::VarPrinter<Integral, logging::HexFormatTag> {
+template <integral::IsIntegralType Integral>
+struct logging::VarPrinter<Integral, logging::integral_format_tag::Hex> {
     static constexpr std::vector<std::string> ToStr(Integral const& val,
-                                                    HexFormatTag) {
+                                                    integral_format_tag::Hex) {
         constexpr size_t width{ detail::GetWidth_<Integral, 16>() };
 
         std::vector<std::string> ret;
@@ -474,10 +474,10 @@ struct logging::VarPrinter<Integral, logging::HexFormatTag> {
     }
 };
 
-template <integral::IsIntegral Integral>
-struct logging::VarPrinter<Integral, logging::BinHexFormatTag> {
-    static constexpr std::vector<std::string> ToStr(Integral const& val,
-                                                    BinHexFormatTag) {
+template <integral::IsIntegralType Integral>
+struct logging::VarPrinter<Integral, logging::integral_format_tag::BinHex> {
+    static constexpr std::vector<std::string> ToStr(
+        Integral const& val, integral_format_tag::BinHex) {
         constexpr size_t width{ detail::GetWidth_<Integral, 2>() };
 
         std::vector<std::string> ret;
@@ -528,43 +528,83 @@ struct logging::VarPrinter<Integral, logging::BinHexFormatTag> {
     }
 };
 
-template <integral::IsIntegral Integral>
+template <integral::IsIntegralType Integral>
 struct logging::VarPrinter<Integral, logging::NullFormatTag> {
     static constexpr std::vector<std::string> ToStr(Integral const& val,
                                                     NullFormatTag) {
-        return VarPrinter<Integral, DecFormatTag>::ToStr(val, DecFormatTag{});
+        return VarPrinter<Integral, integral_format_tag::Dec>::ToStr(
+            val, integral_format_tag::Dec{});
+    }
+};
+
+template <>
+struct logging::VarPrinter<float, logging::NullFormatTag> {
+    static constexpr std::vector<std::string> ToStr(float const& val,
+                                                    NullFormatTag) {
+        std::stringstream ss;
+
+        ss << val;
+
+        return { ss.str() };
+    }
+};
+
+template <>
+struct logging::VarPrinter<double, logging::NullFormatTag> {
+    static constexpr std::vector<std::string> ToStr(double const& val,
+                                                    NullFormatTag) {
+        std::stringstream ss;
+
+        ss << val;
+
+        return { ss.str() };
+    }
+};
+
+template <>
+struct logging::VarPrinter<long double, logging::NullFormatTag> {
+    static constexpr std::vector<std::string> ToStr(long double const& val,
+                                                    NullFormatTag) {
+        std::stringstream ss;
+
+        ss << val;
+
+        return { ss.str() };
     }
 };
 
 template <typename T>
-struct logging::VarPrinter<T*, logging::BinFormatTag> {
-    static constexpr std::vector<std::string> ToStr(T* ptr, BinFormatTag) {
-        return VarPrinter<uintptr_t, BinFormatTag>::ToStr(
-            reinterpret_cast<uintptr_t>(ptr), BinFormatTag{});
+struct logging::VarPrinter<T*, logging::integral_format_tag::Bin> {
+    static constexpr std::vector<std::string> ToStr(T* ptr,
+                                                    integral_format_tag::Bin) {
+        return VarPrinter<uintptr_t, integral_format_tag::Bin>::ToStr(
+            reinterpret_cast<uintptr_t>(ptr), integral_format_tag::Bin{});
     }
 };
 
 template <typename T>
-struct logging::VarPrinter<T*, logging::HexFormatTag> {
-    static constexpr std::vector<std::string> ToStr(T* ptr, HexFormatTag) {
-        return VarPrinter<uintptr_t, HexFormatTag>::ToStr(
-            reinterpret_cast<uintptr_t>(ptr), HexFormatTag{});
+struct logging::VarPrinter<T*, logging::integral_format_tag::Hex> {
+    static constexpr std::vector<std::string> ToStr(T* ptr,
+                                                    integral_format_tag::Hex) {
+        return VarPrinter<uintptr_t, integral_format_tag::Hex>::ToStr(
+            reinterpret_cast<uintptr_t>(ptr), integral_format_tag::Hex{});
     }
 };
 
 template <typename T>
-struct logging::VarPrinter<T*, logging::BinHexFormatTag> {
-    static constexpr std::vector<std::string> ToStr(T* ptr, BinHexFormatTag) {
-        return VarPrinter<uintptr_t, BinHexFormatTag>::ToStr(
-            reinterpret_cast<uintptr_t>(ptr), BinHexFormatTag{});
+struct logging::VarPrinter<T*, logging::integral_format_tag::BinHex> {
+    static constexpr std::vector<std::string> ToStr(
+        T* ptr, integral_format_tag::BinHex) {
+        return VarPrinter<uintptr_t, integral_format_tag::BinHex>::ToStr(
+            reinterpret_cast<uintptr_t>(ptr), integral_format_tag::BinHex{});
     }
 };
 
 template <typename T>
 struct logging::VarPrinter<T*, logging::NullFormatTag> {
     static constexpr std::vector<std::string> ToStr(T* ptr, NullFormatTag) {
-        return VarPrinter<uintptr_t, BinHexFormatTag>::ToStr(
-            reinterpret_cast<uintptr_t>(ptr), BinHexFormatTag{});
+        return VarPrinter<uintptr_t, integral_format_tag::BinHex>::ToStr(
+            reinterpret_cast<uintptr_t>(ptr), integral_format_tag::BinHex{});
     }
 };
 
